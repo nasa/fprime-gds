@@ -47,7 +47,7 @@ def main(argv=None):
         sys.stderr.write(indent + "  for help use --help\n")
         return 2
 
-    api = GseApi(generated_path=opts.generated_path, port=opts.port, server_addr=opts.addr)
+    api = GseApi(generated_path=opts.generated_path, port=opts.port, server_addr=opts.addr, verbose=True)
     
     # process each of the files
     for script in args:
