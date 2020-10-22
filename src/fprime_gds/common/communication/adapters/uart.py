@@ -7,18 +7,19 @@ drivers.
 
 @author lestarch
 """
-from __future__ import print_function
 
 import logging
+
+import fprime_gds.common.communication.adapters.base
+
 import serial
 from serial.tools import list_ports
 
-import fprime_gds.common.adapters.base
 
 LOGGER = logging.getLogger("serial_adapter")
 
 
-class SerialAdapter(fprime_gds.common.adapters.base.BaseAdapter):
+class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
     """
     Supplies a data source adapter that is pulling data off from a UART wire using PySerial. This is setup using a
     device handle and a baudrate for the given serial device.
@@ -89,6 +90,7 @@ class SerialAdapter(fprime_gds.common.adapters.base.BaseAdapter):
         """
         Send a given framed bit of data by sending it out the serial interface. It will attempt to reconnect if there is
         was a problem previously. This function will return true on success, or false on error.
+
         :param frame: framed data packet to send out
         :return: True, when data was sent through the UART. False otherwise.
         """
@@ -104,11 +106,12 @@ class SerialAdapter(fprime_gds.common.adapters.base.BaseAdapter):
             self.close()
         return False
 
-    def read(self):
+    def read(self, timeout=0.500):
         """
         Read up to a given count in bytes from the UART adapter. This may return less than the full requested size but
         is expected to return some data.
-        :param size: upper bound of data requested
+
+        :param timeout: timeout for reading data from the serial.
         :return: data successfully read
         """
         data = b""
@@ -118,6 +121,7 @@ class SerialAdapter(fprime_gds.common.adapters.base.BaseAdapter):
             # Read as much data as possible, while ensuring to block if no data is available at this time. Note: as much
             # data is read as possible to avoid a long-return time to this call. Minimum data to read is one byte in
             # order to block this function while data is incoming.
+            self.serial.timeout = timeout
             data = self.serial.read(1)  # Force a block for at least 1 character
             while self.serial.in_waiting:
                 data += self.serial.read(
@@ -132,6 +136,7 @@ class SerialAdapter(fprime_gds.common.adapters.base.BaseAdapter):
     def get_arguments(cls):
         """
         Returns a dictionary of flag to argparse-argument dictionaries for use with argparse to setup arguments.
+
         :return: dictionary of flag to argparse arguments for use with argparse
         """
         available = list(
@@ -158,6 +163,7 @@ class SerialAdapter(fprime_gds.common.adapters.base.BaseAdapter):
         """
         Code that should check arguments of this adapter. If there is a problem with this code, then a "ValueError"
         should be raised describing the problem with these arguments.
+
         :param args: arguments as dictionary
         """
         ports = map(lambda info: info.device, list_ports.comports(include_links=True))
