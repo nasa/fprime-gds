@@ -45,7 +45,7 @@ setup(
     ####
     name="fprime_gds",
     use_scm_version={
-        "root": "..",
+        "root": ".",
         "relative_to": __file__
     },
     license="Apache 2.0 License",
@@ -83,7 +83,7 @@ integrated configuration with ground in-the-loop.
     ####
     entry_points={
         "gui_scripts": ["fprime-gds = fprime_gds.executables.run_deployment:main"],
-        "console_scripts": ["fprime-cli = fprime_gds.executables.fprime_cli:main", 
+        "console_scripts": ["fprime-cli = fprime_gds.executables.fprime_cli:main",
                             "fprime-seqgen = fprime_gds.common.tools.seqgen:main"],
     },
     ####
