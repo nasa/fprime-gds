@@ -326,6 +326,8 @@ def launch_comm(comm_adapter, tts_port, connect_address, logs, **all_args):
         "--log-directly",
         "--comm-adapter",
         all_args["adapter"],
+        "--comm-checksum-type",
+        all_args["checksum_type"]
     ]
     # Manufacture arguments for the selected adapter
     for arg in comm_adapter.get_arguments().keys():

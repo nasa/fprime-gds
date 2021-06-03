@@ -24,6 +24,7 @@ import signal
 
 # Required adapters built on standard tools
 import fprime_gds.common.communication.adapters.base
+import fprime_gds.common.communication.checksum
 import fprime_gds.common.communication.ground
 import fprime_gds.common.communication.adapters.ip
 import fprime_gds.common.logger
@@ -57,10 +58,12 @@ def main():
         description="F prime communications layer.",
         client=True,
     )
+    fprime_gds.common.communication.checksum = args.checksum_type
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
     ground = fprime_gds.common.communication.ground.TCPGround(
         args.tts_addr, args.tts_port
     )
+
     adapter = args.comm_adapter
 
     # Set the framing class used and pass it to the uplink and downlink component constructions giving each a separate
