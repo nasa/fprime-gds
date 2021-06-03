@@ -12,6 +12,7 @@ that implement this pattern. The current list of implementation classes are:
 @author lestarch
 """
 import abc
+import sys
 import copy
 import struct
 from .checksum import calculate_checksum
@@ -174,6 +175,9 @@ class FpFramerDeframer(FramerDeframer):
                 ):
                     data = data[total_size:]
                     return deframed, data
+                else:
+                    print("[WARNING] Checksum validation failed. Have you correctly set '--comm-checksum-type'",
+                          file=sys.stderr)
                 # Bad checksum, rotate 1 and keep looking for non-garbage
                 data = data[1:]
                 continue

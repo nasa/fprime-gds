@@ -18,6 +18,7 @@ import re
 import sys
 
 import fprime_gds.common.communication.adapters.base
+import fprime_gds.common.communication.checksum
 
 # Include basic adapters
 import fprime_gds.common.communication.adapters.ip
@@ -221,6 +222,15 @@ class CommParser(ParserBase):
             choices=adapters,
             default="ip",
         )
+        parser.add_argument(
+            "--comm-checksum-type",
+            dest="checksum_type",
+            action="store",
+            type=str,
+            help="Setup the checksum algorithm. [default: %(default)s]",
+            choices=[item for item in fprime_gds.common.communication.checksum.CHECKSUM_MAPPING.keys() if item != "default"],
+            default=fprime_gds.common.communication.checksum.CHECKSUM_SELECTION,
+        )
         return parser
 
     @classmethod
@@ -237,6 +247,7 @@ class CommParser(ParserBase):
                 args.adapter, args
             )
         )
+        fprime_gds.common.communication.checksum.CHECKSUM_SELECTION = args.checksum_type
         return args
 
 
