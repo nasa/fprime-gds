@@ -192,7 +192,7 @@ fbuild
 fd
 FEEDNAME
 FFCC
-fff
+FFFF
 fieldset
 figcaption
 filemode
@@ -235,7 +235,6 @@ gui
 gz
 hardcoded
 hardcoding
-Harriman's
 hasattr
 hdl
 hgroup
@@ -382,7 +381,7 @@ odl
 odo
 oga
 ogg
-OMG's
+OMG
 onbeforeunload
 onload
 onreadystatechange
@@ -578,8 +577,8 @@ tstring
 tts
 twbs
 txz
-typedef
 typedef'ed
+typedef
 typehints
 typeof
 tzinfo
