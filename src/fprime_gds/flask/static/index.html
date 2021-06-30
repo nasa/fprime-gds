@@ -237,6 +237,24 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div class="fp-flex-header">
                         <h2>Events</h2>
                     </div>
+                    <div class="row justify-content-end no-gutters">
+                        <div class="col-sm-4">
+                            <div class="input-group mb-3">
+                                <div class="input-group-prepend">
+                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToFirst">First</button>
+                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToPrev">&lt;</button>
+                                    <span class="input-group-text" v-bind:class="{ 'fp-auto-increment': isAutoUpdate }">
+                                        {{ eventsStartOffset }} - {{ eventsEndOffset }}
+                                    </span>
+                                </div>
+                                <input type="text" class="form-control" v-model="totalEventsSize" disabled>
+                                <div class="input-group-append">
+                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToNext">&gt;</button>
+                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToLast">Last</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <fp-table :header-columns="['Event Time', 'Event Id', 'Event Name', 'Event Severity', 'Event Description']"
                         :items="componentEvents"
                         :item-to-columns="columnify"
@@ -248,6 +266,10 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         :filter-text="filterText"
                         :initial-views="itemsShown"
                         :compact="compact"
+                        :totalEventsSize="updateTotalEventsSize"
+                        :eventsStartOffset="eventsStartOffset"
+                        :eventsEndOffset="eventsEndOffset"
+                        :isAutoUpdate="isAutoUpdate"
                     ></fp-table>
                 </div>
             </template>
@@ -408,7 +430,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         </div>
                     </div>
                     <div class="fp-scroll-container">
-                        <div class="fp-scrollable">
+                        <div class="fp-scrollable" id="fp-scrollable-id">
                             <table  class="sortable table table-bordered table-hover">
                                 <thead>
                                     <tr v-if="!compact">

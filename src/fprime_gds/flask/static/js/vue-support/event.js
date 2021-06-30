@@ -59,7 +59,13 @@ Vue.component("event-list", {
         return {
             // NOTE: Events/command lists shared across all component instances
             "events": _datastore.events,
-            "eventsOffset": 0,
+            "totalEventsSize": _datastore.events.length,
+            "eventsStartOffset": 0,
+            "eventsEndOffset": 20,
+            "eventOffsetSize": 20,
+            "scrollOffsetSize": 5,
+            "isAutoUpdate": false,
+            "scrollableElm": null,
             "commands": _datastore.commands
         };
     },
@@ -121,7 +127,9 @@ Vue.component("event-list", {
          * irrecoverable.
          */
         clearEvents() {
-            this.eventsOffset = this.events.length;
+            this.eventsStartOffset = this.events.length;
+            this.eventsEndOffset = this.events.length + this.eventOffsetSize;
+            this.isAutoUpdate = false;
         },
         /**
          * Returns if the given item should be hidden in the data table; by
@@ -133,6 +141,127 @@ Vue.component("event-list", {
          */
         isItemHidden(item) {
             return listExistsAndItemNameNotInList(this.itemsShown, item);
+        },
+        /**
+         * TBD
+         */
+        onScroll() {
+            let elmH = this.scrollableElm.scrollHeight;
+            let elmT = Math.abs(this.scrollableElm.scrollTop);
+            let elmC = this.scrollableElm.clientHeight;
+            console.log(elmH, elmT, elmC);
+            let isAtBottom = (elmH - elmT) === elmC && elmT !== 0;
+            // Turn off auto scrolling
+            this.isAutoUpdate = false;
+            
+            if (isAtBottom) {
+                // Scrollbar reached to the bottom
+                this.updateNextOffsetRange(this.scrollOffsetSize);
+            } else if (this.scrollableElm.scrollTop === 0) {
+                // Scrollbar reached to the top
+                this.updatePrevOffsetRange(this.scrollOffsetSize);
+            }
+        },
+        /**
+         * TBD
+         */
+         offsetToFirst() {
+            if (!this.isScrollable()) {
+                return;
+            }
+            this.eventsStartOffset = 0;
+            this.eventsEndOffset = this.eventOffsetSize;
+            this.scrollableElm.scrollTop = 0;
+            this.isAutoUpdate = false;
+         },
+        /**
+        * TBD
+        */
+        offsetToLast() {
+            if (!this.isScrollable()) {
+                return;
+            }
+            this.eventsStartOffset = this.events.length - this.eventOffsetSize;
+            this.eventsEndOffset = this.events.length;
+            this.scrollableElm.scrollTop = this.scrollableElm.scrollHeight - this.scrollableElm.clientHeight;
+            this.isAutoUpdate = true;
+        },
+        /**
+        * TBD
+        */
+        offsetToPrev() {
+            if (!this.isScrollable()) {
+                return;
+            }
+            this.isAutoUpdate = false;
+            this.updatePrevOffsetRange(this.scrollOffsetSize);
+        },
+        /**
+        * TBD
+        */
+        offsetToNext() {
+            if (!this.isScrollable()) {
+                return;
+            }
+            this.isAutoUpdate = false;
+            this.updateNextOffsetRange(this.scrollOffsetSize);
+        },
+        /**
+        * TBD
+        */
+        updateAutoOffsetRange() {
+            if ((this.isAutoUpdate) && 
+                (this.eventsEndOffset < this.events.length) &&
+                (this.events.length - this.eventOffsetSize) > 0) {
+                    this.eventsStartOffset = this.events.length - this.eventOffsetSize;
+                    this.eventsEndOffset = this.events.length;
+            } 
+        },
+        /**
+         * TBD
+         */
+        updateNextOffsetRange(offset) {
+            if ((this.eventsEndOffset + offset) >= this.events.length) {
+                // Will not add more since we are at the end of the list
+                this.eventsEndOffset = this.events.length;
+                this.eventsStartOffset = this.eventsEndOffset - this.eventOffsetSize;
+                this.scrollableElm.scrollTop = this.getScrollBottomLimit();
+                // Turn on auto scrolling
+                this.isAutoUpdate = true;
+            } else if ((this.eventsEndOffset+offset) < this.events.length) {
+                this.eventsStartOffset += offset;
+                this.eventsEndOffset += offset;
+                let scrollbarTop = this.getScrollBottomLimit() - 20;
+                this.scrollableElm.scrollTop = scrollbarTop > 0 ? scrollbarTop : 0;
+                // Turn off auto scrolling
+                this.isAutoUpdate = false;
+            } else {
+                // Should not get here
+            }
+        },
+        updatePrevOffsetRange(offset) {
+            if ((this.eventsStartOffset - offset) > 0) {
+                this.eventsStartOffset -= offset;
+                this.eventsEndOffset -= offset;
+                // Keep scrollbar down if there are more items to load
+                this.scrollableElm.scrollTop = 20;
+                // Turn off auto scrolling
+                this.isAutoUpdate = false;
+            } else {
+                // Will not subtract more since we are at the start of the list
+                this.eventsStartOffset = 0;
+                this.eventsEndOffset = this.eventOffsetSize;
+                // Move scrollbar to the top
+                this.scrollableElm.scrollTop = 0;
+                // Turn off auto scrolling
+                this.isAutoUpdate = false;
+            }
+        },
+        isScrollable() {
+            return this.events.length - this.eventOffsetSize > 0;
+        },
+        getScrollBottomLimit() {
+            return this.scrollableElm.scrollHeight - this.scrollableElm.clientHeight;
         }
     },
     computed: {
@@ -143,7 +272,24 @@ Vue.component("event-list", {
          * @return {Array} The list of event items this instance can show
          */
         componentEvents() {
-            return this.events.slice(this.eventsOffset);
-        }
-    }
+            this.updateAutoOffsetRange();
+            return this.events.slice(this.eventsStartOffset, this.eventsEndOffset);
+        },
+        /**
+         * TBD
+         */
+         updateTotalEventsSize() {
+            this.totalEventsSize = this.events.length;
+        },
+    },
+        mounted: function() {
+            this.$nextTick(function() {
+                this.scrollableElm = this.$el.querySelector("#fp-scrollable-id");
+                this.scrollableElm.addEventListener('scroll', this.onScroll, true);
+                this.onScroll(); // needed for initial loading on page
+            });
+        },
+        beforeDestroy: function() {
+            this.scrollableElm.removeEventListener('scroll', this.onScroll);
+        },
 });
