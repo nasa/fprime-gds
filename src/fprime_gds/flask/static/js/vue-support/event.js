@@ -67,6 +67,8 @@ Vue.component("event-list", {
             "isAutoUpdate": false,
             "scrollableElm": null,
             "scrollabilityStatus": false,
+            "currTime": 0,
+            "prevTime": 0,
             "commands": _datastore.commands
         };
     },
@@ -148,13 +150,17 @@ Vue.component("event-list", {
          * scrollable div. If at the bottom of the page load the next group
          * of events into table. If at the top load the previous group.
          */
-        onScroll() {
+        onScroll(e) {
             let elmH = this.scrollableElm.scrollHeight;
             let elmT = Math.abs(this.scrollableElm.scrollTop);
             let elmC = this.scrollableElm.clientHeight;
             let isAtBottom = ((elmH - elmT) === elmC) && (elmT !== 0);
             
             if (!this.isScrollable()) {
+                // Disabling auto update user scrolls
+                if (this.hasUserScrolled(e)) {
+                    this.isAutoUpdate = false;
+                }
                 return;
             }
 
@@ -288,6 +294,18 @@ Vue.component("event-list", {
          */
         getScrollBottomLimit() {
             return this.scrollableElm.scrollHeight - this.scrollableElm.clientHeight;
+        },
+        /**
+         * Check the timestamp of scroll event and if less than a certain 
+         * milisecond interval it is a user triggered scroll
+         */
+        hasUserScrolled(e) {
+            if (e === undefined) {
+                return false;
+            }
+            this.prevTime = this.currTime;
+            this.currTime = e.timeStamp;
+            return (this.currTime - this.prevTime) < 800;
         }
     },
     computed: {
@@ -314,10 +332,10 @@ Vue.component("event-list", {
      * Add scroll event listener 
      */
     mounted: function() {
-        this.$nextTick(function() {
+        this.$nextTick(function(e) {
             this.scrollableElm = this.$el.querySelector("#fp-scrollable-id");
             this.scrollableElm.addEventListener('scroll', this.onScroll, true);
-            this.onScroll(); // needed for initial loading on page
+            this.onScroll(e); // needed for initial loading on page
         });
     },
     /**
