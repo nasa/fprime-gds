@@ -61,8 +61,8 @@ Vue.component("event-list", {
             "events": _datastore.events,
             "totalEventsSize": _datastore.events.length,
             "eventsStartOffset": 0,
-            "eventsEndOffset": 20,
-            "eventOffsetSize": 20,
+            "eventsEndOffset": 100,
+            "eventOffsetSize": 100,
             "scrollOffsetSize": 5,
             "isAutoUpdate": false,
             "scrollableElm": null,
@@ -151,11 +151,14 @@ Vue.component("event-list", {
             let elmH = this.scrollableElm.scrollHeight;
             let elmT = Math.abs(this.scrollableElm.scrollTop);
             let elmC = this.scrollableElm.clientHeight;
-            console.log(elmH, elmT, elmC);
-            let isAtBottom = (elmH - elmT) === elmC && elmT !== 0;
+            let isAtBottom = ((elmH - elmT) === elmC) && (elmT !== 0);
             // Turn off auto scrolling
             this.isAutoUpdate = false;
             
+            if (!this.isScrollable()) {
+                return;
+            }
+
             if (isAtBottom) {
                 // Scrollbar reached to the bottom
                 this.updateNextOffsetRange(this.scrollOffsetSize);
@@ -267,7 +270,8 @@ Vue.component("event-list", {
          * Utility function to check if enough events to start scrolling 
          */
         isScrollable() {
-            return this.events.length - this.eventOffsetSize > 0;
+            console.log("isScrollable? ", this.events.length - this.eventOffsetSize > 0);
+            return (this.events.length - this.eventOffsetSize > 0);
         },
         /**
          * Utility function to check for scrollbar bottom limit
