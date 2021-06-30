@@ -127,7 +127,7 @@ Vue.component("event-list", {
         },
         /**
          * A function to clear this events pane by moving the offset to the end 
-         * of the list. User call see the previous EVRs again if scrolling back
+         * of the list. User call see the previous events again if scrolling back
          */
         clearEvents() {
             this.eventsStartOffset = this.events.length;
