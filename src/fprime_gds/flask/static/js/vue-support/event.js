@@ -123,8 +123,8 @@ Vue.component("event-list", {
             return "evt-" + item.id + "-" + item.time.seconds + "-"+ item.time.microseconds;
         },
         /**
-         * A function to clear this events pane to remove events that have already been seen. Note: this action is
-         * irrecoverable.
+         * A function to clear this events pane by moving the offset to the end 
+         * of the list. User call see the previous EVRs again if scrolling back
          */
         clearEvents() {
             this.eventsStartOffset = this.events.length;
@@ -152,12 +152,13 @@ Vue.component("event-list", {
             let elmT = Math.abs(this.scrollableElm.scrollTop);
             let elmC = this.scrollableElm.clientHeight;
             let isAtBottom = ((elmH - elmT) === elmC) && (elmT !== 0);
-            // Turn off auto scrolling
-            this.isAutoUpdate = false;
             
             if (!this.isScrollable()) {
                 return;
             }
+
+            // Turn off auto scrolling
+            this.isAutoUpdate = false;
 
             if (isAtBottom) {
                 // Scrollbar reached to the bottom
@@ -171,25 +172,25 @@ Vue.component("event-list", {
          * Jump to the top of the event list.
          */
          offsetToFirst() {
+            this.scrollableElm.scrollTop = 0;
+            this.isAutoUpdate = false;
             if (!this.isScrollable()) {
                 return;
             }
             this.eventsStartOffset = 0;
             this.eventsEndOffset = this.eventOffsetSize;
-            this.scrollableElm.scrollTop = 0;
-            this.isAutoUpdate = false;
          },
         /**
         * Jump to the bottom of the event list.
         */
         offsetToLast() {
+            this.scrollableElm.scrollTop = this.scrollableElm.scrollHeight - this.scrollableElm.clientHeight;
+            this.isAutoUpdate = true;
             if (!this.isScrollable()) {
                 return;
             }
             this.eventsStartOffset = this.events.length - this.eventOffsetSize;
             this.eventsEndOffset = this.events.length;
-            this.scrollableElm.scrollTop = this.scrollableElm.scrollHeight - this.scrollableElm.clientHeight;
-            this.isAutoUpdate = true;
         },
         /**
         * Load previous group of events
@@ -222,6 +223,15 @@ Vue.component("event-list", {
                     this.eventsStartOffset = this.events.length - this.eventOffsetSize;
                     this.eventsEndOffset = this.events.length;
             } 
+        },
+        /**
+        * Utility function to keep the scroll bar at the bottom when auto scroll
+        * is enabled.
+        */
+        updateScrollPos() {
+            if (this.isAutoUpdate) {
+                this.scrollableElm.scrollTop = this.getScrollBottomLimit();
+            }
         },
         /**
          * Utility function to load previous group of events
@@ -270,7 +280,6 @@ Vue.component("event-list", {
          * Utility function to check if enough events to start scrolling 
          */
         isScrollable() {
-            console.log("isScrollable? ", this.events.length - this.eventOffsetSize > 0);
             return (this.events.length - this.eventOffsetSize > 0);
         },
         /**
@@ -289,6 +298,7 @@ Vue.component("event-list", {
          */
         componentEvents() {
             this.updateAutoOffsetRange();
+            this.updateScrollPos();
             return this.events.slice(this.eventsStartOffset, this.eventsEndOffset);
         },
         /**
