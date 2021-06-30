@@ -242,14 +242,14 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                             <div class="input-group mb-3">
                                 <div class="input-group-prepend">
                                     <button class="btn btn-secondary" type="button" v-on:click="offsetToFirst">First</button>
-                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToPrev">&lt;</button>
+                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToPrev" v-bind:class="{ 'disabled': !scrollabilityStatus }">&lt;</button>
                                     <span class="input-group-text" v-bind:class="{ 'fp-auto-increment': isAutoUpdate }">
                                         {{ eventsStartOffset }} - {{ eventsEndOffset }}
                                     </span>
                                 </div>
                                 <input type="text" class="form-control" v-model="totalEventsSize" disabled>
                                 <div class="input-group-append">
-                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToNext">&gt;</button>
+                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToNext" v-bind:class="{ 'disabled': !scrollabilityStatus }">&gt;</button>
                                     <button class="btn btn-secondary" type="button" v-on:click="offsetToLast">Last</button>
                                 </div>
                             </div>
@@ -270,6 +270,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         :eventsStartOffset="eventsStartOffset"
                         :eventsEndOffset="eventsEndOffset"
                         :isAutoUpdate="isAutoUpdate"
+                        :scrollabilityStatus="scrollabilityStatus"
                     ></fp-table>
                 </div>
             </template>

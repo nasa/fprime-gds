@@ -66,6 +66,7 @@ Vue.component("event-list", {
             "scrollOffsetSize": 5,
             "isAutoUpdate": false,
             "scrollableElm": null,
+            "scrollabilityStatus": false,
             "commands": _datastore.commands
         };
     },
@@ -171,18 +172,18 @@ Vue.component("event-list", {
         /**
          * Jump to the top of the event list.
          */
-         offsetToFirst() {
-            this.scrollableElm.scrollTop = 0;
-            this.isAutoUpdate = false;
-            if (!this.isScrollable()) {
-                return;
-            }
-            this.eventsStartOffset = 0;
-            this.eventsEndOffset = this.eventOffsetSize;
-         },
+        offsetToFirst() {
+        this.scrollableElm.scrollTop = 0;
+        this.isAutoUpdate = false;
+        if (!this.isScrollable()) {
+            return;
+        }
+        this.eventsStartOffset = 0;
+        this.eventsEndOffset = this.eventOffsetSize;
+        },
         /**
-        * Jump to the bottom of the event list.
-        */
+         * Jump to the bottom of the event list.
+         */
         offsetToLast() {
             this.scrollableElm.scrollTop = this.scrollableElm.scrollHeight - this.scrollableElm.clientHeight;
             this.isAutoUpdate = true;
@@ -193,8 +194,8 @@ Vue.component("event-list", {
             this.eventsEndOffset = this.events.length;
         },
         /**
-        * Load previous group of events
-        */
+         * Load previous group of events
+         */
         offsetToPrev() {
             if (!this.isScrollable()) {
                 return;
@@ -203,8 +204,8 @@ Vue.component("event-list", {
             this.updatePrevOffsetRange(this.scrollOffsetSize);
         },
         /**
-        * Load next group of events
-        */
+         * Load next group of events
+         */
         offsetToNext() {
             if (!this.isScrollable()) {
                 return;
@@ -213,9 +214,9 @@ Vue.component("event-list", {
             this.updateNextOffsetRange(this.scrollOffsetSize);
         },
         /**
-        * If auto update is enabled load the new events and remove old events
-        * in the given range.
-        */
+         * If auto update is enabled load the new events and remove old events
+         * in the given range.
+         */
         updateAutoOffsetRange() {
             if ((this.isAutoUpdate) && 
                 (this.eventsEndOffset < this.events.length) &&
@@ -225,9 +226,9 @@ Vue.component("event-list", {
             } 
         },
         /**
-        * Utility function to keep the scroll bar at the bottom when auto scroll
-        * is enabled.
-        */
+         * Utility function to keep the scroll bar at the bottom when auto scroll
+         * is enabled.
+         */
         updateScrollPos() {
             if (this.isAutoUpdate) {
                 this.scrollableElm.scrollTop = this.getScrollBottomLimit();
@@ -299,12 +300,13 @@ Vue.component("event-list", {
         componentEvents() {
             this.updateAutoOffsetRange();
             this.updateScrollPos();
+            this.scrollabilityStatus = this.isScrollable();
             return this.events.slice(this.eventsStartOffset, this.eventsEndOffset);
         },
         /**
          * Update the total number of events in the list
          */
-         updateTotalEventsSize() {
+        updateTotalEventsSize() {
             this.totalEventsSize = this.events.length;
         },
     },
