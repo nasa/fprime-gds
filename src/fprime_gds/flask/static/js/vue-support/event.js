@@ -329,7 +329,7 @@ Vue.component("event-list", {
         },
     },
     /**
-     * Add scroll event listener 
+     * Add scroll event listener during mounting of element
      */
     mounted: function() {
         this.$nextTick(function(e) {
