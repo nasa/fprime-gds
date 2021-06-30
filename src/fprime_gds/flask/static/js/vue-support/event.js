@@ -66,7 +66,7 @@ Vue.component("event-list", {
             "scrollOffsetSize": 5,
             "isAutoUpdate": false,
             "scrollableElm": null,
-            "scrollabilityStatus": false,
+            "scrollStatus": false,
             "currTime": 0,
             "prevTime": 0,
             "commands": _datastore.commands
@@ -297,7 +297,7 @@ Vue.component("event-list", {
         },
         /**
          * Check the timestamp of scroll event and if less than a certain 
-         * milisecond interval it is a user triggered scroll
+         * millisecond interval it is a user triggered scroll
          */
         hasUserScrolled(e) {
             if (e === undefined) {
@@ -318,7 +318,7 @@ Vue.component("event-list", {
         componentEvents() {
             this.updateAutoOffsetRange();
             this.updateScrollPos();
-            this.scrollabilityStatus = this.isScrollable();
+            this.scrollStatus = this.isScrollable();
             return this.events.slice(this.eventsStartOffset, this.eventsEndOffset);
         },
         /**
