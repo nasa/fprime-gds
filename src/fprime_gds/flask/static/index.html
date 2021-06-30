@@ -397,9 +397,9 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             5. File downlink progress and download (uses file-row template)
             -->
             <template id="fp-table-template">
-                <div class="fp-flex-repeater">
+                <div class="fp-flex-repeater fp-flex-repeater-margin">
                     <div class="row fp-flex-header no-gutters justify-content-end" v-if="!compact">
-                        <div class="mx-1">Filters:</div>
+                        <div class="mx-1 fp-filter-box">Filters:</div>
                         <div class="ml-1 col-4">
                             <v-select id="fp-table-filter" :clearable="true" :searchable="true" :taggable="true"
                                       :no-drop="true" :options="[]" :multiple="true"
