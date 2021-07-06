@@ -165,3 +165,11 @@ table td:last-child {
     background: black;
     border-radius: 5px;
 }
+
+/**
+* Style related to Events page
+**/
+.fp-auto-increment {
+    background-color: #28a745 !important;
+    color: #fff !important;
+}
