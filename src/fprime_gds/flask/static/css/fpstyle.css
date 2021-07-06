@@ -73,12 +73,6 @@ body, .fp-full-height {
     display: flex;
     flex-direction: column;
 }
-.fp-flex-repeater-margin {
-    margin-top: 1em;
-}
-.fp-filter-box {
-    margin-bottom: 1em;
-}
 .fp-flex-header {
     flex-grow: 0;
 }
