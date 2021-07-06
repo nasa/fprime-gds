@@ -39,3 +39,4 @@ ignore$
 \.xls$
 \.xlsx$
 \.xsd$
+\.ico$
