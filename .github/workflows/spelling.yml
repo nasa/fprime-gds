@@ -19,13 +19,12 @@ jobs:
     steps:
     - name: checkout-merge
       if: "contains(github.event_name, 'pull_request')"
-      uses: actions/checkout@v2.0.0
+      uses: actions/checkout@v2
       with:
         ref: refs/pull/${{github.event.pull_request.number}}/merge
-        fetch-depth: 5
     - name: checkout
       if: "!contains(github.event_name, 'pull_request')"
-      uses: actions/checkout@v2.0.0
+      uses: actions/checkout@v2
+    - uses: check-spelling/check-spelling@prerelease
       with:
-        fetch-depth: 5
-    - uses: check-spelling/check-spelling@0.0.17-alpha
+        shortest_word: 2
