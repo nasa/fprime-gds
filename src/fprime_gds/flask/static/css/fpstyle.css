@@ -187,3 +187,17 @@ table td:last-child {
     line-height: 2; 
     color: #fff;
 }
+
+.fp-selected-chart {
+    border: 1px solid #d1d1d1;
+    -webkit-box-shadow: 4px 4px 2px 0px rgba(70, 70, 70, 0.75);
+    -moz-box-shadow: 4px 4px 2px 0px rgba(70, 70, 70, 0.75);
+    box-shadow: 4px 4px 2px 0px rgba(70, 70, 70, 0.75);
+    width:50px;
+}
+
+.fp-resizable-box {
+    resize: vertical; 
+    overflow: auto; 
+    padding: 1em;
+}
