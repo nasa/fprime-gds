@@ -173,3 +173,17 @@ table td:last-child {
     background-color: #28a745 !important;
     color: #fff !important;
 }
+
+.fp-add-chart-pluse {
+    font-size: 1.5rem; 
+    font-weight: 700; 
+    line-height: 1; 
+    color: #fff;
+}
+
+.fp-add-chart-title {
+    font-size: 1rem; 
+    font-weight: 700; 
+    line-height: 2; 
+    color: #fff;
+}
