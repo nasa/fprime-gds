@@ -173,3 +173,34 @@ table td:last-child {
     background-color: #28a745 !important;
     color: #fff !important;
 }
+
+/**
+* Style related to Charts page
+**/
+.fp-chart-btn-icon {
+    font-size: 1.5rem; 
+    font-weight: 700; 
+    line-height: 1; 
+    color: #fff;
+}
+
+.fp-chart-btn-text {
+    font-size: 1rem; 
+    font-weight: 700; 
+    line-height: 2; 
+    color: #fff;
+}
+
+.fp-resize-box {
+    resize: vertical; 
+    overflow: auto; 
+    padding: 1em;
+}
+
+.fade-enter-active, .fade-leave-active {
+    transition: opacity .5s;
+}
+
+.fade-enter, .fade-leave-to {
+    opacity: 0;
+}

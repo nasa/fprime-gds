@@ -66,6 +66,7 @@ CFDG
 CFDP
 CFPD
 cgi
+chartjs
 checkbox
 chrono
 classdocs
@@ -95,6 +96,7 @@ csum
 csv
 ctime
 CTORS
+ctx
 curateable
 curated
 curating
@@ -329,6 +331,7 @@ logselect
 longdesc
 lowercased
 lstrip
+luxon
 lxml
 MAINPAGE
 makedirs
@@ -360,6 +363,7 @@ mycompany
 myfile
 mymodule
 myproject
+nagix
 namespace
 nargs
 navbar
@@ -457,6 +461,7 @@ readlines
 README
 readonly
 readthedocs
+realtime
 recommonmark
 recv
 recvd
@@ -471,6 +476,7 @@ reqparse
 rerendered
 restructuredtext
 returncode
+rgb
 rgba
 riverbankcomputing
 Roboto
@@ -478,6 +484,7 @@ rpaetz
 rst
 rtd
 rtf
+saba
 scm
 scrollable
 scrollbar
@@ -574,6 +581,7 @@ transcoding
 treeview
 tsn
 tstring
+ttl
 tts
 twbs
 txz

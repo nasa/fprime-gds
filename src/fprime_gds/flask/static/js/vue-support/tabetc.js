@@ -16,6 +16,7 @@ import "./event.js"
 import "./log.js"
 import "./uplink.js"
 import "./dashboard.js"
+import "../../addons/chart-display/chart-addon.js"
 import {_datastore} from "../datastore.js";
 
 /**
@@ -34,7 +35,7 @@ Vue.component("tabbed-etc", {
             let hash = window.location.hash.replace("#", "");
             return {
                 "currentTab": (hash == "")? "Commanding" : hash,
-                "tabs": ["Commanding", "Events", "Channels", "Uplink", "Downlink", "Logs", "Dashboard"],
+                "tabs": ["Commanding", "Events", "Channels", "Uplink", "Downlink", "Logs", "Charts", "Dashboard"],
                 "config": config,
                 "active": _datastore.active
             }
