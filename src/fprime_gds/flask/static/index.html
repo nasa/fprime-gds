@@ -30,6 +30,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
         <!-- Third-party JavaScript files, hosted locally to remove internet dependence -->
         <script src="third-party/js/vue.min.js"></script>
         <script src="third-party/js/sorttable.js"></script>
+        <script src="third-party/js/luxon.min.js"></script>
         <!-- JavaScript GDS files -->
         <script type="module" src="js/gds.js"></script>
     </head>
@@ -91,10 +92,17 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <uplink        v-show="currentTab == 'Uplink'"></uplink>
                         <downlink      v-show="currentTab == 'Downlink'"></downlink>
                         <logging       v-show="currentTab == 'Logs'"></logging>
+                        <chart-wrapper v-show="currentTab == 'Charts'"></chart-wrapper>
                         <dashboard     v-show="currentTab == 'Dashboard'"></dashboard>
                     </div>
                 </div>
             </template>
+
+            <!-- Charts: 
+            Display telemetry time series charts. User has option to select which telemetry channels should be plotted.
+            -->
+            <chart-wrapper></chart-wrapper>
+            
             <!--
             Dashboard:
 
