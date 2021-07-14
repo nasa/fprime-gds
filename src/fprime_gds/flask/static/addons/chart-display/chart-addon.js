@@ -1,7 +1,7 @@
 /**
  * addons/chart-display.js:
  *
- * Visualize selected telemetary channels using time series charts
+ * Visualize selected telemetry channels using time series charts
  * 
  * @author saba-ja
  */
@@ -19,7 +19,7 @@ import '../../third-party/js/chartjs-plugin-streaming.min.js';
 Vue.component("chart-wrapper", {
     data: function () {
         return {
-            counter: 0, // Auto increamenting id of each chart box
+            counter: 0, // Auto incrementing id of each chart box
             chartInstances: [], // list of chart objects
         };
     },
@@ -381,7 +381,7 @@ Vue.component("chart-display", {
         },
 
         /**
-         * Check wheather there is any data in the channel
+         * Check whether there is any data in the channel
          */
         isChannelOff(id) {
             return this.channels[id].str === undefined;
@@ -406,21 +406,21 @@ Vue.component("chart-display", {
         },
 
         /**
-         * Show or remove alret box when user click on the help button
+         * Show or remove alert box when user click on the help button
          */
         toggleShowHelp() {
             this.isHelpActive = !this.isHelpActive;
         },
 
         /**
-        * Remove alret box when user click on the close button of help alert
+        * Remove alert box when user click on the close button of help alert
         */
         dismissHelp () {
             this.isHelpActive = false;
         },
 
         /**
-         * sending message up to the parrent to remove this chart with this id
+         * sending message up to the parent to remove this chart with this id
          * @param {int} id of current chart instance known to the parent
          */
         emitDeleteChart(id) {
