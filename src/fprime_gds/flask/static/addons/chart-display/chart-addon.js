@@ -80,7 +80,7 @@ Vue.component("chart-display", {
                     <span v-if="isCollapsed">&#9744;</span>
                 </button>
                 <button type="button" class="close ml-2">
-                    <span v-if="showContrlBtns" v-on:click="toggleShowHelp()">&quest;</span>
+                    <span v-if="showControlBtns" v-on:click="toggleShowHelp()">&quest;</span>
                 </button>
                 <span class="card-subtitle text-muted">{{ channelName }} </span>
             </div>
@@ -110,7 +110,7 @@ Vue.component("chart-display", {
                         class="btn"
                         v-bind:class="{'btn-warning': !pause, 'btn-success': pause}"
                         v-on:click="toggleStreamFlow()"
-                        v-if="showContrlBtns">
+                        v-if="showControlBtns">
                         <span v-if="!pause">&#10074;&#10074;</span>
                         <span v-if="pause">&#9654;</span>
                         </button>
@@ -118,7 +118,7 @@ Vue.component("chart-display", {
                         <button type="button" 
                         class="btn btn-warning" 
                         v-on:click="resetZoom()"
-                        v-if="showContrlBtns">
+                        v-if="showControlBtns">
                         Reset Zoom
                         </button>
 
@@ -141,7 +141,7 @@ Vue.component("chart-display", {
                 </div>
 
                 <div class="row">
-                    <div class="col-md-12 mt-2 fp-resizable-box">
+                    <div class="col-md-12 mt-2 fp-resize-box">
                         <canvas id="ds-line-chart" style="min-width: 50%"></canvas>
                     </div>
                 </div>
@@ -167,7 +167,7 @@ Vue.component("chart-display", {
             channelName: "",
             channelTimestamp: null,
             channelValue: null,
-            showContrlBtns: false,
+            showControlBtns: false,
             
             // https://nagix.github.io/chartjs-plugin-streaming/2.0.0/guide/options.html
             duration: 60000, // (1 min) Duration of the chart in milliseconds (how much time of data it will show).
@@ -357,7 +357,7 @@ Vue.component("chart-display", {
                     dataset.data = [];
                 });
                 this.chartObj.destroy();
-                this.showContrlBtns = false;
+                this.showControlBtns = false;
             }
 
             // If the selected channel does not have any value do not register the chart
@@ -368,14 +368,14 @@ Vue.component("chart-display", {
             
             this.channelName = this.getChannelName(id);
             this.setConfig();
-            this.showContrlBtns = true;
+            this.showControlBtns = true;
             try {
                 this.chartObj = new Chart(
                     this.$el.querySelector("#ds-line-chart"),
                     this.config
                 );
             } catch(err) {
-                // FIXME. This currently suppresses the following bug error
+                // Todo. This currently suppresses the following bug error
                 // See ChartJs bug report https://github.com/chartjs/Chart.js/issues/9368
             }
         },

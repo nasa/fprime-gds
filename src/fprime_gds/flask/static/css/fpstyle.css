@@ -191,7 +191,7 @@ table td:last-child {
     color: #fff;
 }
 
-.fp-resizable-box {
+.fp-resize-box {
     resize: vertical; 
     overflow: auto; 
     padding: 1em;
