@@ -57,6 +57,7 @@ bytearray
 calibri
 callergraph
 callgraph
+cargs
 cata
 cbl
 CCB
@@ -200,6 +201,7 @@ figcaption
 filemode
 fileno
 filepath
+fileurl
 finditer
 Firefox
 flac
@@ -293,6 +295,7 @@ janamian
 javadoc
 javascript
 Jax
+Jdk
 joinpath
 jpe
 jpeg
@@ -376,6 +379,7 @@ noapp
 noqa
 nosort
 Noto
+novalidate
 nowait
 nowrap
 NSPACES
@@ -556,6 +560,7 @@ telem
 testcase
 TESTLIST
 textarea
+textbox
 tgz
 thead
 thtcp
@@ -624,6 +629,7 @@ utils
 vals
 valuemin
 valuenow
+Vcs
 versionchanged
 versioning
 vexc
