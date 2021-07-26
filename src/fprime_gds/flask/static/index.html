@@ -177,25 +177,45 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                 <div class="fp-flex-repeater">
                     <div class="fp-flex-header">
                         <h2>Sending Command: {{ selected.full_name }}</h2>
-                        <div class="form-row">
-                            <div class="form-group col-4">
-                                <label for="mnemonic">Mnemonic</label>
-                                <v-select id="mnemonic" style="flex: 1 1 auto;"
-                                          :clearable="false" :searchable="true"
-                                          :filterable="true"  label="full_name" :options="commandList" v-model="selected">
-                                </v-select>
+                        <form v-on:submit.prevent="null" class="command-input-form" novalidate>
+                            <div class="form-row">
+                                <div class="form-group col-4">
+                                    <label for="mnemonic">Mnemonic</label>
+                                    <v-select id="mnemonic" style="flex: 1 1 auto;"
+                                              :clearable="false" :searchable="true" @input="validate"
+                                              :filterable="true"  label="full_name" :options="commandList" v-model="selected"
+                                              :class="this.error == '' ? '' : 'is-invalid'" required>
+                                    </v-select>
+                                    <div class="invalid-feedback">{{ (this.error != '')? this.error : "Supply valid command"}}</div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col" v-for="argument in selected.args">
-                                <command-argument :argument="argument"></command-argument>
+                            <div class="form-row">
+                                <div class="form-group col" v-for="argument in selected.args">
+                                    <command-argument :argument="argument"></command-argument>
+                                </div>
                             </div>
-                        </div>
-                        <div class="row no-gutters">
-                            <button type="button" class="col-2 btn btn-outline-secondary" v-on:click="clearArguments">Clear Arguments</button>
-                            <button type="button" :disabled="active" class="col-2 btn btn-primary" v-on:click="sendCommand">
-                                Send Command
-                            </button>
+                            <div class="form-row no-gutters">
+                                <button type="button" class="col-2 btn btn-outline-secondary" v-on:click="clearArguments">Clear Arguments</button>
+                                <button type="button" v-on:click="sendCommand" :disabled="active" class="col-2 btn btn-primary">
+                                    Send Command
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <command-text :selected="selected"></command-text>
+                </div>
+            </template>
+            <!-- Command Text:
+
+             Input textbox for entering in a command
+             -->
+            <template id="command-text-template">
+                <div class="fp-flex-repeater">
+                    <div class="form-row">
+                        <div class="form-group col-12">
+                            <h5>Command String</h5>
+                            <input type="text" name="command-text" id="command-text" class="form-control" v-model.lazy="text"
+                                   placeholder="Command input string">
                         </div>
                     </div>
                 </div>
@@ -222,15 +242,15 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             <template id="command-argument-template">
                 <div>
                     <label :for="argument.name">{{ argument.name }}</label>
-                    <input v-if="argument.type != 'Enum'" :type="inputType[0]" :id="argument.name" class="form-control"
-                           :placeholder="argument.name" :pattern="inputType[1]"
-                           v-model="argument.value">
+                    <input v-if="argument.type != 'Enum'" :type="inputType[0]" :id="argument.name" class="form-control fprime-input"
+                           :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validate"
+                           v-model="argument.value"  :class="argument.error == '' ? '' : 'is-invalid'" required>
                     <v-select v-if="argument.type == 'Enum'" :id="argument.name" style="flex: 1 1 auto;"
-                              :clearable="false" :searchable="true"
+                              :clearable="false" :searchable="true" @input="validate"
                               :filterable="true"  label="full_name" :options="argument.possible"
-                              v-model="argument.value">
+                              v-model="argument.value" class="fprime-input" :class="argument.error == '' ? '' : 'is-invalid'" required>
                     </v-select>
-                    <div>{{ argument.error }}</div>
+                    <div class="invalid-feedback">{{ argument.error }}</div>
                 </div>
             </template>
 

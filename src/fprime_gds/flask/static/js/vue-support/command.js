@@ -8,10 +8,42 @@ import "../../third-party/js/vue-select.js"
 import {listExistsAndItemNameNotInList, timeToString} from "./utils.js";
 import {_datastore} from "../datastore.js";
 import {_loader} from "../loader.js";
+import {find_case_insensitive, validate_input} from "../validate.js"
+
+
+/**
+ * This helper will help assign command and values in a safe manner by searching the command store, finding a reference,
+ * and then setting the arguments as supplied.
+ */
+function command_assignment_helper(desired_command_name, desired_command_args, partial_command) {
+    desired_command_args = (typeof(desired_command_args) == "undefined")? [] : desired_command_args;
+
+    // Keys should be exact matches
+    let command_name = find_case_insensitive(desired_command_name, Object.keys(_datastore.commands));
+    if (command_name == null && typeof(partial_command) != "undefined") {
+        // Finally commands that "start with" after the component name "."
+        let keys = Object.keys(_datastore.commands).filter(command_name => {
+            let tokens = command_name.split(".");
+            return tokens[tokens.length - 1].startsWith(partial_command);
+        });
+        command_name = (keys.length > 0)? keys[0] : null;
+    }
+    // Command not found, return null
+    if (command_name == null) {
+        return null;
+    }
+    let selected = _datastore.commands[command_name];
+    // Set arguments here
+    for (let i = 0; i < selected.args.length; i++) {
+        let assign_value = (desired_command_args.length > i)? desired_command_args[i] : "";
+        selected.args[i].value = assign_value;
+    }
+    return selected;
+}
 
 Vue.component('v-select', VueSelect.VueSelect);
 /**
- *
+ * Command argument component
  */
 Vue.component("command-argument", {
     props:["argument"],
@@ -20,18 +52,21 @@ Vue.component("command-argument", {
         /**
          * Allows for validation of commands using the HTML-based validation using regex and numbers. Note: numbers here
          * are treated as text, because we can allow for hex, and octal bases.
-         * @return [HTML input type, validation regex]
+         * @return [HTML input type, validation regex, step (used for numbers only), and validation error message]
          */
         inputType() {
             // Unsigned integer
             if (this.argument.type[0] == 'U') {
                 // Supports binary, hex, octal, and digital
-                return ["text", "0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F]+|[1-9]\\\\d*"];
+                return ["text", "0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F]+|[1-9]\\d*|0", ""];
+            }
+            else if (this.argument.type[0] == 'I') {
+                return ["number", null, "1"];
             }
             else if (this.argument.type[0] == 'F') {
-                return ["number", "\\d*.?\\d*"];
+                return ["number", null, "any"];
             }
-            return ["text", ".*"];
+            return ["text", ".*", null];
         },
         /**
          * Unpack errors on arguments, for display in this GUI.
@@ -42,23 +77,45 @@ Vue.component("command-argument", {
             }
             return "NO ERROR!!!";
         }
-    }
-});
-
-
-Vue.component("command-item", {
-    props:["command"],
-    template: "#command-item-template",
-    computed: {
+    },
+    methods: {
         /**
-         * Produces the channel's time in the form of a string.
-         * @return {string} seconds.microseconds
+         * Validate selected element.  This patches the missing validation of text->vue select.  Otherwise it defers to
+         * the normal form validation
          */
-        calculateCommandTime: function() {
-            return timeToString(this.command.time);
+        validate() {
+            let input_element = this.$el.getElementsByClassName("fprime-input")[0];
+            this.argument.error = "";
+            validate_input(this.argument);
+            input_element.setCustomValidity(this.argument.error);
         }
     }
 });
+/**
+ * Component to show the command text and allow textual input.
+ */
+Vue.component("command-text", {
+    props:["selected"],
+    template: "#command-text-template",
+    computed: {
+        text: {
+            // Get the expected text from the command and inject it into the box
+            get: function () {
+                let tokens = [this.selected.full_name].concat(Array.from(this.selected.args, arg => arg.value));
+                let cli = tokens.filter(val => {return val != "";}).join(" ");
+                return cli;
+            },
+            // Pull the box and send it into the command setup
+            set: function (inputValue) {
+                let tokens = inputValue.split(/[\s,]+/);
+                let name = tokens[0];
+                let cargs = tokens.splice(1);
+                this.$root.$refs.command_input.selectCmd(name, cargs);
+            }
+        }
+    }
+});
+
 
 /**
  * command-input:
@@ -71,13 +128,14 @@ Vue.component("command-input", {
         this.$root.$refs.command_input = this;
     },
     data: function() {
-        let keys = Object.keys(_datastore.commands).filter(command_name => {return command_name.indexOf("CMD_NO_OP") != -1;});
-        let selected = (keys.length != 0) ? _datastore.commands[keys[0]] : Object.keys(_datastore.commands)[0];
+        let selected = command_assignment_helper(null, [], "CMD_NO_OP");
+        selected = (selected != null)? selected : Object.values(_datastore.commands)[0];
         return {
             "commands": _datastore.commands,
             "loader": _loader,
             "selected": selected,
-            "active": false
+            "active": false,
+            "error": ""
         }
     },
     template: "#command-input-template",
@@ -88,23 +146,61 @@ Vue.component("command-input", {
         clearArguments() {
             // Clear arguments
             for (let i = 0; i < this.selected.args.length; i++) {
-                this.selected.args[i].value = "";
+                this.selected.args[i].error = "";
+                if ("possible" in this.selected.args[i]) {
+                    this.selected.args[i].value = this.selected.args[i].possible[0];
+                } else {
+                    this.selected.args[i].value = "";
+                }
             }
+        },
+        /**
+         * Validate the form inputs using the browser validation method. Additionally validates the command input and
+         * argument select dialogs to ensure that dropdown values are within the allowed list
+         */
+        validate() {
+            // Find form and check validity
+            let form = this.$el.getElementsByClassName("command-input-form")[0];
+            form.classList.add('was-validated');
+            let valid = true;
+
+            // Validate command exists in command dropdown
+            let valid_name = find_case_insensitive(this.selected.full_name, Object.keys(_datastore.commands));
+            if (valid_name == null) {
+                this.error = this.selected.full_name + " is not a command.";
+                valid = false;
+            } else {
+                this.selected = _datastore.commands[valid_name];
+                this.error = "";
+            }
+            // Validate enumeration types
+            let args = this.selected.args;
+            for (let i = 0; i < args.length; i++) {
+                let current_valid = validate_input(args[i]);
+
+                valid = valid && current_valid;
+            }
+            let form_valid = form.checkValidity();
+            return valid && form_valid;
         },
         /**
          * Send a command from this interface. This calls into the loader to send the command, and locks-out until the
          * command reaches the ground system.
          */
         sendCommand() {
+            // Validate the command before sending anything
+            if (!this.validate()) {
+                return;
+            }
+            let form = this.$el.getElementsByClassName("command-input-form")[0];
+            form.classList.remove('was-validated');
+
+            // Send the command and respond to results
             let _self = this;
             _self.active = true;
             let command = this.selected;
-            let values = [];
-            for (let i = 0; i < this.selected.args.length; i++) {
-                values.push(this.selected.args[i].value);
-            }
             this.loader.load("/commands/" + command.full_name, "PUT",
-                {"key":0xfeedcafe, "arguments": values})
+                {"key":0xfeedcafe, "arguments": command.args.map(arg => {return arg.value;})})
                 .then(function() {
                     _self.active = false;
                     // Clear errors, as there is not a problem further
@@ -115,23 +211,36 @@ Vue.component("command-input", {
                 .catch(function(err) {
                     // Log all errors incoming
                     console.error("[ERROR] Failed to send command: " + err);
-                    let response = JSON.parse(err);
+                    let response = JSON.parse(err).message;
                     // Argument errors are parceled out to each error
-                    if ("errors" in response) {
+                    if (typeof(response.errors) != "undefined") {
                         for (let i = 0; i < response.errors.length; i++) {
                             command.args[i].error = response.errors[i];
                         }
                     }
                     // All other command errors
                     else {
-                        command.error = response.message;
+                        command.error = response;
+                        _self.error = response;
                     }
                     _self.active = false;
                 });
         },
-        selectCmd(cmd) {
-            // Change the selected command to the requested command
-            this.selected = cmd;
+        /**
+         * Function used to set the currently active command give a name and a set of arguments. This function will find
+         * the command via name and override the arguments to be supplied.  If the command is not found, an invalid
+         * "fake" command will be passed in.
+         * @param desired_command_name: full name of command to find
+         * @param desired_command_args": arguments to pass to command
+         */
+        selectCmd(desired_command_name, desired_command_args) {
+            let found_command = command_assignment_helper(desired_command_name, desired_command_args);
+            if (found_command != null) {
+                this.selected = found_command;
+            } else {
+                this.selected = {"full_name": desired_command_name, "args":[], "error": "Invalid command"};
+            }
+            this.validate();
         }
     },
     computed: {
@@ -157,15 +266,32 @@ Vue.component("command-input", {
     }
 });
 
+
+
+/**
+ * command-item:
+ *
+ * For displaying commands in the historical list of commands.
+ */
+Vue.component("command-item", {
+    props:["command"],
+    template: "#command-item-template",
+    computed: {
+        /**
+         * Produces the channel's time in the form of a string.
+         * @return {string} seconds.microseconds
+         */
+        calculateCommandTime: function() {
+            return timeToString(this.command.time);
+        }
+    }
+});
+
 /**
  * command-history:
  *
- * Displays a list of previously-sent commands to the GDS.
- */
-/**
- * command-input:
- *
- * Input command form Vue object. This allows for sending commands from the GDS.
+ * Displays a list of previously-sent commands to the GDS. This is a reuse of the fptable defining functions and
+ * properties needed to allow for the command history to be displayed.
  */
 Vue.component("command-history", {
     props: {
@@ -250,7 +376,7 @@ Vue.component("command-history", {
         clickAction(item) {
             let cmd = item;
             cmd.full_name = item.template.full_name;
-            this.$root.$refs.command_input.selectCmd(cmd);
+            this.$root.$refs.command_input.selectCmd(cmd.full_name, Array.from(cmd.args, arg => arg.value));
         }
     }
 });
