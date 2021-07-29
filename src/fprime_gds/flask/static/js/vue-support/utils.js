@@ -52,9 +52,7 @@ export function filter(items, matching, ifun) {
 export function timeToString(time) {
     // If we have a workstation time, convert it to calendar time
     if (time.base.value == 2) {
-        let date = new Date(0);
-        date.setSeconds(time.seconds);
-        date.setMilliseconds(time.microseconds/1000);
+        let date = new Date((time.seconds * 1000) + (time.microseconds/1000));
         return date.toISOString();
     }
     return time.seconds + "." + time.microseconds;

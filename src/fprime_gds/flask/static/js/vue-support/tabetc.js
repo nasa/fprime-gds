@@ -16,7 +16,6 @@ import "./event.js"
 import "./log.js"
 import "./uplink.js"
 import "./dashboard.js"
-import "../../addons/chart-display/chart-addon.js"
 import {_datastore} from "../datastore.js";
 
 /**
