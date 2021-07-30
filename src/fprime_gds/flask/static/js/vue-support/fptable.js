@@ -1,5 +1,5 @@
 import {filter, toArrayIfString} from "./utils.js";
-
+import {_uploader} from "../uploader.js";
 /**
  * fp-row:
  *
@@ -138,7 +138,7 @@ Vue.component("file-row", {
             if (action == "Remove" && index != -1) {
                 uplinkvue.selected.splice(index, 1);
             } else {
-                uplinkvue.uploader.command(this.item.source, action);
+                _uploader.command(this.item.source, action);
             }
         }
     },

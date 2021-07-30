@@ -24,6 +24,7 @@ LOG_DIR = os.environ.get("LOG_DIR", None)
 SERVE_LOGS = os.environ.get("SERVE_LOGS", "YES") == "YES"
 UPLOADED_UPLINK_DEST = uplink_dir
 UPLOADS_DEFAULT_DEST = uplink_dir
+REMOTE_SEQ_DIRECTORY = "/seq"
 MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # Max length of request is 32MiB
 
 # Gds config setup

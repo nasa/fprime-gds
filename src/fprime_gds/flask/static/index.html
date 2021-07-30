@@ -86,13 +86,13 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div class="container-fluid fp-flex-repeater">
                         <!-- NOTE: *must* use v-show, as v-if will perish the component losing state -->
                         <command-input v-show="currentTab == 'Commanding'"></command-input>
-                        <command-history v-show="currentTab == 'Commanding'"></command-history>
                         <channel-table v-show="currentTab == 'Channels'"></channel-table>
                         <event-list    v-show="currentTab == 'Events'"></event-list>
                         <uplink        v-show="currentTab == 'Uplink'"></uplink>
                         <downlink      v-show="currentTab == 'Downlink'"></downlink>
                         <logging       v-show="currentTab == 'Logs'"></logging>
                         <chart-wrapper v-show="currentTab == 'Charts'"></chart-wrapper>
+                        <sequencer     v-show="currentTab == 'Sequences'"></sequencer>
                         <dashboard     v-show="currentTab == 'Dashboard'"></dashboard>
                     </div>
                 </div>
@@ -176,12 +176,12 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             <template id="command-input-template">
                 <div class="fp-flex-repeater">
                     <div class="fp-flex-header">
-                        <h2>Sending Command: {{ selected.full_name }}</h2>
+                        <h2 v-if="!builder">Sending Command: {{ selected.full_name }}</h2>
                         <form v-on:submit.prevent="null" class="command-input-form" novalidate>
                             <div class="form-row">
                                 <div class="form-group col-4">
                                     <label for="mnemonic">Mnemonic</label>
-                                    <v-select id="mnemonic" style="flex: 1 1 auto;"
+                                    <v-select id="mnemonic" style="flex: 1 1 auto;  background-color: white;"
                                               :clearable="false" :searchable="true" @input="validate"
                                               :filterable="true"  label="full_name" :options="commandList" v-model="selected"
                                               :class="this.error == '' ? '' : 'is-invalid'" required>
@@ -196,13 +196,14 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                             </div>
                             <div class="form-row no-gutters">
                                 <button type="button" class="col-2 btn btn-outline-secondary" v-on:click="clearArguments">Clear Arguments</button>
-                                <button type="button" v-on:click="sendCommand" :disabled="active" class="col-2 btn btn-primary">
+                                <button type="button" v-if="!builder" v-on:click="sendCommand" :disabled="active" class="col-2 btn btn-primary">
                                     Send Command
                                 </button>
                             </div>
                         </form>
                     </div>
                     <command-text :selected="selected"></command-text>
+                    <command-history v-if="!builder"></command-history>
                 </div>
             </template>
             <!-- Command Text:
@@ -245,7 +246,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <input v-if="argument.type != 'Enum'" :type="inputType[0]" :id="argument.name" class="form-control fprime-input"
                            :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validate"
                            v-model="argument.value"  :class="argument.error == '' ? '' : 'is-invalid'" required>
-                    <v-select v-if="argument.type == 'Enum'" :id="argument.name" style="flex: 1 1 auto;"
+                    <v-select v-if="argument.type == 'Enum'" :id="argument.name" style="flex: 1 1 auto; background-color: white;"
                               :clearable="false" :searchable="true" @input="validate"
                               :filterable="true"  label="full_name" :options="argument.possible"
                               v-model="argument.value" class="fprime-input" :class="argument.error == '' ? '' : 'is-invalid'" required>
@@ -413,7 +414,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <td>{{ item.destination }}</td>
                     <td>{{ item.state }}</td>
                     <td v-if="item.uplink">
-                        <button v-if="item.state != 'FINISHED' && item.state != 'CANCELED'" class="btn btn-secondary" v-on:click="fileAction">
+                        <button v-if="item.state != 'FINISHED' && item.state != 'CANCELED' && item.state != 'TIMEOUT'" class="btn btn-secondary" v-on:click="fileAction">
                             {{ (item.state == "TRANSMITTING" ) ? "Cancel" : "Remove" }}
                         </button>
                     </td>

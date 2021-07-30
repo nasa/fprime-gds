@@ -110,7 +110,7 @@ Vue.component("command-text", {
                 let tokens = inputValue.split(/[\s,]+/);
                 let name = tokens[0];
                 let cargs = tokens.splice(1);
-                this.$root.$refs.command_input.selectCmd(name, cargs);
+                this.$parent.selectCmd(name, cargs);
             }
         }
     }
@@ -123,6 +123,12 @@ Vue.component("command-text", {
  * Input command form Vue object. This allows for sending commands from the GDS.
  */
 Vue.component("command-input", {
+    props: {
+        builder: {
+            type: Boolean,
+            default: false
+        }
+    },
     created: function() {
         // Make command-input component accessible from other components
         this.$root.$refs.command_input = this;
@@ -376,7 +382,10 @@ Vue.component("command-history", {
         clickAction(item) {
             let cmd = item;
             cmd.full_name = item.template.full_name;
-            this.$root.$refs.command_input.selectCmd(cmd.full_name, Array.from(cmd.args, arg => arg.value));
+            // Can only set command if it is a child of a command input
+            if (this.$parent.selectCmd) {
+                this.$parent.selectCmd(cmd.full_name, Array.from(cmd.args, arg => arg.value));
+            }
         }
     }
 });
