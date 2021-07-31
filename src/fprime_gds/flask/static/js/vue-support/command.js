@@ -41,6 +41,23 @@ function command_assignment_helper(desired_command_name, desired_command_args, p
     return selected;
 }
 
+function parse_with_strings(remaining) {
+    let tokens = [];
+    while (remaining !== "") {
+        let reg = /([, ] *)/;
+        if (remaining.startsWith("\"")) {
+            remaining = remaining.slice(1);
+            reg = /"([, ] *|$)/;
+        }
+        let match = remaining.match(reg);
+        let index = (match !== null) ? match.index : remaining.length;
+        let first = remaining.slice(0, index);
+        tokens.push(first);
+        remaining = remaining.slice(index + ((match !== null) ? match[0].length : remaining.length));
+    }
+    return tokens;
+}
+
 Vue.component('v-select', VueSelect.VueSelect);
 /**
  * Command argument component
@@ -101,13 +118,14 @@ Vue.component("command-text", {
         text: {
             // Get the expected text from the command and inject it into the box
             get: function () {
-                let tokens = [this.selected.full_name].concat(Array.from(this.selected.args, arg => arg.value));
-                let cli = tokens.filter(val => {return val != "";}).join(" ");
+                let tokens = [this.selected.full_name].concat(Array.from(this.selected.args,
+                    (arg) => {return (arg.type === "String" && arg.value != null) ? '"' + arg.value + '"' : arg.value}));
+                let cli = tokens.filter(val => {return val !== "";}).join(" ");
                 return cli;
             },
             // Pull the box and send it into the command setup
             set: function (inputValue) {
-                let tokens = inputValue.split(/[\s,]+/);
+                let tokens = parse_with_strings(inputValue);
                 let name = tokens[0];
                 let cargs = tokens.splice(1);
                 this.$parent.selectCmd(name, cargs);
