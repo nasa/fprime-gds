@@ -16,9 +16,9 @@ export let sequencer_template = `
                                v-on:change="setSequence($event.target.files[0])">
                     </div>
                     <div class="col col-3">
-                        <button class="btn btn-primary float-right" :disabled="active" v-on:click="sendSequence(true)">Uplink </button>
-                        <button class="btn btn-secondary float-right" :disabled="active" v-on:click="sendSequence(false)">Validate</button>
+                        <button class="btn btn-primary float-right" :disabled="active" v-on:click="sendSequence(true)">Uplink</button>
                         <button class="btn btn-secondary float-right" v-on:click="builder = !builder">Command Builder</button>
+                        <button class="btn btn-secondary float-left" :disabled="active" v-on:click="download">Download</button>
                     </div>
                 </div>
             </form>
@@ -31,8 +31,7 @@ export let sequencer_template = `
         </transition>
         
         <div class="fp-scroll-container">
-            <textarea class="form-control" id="sequenceText" v-model="sequence.text" style="height: 100%" :disabled="active"
-                      v-on:paste="onPaste"></textarea>
+            <div class="code-parent fp-scrollable"></div>
         </div>
         <div class="fp-flex-header">
             <textarea class="form-control" id="out" style="height:100%" v-model="messages.validation" readonly></textarea>            

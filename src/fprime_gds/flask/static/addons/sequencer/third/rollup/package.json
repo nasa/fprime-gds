@@ -1,0 +1,22 @@
+{
+  "name": "codemirror-webpack",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "module": "../code-mirror.es.js",
+  "scripts": {
+    "build": "npm run lezer-generator language.grammer && rollup -c",
+    "lezer-generator": "lezer-generator -o lang.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@codemirror/basic-setup": "^0.18.2",
+    "@codemirror/lang-javascript": "^0.18.0",
+    "@rollup/plugin-node-resolve": "^13.0.4",
+    "lezer": "^0.13.5",
+    "lezer-generator": "^0.13.4",
+    "rollup": "^2.55.1"
+  }
+}
