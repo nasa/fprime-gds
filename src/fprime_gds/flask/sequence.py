@@ -78,7 +78,7 @@ class SequenceCompiler(flask_restful.Resource):
                 file_handle.write(text)
             thief = StdioTheif()
             with thief:
-                generateSequence(temp_seq_path, temp_bin_path, self.dictionary, 0xFFFF)
+                generateSequence(temp_seq_path, temp_bin_path, self.dictionary, 0xFFFF, cont=True)
             messages += thief.output
             if uplink:
                 destination = Path(self.destination) / temp_bin_path.name

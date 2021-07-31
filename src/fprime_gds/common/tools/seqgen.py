@@ -46,7 +46,7 @@ class SeqGenException(gseExceptions.GseControllerException):
 #  __error("The Gse source code was not found in your $PYTHONPATH variable. Please set PYTHONPATH to something like: $BUILD_ROOT/Gse/src:$BUILD_ROOT/Gse/generated/$DEPLOYMENT_NAME")
 
 
-def generateSequence(inputFile, outputFile, dictionary, timebase):
+def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
     """
     Write a binary sequence file from a text sequence file
     @param inputFile: A text input sequence file name (usually a .seq extension)
@@ -73,51 +73,59 @@ def generateSequence(inputFile, outputFile, dictionary, timebase):
 
     parsed_seq = file_parser.parse(inputFile)
 
+    messages = []
     try:
         for i, descriptor, seconds, useconds, mnemonic, args in parsed_seq:
-            # Make sure that command is in the command dictionary:
-            if mnemonic in cmd_name_dict:
-                command_temp = copy.deepcopy(cmd_name_dict[mnemonic])
-                # Set the command arguments:
-                try:
-                    command_temp.setArgs(args)
-                except ArgLengthMismatchException as e:
+            try:
+                # Make sure that command is in the command dictionary:
+                if mnemonic in cmd_name_dict:
+                    command_temp = copy.deepcopy(cmd_name_dict[mnemonic])
+                    # Set the command arguments:
+                    try:
+                        command_temp.setArgs(args)
+                    except ArgLengthMismatchException as e:
+                        raise SeqGenException(
+                            "Line %d: %s"
+                            % (
+                                i + 1,
+                                "'"
+                                + mnemonic
+                                + "' argument length mismatch. "
+                                + e.getMsg(),
+                            )
+                        )
+                    except TypeException as e:
+                        raise SeqGenException(
+                            "Line %d: %s"
+                            % (
+                                i + 1,
+                                "'" + mnemonic + "' argument type mismatch. " + e.getMsg(),
+                            )
+                        )
+                    # Set the command time and descriptor:
+                    command_temp.setDescriptor(descriptor)
+                    command_temp.setSeconds(seconds)
+                    command_temp.setUseconds(useconds)
+                    # Append this command to the command list:
+                    command_list.append(command_temp)
+                else:
                     raise SeqGenException(
                         "Line %d: %s"
                         % (
                             i + 1,
                             "'"
                             + mnemonic
-                            + "' argument length mismatch. "
-                            + e.getMsg(),
+                            + "' does not match any command in the command dictionary.",
                         )
                     )
-                except TypeException as e:
-                    raise SeqGenException(
-                        "Line %d: %s"
-                        % (
-                            i + 1,
-                            "'" + mnemonic + "' argument type mismatch. " + e.getMsg(),
-                        )
-                    )
-                # Set the command time and descriptor:
-                command_temp.setDescriptor(descriptor)
-                command_temp.setSeconds(seconds)
-                command_temp.setUseconds(useconds)
-                # Append this command to the command list:
-                command_list.append(command_temp)
-            else:
-                raise SeqGenException(
-                    "Line %d: %s"
-                    % (
-                        i + 1,
-                        "'"
-                        + mnemonic
-                        + "' does not match any command in the command dictionary.",
-                    )
-                )
+            except SeqGenException as exc:
+                if not cont:
+                    raise
+                messages.append(exc.getMsg())
     except gseExceptions.GseControllerParsingException as e:
-        raise SeqGenException(e.getMsg())
+        raise SeqGenException(e.getMsg() + "\n".join(messages))
+    if cont and messages:
+        raise SeqGenException("\n".join(messages))
 
     # Write to the output file:
     writer = SeqBinaryWriter(timebase=timebase)
