@@ -30,5 +30,3 @@ Arg { String | Enum | Integer | Float }
 
 
 @skip { LineComment split }
-
-

@@ -1,3 +1,6 @@
+/**
+ * Templates file for the sequencer plugin.  Contains the HTML template setup.
+ */
 export let sequencer_template = `
     <div class="fp-flex-repeater">
         <div class="fp-flex-header">

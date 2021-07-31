@@ -123,7 +123,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
                     raise
                 messages.append(exc.getMsg())
     except gseExceptions.GseControllerParsingException as e:
-        raise SeqGenException(e.getMsg() + "\n".join(messages))
+        raise SeqGenException("\n".join([e.getMsg()] + messages))
     if cont and messages:
         raise SeqGenException("\n".join(messages))
 
