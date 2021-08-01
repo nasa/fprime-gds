@@ -8,6 +8,7 @@ ada
 addon
 addslash
 ADEBAD
+adrianheine
 allbox
 ALLEXTERNALS
 ALOG
@@ -79,6 +80,7 @@ CMake
 cmdhist
 cmds
 CODEFILE
+Codemirror
 colorized
 COLORSTYLE
 colorwheel
@@ -155,6 +157,7 @@ doxypypy
 doxyrules
 doxysearch
 Doxywizard
+doy
 dropdown
 dropleft
 dropright
@@ -229,6 +232,7 @@ getroot
 getsize
 github
 globals
+gmail
 gnumeric
 Golang
 graphviz
@@ -240,6 +244,7 @@ gz
 hardcoded
 hardcoding
 hasattr
+Haverbeke
 hdl
 hgroup
 hh
@@ -316,11 +321,13 @@ kinda
 kwargs
 len
 lestarch
+Lezer
 lgtm
 libc
 libclang
 libcrc
 libiconv
+Linting
 Linux
 listbox
 listdir
@@ -340,6 +347,7 @@ MAINPAGE
 makedirs
 makeindex
 MAKEVAR
+marijnh
 matchobj
 mathjax
 maxcountryman
@@ -382,6 +390,7 @@ Noto
 novalidate
 nowait
 nowrap
+npm
 NSPACES
 objs
 odf
@@ -484,6 +493,7 @@ rgb
 rgba
 riverbankcomputing
 Roboto
+rollup
 rpaetz
 rst
 rtd
@@ -527,6 +537,7 @@ startswith
 startuml
 staticmethod
 stderr
+Stdio
 stdout
 strftime
 stringified
@@ -557,12 +568,14 @@ tcp
 tcpserver
 td
 telem
+tempdir
 testcase
 TESTLIST
 textarea
 textbox
 tgz
 thead
+Theif
 thtcp
 thudp
 timebase
@@ -648,6 +661,7 @@ webbrowser
 webified
 webkit
 webp
+webpack
 webserver
 website
 werkzeug
