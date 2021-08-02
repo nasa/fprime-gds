@@ -1,8 +1,14 @@
 /**
- * Configuration settings for the Chart JS plugin.
+ * config.js:
+ *
+ * Configuration settings for the Chart JS plugin. This is such that the configuration options are in an easy to set
+ * place in case adjustments need to be made.
  */
 
-
+/**
+ * Basic chart options (high-level).
+ * @type {{responsive: boolean, interaction: {intersect: boolean}, parsing: boolean, maintainAspectRatio: boolean, animation: boolean}}
+ */
 export let chart_options = {
     parsing: true,
     animation: false,
@@ -13,20 +19,32 @@ export let chart_options = {
     },
 };
 
+/**
+ * Data set specific configuration.
+ * @type {{spanGaps: boolean, backgroundColor: string, borderColor: string, normalized: boolean, lineTension: number}}
+ */
 export let dataset_config = {
-    normalized: false,
+    normalized: true,
     spanGaps: false,
     backgroundColor: "rgba(54, 162, 235, 0.5)",
     borderColor: "rgb(54, 162, 235)",
     lineTension: 0,
 };
 
+/**
+ * Ticks configuration.  Set to be minimal such that the chart renders more quickly.
+ * @type {{maxRotation: number, sampleSize: number, autoSkip: boolean}}
+ */
 export let ticks_config = {
     autoSkip: true,
     maxRotation: 0,
     sampleSize: 10
 };
 
+/**
+ * Realtime configuration options.  Balances update efficiency vs visual efficiency and data set recall size.
+ * @type {{duration: number, frameRate: number, delay: number, refresh: number, ttl: number, pause: boolean}}
+ */
 export let realtime_config = {
     // Initial display width (ms): 1 min
     duration: 60000,
@@ -35,15 +53,17 @@ export let realtime_config = {
     // Initial chart delay (ms): 0
     delay: 0,
     // Drawing framerate (ms): 30 Hz
-    frameRate: 30,
+    frameRate: 10,
     // Start paused: false
     pause: false,
-    // Refresh rate: 30 Hz
-    refresh: 100
+    // Refresh rate: 10 Hz
+    refresh: 100 //In ms
 };
 
-
-
+/**
+ * Zoom settings conifguring a zoomable graph using SHIFT and ALT to pan/zoom.
+ * @type {{zoom: {mode: string, wheel: {modifierKey: string, enabled: boolean}, overScaleMode: string, drag: {modifierKey: string, enabled: boolean}}, pan: {mode: string, modifierKey: string, enabled: boolean}, limits: {x: {minDelay: number, maxDelay: *, minDuration: number, maxDuration: *}}}}
+ */
 export let zoom_config = {
     // Allows pan using the "shift" modifier key
     pan: {
@@ -77,6 +97,11 @@ export let zoom_config = {
     },
 };
 
+/**
+ * Returns a new chart config object for the given labeled data set.
+ * @param label
+ * @return {{data: {datasets: [*]}, options: *, type: string}}
+ */
 export function generate_chart_config(label) {
     let final_realtime_config = Object.assign({}, realtime_config);
     let scales = {

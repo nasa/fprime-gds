@@ -1,4 +1,10 @@
-
+/**
+ * addon-templates.js:
+ *
+ * Contains the HTML templates for the chart addon.  This includes a chart wrapper and the chart itself.
+ *
+ * @type {string}
+ */
 
 export let chart_wrapper_template = `
     <div class="fp-flex-repeater">
