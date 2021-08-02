@@ -17,5 +17,8 @@ export let config = {
     // Set the icon for the condition when there is a data-flow error
     dataErrorIcon: "/img/error.svg",
     // Data polling interval in milliseconds
-    dataPollIntervalMs: 1000
+    dataPollIntervalsMs: {
+        channels: 500,
+        default: 1000
+    }
 };

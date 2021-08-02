@@ -49,7 +49,7 @@ export function filter(items, matching, ifun) {
  * @param time: time object in fprime time format
  * @return {Date}: Javascript date object
  */
-function timeToDate(time) {
+export function timeToDate(time) {
     let date = new Date((time.seconds * 1000) + (time.microseconds/1000));
     return date;
 }

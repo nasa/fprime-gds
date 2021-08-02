@@ -175,7 +175,8 @@ class Loader {
         if ("interval" in this.endpoints[endpoint]) {
             clearInterval(this.endpoints[endpoint]["interval"]);
         }
-        this.endpoints[endpoint]["interval"] = setInterval(handler, config["dataPollIntervalMs"]);
+        let interval = config.dataPollIntervalsMs[endpoint] || config.dataPollIntervalsMs.default || 1000;
+        this.endpoints[endpoint]["interval"] = setInterval(handler, interval);
         handler();
     }
 

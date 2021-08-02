@@ -25,7 +25,6 @@ import {_loader} from "./loader.js";
 export class DataStore {
 
     constructor() {
-        this.loggers = [];
         // Activity timeout for checking spacecraft health and "the orb" (ours, not Keynes')
         this.active = [false, false];
         this.active_timeout = null;
@@ -33,10 +32,9 @@ export class DataStore {
         // Data stores used to store all data supplied to the system
         this.events = [];
         this.command_history = [];
-        this.latest_channels = [];
         this.channels = {};
         this.commands = {};
-        this.logs ={"": ""};
+        this.logs =[];
 
         // File data stores used for file handling
         this.downfiles = [];
@@ -70,14 +68,9 @@ export class DataStore {
         _loader.registerPoller("channels", this.updateChannels.bind(this));
         _loader.registerPoller("events", this.updateEvents.bind(this));
         _loader.registerPoller("commands", this.updateCommandHistory.bind(this));
-        //_loader.registerPoller("logdata", this.updateLogs.bind(this));
+        _loader.registerPoller("logdata", this.updateLogs.bind(this));
         _loader.registerPoller("upfiles", this.updateUpfiles.bind(this));
         _loader.registerPoller("downfiles", this.updateDownfiles.bind(this));
-    }
-
-    registerLogHandler(item) {
-        this.loggers.push(item);
-        return this.logs;
     }
 
     registerActiveHandler(item) {
@@ -115,10 +108,7 @@ export class DataStore {
     }
 
     updateLogs(log_data) {
-        this.logs = log_data;
-        for (let i = 0; i < this.loggers.length; i++) {
-            this.loggers[i].update();
-        }
+        this.logs.splice(0, this.logs.length, ...log_data.logs);
     }
 
     updateUpfiles(data) {
@@ -140,8 +130,6 @@ export class DataStore {
             this.active.splice(index, 1, true);
             clearTimeout(this.active_timeout);
             this.active_timeout = setTimeout(() => _self.active.splice(index, 1, false), timeout);
-        } else {
-            this.active.splice(index, 1, false);
         }
     }
 

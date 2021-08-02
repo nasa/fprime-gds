@@ -61,7 +61,7 @@ export let realtime_config = {
 };
 
 /**
- * Zoom settings conifguring a zoomable graph using SHIFT and ALT to pan/zoom.
+ * Zoom settings configuring a zoom enabled graph using SHIFT and ALT to pan/zoom.
  * @type {{zoom: {mode: string, wheel: {modifierKey: string, enabled: boolean}, overScaleMode: string, drag: {modifierKey: string, enabled: boolean}}, pan: {mode: string, modifierKey: string, enabled: boolean}, limits: {x: {minDelay: number, maxDelay: *, minDuration: number, maxDuration: *}}}}
  */
 export let zoom_config = {

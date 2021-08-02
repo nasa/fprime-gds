@@ -6,7 +6,7 @@
 
 
 /**
- * Syncronize the axis of the supplied leader to the supplied follower
+ * Synchronize the axis of the supplied leader to the supplied follower
  * @param leader: source of axis information
  * @param follower: destination of axis information
  */
