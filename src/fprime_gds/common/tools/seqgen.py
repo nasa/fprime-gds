@@ -71,7 +71,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
     command_list = []
     file_parser = SeqFileParser()
 
-    parsed_seq = file_parser.parse(inputFile)
+    parsed_seq = file_parser.parse(inputFile, cont=cont)
 
     messages = []
     try:
