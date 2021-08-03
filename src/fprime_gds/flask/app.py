@@ -133,8 +133,13 @@ def construct_app():
     # Optionally serve log files
     if app.config["SERVE_LOGS"]:
         api.add_resource(
-            fprime_gds.flask.logs.FlaskLogger,
+            fprime_gds.flask.logs.LogList,
             "/logdata",
+            resource_class_args=[app.config["LOG_DIR"]],
+        )
+        api.add_resource(
+            fprime_gds.flask.logs.LogFile,
+            "/logdata/<name>",
             resource_class_args=[app.config["LOG_DIR"]],
         )
     return app, api

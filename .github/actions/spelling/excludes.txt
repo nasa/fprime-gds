@@ -8,6 +8,8 @@ ignore$
 /doc/xml/
 /third-party/
 /third/
+/vendor/
+/modified-vendor/
 \.min\.
 \.bak$
 \.bin$

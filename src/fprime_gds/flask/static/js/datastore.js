@@ -25,7 +25,6 @@ import {_loader} from "./loader.js";
 export class DataStore {
 
     constructor() {
-        this.loggers = [];
         // Activity timeout for checking spacecraft health and "the orb" (ours, not Keynes')
         this.active = [false, false];
         this.active_timeout = null;
@@ -35,12 +34,15 @@ export class DataStore {
         this.command_history = [];
         this.channels = {};
         this.commands = {};
-        this.logs ={"": ""};
+        this.logs =[];
 
         // File data stores used for file handling
         this.downfiles = [];
         this.upfiles = [];
         this.uploading = false;
+
+        // Consumers
+        this.channel_consumers = [];
     }
 
     startup() {
@@ -71,11 +73,6 @@ export class DataStore {
         _loader.registerPoller("downfiles", this.updateDownfiles.bind(this));
     }
 
-    registerLogHandler(item) {
-        this.loggers.push(item);
-        return this.logs;
-    }
-
     registerActiveHandler(item) {
         this.actives.push(item);
         return [false, false];
@@ -93,6 +90,14 @@ export class DataStore {
             let id = channel.id;
             this.channels[id] = channel;
         }
+        this.channel_consumers.forEach((consumer) =>
+        {
+            try {
+                consumer.sendChannels(new_channels);
+            } catch (e) {
+                console.error(e);
+            }
+        });
         this.updateActivity(new_channels, 0);
     }
 
@@ -103,10 +108,7 @@ export class DataStore {
     }
 
     updateLogs(log_data) {
-        this.logs = log_data;
-        for (let i = 0; i < this.loggers.length; i++) {
-            this.loggers[i].update();
-        }
+        this.logs.splice(0, this.logs.length, ...log_data.logs);
     }
 
     updateUpfiles(data) {
@@ -128,8 +130,16 @@ export class DataStore {
             this.active.splice(index, 1, true);
             clearTimeout(this.active_timeout);
             this.active_timeout = setTimeout(() => _self.active.splice(index, 1, false), timeout);
-        } else {
-            this.active.splice(index, 1, false);
+        }
+    }
+
+    registerChannelConsumer(consumer) {
+        this.channel_consumers.push(consumer);
+    }
+    deregisterChannelConsumer(consumer) {
+        let index = this.channel_consumers.indexOf(consumer);
+        if (index != -1) {
+            this.channel_consumers.splice(index, 1);
         }
     }
 };
