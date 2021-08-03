@@ -88,5 +88,6 @@ class SequenceCompiler(flask_restful.Resource):
             flask_restful.abort(403, message={"error": str(ose), "type": "error"})
         except SeqGenException as exc:
             flask_restful.abort(403, message={"error": str(exc), "type": "validation"})
-        temp_seq_path.unlink(missing_ok=True)
+        if temp_seq_path.exists():
+            temp_seq_path.unlink()
         return {"message": messages}
