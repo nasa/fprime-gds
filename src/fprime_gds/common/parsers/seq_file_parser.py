@@ -6,11 +6,12 @@ from fprime_gds.common.models.common.command import Descriptor
 
 
 class SeqFileParser:
-    def parse(self, filename):
+    def parse(self, filename, cont=False):
         """
         Generator that parses an input sequence file and returns a tuple
         for each valid line of the sequence file.
         @param seqfile: A sequence file name (usually a .seq extension)
+        @param cont: attempt to continue after a line fails to parse, hopefully revealing more errors
         @return A list of tuples:
             (lineNumber, descriptor, seconds, useconds, mnemonic, arguments)
         """
@@ -189,41 +190,50 @@ class SeqFileParser:
 
         # Open the sequence file and parse each line:
         with open(filename) as inputFile:
+            messages = []
             for i, line in enumerate(inputFile):
-                line = line.strip()
-                # ignore blank lines and comments
-                if line and line[0] != ";":
-                    line = removeTrailingComments(line)
-                    line = splitString(line)
-                    length = len(line)
-                    if length < 2:
-                        raise gseExceptions.GseControllerParsingException(
-                            "Line %d: %s"
-                            % (
-                                i + 1,
-                                "Each line must contain a minimum of two fields, time and command mnemonic\n",
-                            )
-                        )
-                    else:
-                        try:
-                            descriptor, seconds, useconds = parseTime(i, line[0])
-                        except:
+                try:
+                    line = line.strip()
+                    # ignore blank lines and comments
+                    if line and line[0] != ";":
+                        line = removeTrailingComments(line)
+                        line = splitString(line)
+                        length = len(line)
+                        if length < 2:
                             raise gseExceptions.GseControllerParsingException(
                                 "Line %d: %s"
-                                % (i + 1, "Encountered syntax error parsing timestamp")
+                                % (
+                                    i + 1,
+                                    "Each line must contain a minimum of two fields, time and command mnemonic\n",
+                                )
                             )
-                        mnemonic = line[1]
-                        args = []
-                        if length > 2:
-                            args = line[2:]
+                        else:
                             try:
-                                args = parseArgs(args)
+                                descriptor, seconds, useconds = parseTime(i, line[0])
                             except:
                                 raise gseExceptions.GseControllerParsingException(
                                     "Line %d: %s"
-                                    % (
-                                        i + 1,
-                                        "Encountered syntax error parsing arguments",
-                                    )
+                                    % (i + 1, "Encountered syntax error parsing timestamp")
                                 )
-                    yield i, descriptor, seconds, useconds, mnemonic, args
+                            mnemonic = line[1]
+                            args = []
+                            if length > 2:
+                                args = line[2:]
+                                try:
+                                    args = parseArgs(args)
+                                except:
+                                    raise gseExceptions.GseControllerParsingException(
+                                        "Line %d: %s"
+                                        % (
+                                            i + 1,
+                                            "Encountered syntax error parsing arguments",
+                                        )
+                                    )
+                        yield i, descriptor, seconds, useconds, mnemonic, args
+                except gseExceptions.GseControllerParsingException as exc:
+                    if not cont:
+                        raise
+                    messages.append(exc.getMsg())
+            if cont and messages:
+                raise gseExceptions.GseControllerParsingException("\n".join(messages))
+

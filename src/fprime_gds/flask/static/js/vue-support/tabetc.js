@@ -34,7 +34,7 @@ Vue.component("tabbed-etc", {
             let hash = window.location.hash.replace("#", "");
             return {
                 "currentTab": (hash == "")? "Commanding" : hash,
-                "tabs": ["Commanding", "Events", "Channels", "Uplink", "Downlink", "Logs", "Charts", "Dashboard"],
+                "tabs": ["Commanding", "Events", "Channels", "Uplink", "Downlink", "Logs", "Charts", "Sequences", "Dashboard"],
                 "config": config,
                 "active": _datastore.active
             }

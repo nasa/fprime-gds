@@ -21,6 +21,7 @@ import fprime_gds.flask.events
 import fprime_gds.flask.json
 import fprime_gds.flask.logs
 import fprime_gds.flask.updown
+import fprime_gds.flask.sequence
 
 from . import components
 
@@ -122,6 +123,13 @@ def construct_app():
         "/download/files/<string:source>",
         resource_class_args=[pipeline.files.downlinker],
     )
+    api.add_resource(
+        fprime_gds.flask.sequence.SequenceCompiler,
+        "/sequence",
+        resource_class_args=[app.config["DICTIONARY"], app.config["UPLOADED_UPLINK_DEST"], pipeline.files.uplinker,
+                             app.config["REMOTE_SEQ_DIRECTORY"]],
+    )
+
     # Optionally serve log files
     if app.config["SERVE_LOGS"]:
         api.add_resource(

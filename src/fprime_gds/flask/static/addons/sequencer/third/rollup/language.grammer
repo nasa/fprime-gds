@@ -1,0 +1,32 @@
+@detectDelim
+@top Sequence { (Statement | newline)* }
+
+Statement {TimeTag Command Arg* newline }
+
+
+Arg { String | Enum | Integer | Float }
+
+@tokens {
+    newline { "\n"}
+    split { ",? *"}
+
+    String { '"' !["]* '"'}
+    Integer { ("-"? std.digit+ | "0x" $[0-9a-fA-F]+ ) }
+    Float { std.digit+ "." std.digit* }
+    Time { std.digit std.digit ":" std.digit std.digit ":" std.digit std.digit ("." std.digit std.digit std.digit)? }
+    Date { std.digit std.digit std.digit std.digit "-" std.digit std.digit std.digit }
+
+    Name {$[a-zA-Z_] $[a-zA-Z_0-9]* }
+
+    Command { Name "." Name }
+    Enum { Name }
+
+
+    TimeTag { ("R" Time) | ("A" Date "T" Time)}
+
+    LineComment { ";" ![\n]* }
+    @precedence { Integer, Float }
+}
+
+
+@skip { LineComment split }
