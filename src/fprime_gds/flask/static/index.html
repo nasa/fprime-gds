@@ -177,7 +177,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                 <div class="fp-flex-repeater">
                     <div class="fp-flex-header">
                         <h2 v-if="!builder">Sending Command: {{ selected.full_name }}</h2>
-                        <form v-on:submit.prevent="null" class="command-input-form" novalidate>
+                        <form v-on:submit.prevent="() => {return false;}" class="command-input-form" novalidate>
                             <div class="form-row">
                                 <div class="form-group col-4">
                                     <label for="mnemonic">Mnemonic</label>
