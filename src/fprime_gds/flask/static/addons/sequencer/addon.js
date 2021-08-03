@@ -108,7 +108,7 @@ Vue.component("sequencer", {
                 _self.active = false;
                 let type = message.type || "validation";
                 let content = message.error || message;
-                _self.messages[type] = message;
+                _self.messages[type] = content;
             });
         },
         /**
