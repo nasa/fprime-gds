@@ -213,6 +213,7 @@ FONTPATH
 FONTSIZE
 fprime
 fptable
+framerate
 fromtimestamp
 frontend
 fsw
@@ -567,6 +568,7 @@ thtcp
 thudp
 timebase
 timedelta
+timescales
 timestep
 timestring
 timetype
@@ -664,6 +666,7 @@ xcode
 xhtml
 xhttp
 xl
+xy
 xlsx
 xml
 yaml

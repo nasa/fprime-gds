@@ -45,6 +45,16 @@ export function filter(items, matching, ifun) {
 }
 
 /**
+ * Get a date object from a given time.
+ * @param time: time object in fprime time format
+ * @return {Date}: Javascript date object
+ */
+export function timeToDate(time) {
+    let date = new Date((time.seconds * 1000) + (time.microseconds/1000));
+    return date;
+}
+
+/**
  * Convert a given F´ time into a string for display purposes.
  * @param time: f´ time to convert
  * @return {string} stringified time
@@ -52,9 +62,7 @@ export function filter(items, matching, ifun) {
 export function timeToString(time) {
     // If we have a workstation time, convert it to calendar time
     if (time.base.value == 2) {
-        let date = new Date(0);
-        date.setSeconds(time.seconds);
-        date.setMilliseconds(time.microseconds/1000);
+        let date = timeToDate(time);
         return date.toISOString();
     }
     return time.seconds + "." + time.microseconds;

@@ -124,29 +124,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     </v-runtime-template>
                 </div>
             </template>
-            <!--
-            Logs:
 
-            Logs template used to display log information from the system. Contains a selectable list of logs and a
-            panel that displays the raw text, with light highlighting.
-            -->
-            <template id="logs-template">
-                <div class="fp-flex-repeater">
-                    <div class="fp-flex-header">
-                        <label for="logselect">Available Logs:</label>
-                        <v-select id="logselect"
-                                  :clearable="false" :searchable="true"
-                                  :filterable="true"  :options="options"
-                                  v-model="selected">
-                        </v-select>
-                    </div>
-                    <div class="fp-scroll-container">
-                        <div class="fp-scrollable fp-color-logging">
-                            <pre><code>{{logs[selected]}}</code></pre>
-                        </div>
-                    </div>
-                </div>
-            </template>
             <!--
             Command History:
 
