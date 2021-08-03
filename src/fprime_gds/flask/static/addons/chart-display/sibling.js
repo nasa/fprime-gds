@@ -115,7 +115,7 @@ export class SiblingSet {
     remove(sibling) {
         let index = this._siblings.indexOf(sibling);
         if (index !== -1) {
-            this._siblings.slice(index, 1); // lgtm [js/ignore-array-result]
+            this._siblings.splice(index, 1); 
         }
     }
 }

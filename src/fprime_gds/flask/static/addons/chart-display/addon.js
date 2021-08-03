@@ -27,6 +27,7 @@ import './modified-vendor/chartjs-plugin-streaming.js';
 Vue.component("chart-wrapper", {
     data: function () {
         return {
+            counter: 1,
             locked: false,
             isHelpActive: true,
             wrappers: [{"id": 0}], // Starts with a single chart
