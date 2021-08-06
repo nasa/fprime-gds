@@ -92,7 +92,7 @@ class APITestCases(unittest.TestCase):
 
     def setUp(self):
         for t in self.threads:
-            if t.isAlive():
+            if t.is_alive():
                 t.join()
         self.threads.clear()
         count = len(self.case_list)
