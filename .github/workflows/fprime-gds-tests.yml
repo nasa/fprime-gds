@@ -1,6 +1,6 @@
 name: fprime-gds tests
 
-on: [push]
+on: [pull-request]
 
 jobs:
   build:
