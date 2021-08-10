@@ -54,7 +54,7 @@ def sample_event(sample_template):
         filtering_utils.get_search_predicate("the same combination"),
     ],
 )
-
+@pytest.mark.gds_cli
 def test_valid_accepting_filter(sample_event, accepting_input_filter):
     assert accepting_input_filter(sample_event)
 
