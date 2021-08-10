@@ -19,8 +19,6 @@ from fprime_gds.common.testing_fw import predicates
 # Test misc_utils.repeat_until_interrupt
 # ==============================================================================
 
-
-@pytest.mark.gds_cli
 def test_repeat_exits_at_counter():
     """
     Test basic functionality works as intended, can pass updated arguments, and
@@ -42,8 +40,6 @@ def test_repeat_exits_at_counter():
 
     assert count == 3
 
-
-@pytest.mark.gds_cli
 def test_repeat_with_void_function_valid():
     """
     Test repeating with a function that doesn't return anything still works
@@ -60,8 +56,6 @@ def test_repeat_with_void_function_valid():
 
     assert count == 5
 
-
-@pytest.mark.gds_cli
 def test_repeat_with_no_arg_void_function_valid():
     """
     Test repeating with a function that takes no arguments doesn't throw an
@@ -79,8 +73,6 @@ def test_repeat_with_no_arg_void_function_valid():
 
     assert count == 3
 
-
-@pytest.mark.gds_cli
 def test_repeat_with_no_arg_returning_function_invalid():
     """
     Test repeating with a function that takes no arguments but still returns a
@@ -98,8 +90,6 @@ def test_repeat_with_no_arg_returning_function_invalid():
     with pytest.raises(TypeError):
         misc_utils.repeat_until_interrupt(error_before_exit)
 
-
-@pytest.mark.gds_cli
 def test_repeat_with_function_returning_naked_string_problematic():
     """
     Test that returning a string without encapsulating it in a tuple will fail,
@@ -117,8 +107,6 @@ def test_repeat_with_function_returning_naked_string_problematic():
     with pytest.raises(TypeError):
         misc_utils.repeat_until_interrupt(error_before_exit)
 
-
-@pytest.mark.gds_cli
 def test_repeat_with_function_returning_enclosed_string_valid():
     """
     Test that returning a string when encapsulating it in a tuple will count
@@ -180,8 +168,6 @@ def assert_equal_data_lists(list1, list2):
     for item1, item2 in zip(list1, list2):
         assert item1.get_id() == item2.get_id()
 
-
-@pytest.mark.gds_cli
 def test_valid_get_item_list(item_template_dictionary):
     original_dict = deepcopy(item_template_dictionary)
     item_list = test_api_utils.get_item_list(
@@ -204,8 +190,6 @@ def test_valid_get_item_list(item_template_dictionary):
     # Check nothing changed in the original dictionary
     assert_equal_template_dictionaries(item_template_dictionary, original_dict)
 
-
-@pytest.mark.gds_cli
 def test_get_item_list_with_id_filter(item_template_dictionary):
     original_dict = deepcopy(item_template_dictionary)
     item_list = test_api_utils.get_item_list(
@@ -224,8 +208,6 @@ def test_get_item_list_with_id_filter(item_template_dictionary):
     # Check nothing changed in the original dictionary
     assert_equal_template_dictionaries(item_template_dictionary, original_dict)
 
-
-@pytest.mark.gds_cli
 def test_get_empty_item_list_with_unused_id(item_template_dictionary):
     original_dict = deepcopy(item_template_dictionary)
     item_list = test_api_utils.get_item_list(
@@ -238,8 +220,6 @@ def test_get_empty_item_list_with_unused_id(item_template_dictionary):
     # Check nothing changed in the original dictionary
     assert_equal_template_dictionaries(item_template_dictionary, original_dict)
 
-
-@pytest.mark.gds_cli
 def test_get_item_list_with_empty_item_dictionary():
     item_list = test_api_utils.get_item_list(
         item_dictionary={}, search_filter=predicates.always_true(), template_to_data=t2d
