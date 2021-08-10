@@ -3,7 +3,7 @@ name: fprime-gds tests
 on: [pull_request]
 
 jobs:
-  build:
+  Unit-tests:
 
     runs-on: ubuntu-latest
     strategy:
