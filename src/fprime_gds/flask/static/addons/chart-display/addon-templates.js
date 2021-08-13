@@ -11,16 +11,18 @@ export let chart_wrapper_template = `
 
         <div class="row mt-2">
             <div class="col-md-10">
-                <button class="btn btn-sm btn-secondary" v-on:click="addChart">
-                    <span class="fp-chart-btn-icon">&plus;</span><span class="fp-chart-btn-text">Add Chart</span>
+                <button class="btn btn-secondary" v-on:click="addChart">
+                    <i class="fas fa-plus"></i> <span class="d-md-none d-lg-inline">Add Chart</span>
                 </button>
-                <button class="btn btn-sm" :class="{'btn-secondary': !this.siblings.in_sync, 'btn-success': siblings.in_sync}" v-on:click="siblings.in_sync = !siblings.in_sync">
-                    <span class="fp-chart-btn-text">Lock Timescales</span>
+                <button class="btn" :class="{'btn-secondary': !this.siblings.in_sync, 'btn-success': siblings.in_sync}" v-on:click="siblings.in_sync = !siblings.in_sync">
+                    <i class="fas fa-thumbtack"></i>
+                    <span class="d-md-none d-lg-inline">Lock Timescales</span>
                 </button>
             </div>
             <div class="col-md-2">
-                <button class="btn btn-sm btn-secondary float-right" v-on:click="isHelpActive = !isHelpActive">
-                    <span class="fp-chart-btn-text">Help</span>
+                <button class="btn btn-secondary float-right" v-on:click="isHelpActive = !isHelpActive">
+                    <i class="fas fa-question-circle"></i>
+                    <span class="d-md-none d-lg-inline">Help</span>
                 </button>
             </div>
         </div>
