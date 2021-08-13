@@ -159,26 +159,40 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <h2 v-if="!builder">Sending Command: {{ selected.full_name }}</h2>
                         <form v-on:submit.prevent="() => {return false;}" class="command-input-form" novalidate>
                             <div class="form-row">
-                                <div class="form-group col-4">
+                                <div class="form-group col-md-4">
                                     <label for="mnemonic">Mnemonic</label>
-                                    <v-select id="mnemonic" style="flex: 1 1 auto;  background-color: white;"
-                                              :clearable="false" :searchable="true" @input="validate"
-                                              :filterable="true"  label="full_name" :options="commandList" v-model="selected"
-                                              :class="this.error == '' ? '' : 'is-invalid'" required>
+                                    <v-select id="mnemonic" style="flex: 1 1 auto; background-color: white;" :clearable="false"
+                                        :searchable="true" @input="validate" :filterable="true" label="full_name"
+                                        :options="commandList" v-model="selected" :class="this.error == '' ? '' : 'is-invalid'"
+                                        required>
                                     </v-select>
                                     <div class="invalid-feedback">{{ (this.error != '')? this.error : "Supply valid command"}}</div>
                                 </div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group col" v-for="argument in selected.args">
+                                <div class="form-group col-md-6" v-for="argument in selected.args">
                                     <command-argument :argument="argument"></command-argument>
                                 </div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group col">
-                                    <button type="button" class="col-2 btn btn-outline-secondary" v-on:click="clearArguments">Clear Arguments</button>
-                                    <button type="button" v-if="!builder" v-on:click="sendCommand" :disabled="active" class="col-2 btn btn-primary">Send Command</button>
-                            </div>
+                                <div class="form-group col-md-4">
+                                    <div class="form-row">
+                                        <div class="col-md-6 mb-1">
+                                            <button type="button" class="btn btn-outline-secondary btn-block"
+                                                v-on:click="clearArguments">
+                                                <i class="fas fa-eraser"></i>
+                                                <span class="d-md-none d-lg-inline">Clear Arguments</span>
+                                            </button>
+                                        </div>
+                                        <div class="col-md-6 mb-1">
+                                            <button type="button" v-if="!builder" v-on:click="sendCommand" :disabled="active"
+                                                class="btn btn-primary btn-block">
+                                                <i class="fas fa-paper-plane"></i>
+                                                <span class="d-md-none d-lg-inline">Send Command</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>
