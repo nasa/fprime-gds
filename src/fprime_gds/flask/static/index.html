@@ -172,11 +172,11 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                     <command-argument :argument="argument"></command-argument>
                                 </div>
                             </div>
-                            <div class="form-row no-gutters">
-                                <button type="button" class="col-2 btn btn-outline-secondary" v-on:click="clearArguments">Clear Arguments</button>
-                                <button type="button" v-if="!builder" v-on:click="sendCommand" :disabled="active" class="col-2 btn btn-primary">
-                                    Send Command
-                                </button>
+                            <div class="form-row">
+                                <div class="form-group col">
+                                    <button type="button" class="col-2 btn btn-outline-secondary" v-on:click="clearArguments">Clear Arguments</button>
+                                    <button type="button" v-if="!builder" v-on:click="sendCommand" :disabled="active" class="col-2 btn btn-primary">Send Command</button>
+                            </div>
                             </div>
                         </form>
                     </div>
@@ -317,27 +317,35 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div class="fp-flex-header">
                         <h2>File Uplink</h2>
                     </div>
-                    <div class="form-row">
-                            <label class="col-2">Destination Folder:</label>
-                            <input class="col-2" type="text" v-model="destination" pattern="/.*" />
-                            <div class="col-4">
-                                <label>Add Files to Uplink:</label>
-                                <input type="file" class="btn btn-active" v-bind:files="selected" multiple v-on:change="handleFiles" />
+                    <div class="row form-row">
+                        <div class="form-group col-md-4 mt-2">
+                            <input class="form-control" type="text" v-model="destination" pattern="/.*" />
+                            <label>Destination Folder</label>
+                        </div>
+                        <div class="form-group col-md-3 custom-file mt-2">
+                            <input type="file" class="custom-file-input" id="chooseUplinkFile" v-bind:files="selected" multiple
+                                v-on:change="handleFiles">
+                            <label class="custom-file-label" for="chooseUplinkFile">Add Files to Uplink</label>
+                        </div>
+                        <div class="col-md-4 mt-2 offset-1">
+                            <div class="d-flex justify-content-end">
+                                <button v-if="running" type="button" class="col-5 btn btn-outline-secondary"
+                                    v-on:click="pauseUplink">Pause
+                                    Uplink Queue</button>
+                                <button v-if="!running" type="button" class="col-5 btn btn-outline-secondary"
+                                    v-on:click="unpauseUplink">Unpause Uplink Queue</button>
+                                <button type="button" class="col-5 btn btn-primary ml-1" v-on:click="uplinkFiles">Submit
+                                    Uplink</button>
                             </div>
-                            <button v-if="running" type="button" class="col-2 btn btn-outline-secondary" v-on:click="pauseUplink">Pause Uplink Queue</button>
-                            <button v-if="!running" type="button" class="col-2 btn btn-outline-secondary" v-on:click="unpauseUplink">Unpause Uplink Queue</button>
-                            <button type="button" class="col-2 btn btn-primary" v-on:click="uplinkFiles">Submit Uplink</button>
                         </div>
-                        <div v-if="error != null" class="alert alert-danger" role="alert">
-                            {{ this.error }}
-                        </div>
-                        <fp-table :header-columns="['Start Time', 'End Time', 'Source', 'Destination', 'State', 'Control', 'Progress']"
-                                  :items="elements"
-                                  :item-to-unique="keyify"
-                                  :display-template="'file-row'"
-                                  :item-to-columns="columnify"
-                        ></fp-table>
+            
                     </div>
+                    <div v-if="error != null" class="alert alert-danger" role="alert">
+                        {{ this.error }}
+                    </div>
+                    <fp-table :header-columns="['Start Time', 'End Time', 'Source', 'Destination', 'State', 'Control', 'Progress']"
+                        :items="elements" :item-to-unique="keyify" :display-template="'file-row'" :item-to-columns="columnify">
+                    </fp-table>
                 </div>
             </template>
             <!-- Downlink;
