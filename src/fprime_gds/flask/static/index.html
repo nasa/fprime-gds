@@ -325,23 +325,28 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                             <label>Destination Folder</label>
                         </div>
                         <div class="form-group col-md-4 mt-2">
-                            <button type="button" class="col-5 btn btn-primary ml-1" v-on:click="uplinkFiles">
-                                <i class="fas fa-satellite-dish"></i> Uplink
+                            <button type="button" class="col-md-5 btn btn-primary ml-1" v-on:click="uplinkFiles">
+                                <i class="fas fa-satellite-dish"></i> <span class="d-md-none d-lg-inline">Uplink</span>
                             </button>
                         </div>
 
-                        <div class="form-group col-md-2 offset-2">
-                            <button v-if="running" type="button" class="btn btn-outline-secondary float-right mr-1 mb-1"
+                        <div class="form-group col-md-4 mt-2">
+                            <button v-if="running" type="button" class="btn btn-secondary float-right mr-1 mb-1 col-md-3"
                             v-on:click="pauseUplink">
-                                Pause Uplink
+                                <i class="fas fa-pause"></i>
+                                <span class="d-md-none d-lg-inline">Pause</span>
                             </button>
-                            <button v-if="!running" type="button" class="btn btn-outline-secondary float-right mr-1 mb-1"
+                            <button v-if="!running" type="button" class="btn btn-secondary float-right mr-1 mb-1 col-md-3"
                             v-on:click="unpauseUplink">
-                                Unpause Uplink
+                                <i class="fas fa-play"></i>
+                                <span class="d-md-none d-lg-inline">Unpause</span>
                             </button>
                             <input type="file" id="chooseUplinkFile" v-bind:files="selected" multiple
                                 v-on:change="handleFiles" style="display: none;">
-                            <label for="chooseUplinkFile" class="btn btn-secondary float-right mr-1 mb-1"><i class="fas fa-upload"></i> Upload</label>
+                            <label for="chooseUplinkFile" class="btn btn-secondary float-right mr-1 mb-1 col-md-3">
+                                <i class="fas fa-upload"></i> 
+                                <span class="d-md-none d-lg-inline">Upload</span>
+                                </label>
                         </div>
                         
             
