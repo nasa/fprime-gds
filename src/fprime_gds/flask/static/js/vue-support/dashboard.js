@@ -21,8 +21,7 @@ Vue.component("dashboard", {
 
     data: function() {
         return {
-            userTemplate: `<h2>This is your Dashboard</h2>
-            <h4>There are many like it, but this one is yours.</h4>`,
+            userTemplate: ``,
         };
     },
 

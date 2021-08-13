@@ -26,23 +26,23 @@ export let chart_wrapper_template = `
         </div>
 
         <transition name="fade">
-        <div v-if="isHelpActive">
-            <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                <div class="row">
-                    <div class="col-6">
-                        <strong>Zoom in and out</strong> by holding <strong>ALT</strong> and using mouse wheel to scroll while hovering over an axis <br/>
-                        <strong>Zoom in</strong> by holding <strong>ALT</strong> and clicking and dragging a selection on the chart
+            <div v-if="isHelpActive">
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Zoom in and out</strong> by holding <strong>ALT</strong> and using mouse wheel to scroll while hovering over an axis <br/>
+                            <strong>Zoom in</strong> by holding <strong>ALT</strong> and clicking and dragging a selection on the chart
+                        </div>
+                        <div class="col-6">
+                            <strong>Pan</strong> by holding <strong>SHIFT</strong> and clicking and dragging the chart <br/>
+                            <strong>Change size</strong> by clicking and dragging the icon at the bottom right of the chart box
+                        </div>
+                        <button type="button" class="close">
+                            <span v-on:click="isHelpActive = !isHelpActive">&times;</span>
+                        </button>
                     </div>
-                    <div class="col-6">
-                        <strong>Pan</strong> by holding <strong>SHIFT</strong> and clicking and dragging the chart <br/>
-                        <strong>Change size</strong> by clicking and dragging the icon at the bottom right of the chart box
-                    </div>
-                <p>
-                <button type="button" class="close">
-                    <span v-on:click="isHelpActive = !isHelpActive">&times;</span>
-                </button>
+                </div>
             </div>
-        </div>
         </transition>
         <component v-for="(chartInst, index) in wrappers" is="chart-display" :key="chartInst.id"
             :id="chartInst.id" :siblings="siblings" v-on:delete-chart="deleteChart">
