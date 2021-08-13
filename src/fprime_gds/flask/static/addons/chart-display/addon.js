@@ -29,7 +29,7 @@ Vue.component("chart-wrapper", {
         return {
             counter: 1,
             locked: false,
-            isHelpActive: true,
+            isHelpActive: false,
             wrappers: [{"id": 0}], // Starts with a single chart
             siblings: new SiblingSet()
         };

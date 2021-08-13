@@ -27,7 +27,7 @@ export let chart_wrapper_template = `
 
         <transition name="fade">
             <div v-if="isHelpActive">
-                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <div class="alert alert-warning alert-dismissible mt-2 fade show" role="alert">
                     <div class="row">
                         <div class="col-6">
                             <strong>Zoom in and out</strong> by holding <strong>ALT</strong> and using mouse wheel to scroll while hovering over an axis <br/>
