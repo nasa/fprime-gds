@@ -25,7 +25,7 @@ Vue.component("fp-row", {
          *
          * 'itemToColumns' will be bound to a function taking one item from the parent fp-table object. See fp-table.
          */
-        itemToColumns: Function,
+        itemToColumns: [Array, Function],
         /**
          * rowStyle:
          *
@@ -121,7 +121,7 @@ Vue.component("file-row", {
          *
          * 'itemToColumns' will be bound to a function taking one item from the parent fp-table object. See fp-table.
          */
-        itemToColumns: Function,
+        itemToColumns: [Array, Function],
     },
     methods: {
         /**
@@ -201,7 +201,7 @@ Vue.component("fp-table", {
          * 'itemToColumns' should be bound to a function taking one item from the above array as input, and returning
          * a Array of column values for display. This will be performed in the row sub-component.
          */
-        itemToColumns: Function,
+        itemToColumns: [Array, Function],
         /**
          * itemToUnique:
          *
@@ -300,7 +300,9 @@ Vue.component("fp-table", {
          */
         initialViews: {
             type: [Array, String],
-            default: []
+            default: function () {
+                return []
+            }
         }
     },
     // Required data items (unique for each table instance)
