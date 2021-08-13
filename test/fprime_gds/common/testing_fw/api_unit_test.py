@@ -39,7 +39,8 @@ class UTPipeline(StandardPipeline):
         pass
 
     def disconnect(self):
-        pass
+        #Standard pipeline starts uplink thread that must be stopped
+        self.files.uplinker.exit()
 
     def send_command(self, command, args):
         command_template = self.dictionaries.command_id[command]
@@ -92,7 +93,7 @@ class APITestCases(unittest.TestCase):
 
     def setUp(self):
         for t in self.threads:
-            if t.isAlive():
+            if t.is_alive():
                 t.join()
         self.threads.clear()
         count = len(self.case_list)
