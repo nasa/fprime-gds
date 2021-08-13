@@ -22,8 +22,10 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
     <head>
         <!--link rel="stylesheet" href="third-party/css/bootstrap.min.css"-->
         <link rel="stylesheet" href="third-party/css/vue-select.css">
+        <link rel="stylesheet" href="third-party/css/all.min.css">
         <link rel="stylesheet" href="css/fpstyle.css">
         <link rel="stylesheet" href="css/fprime.css">
+
         <!-- Development mode -Vue- should it be needed for debug purposes -->
         <!--script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script-->
 
@@ -74,7 +76,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                      :key="tab"
                                      v-on:click="route(tab)">{{ tab }}</li>
                                 <form class="form-inline my-2 my-lg-0">
-                                    <div class="btn btn-primary" v-on:click="spawn">New Window</div>
+                                    <div class="btn btn-primary btn-sm ml-2" v-on:click="spawn"><i class="fas fa-external-link-alt"></i></div>
                                 </form>
                             </ul>
                             <span class="navbar-brand">
@@ -111,12 +113,12 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             <template id="dashboard-template">
                 <div class="fp-flex-repeater">
                     <div class="fp-flex-header">
-                        <div class="mt-2">
-                            <label for="config-file">Choose a Layout Configuration File:</label>
-                            <input type="file"
-                                   name="config-file"
-                                   accept="application/xml"
-                                   v-on:change="configureDashboardFromFile($event.target.files[0])"/>
+                        <div class="col-3 mt-2 ml-2">
+                            <div class="custom-file">
+                                <input type="file" name="config-file" id="config-file" accept="application/xml"
+                                v-on:change="configureDashboardFromFile($event.target.files[0])" >
+                                <label class="custom-file-label" for="config-file">Choose a Layout File</label>
+                            </div>
                         </div>
                         <v-runtime-template v-bind:template="userTemplate">
                             <!-- User-specified components go here -->
@@ -476,7 +478,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <!-- If the table supports editing views, these features support the edit context of the view -->
                     <div class="row fp-flex-header" v-if="editing && !compact">
                         <div class="col-4"></div>
-                        <div class="btn-group col-8">
+                        <div class="btn-group col-8 mb-1 mt-1 btn-group-sm">
                             <div type="button" class="btn btn-secondary" v-on:click="clearView">Clear</div>
                             <a :href="viewHref" download="current-view.txt" class="btn btn-info">Export</a>
                             <label class="btn btn-info btn-file">
@@ -485,11 +487,11 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                             <div type="button" class="btn btn-primary" v-on:click="saveView">Done</div>
                         </div>
                     </div>
-                    <div class="row fp-flex-header no-gutters justify-content-end" v-if="!editing && !compact">
+                    <div class="row fp-flex-header no-gutters justify-content-end mb-1" v-if="!editing && !compact">
                         <button type="button" class="col-3 btn btn-primary" v-if="supportViews && !editing"
                                 v-on:click="editViews">Edit View</button>
                     </div>
-                    <div class="row fp-flex-header no-gutters justify-content-end" v-if="!editing && !compact">
+                    <div class="row fp-flex-header no-gutters justify-content-end mb-1" v-if="!editing && !compact">
                         <button class="col-3 btn btn-secondary" v-if="clearRows != null" v-on:click="clearRows">Clear</button>
                     </div>
                 </div>
