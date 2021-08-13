@@ -17,7 +17,7 @@ import {_loader} from "../loader.js";
 let template = `
 <div class="fp-flex-repeater">
     <div class="fp-flex-header">
-        <label for="logselect" class="mt-2">Available Logs:</label>
+        <h2>Available Logs</h2>
         <v-select id="logselect"
                   :clearable="true" :searchable="true"
                   :filterable="true"  :options="options"
