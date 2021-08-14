@@ -205,7 +205,7 @@ table td:last-child {
     opacity: 0;
 }
 
-.clickable-item {
+.click-able-item {
     cursor: pointer !important;
 }
 
