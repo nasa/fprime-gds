@@ -6824,7 +6824,7 @@ class InputState {
                     event.preventDefault();
                 else
                     handler(view, event);
-            });
+            }, { passive: false});
             this.registeredEvents.push(type);
         }
         this.notifiedFocused = view.hasFocus;
