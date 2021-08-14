@@ -204,3 +204,39 @@ table td:last-child {
 .fade-enter, .fade-leave-to {
     opacity: 0;
 }
+
+.clickable-item {
+    cursor: pointer !important;
+}
+
+.navbar-custom-style-blue-whale {
+    background-color: rgba(17, 23, 47, 1) !important; 
+}
+
+.navbar-custom-style-purple {
+    background-color: rgba(119, 41, 83, 1) !important; 
+}
+
+.navbar-custom-style-dark-blue {
+    background-color: rgba(55, 90, 127, 1) !important; 
+}
+
+.navbar-custom-style-dark-gray {
+    background-color: rgba(48, 48, 48, 1) !important; 
+}
+
+.navbar-custom-style-indigo {
+    background-color: rgba(89, 49, 150, 1) !important; 
+}
+
+.navbar-custom-style-sapphire {
+    background-color: rgba(7, 54, 66, 1) !important; 
+}
+
+.navbar-custom-style-lotus {
+    background-color: rgba(143, 83, 78, 1) !important; 
+}
+
+.navbar-custom-style-red-oxide {
+    background-color: rgba(75, 20, 22, 1) !important; 
+}
