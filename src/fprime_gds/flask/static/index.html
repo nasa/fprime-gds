@@ -72,7 +72,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                             </span>
                             <ul class="navbar-nav mr-auto mt-2 mt-lg-0">
                                 <li v-for="tab in tabs"
-                                     :class="['nav-item', 'nav-link', 'clickable-item', { active: currentTab == tab }]"
+                                     :class="['nav-item', 'nav-link', 'click-able-item', { active: currentTab == tab }]"
                                      :key="tab"
                                      v-on:click="route(tab)">{{ tab }}</li>
                                 <form class="form-inline my-2 my-lg-0">
@@ -150,7 +150,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                               :initial-views="itemsShown"
                               :compact="compact"
                               :click-action="clickAction"
-                              class="clickable-item"
+                              class="click-able-item"
                     ></fp-table>
                 </div>
             </template>
