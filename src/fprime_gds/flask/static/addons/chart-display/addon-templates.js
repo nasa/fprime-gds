@@ -8,7 +8,7 @@
 
 export let chart_wrapper_template = `
     <div class="fp-flex-repeater">
-
+        <h2>Charts</h2>
         <div class="row mt-2">
             <div class="col-md-10">
                 <button class="btn btn-secondary" v-on:click="addChart">

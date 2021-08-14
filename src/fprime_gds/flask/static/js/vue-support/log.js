@@ -18,11 +18,13 @@ let template = `
 <div class="fp-flex-repeater">
     <div class="fp-flex-header">
         <h2>Available Logs</h2>
-        <v-select id="logselect"
-                  :clearable="true" :searchable="true"
-                  :filterable="true"  :options="options"
-                  v-model="selected">
-        </v-select>
+        <div class="my-3">
+            <v-select id="logselect"
+                    :clearable="true" :searchable="true"
+                    :filterable="true"  :options="options"
+                    v-model="selected">
+            </v-select>
+        </div>
     </div>
     <div class="fp-scroll-container">
         <div class="fp-scrollable fp-color-logging">

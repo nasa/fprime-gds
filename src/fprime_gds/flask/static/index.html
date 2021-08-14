@@ -113,11 +113,17 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             <template id="dashboard-template">
                 <div class="fp-flex-repeater">
                     <div class="fp-flex-header">
-                        <div class="col-3 mt-2 ml-2">
-                            <div class="custom-file">
-                                <input type="file" name="config-file" id="config-file" accept="application/xml"
-                                v-on:change="configureDashboardFromFile($event.target.files[0])" >
-                                <label class="custom-file-label" for="config-file">Choose a Layout File</label>
+                        <div class="col-md-5 mt-2">
+                            <div class="form-group">
+                                <input type="file" name="config-file" 
+                                    id="config-file" 
+                                    accept="application/xml" 
+                                    v-on:change="configureDashboardFromFile($event.target.files[0])"
+                                    style="display: none;"/>
+                                <label for="config-file" class="btn btn-secondary mr-1 mb-1 col-md-5">
+                                    <i class="fas fa-upload"></i>
+                                    <span class="d-md-none d-lg-inline">Upload Dashboard File</span>
+                                </label>
                             </div>
                         </div>
                         <v-runtime-template v-bind:template="userTemplate">
