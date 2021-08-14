@@ -6,7 +6,7 @@ export let sequencer_template = `
     <div class="fp-flex-header">
         <h2>Command Sequencer</h2>
         <form v-on:submit.prevent="() => { return false;}" class="was-validated" novalidate>
-            <div class="form-group row">
+            <div class="form-group form-row">
                 <div class="form-group col-md-4 mt-2" for="sequence">
                     <input type="text" id="sequence" class="form-control" v-model="sequence.name" :disabled="active"
                         pattern="[^;\\\\\\/]+\\.seq" placeholder="Sequence name ending in .seq" required />
@@ -17,18 +17,29 @@ export let sequencer_template = `
                         <i class="fas fa-satellite-dish"></i> <span class="d-md-none d-lg-inline">Uplink</span>
                     </button>
                 </div>
-                <div class="form-group col-md-4 align-right mt-2">
-                    <button class="btn btn-secondary mb-1 ml-1 float-right col-md-3" v-on:click="builder = !builder">
-                        <i class="fas fa-tools"></i> <span class="d-md-none d-lg-inline">Build</span>
-                    </button>
-                    <button class="btn btn-secondary mb-1 ml-1 float-right  col-md-3" :disabled="active" v-on:click="download"><i
-                            class="fas fa-download"></i> <span class="d-md-none d-lg-inline">Download</span></button>
-                    <input type="file" id="sequenceUpload" accept=".seq"
-                        v-on:change="setSequence($event.target.files[0])" style="display: none;" />
-                    <label for="sequenceUpload" class="btn btn-secondary float-right ml-1 mb-1 col-md-3">
-                        <i class="fas fa-upload"></i> <span class="d-md-none d-lg-inline">Upload</span>
-                    </label>
-
+                <div class="form-group col-md-4 mt-2">
+                    <div class="form-row">
+                        <div class="col-md-4 mb-1">
+                            <button class="btn btn-secondary btn-block" v-on:click="builder = !builder">
+                                <i class="fas fa-tools"></i> 
+                                <span class="d-md-none d-lg-inline">Build</span>
+                            </button>
+                        </div>
+                        <div class="col-md-4 mb-1">
+                            <button class="btn btn-secondary btn-block" :disabled="active" v-on:click="download">
+                                <i class="fas fa-download"></i> 
+                                <span class="d-md-none d-lg-inline">Download</span>
+                            </button>
+                        </div>
+                        <div class="col-md-4 mb-1">
+                            <input type="file" id="sequenceUpload" accept=".seq"
+                                v-on:change="setSequence($event.target.files[0])" style="display: none;"/>
+                            <label for="sequenceUpload" class="btn btn-secondary  btn-block">
+                                <i class="fas fa-upload"></i> 
+                                <span class="d-md-none d-lg-inline">Upload</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </form>
