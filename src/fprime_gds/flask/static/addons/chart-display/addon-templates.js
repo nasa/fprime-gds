@@ -47,8 +47,8 @@ export let chart_wrapper_template = `
                             <strong>Pan</strong> by holding <strong>SHIFT</strong> and clicking and dragging the chart <br/>
                             <strong>Change size</strong> by clicking and dragging the icon at the bottom right of the chart box
                         </div>
-                        <button type="button" class="close">
-                            <span v-on:click="isHelpActive = !isHelpActive">&times;</span>
+                        <button type="button" class="close" v-on:click="isHelpActive = !isHelpActive">
+                            <li class="fas fa-times" style="font-size: 0.75em"></i>
                         </button>
                     </div>
                 </div>
