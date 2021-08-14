@@ -99,7 +99,6 @@ csum
 csv
 ctime
 CTORS
-ctx
 curateable
 curated
 curating
@@ -162,6 +161,7 @@ dropdown
 dropleft
 dropright
 dropup
+Dsh
 dst
 dts
 DVI
@@ -184,6 +184,7 @@ envvar
 errno
 etree
 ev
+Evn
 evr
 evt
 exe
@@ -315,7 +316,6 @@ jsonify
 jumbotron
 kbd
 keepalive
-kets
 keyframes
 keyify
 kinda
@@ -375,7 +375,6 @@ mycompany
 myfile
 mymodule
 myproject
-nagix
 namespace
 nargs
 navbar
@@ -680,9 +679,9 @@ xcode
 xhtml
 xhttp
 xl
-xy
 xlsx
 xml
+xy
 yaml
 yml
 zlib
