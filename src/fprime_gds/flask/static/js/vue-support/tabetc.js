@@ -64,6 +64,10 @@ Vue.component("tabbed-etc", {
         spawn() {
             window.open(window.location);
         },
+        /**
+         * Make navbar collapse on small size window and allow user to expand
+         * by pressing an expand button.
+         */
         navbar_toggle() {
             for (const tab in this.tabs) {
                 let elem = document.getElementById(this.tabs[tab][0]);
