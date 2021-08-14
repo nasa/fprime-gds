@@ -10,17 +10,25 @@ export let chart_wrapper_template = `
     <div class="fp-flex-repeater">
         <h2>Charts</h2>
         <div class="row mt-2">
-            <div class="col-md-10">
-                <button class="btn btn-secondary" v-on:click="addChart">
-                    <i class="fas fa-plus"></i> <span class="d-md-none d-lg-inline">Add Chart</span>
-                </button>
-                <button class="btn" :class="{'btn-secondary': !this.siblings.in_sync, 'btn-success': siblings.in_sync}" v-on:click="siblings.in_sync = !siblings.in_sync">
-                    <i class="fas fa-thumbtack"></i>
-                    <span class="d-md-none d-lg-inline">Lock Timescales</span>
-                </button>
+            <div class="col-md-3">
+                <div class="form-row">
+                    <div class="col-md-6 mb-1">
+                        <button class="btn btn-secondary btn-block" v-on:click="addChart">
+                            <i class="fas fa-plus"></i> 
+                            <span class="d-md-none d-lg-inline">Add Chart</span>
+                        </button>
+                    </div>
+                    <div class="col-md-6 mb-1">
+                        <button class="btn btn-block" :class="{'btn-secondary': !this.siblings.in_sync, 'btn-success': siblings.in_sync}" v-on:click="siblings.in_sync = !siblings.in_sync">
+                            <i class="fas fa-thumbtack"></i>
+                            <span class="d-md-none d-lg-inline">Lock Timescales</span>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-2">
-                <button class="btn btn-secondary float-right" v-on:click="isHelpActive = !isHelpActive">
+            <div class="col-md-8"></div>
+            <div class="col-md-1">
+                <button class="btn btn-secondary btn-block float-right" v-on:click="isHelpActive = !isHelpActive">
                     <i class="fas fa-question-circle"></i>
                     <span class="d-md-none d-lg-inline">Help</span>
                 </button>
@@ -58,11 +66,11 @@ export let chart_display_template = `
 
             <div class="card-header">
                 <button type="button" class="close ml-2">
-                    <span v-on:click="emitDeleteChart(id)">&times;</span>
+                    <i v-on:click="emitDeleteChart(id)" class="fas fa-times" style="font-size: 0.75em"></i>
                 </button>
                 <button type="button" class="close ml-2" v-on:click="isCollapsed = !isCollapsed">
-                    <span v-if="!isCollapsed">&minus;</span>
-                    <span v-if="isCollapsed">&#9744;</span>
+                    <i v-if="!isCollapsed" class="fas fa-minus" style="font-size: 0.75em"></i>
+                    <i v-if="isCollapsed" class="far fa-square" style="font-size: 0.75em"></i>
                 </button>
                 <span class="card-subtitle text-muted">{{ selected }} </span>
             </div>
@@ -80,14 +88,14 @@ export let chart_display_template = `
 
                 <div class="row  justify-content-between">
                     <div class="col-md-4 mt-2">
-                        <button type="button" class="btn" v-bind:class="{'btn-warning': !pause, 'btn-success': pause}"
-                                v-on:click="toggleStreamFlow()" v-if="chart != null">
-                            <span v-if="!pause">&#10074;&#10074;</span>
-                            <span v-if="pause">&#9654;</span>
+                        <button type="button" class="btn" v-bind:class="{'btn-warning': !pause, 'btn-success': pause}" v-on:click="toggleStreamFlow()" v-if="chart != null">
+                            <i v-if="!pause" class="fas fa-pause"></i>
+                            <i v-if="pause" class="fas fa-play"></i>
                         </button>
                 
                         <button type="button" class="btn btn-warning" v-on:click="resetZoom()" v-if="chart != null">
-                            Reset Zoom
+                            <i class="fas fa-undo"></i>
+                            <span class="d-none d-lg-inline">Reset Zoom</span>
                         </button>
                     </div>
                 </div>
