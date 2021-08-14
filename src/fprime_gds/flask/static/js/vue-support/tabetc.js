@@ -65,7 +65,6 @@ Vue.component("tabbed-etc", {
             window.open(window.location);
         },
         navbar_toggle() {
-            // let elem = document.getElementById('collapsingNavbar');
             for (const tab in this.tabs) {
                 let elem = document.getElementById(this.tabs[tab][0]);
                 if (elem.classList.contains("d-none")) {
