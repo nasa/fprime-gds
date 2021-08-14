@@ -394,6 +394,9 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     </div>
                     <div v-if="error != null" class="alert alert-danger" role="alert">
                         {{ this.error }}
+                        <button type="button" class="close" data-dismiss="alert" v-on:click="dismiss_alert()">
+                            <li class="fas fa-times" style="font-size: 0.75em"></i>
+                        </button>
                     </div>
                     <fp-table :header-columns="['Start Time', 'End Time', 'Source', 'Destination', 'State', 'Control', 'Progress']"
                         :items="elements" :item-to-unique="keyify" :display-template="'file-row'" :item-to-columns="columnify">

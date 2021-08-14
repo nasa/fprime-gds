@@ -20,7 +20,13 @@ import {_datastore} from "../datastore.js";
 Vue.component("uplink", {
     template: "#uplink-template",
      data: function() {
-        return {"upfiles": _datastore.upfiles, "running": _datastore.uploading, "selected": [], "destination": "/", "error": null}
+        return {
+            "upfiles": _datastore.upfiles, 
+            "running": _datastore.uploading, 
+            "selected": [], 
+            "destination": "/", 
+            "error": null
+        }
     },
     methods: {
         /**
@@ -91,6 +97,10 @@ Vue.component("uplink", {
         columnify(item) {
             return [item.source, item.destination, item.state];
         },
+
+        dismiss_alert() {
+            this.error = null;
+        }
     },
     computed: {
         /**
