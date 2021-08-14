@@ -34,7 +34,17 @@ Vue.component("tabbed-etc", {
             let hash = window.location.hash.replace("#", "");
             return {
                 "currentTab": (hash == "")? "Commanding" : hash,
-                "tabs": ["Commanding", "Events", "Channels", "Uplink", "Downlink", "Logs", "Charts", "Sequences", "Dashboard"],
+                "tabs": [
+                    ["Commanding", "Cmd"], 
+                    ["Events", "Evn"], 
+                    ["Channels", "Chn"], 
+                    ["Uplink", "UpL"], 
+                    ["Downlink", "DnL"], 
+                    ["Logs", "Log"],
+                    ["Charts", "Chr"], 
+                    ["Sequences", "Seq"], 
+                    ["Dashboard", "Dsh"]
+                ],
                 "config": config,
                 "active": _datastore.active
             }
@@ -53,6 +63,19 @@ Vue.component("tabbed-etc", {
          */
         spawn() {
             window.open(window.location);
+        },
+        navbar_toggle() {
+            // let elem = document.getElementById('collapsingNavbar');
+            for (const tab in this.tabs) {
+                let elem = document.getElementById(this.tabs[tab][0]);
+                if (elem.classList.contains("d-none")) {
+                    elem.classList.remove("d-none");
+                    elem.classList.add("d-block");
+                } else if (elem.classList.contains("d-block")) {
+                    elem.classList.remove("d-block");
+                    elem.classList.add("d-none");
+                } 
+            }
         }
     },
     computed: {
