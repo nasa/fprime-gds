@@ -5,41 +5,56 @@
  * Events, and  Channels based on severity. These colors should define two pairs, the color, and a .table-hover hover
  * color for use in hover-tables.
  */
+ .table-bordered th, .table-bordered td {
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
 .fp-color-fatal {
-    background-color: #ff0000;
+    color: #000000;
+    background-color: rgba(251,128,114, 1);
 }
 .table-hover .fp-color-fatal:hover {
-    background-color: #e60000;
+    color: #000000;
+    background-color: rgba(251,128,114, 0.7);
 }
 .fp-color-warn-hi {
-    background-color: #ff8000;
+    color: #000000;
+    background-color: rgba(242,142,44, 1);
 }
 .table-hover .fp-color-warn-hi:hover {
-    background-color: #e67300;
+    color: #000000;
+    background-color: rgb(242,142,44, 0.8);
 }
 .fp-color-warn-lo {
-    background-color: #ffff00;
+    color: #000000;
+    background-color: rgba(237,201,73, 1);
 }
 .table-hover .fp-color-warn-lo:hover {
-    background-color: #e6e600;
+    color: #000000;
+    background-color: rgba(237,201,73, 0.7);
 }
 .fp-color-act-hi {
-    background-color: #0080ff;
+    color: #000000;
+    background-color: rgba(128,177,211, 1);
 }
 .table-hover .fp-color-act-hi:hover {
-    background-color: #0073e6;
+    color: #000000;
+    background-color: rgba(128,177,211, 0.7);
 }
 .fp-color-act-lo {
-    background-color: #808080;
+    color: #000000;
+    background-color: rgba(186,176,171, 1);
 }
 .table-hover .fp-color-act-lo:hover {
-    background-color: #737373;
+    color: #000000;
+    background-color: rgba(186,176,171, 0.7);
 }
 .fp-color-command {
-    background-color: #00ff00;
+    color: #000000;
+    background-color: rgba(127,201,127, 1);
 }
 .table-hover .fp-color-command:hover {
-    background-color: #00e600;
+    color: #000000;
+    background-color: rgba(127,201,127, 0.7);
 }
 .fp-color-logging {
     background-color: #f0fff0;
