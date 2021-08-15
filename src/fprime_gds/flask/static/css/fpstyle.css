@@ -6,7 +6,7 @@
  * color for use in hover-tables.
  */
  .table-bordered th, .table-bordered td {
-    border: 1px solid rgba(0, 0, 0, 0.125);
+    border: 1px solid rgba(0, 0, 0, 0.125) !important;
 }
 .fp-color-fatal {
     color: #000000;
