@@ -44,6 +44,7 @@ backport
 basestring
 batchmode
 baudrate
+beforeunload
 BGR
 Biberstein
 bibtex
@@ -99,7 +100,6 @@ csum
 csv
 ctime
 CTORS
-ctx
 curateable
 curated
 curating
@@ -315,7 +315,6 @@ jsonify
 jumbotron
 kbd
 keepalive
-kets
 keyframes
 keyify
 kinda
@@ -375,7 +374,6 @@ mycompany
 myfile
 mymodule
 myproject
-nagix
 namespace
 nargs
 navbar
@@ -400,7 +398,6 @@ odo
 oga
 ogg
 OMG
-onbeforeunload
 onload
 onreadystatechange
 openpyxl
@@ -680,9 +677,9 @@ xcode
 xhtml
 xhttp
 xl
-xy
 xlsx
 xml
+xy
 yaml
 yml
 zlib
