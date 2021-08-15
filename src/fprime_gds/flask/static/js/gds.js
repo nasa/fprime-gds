@@ -47,3 +47,4 @@ document.addEventListener("DOMContentLoaded", function(event) {
      _loader.destroy();
      await asyncWait(500);
  })());
+ 
