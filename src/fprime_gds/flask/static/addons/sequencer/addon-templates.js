@@ -8,7 +8,7 @@ export let sequencer_template = `
         <form v-on:submit.prevent="() => { return false;}" class="was-validated" novalidate>
             <div class="form-group form-row">
                 <div class="form-group col-md-4 mt-2" for="sequence">
-                    <input type="text" id="sequence" class="form-control" v-model="sequence.name" :disabled="active"
+                    <input type="text" id="sequence" class="form-control" v-model.trim="sequence.name" :disabled="active"
                         pattern="[^;\\\\\\/]+\\.seq" placeholder="Sequence name ending in .seq" required />
                     <div class="invalid-feedback">{{ (messages.error) ? messages.error : "Supply filename ending with .seq" }}</div>
                 </div>
