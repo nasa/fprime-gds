@@ -44,6 +44,7 @@ backport
 basestring
 batchmode
 baudrate
+beforeunload
 BGR
 Biberstein
 bibtex
@@ -399,7 +400,6 @@ odo
 oga
 ogg
 OMG
-onbeforeunload
 onload
 onreadystatechange
 openpyxl
