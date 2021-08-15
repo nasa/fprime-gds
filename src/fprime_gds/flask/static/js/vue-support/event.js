@@ -152,9 +152,9 @@ Vue.component("event-list", {
          */
         onScroll(e) {
             let elmH = this.scrollableElm.scrollHeight;
-            let elmT = Math.abs(this.scrollableElm.scrollTop);
+            let elmT = this.scrollableElm.scrollTop;
             let elmC = this.scrollableElm.clientHeight;
-            let isAtBottom = ((elmH - elmT) === elmC) && (elmT !== 0);
+            let isAtBottom = (Math.abs(elmH - elmT - elmC) <= 3.0) && (elmT !== 0);
             
             if (!this.isScrollable()) {
                 // Disabling auto update user scrolls
