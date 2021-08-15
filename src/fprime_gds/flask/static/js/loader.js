@@ -134,7 +134,9 @@ class Loader {
                 }
             };
             let random = new Date().getTime().toString();
-            xhttp.open(method, endpoint + "?_no_cache=" + random + "&session=" + _self.session, method != "DELETE");
+            let url = endpoint + "?_no_cache=" + random + "&session=" + _self.session;
+            let is_async = true; // all calls will be async
+            xhttp.open(method, url , is_async); 
             if (typeof(data) === "undefined") {
                 xhttp.send();
             } else if (typeof(jsonify) === "undefined" || jsonify) {

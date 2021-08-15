@@ -34,8 +34,16 @@ document.addEventListener("DOMContentLoaded", function(event) {
     _loader.setup().then(setupBindings).catch(console.error);
 });
 /**
- * Teardown best effort code.
+ * Asynchronous wait
+ * Reference: https://stackoverflow.com/questions/6921895/
  */
-window.onbeforeunload = function (e) {
-    _loader.destroy();
-};
+ const asyncWait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+ /**
+  * Teardown best effort code.
+  */
+ 
+ window.addEventListener('beforeunload', (async () => {
+     _loader.destroy();
+     await asyncWait(500);
+ })());
