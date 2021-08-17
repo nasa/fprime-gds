@@ -42,4 +42,5 @@ def format_string(format_str, values):
     match = re.compile(pattern) 
     formated_str = re.sub(match, convert, format_str)
     result = formated_str.format(*values)
+    result = result.replace("%%", "%")
     return result
