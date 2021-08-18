@@ -13,7 +13,8 @@ import types
 
 import flask_restful
 import flask_restful.reqparse
-
+from fprime.common.models.serialize.serializable_type import SerializableType
+from fprime.common.models.serialize.array_type import ArrayType
 
 class ChannelDictionary(flask_restful.Resource):
     """
@@ -58,8 +59,19 @@ class ChannelHistory(flask_restful.Resource):
         new_channels = self.history.retrieve(start=args.get("session"))
         self.history.clear()
         for chan in new_channels:
-            # Add the 'display_text' to the event, along with a getter
-            if chan.template.get_format_str() is not None:
+            # Add the 'display_text' to the channel, along with a getter
+            if isinstance(chan.val_obj, (SerializableType, ArrayType)):
+                setattr(
+                    chan,
+                    "display_text",
+                    chan.val_obj.formatted_val
+                )
+
+                def func(this):
+                    return this.display_text
+                setattr(chan, "get_display_text", types.MethodType(func, chan))
+            
+            elif chan.template.get_format_str() is not None:
                 setattr(
                     chan,
                     "display_text",
