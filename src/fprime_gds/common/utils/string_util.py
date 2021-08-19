@@ -24,22 +24,27 @@ def format_string(format_str, given_values):
     
     Note:
     This function will keep the flags, width, and .precision of C-string
-    template. It will remove all types so they could be duck-typed by python 
-    interpreter except for hex type X or x. lengths will also be removed since
-    they are not meaningful to Python interpreter
-    See: https://docs.python.org/3/library/stdtypes.html#printf-style-string-formatting
-    Regex Source: https://www.regexlib.com/REDetails.aspx?regexp_id=3363
+    template. 
+    
+    It will keep f, d, x, o, and e flags and remove all other types.
+    Other types will be duck-typed by python 
+    interpreter. 
+    
+    lengths will also be removed since they are not meaningful to Python interpreter.
+    `See: https://docs.python.org/3/library/stdtypes.html#printf-style-string-formatting`
+    
+    `Regex Source: https://www.regexlib.com/REDetails.aspx?regexp_id=3363`
     """
     def convert(match_obj):
         if match_obj.group() is not None:
-            flags, width, percision, lenght, conversion_type = match_obj.groups()
-            fmr_str = ''
+            flags, width, precision, length, conversion_type = match_obj.groups()
+            format_template = ''
             if flags:
-                fmr_str += f'{flags}'
+                format_template += f'{flags}'
             if width:
-                fmr_str += f'{width}'
-            if percision:
-                fmr_str += f'{percision}'
+                format_template += f'{width}'
+            if precision:
+                format_template += f'{precision}'
 
             if conversion_type:
                 if any([
@@ -49,12 +54,12 @@ def format_string(format_str, given_values):
                     str(conversion_type).lower() == 'o',
                     str(conversion_type).lower() == 'e',
                     ]):
-                    fmr_str += f'{conversion_type}'
+                    format_template += f'{conversion_type}'
 
-            if fmr_str == '':
+            if format_template == '':
                 template = '{}'
             else:
-                template = '{:' + fmr_str + '}'
+                template = '{:' + format_template + '}'
             return template
         return match_obj
 

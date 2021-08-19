@@ -63,7 +63,7 @@ class TestFormatString(unittest.TestCase):
         template = 'Some different radices: %d %x %o %#x %#o'
         values = (100, 100, 100, 100, 100)
         # The alternate form causes a leading octal specifier ('0o') to be inserted before the first digit. This is different than C behavior
-        # See https://docs.python.org/3/library/stdtypes.html#printf-style-bytes-formatting
+        # `See https://docs.python.org/3/library/stdtypes.html#printf-style-bytes-formatting`
         expected = 'Some different radices: 100 64 144 0x64 0o144'
         actual = format_string(template, values)
         self.assertEqual(expected, actual)
@@ -76,7 +76,7 @@ class TestFormatString(unittest.TestCase):
         self.assertEqual(expected, actual)
 
     def test_format_asterisk_width(self):
-        # asterisk `*` is not supported by python string-fromat
+        # asterisk `*` is not supported by python string-format
         template = 'Width trick: %*d'
         values = (5, 10)
         with self.assertRaises(ValueError):
