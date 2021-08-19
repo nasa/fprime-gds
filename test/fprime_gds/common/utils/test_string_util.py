@@ -117,7 +117,7 @@ class TestFormatString(unittest.TestCase):
         actual = format_string(template, values)
         self.assertEqual(expected, actual)
 
-    def test_format_unsigned_flag_with_lenght_flag(self):
+    def test_format_unsigned_flag_with_length_flag(self):
         template = 'Something %lu something %llu something else %lu'
         values = (123456, 123457, 123458)
         expected = 'Something 123456 something 123457 something else 123458 '
