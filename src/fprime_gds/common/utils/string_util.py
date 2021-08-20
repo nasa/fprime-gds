@@ -10,7 +10,7 @@ Note: This function has an identical copy in fprime-gds
 import re
 import logging
 
-LOGGER = logging.getLogger('string_util_logger')
+LOGGER = logging.getLogger("string_util_logger")
 
 
 def format_string_template(format_str, given_values):
@@ -44,30 +44,31 @@ def format_string_template(format_str, given_values):
     def convert(match_obj, ignore_int):
         if match_obj.group() is not None:
             flags, width, precision, length, conversion_type = match_obj.groups()
-            format_template = ''
+            format_template = ""
             if flags:
-                format_template += f'{flags}'
+                format_template += f"{flags}"
             if width:
-                format_template += f'{width}'
+                format_template += f"{width}"
             if precision:
-                format_template += f'{precision}'
+                format_template += f"{precision}"
 
             if conversion_type:
-                if any([
-                    str(conversion_type).lower() == 'f',
-                    str(conversion_type).lower() == 'x',
-                    str(conversion_type).lower() == 'o',
-                    str(conversion_type).lower() == 'e',
-                ]):
-                    format_template += f'{conversion_type}'
-                elif all([not ignore_int,
-                          str(conversion_type).lower() == 'd']):
-                    format_template += f'{conversion_type}'
+                if any(
+                    [
+                        str(conversion_type).lower() == "f",
+                        str(conversion_type).lower() == "x",
+                        str(conversion_type).lower() == "o",
+                        str(conversion_type).lower() == "e",
+                    ]
+                ):
+                    format_template += f"{conversion_type}"
+                elif all([not ignore_int, str(conversion_type).lower() == "d"]):
+                    format_template += f"{conversion_type}"
 
-            if format_template == '':
-                template = '{}'
+            if format_template == "":
+                template = "{}"
             else:
-                template = '{:' + format_template + '}'
+                template = "{:" + format_template + "}"
             return template
         return match_obj
 
@@ -85,7 +86,7 @@ def format_string_template(format_str, given_values):
     else:
         values = given_values
 
-    pattern = '(?<!%)(?:%%)*%([\-\+0\ \#])?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsSZ])'
+    pattern = "(?<!%)(?:%%)*%([\-\+0\ \#])?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsSZ])"
 
     match = re.compile(pattern)
 
@@ -93,13 +94,13 @@ def format_string_template(format_str, given_values):
     try:
         formatted_str = re.sub(match, convert_include_all, format_str)
         result = formatted_str.format(*values)
-        result = result.replace('%%', '%')
+        result = result.replace("%%", "%")
         return result
     except ValueError as e:
-        msg = 'Value and format string do not match. '
-        msg += ' Will ignore integer flags `d` in string template. '
-        msg += f'values: {values}. '
-        msg += f'format_str: {format_str}. '
+        msg = "Value and format string do not match. "
+        msg += " Will ignore integer flags `d` in string template. "
+        msg += f"values: {values}. "
+        msg += f"format_str: {format_str}. "
         LOGGER.warning(msg)
 
     # Second try by not including %d.
@@ -108,12 +109,12 @@ def format_string_template(format_str, given_values):
     try:
         formatted_str = re.sub(match, convert_ignore_int, format_str)
         result = formatted_str.format(*values)
-        result = result.replace('%%', '%')
+        result = result.replace("%%", "%")
         return result
     except ValueError as e:
-        msg = 'Value and format string do not match. '
-        msg += f'values: {values}. '
-        msg += f'format_str: {format_str}. '
-        msg += f'Err Msg: {str(e)}\n'
+        msg = "Value and format string do not match. "
+        msg += f"values: {values}. "
+        msg += f"format_str: {format_str}. "
+        msg += f"Err Msg: {str(e)}\n"
         LOGGER.error(msg)
         raise ValueError
