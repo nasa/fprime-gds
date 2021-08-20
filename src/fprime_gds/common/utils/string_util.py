@@ -29,17 +29,18 @@ def format_string_template(format_str, given_values):
 
     Note:
     This function will keep the flags, width, and .precision of C-string
-    template. 
+    template.
 
     It will keep f, d, x, o, and e flags and remove all other types.
-    Other types will be duck-typed by python 
-    interpreter. 
+    Other types will be duck-typed by python
+    interpreter.
 
     lengths will also be removed since they are not meaningful to Python interpreter.
     `See: https://docs.python.org/3/library/stdtypes.html#printf-style-string-formatting`
 
     `Regex Source: https://www.regexlib.com/REDetails.aspx?regexp_id=3363`
     """
+
     def convert(match_obj, ignore_int):
         if match_obj.group() is not None:
             flags, width, precision, length, conversion_type = match_obj.groups()
@@ -78,7 +79,7 @@ def format_string_template(format_str, given_values):
 
     # Allowing single, list and tuple inputs
     if not isinstance(given_values, (list, tuple)):
-        values = (given_values, )
+        values = (given_values,)
     elif isinstance(given_values, list):
         values = tuple(given_values)
     else:
@@ -87,15 +88,16 @@ def format_string_template(format_str, given_values):
     pattern = '(?<!%)(?:%%)*%([\-\+0\ \#])?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsSZ])'
 
     match = re.compile(pattern)
-    
+
     # First try to include all types
     try:
-        formated_str = re.sub(match, convert_include_all, format_str)
-        result = formated_str.format(*values)
+        formatted_str = re.sub(match, convert_include_all, format_str)
+        result = formatted_str.format(*values)
         result = result.replace('%%', '%')
         return result
     except ValueError as e:
-        msg = 'Value and format string do not match. Will ignore integer flags `d` in string template. '
+        msg = 'Value and format string do not match. '
+        msg += ' Will ignore integer flags `d` in string template. '
         msg += f'values: {values}. '
         msg += f'format_str: {format_str}. '
         LOGGER.warning(msg)
@@ -104,8 +106,8 @@ def format_string_template(format_str, given_values):
     # This will resolve failing ENUMs with %d
     # but will fail on other types.
     try:
-        formated_str = re.sub(match, convert_ignore_int, format_str)
-        result = formated_str.format(*values)
+        formatted_str = re.sub(match, convert_ignore_int, format_str)
+        result = formatted_str.format(*values)
         result = result.replace('%%', '%')
         return result
     except ValueError as e:
