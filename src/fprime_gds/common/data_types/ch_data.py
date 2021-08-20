@@ -9,7 +9,7 @@
 
 from fprime.common.models.serialize import time_type
 from fprime_gds.common.data_types import sys_data
-from fprime_gds.common.utils.string_util import format_string
+from fprime_gds.common.utils.string_util import format_string_template
 
 
 class ChData(sys_data.SysData):
@@ -129,7 +129,7 @@ class ChData(sys_data.SysData):
         if self.val_obj is None:
             ch_val = "EMPTY CH OBJ"
         elif fmt_str:
-            ch_val  = format_string(fmt_str, (self.val_obj.val,))
+            ch_val  = format_string_template(fmt_str, (self.val_obj.val,))
         else:
             ch_val = str(self.val_obj.val)
 

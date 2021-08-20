@@ -13,7 +13,7 @@ import types
 
 import flask_restful
 import flask_restful.reqparse
-from fprime_gds.common.utils.string_util import format_string
+from fprime_gds.common.utils.string_util import format_string_template
 
 
 class EventDictionary(flask_restful.Resource):
@@ -63,7 +63,7 @@ class EventHistory(flask_restful.Resource):
             setattr(
                 event,
                 "display_text",
-                format_string(event.template.format_str, tuple([arg.val for arg in event.args])),
+                format_string_template(event.template.format_str, tuple([arg.val for arg in event.args])),
             )
 
             def func(this):
