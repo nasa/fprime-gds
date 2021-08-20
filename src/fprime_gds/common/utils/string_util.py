@@ -3,6 +3,8 @@ string_util.py
 Utility functions to process strings to be used in FPrime GDS
 @Created March 18, 2021
 @janamian
+
+Note: This function has an identical copy in fprime-tools
 """
 
 import re
@@ -113,5 +115,3 @@ def format_string_template(format_str, given_values):
         msg += f'Err Msg: {str(e)}\n'
         LOGGER.error(msg)
         raise ValueError
-
-
