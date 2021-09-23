@@ -16,7 +16,7 @@ import os
 import fprime.constants
 import fprime_gds.common.handlers
 from fprime_gds.common.data_types.file_data import FilePacketType
-from fprime_gds.common.files.helpers import FileStates, TransmitFile, file_to_dict
+from fprime_gds.common.files.helpers import FileStates, TransmitFile, TransmitFileState, file_to_dict
 
 LOGGER = logging.getLogger("downlink")
 LOGGER.setLevel(logging.INFO)
@@ -90,7 +90,7 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
             size,
             self.__log_dir,
         )
-        self.active.open("wb+")
+        self.active.open(TransmitFileState.WRITE)
         LOGGER.addHandler(self.active.log_handler)
         message = "Received START packet with metadata:\n"
         message += "\tSize: %d\n"
