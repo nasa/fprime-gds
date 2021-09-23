@@ -23,6 +23,7 @@ from fprime_gds.common.files.helpers import (
     FileStates,
     Timeout,
     TransmitFile,
+    TransmitFileState,
     file_to_dict,
 )
 
@@ -235,7 +236,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
             )
         self.state = FileStates.RUNNING
         self.active = file_obj
-        self.active.open()
+        self.active.open(TransmitFileState.READ)
         self.send(
             StartPacketData(
                 self.get_next_sequence(),

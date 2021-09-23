@@ -17,7 +17,7 @@ import logging
 import os
 import struct
 import threading
-
+from pathlib import Path
 
 class Timeout:
     """
@@ -103,6 +103,10 @@ class CFDPChecksum:
     def value(self):
         return self.__value
 
+class TransmitFileState(enum.Enum):
+    READ = 0
+    WRITE = 1
+
 
 class TransmitFile:
     """
@@ -124,28 +128,35 @@ class TransmitFile:
         self.__log_dir = log_dir
         self.__log_handler = None
 
-    def open(self, mode="rb"):
+    def open(self, mode):
         """
         Opens the file descriptor and prepares it for uplink/downlink
         """
         assert self.__fd is None, "Must close file before attempting to reopen it"
-        filepath = self.__source if mode.startswith("r") else self.destination
         self.__mode = mode
+        if mode == TransmitFileState.WRITE:
+            filepath = self.__destination
+            Path(filepath).touch(exist_ok=True)
+            filemode = "rb+"
+        else:
+            filepath = self.__source
+            filemode = "rb"
+
         self.__state = "TRANSMITTING"
-        self.__fd = open(filepath, self.__mode)
+        self.__fd = open(filepath, filemode)
         self.__start = datetime.datetime.utcnow()
         if self.__log_dir is not None:
             self.__log_handler = logging.FileHandler(
                 os.path.join(
                     self.__log_dir, "{}.log".format(os.path.basename(filepath))
                 ),
-                "w",
+                "a",
             )
 
     def read(self, chunk):
         """ Read the chunk from the file """
         assert self.__fd is not None, "Must open file before reading"
-        assert self.__mode.startswith("r"), "File opened with invalid mode for 'read'"
+        assert self.__mode == TransmitFileState.READ, "Cannot read in WRITE mode"
         return self.__fd.read(chunk)
 
     def write(self, chunk, offset):
@@ -156,8 +167,8 @@ class TransmitFile:
         :param offset: offset to write to
         """
         assert self.__fd is not None, "Must open file before writing"
-        assert self.__mode.startswith("w"), "File opened with invalid mode for 'write'"
-        self.__fd.seek(offset, 0)
+        assert self.__mode == TransmitFileState.WRITE, "Cannot write in READ mode"
+        self.__fd.seek(offset)
         self.__fd.write(chunk)
 
     def close(self):
