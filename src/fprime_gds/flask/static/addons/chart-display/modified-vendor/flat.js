@@ -3,7 +3,7 @@
  * Source: https://github.com/hughsk/flat
  * Copyright (c) 2014, Hugh Kennedy
 
-The module has been modified for F Prime GDS tasks
+The module has been modified to support F Prime GDS tasks
 */
 
 function isBuffer(obj) {
