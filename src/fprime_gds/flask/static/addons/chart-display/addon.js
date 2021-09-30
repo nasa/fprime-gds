@@ -16,6 +16,8 @@ import {timeToDate} from "../../js/vue-support/utils.js"
 import './vendor/chart.js';
 import './vendor/chartjs-adapter-luxon.min.js';
 import './vendor/hammer.min.js';
+import {flatten} from './modified-vendor/flat.js';
+
 // Note: these are modified versions of the original plugin files
 import './modified-vendor/chartjs-plugin-zoom.js';
 import './modified-vendor/chartjs-plugin-streaming.js';
@@ -60,7 +62,15 @@ Vue.component("chart-display", {
     template: chart_display_template,
     props: ["id", "siblings"],
     data: function () {
-        let names = Object.values(_loader.endpoints["channel-dict"].data).map((value) => {return value.full_name});
+        const names_list = Object.values(_loader.endpoints["channel-dict"].data).map((value) => {
+            return flatten(value.type_obj, {
+                    "maxDepth": 20, 
+                    "prefix": value.full_name
+                })
+            });
+        
+        const names = names_list.flat();
+
         return {
             channelNames: names,
             selected: null,
@@ -141,15 +151,36 @@ Vue.component("chart-display", {
             if (this.selected == null || this.chart == null) {
                 return;
             }
-            let name = this.selected;
+            // Get channel name assuming the string is in component.channel format.
+            let channel_full_name = this.selected.split(".").slice(0, 2).join(".");
+            let serial_path = this.selected.split(".").slice(2).join(".");
+
             // Filter channels down to the graphed channel
             let new_channels = channels.filter((channel) => {
-                return channel.template.full_name === name
+                return channel.template.full_name === channel_full_name
             });
+            
+            
+            // Get channel value
+            function getValue(ch_obj, path_str) {
+                // If serializable path exist parse and return its value
+                if (path_str) {
+                    let keys = "val_obj." + serial_path + ".value";
+                    return keys.split('.').reduce(
+                            (o, k) => (o || {})[k], ch_obj
+                        );
+                } else {
+                    // otherwise assume simple object
+                    return ch_obj.val;
+                }
+            }
+
             // Convert to chart JS format
             new_channels = new_channels.map(
                 (channel) => {
-                    return {x: timeToDate(channel.time), y: channel.val}
+                    return {
+                        x: timeToDate(channel.time), 
+                        y: getValue(channel, serial_path)}
                 }
             );
 
