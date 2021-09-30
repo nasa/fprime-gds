@@ -48,8 +48,8 @@ export let ticks_config = {
 export let realtime_config = {
     // Initial display width (ms): 1 min
     duration: 60000,
-    // Total data history (ms): 4 min
-    ttl: 4 * 60 * 1000,
+    // Total data history (ms): 60 min
+    ttl: 60 * 60 * 1000,
     // Initial chart delay (ms): 0
     delay: 0,
     // Drawing framerate (ms): 30 Hz
