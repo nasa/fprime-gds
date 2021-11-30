@@ -104,7 +104,10 @@ Vue.component("command-argument", {
             let input_element = this.$el.getElementsByClassName("fprime-input")[0];
             this.argument.error = "";
             validate_input(this.argument);
-            input_element.setCustomValidity(this.argument.error);
+            // Not all base elements support errors
+            if (typeof(input_element.setCustomValidity) !== "undefined") {
+                input_element.setCustomValidity(this.argument.error);
+            }
         }
     }
 });
