@@ -27,16 +27,16 @@ export let sequencer_template = `
                         </div>
                         <div class="col-md-4 mb-1">
                             <button class="btn btn-secondary btn-block" :disabled="active" v-on:click="download">
-                                <i class="fas fa-download"></i> 
-                                <span class="d-md-none d-lg-inline">Download</span>
+                                <i class="fas fa-save"></i>
+                                <span class="d-md-none d-lg-inline">Save As</span>
                             </button>
                         </div>
                         <div class="col-md-4 mb-1">
                             <input type="file" id="sequenceUpload" accept=".seq"
                                 v-on:change="setSequence($event.target.files[0])" style="display: none;"/>
                             <label for="sequenceUpload" class="btn btn-secondary  btn-block">
-                                <i class="fas fa-upload"></i> 
-                                <span class="d-md-none d-lg-inline">Upload</span>
+                                <i class="fas fa-folder-open"></i>
+                                <span class="d-md-none d-lg-inline">Open</span>
                             </label>
                         </div>
                     </div>
