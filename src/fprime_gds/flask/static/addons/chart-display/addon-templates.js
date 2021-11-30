@@ -21,7 +21,7 @@ export let chart_wrapper_template = `
                     <div class="col-md-6 mb-1">
                         <button class="btn btn-block" :class="{'btn-secondary': !this.siblings.in_sync, 'btn-success': siblings.in_sync}" v-on:click="siblings.in_sync = !siblings.in_sync">
                             <i class="fas fa-thumbtack"></i>
-                            <span class="d-md-none d-lg-inline">Lock Timescales</span>
+                            <span class="d-md-none d-lg-inline">Lock Scale</span>
                         </button>
                     </div>
                 </div>

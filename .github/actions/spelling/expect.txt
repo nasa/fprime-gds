@@ -679,6 +679,7 @@ xcode
 xhtml
 xhttp
 xl
+xls
 xlsx
 xml
 xy
