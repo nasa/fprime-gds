@@ -3,7 +3,7 @@
 #
 # Encodes GDS objects as JSON.
 ####
-import collections
+import collections.abc
 import enum
 
 import flask.json
@@ -26,7 +26,7 @@ class GDSJsonEncoder(flask.json.JSONEncoder):
         if hasattr(obj, "to_jsonable"):
             return obj.to_jsonable()
         # Dictionaries are "iterable", must handle them first
-        elif isinstance(obj, collections.Mapping):
+        elif isinstance(obj, collections.abc.Mapping):
             return flask.json.JSONEncoder.default(self, obj)
         # Enumerations, just return the list of values
         elif isinstance(obj, enum.Enum):
