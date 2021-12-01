@@ -210,6 +210,18 @@ Vue.component("fp-table", {
          */
         itemToUnique: Function,
         /**
+         * reverse:
+         *
+         * Reverse the default order of the list of items being displayed. If the sort or filtering functions are used
+         * then that order is used.
+         *
+         * default: false
+         */
+        reverse: {
+            type: Boolean,
+            default: false
+        },
+        /**
          * rowStyle:
          *
          * 'rowStyle' should be bound to a string of static style for the given row, or a Function taking a single item
@@ -455,10 +467,14 @@ Vue.component("fp-table", {
                 }
             }
             // Now filter items based on removable filters
-            return filter(items, this.matching,
+            let filtered = filter(items, this.matching,
                 function(item) {
                     return itemToColumns(item).join(" ");
                 });
+            if (this.reverse) {
+                filtered.reverse();
+            }
+            return filtered;
         },
         /**
          * Generates an href that can be used to download a file.  Keep the download up-to-date with the view.
