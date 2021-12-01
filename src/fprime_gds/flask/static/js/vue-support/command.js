@@ -371,10 +371,10 @@ Vue.component("command-history", {
          */
         columnify(item) {
             let values = [];
-            for (let i = 0; i < item.args.length; i++) {
-                values.push(item.args[i].value);
+            for (let i = 0; i < item.arg_vals.length; i++) {
+                values.push(item.arg_vals[i]);
             }
-            return [timeToString(item.time), "0x" + item.id.toString(16), item.template.full_name, values];
+            return [timeToString(item.time), "0x" + item.id.toString(16), item.template.full_name, values.join(" ")];
         },
         /**
          * Take the given item and converting it to a unique key by merging the id and time together with a prefix
@@ -405,7 +405,7 @@ Vue.component("command-history", {
             cmd.full_name = item.template.full_name;
             // Can only set command if it is a child of a command input
             if (this.$parent.selectCmd) {
-                this.$parent.selectCmd(cmd.full_name, Array.from(cmd.args, arg => arg.value));
+                this.$parent.selectCmd(cmd.full_name, cmd.arg_vals, arg => arg);
             }
         }
     }
