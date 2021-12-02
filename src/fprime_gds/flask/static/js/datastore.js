@@ -39,7 +39,7 @@ export class DataStore {
         // File data stores used for file handling
         this.downfiles = [];
         this.upfiles = [];
-        this.uploading = false;
+        this.uploading = {"running": false}; // Cannot bind directly to a boolean
 
         // Consumers
         this.channel_consumers = [];
@@ -114,7 +114,7 @@ export class DataStore {
     updateUpfiles(data) {
         let files = data["files"];
         this.upfiles.splice(0, this.upfiles.length, ...files);
-        this.uploading = data["running"];
+        this.uploading.running = data["running"];
     }
 
     updateDownfiles(data) {

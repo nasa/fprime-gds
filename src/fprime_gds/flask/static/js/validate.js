@@ -51,7 +51,10 @@ export function validate_input(argument) {
     argument.error = "";
     // Integral types checking
     if (argument.type in TYPE_LIMITS) {
-        let value = (argument.value == null)? null : BigInt(argument.value);
+        let value = null;
+        try {
+            value = (argument.value == null) ? null : BigInt(argument.value);
+        } catch (e) {}
         let limits = TYPE_LIMITS[argument.type];
         let message = (argument.type.startsWith("U")) ? "binary, octal, decimal, or hexadecimal unsigned integer":
                       "signed decimal integer";

@@ -158,6 +158,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                               :initial-views="itemsShown"
                               :compact="compact"
                               :click-action="clickAction"
+                              :reverse="true"
                               class="click-able-item"
                     ></fp-table>
                 </div>
@@ -375,14 +376,14 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                         <span class="d-md-none d-lg-inline">Upload</span>
                                     </label>
                                 </div>
-                                <div class="col-md-4 mb-1" v-if="running">
+                                <div class="col-md-4 mb-1" v-if="uplinking.running">
                                     <button type="button" class="btn btn-secondary btn-block"
                                     v-on:click="pauseUplink">
                                         <i class="fas fa-pause"></i>
                                         <span class="d-md-none d-lg-inline">Pause</span>
                                     </button>
                                 </div>
-                                <div class="col-md-4 mb-1" v-if="!running">
+                                <div class="col-md-4 mb-1" v-if="!uplinking.running">
                                     <button type="button" class="btn btn-secondary btn-block"
                                     v-on:click="unpauseUplink">
                                         <i class="fas fa-play"></i>
