@@ -176,7 +176,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <form v-on:submit.prevent="() => {return false;}" class="command-input-form" novalidate>
                             <div class="form-row">
                                 <div class="form-group col-md-4">
-                                    <label for="mnemonic">Mnemonic</label>
+                                    <label for="mnemonic" class="control-label font-weight-bold">Mnemonic</label>
                                     <v-select id="mnemonic" style="flex: 1 1 auto; background-color: white;" :clearable="false"
                                         :searchable="true" @input="validate" :filterable="true" label="full_name"
                                         :options="commandList" v-model="selected" :class="this.error == '' ? '' : 'is-invalid'"
@@ -184,6 +184,13 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                     </v-select>
                                     <div class="invalid-feedback">{{ (this.error != '')? this.error : "Supply valid command"}}</div>
                                 </div>
+                            </div>
+                            <div class="form-row" v-if="selected.description != null">
+                                <label class="control-label font-weight-bold">Description: </label>
+                                {{ selected.description }}
+                            </div>
+                            <div class="form-row" v-if="selected.args.length > 0">
+                                <Label class="control-label font-weight-bold"l>Arguments</Label>
                             </div>
                             <div class="form-row">
                                 <div class="form-group col-md-6" v-for="argument in selected.args">
@@ -251,7 +258,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             -->
             <template id="command-argument-template">
                 <div>
-                    <label :for="argument.name">{{ argument.name }}</label>
+                    <label :for="argument.name" class="control-label font-weight-bold">{{ argument.name }}</label><span v-if="argument.description != null">: {{ argument.description }}</span>
                     <input v-if="argument.type != 'Enum'" :type="inputType[0]" :id="argument.name" class="form-control fprime-input"
                            :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validate"
                            v-model="argument.value"  :class="argument.error == '' ? '' : 'is-invalid'" required>
