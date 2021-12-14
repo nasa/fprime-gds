@@ -96,7 +96,7 @@ def format_string_template(format_str, given_values):
         result = formatted_str.format(*values)
         result = result.replace("%%", "%")
         return result
-    except as e: # To be changed
+    except: # To be changed
         msg = "Value and format string do not match. "
         msg += " Will ignore integer flags `d` in string template. "
         msg += f"values: {values}. "
