@@ -113,7 +113,7 @@ integrated configuration with ground in-the-loop.
         "pexpect==4.8.0",
         "pytest==6.2.4",
         "flask_restful==0.3.8",
-        "fprime-tools>=2.0.2",
+        "fprime-tools>=3.0.0",
         "argcomplete==1.12.3",
     ],
     extras_require={

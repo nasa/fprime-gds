@@ -20,7 +20,7 @@ import fprime_gds.executables.utils
 
 def get_artifacts_root() -> Path:
     try:
-        ini_settings = IniSettings.load(None, Path.cwd())
+        ini_settings = IniSettings.load(None)
     except FprimeLocationUnknownException:
         print(
             "[ERROR] Not in fprime deployment and no artifacts root provided, unable to find dictionary and/or app"
