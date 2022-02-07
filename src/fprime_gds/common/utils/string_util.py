@@ -96,14 +96,13 @@ def format_string_template(format_str, given_values):
         result = formatted_str.format(*values)
         result = result.replace("%%", "%")
         return result
-    except: # To be changed
+    except:
         msg = "Value and format string do not match. "
         msg += " Will ignore integer flags `d` in string template. "
         msg += f"values: {values}. "
         msg += f"format_str: {format_str}. "
         msg += f"given_values: {given_values}"
         LOGGER.warning(msg)
-        raise ValueError
 
     # Second try by not including %d.
     # This will resolve failing ENUMs with %d
