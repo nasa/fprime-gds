@@ -296,6 +296,10 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                 <div class="input-group-append">
                                     <button class="btn btn-secondary" type="button" v-on:click="offsetToNext" v-bind:class="{ 'disabled': !scrollStatus }">&gt;</button>
                                     <button class="btn btn-secondary" type="button" v-on:click="offsetToLast">Last</button>
+                                    <button class="btn btn-secondary" v-bind:class="{ 'btn-warning': isLockedToBottom,  }" type="button" v-on:click="toggleLockToBottom">
+                                        <i class="fas fa-lock-open" v-if="!isLockedToBottom"></i>
+                                        <i class="fas fa-lock" v-if="isLockedToBottom"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -315,6 +319,8 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         :eventsStartOffset="eventsStartOffset"
                         :eventsEndOffset="eventsEndOffset"
                         :isAutoUpdate="isAutoUpdate"
+                        :toggleLockToBottom="toggleLockToBottom"
+                        :isLockedToBottom="isLockedToBottom"
                         :scrollStatus="scrollStatus"
                     ></fp-table>
                 </div>

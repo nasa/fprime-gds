@@ -69,7 +69,8 @@ Vue.component("event-list", {
             "scrollStatus": false,
             "currTime": 0,
             "prevTime": 0,
-            "commands": _datastore.commands
+            "commands": _datastore.commands,
+            "isLockedToBottom": false
         };
     },
     template: "#event-list-template",
@@ -151,6 +152,9 @@ Vue.component("event-list", {
          * of events into table. If at the top load the previous group.
          */
         onScroll(e) {
+            if (this.isLockedToBottom) {
+                return;
+            }
             let elmH = this.scrollableElm.scrollHeight;
             let elmT = this.scrollableElm.scrollTop;
             let elmC = this.scrollableElm.clientHeight;
@@ -198,6 +202,11 @@ Vue.component("event-list", {
             }
             this.eventsStartOffset = this.events.length - this.eventOffsetSize;
             this.eventsEndOffset = this.events.length;
+        },
+
+        toggleLockToBottom() {
+            this.isLockedToBottom = !this.isLockedToBottom;
+            this.offsetToLast();
         },
         /**
          * Load previous group of events
