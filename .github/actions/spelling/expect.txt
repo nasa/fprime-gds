@@ -298,6 +298,7 @@ itcl
 iterables
 iterdir
 itertools
+itsdangerous
 ixx
 janamian
 javadoc
