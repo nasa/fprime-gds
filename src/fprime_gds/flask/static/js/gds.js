@@ -33,16 +33,3 @@ function setupBindings() {
 document.addEventListener("DOMContentLoaded", function(event) {
     _loader.setup().then(setupBindings).catch(console.error);
 });
-/**
- * Asynchronous wait
- * Reference: https://stackoverflow.com/questions/6921895/
- */
-const asyncWait = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-/**
- * Teardown best effort code.
- */
-window.addEventListener('beforeunload', (async () => {
-    _loader.destroy();
-    await asyncWait(500);
-})());

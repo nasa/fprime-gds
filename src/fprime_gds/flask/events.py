@@ -9,71 +9,36 @@
 #                      "start-time": "YYYY-MM-DDTHH:MM:SS.sss" #Start time for event listing
 #                  }
 ####
+import copy
 import types
 
-import flask_restful
-import flask_restful.reqparse
+from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
 from fprime_gds.common.utils.string_util import format_string_template
 
 
-class EventDictionary(flask_restful.Resource):
+class EventDictionary(DictionaryResource):
+    """ Channel dictionary shares implementation """
+
+
+class EventHistory(HistoryResourceBase):
     """
-    Event dictionary endpoint. Will return dictionary when hit with a GET.
-    """
-
-    def __init__(self, dictionary):
-        """
-        Constructor used to setup for dictionary.
-        """
-        self.dictionary = dictionary
-
-    def get(self):
-        """
-        Returns the dictionary object
-        """
-        return self.dictionary
-
-
-class EventHistory(flask_restful.Resource):
-    """
-    Endpoint to return event history data with optional time argument.
+    Resource supplying the history of events in the system. Includes `get_display_text` postprocessing to add in the
+    getter for the display text.
     """
 
-    def __init__(self, history):
-        """
-        Constructor used to setup time argument to this history.
-
-        :param history: history object holding events
-        """
-        self.parser = flask_restful.reqparse.RequestParser()
-        self.parser.add_argument(
-            "session", required=True, help="Session key for fetching data."
+    def process(self, event):
+        """ Process item and return one with get_display_text """
+        event = copy.copy(event)
+        setattr(
+            event,
+            "display_text",
+            format_string_template(event.template.format_str, tuple([arg.val for arg in event.args])),
         )
-        self.history = history
 
-    def get(self):
-        """
-        Return the event history object
-        """
-        args = self.parser.parse_args()
-        new_events = self.history.retrieve(args.get("session"))
-        self.history.clear()
-        for event in new_events:
-            # Add the 'display_text' to the event, along with a getter
-            setattr(
-                event,
-                "display_text",
-                format_string_template(event.template.format_str, tuple([arg.val for arg in event.args])),
-            )
+        def func(this):
+            return this.display_text
+        setattr(event, "get_display_text", types.MethodType(func, event))
 
-            def func(this):
-                return this.display_text
-            setattr(event, "get_display_text", types.MethodType(func, event))
-        return {"history": new_events}
-
-    def delete(self):
-        """
-        Delete the event history for a given session. This keeps the data all clear like.
-        """
-        args = self.parser.parse_args()
-        self.history.clear(start=args.get("session"))
+        # Pre-trigger errors before JSON serialization
+        _ = event.get_display_text()
+        return event

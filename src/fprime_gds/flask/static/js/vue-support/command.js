@@ -238,17 +238,16 @@ Vue.component("command-input", {
                 .catch(function(err) {
                     // Log all errors incoming
                     console.error("[ERROR] Failed to send command: " + err);
-                    let response = JSON.parse(err).message;
-                    // Argument errors are parceled out to each error
-                    if (typeof(response.errors) != "undefined") {
-                        for (let i = 0; i < response.errors.length; i++) {
-                            command.args[i].error = response.errors[i];
+                    let errors = JSON.parse(err).errors || [{"message": "Unknown error"}];
+                    for (let i = 0; i < errors.length; i++) {
+                        let error_message = errors[i].message || errors[i];
+                        error_message = error_message.replace("400 Bad Request:", "");
+                        let argument_errors = errors[i].args || [];
+                        for (let j = 0; j < argument_errors.length; j++) {
+                            command.args[j].error =argument_errors[j];
                         }
-                    }
-                    // All other command errors
-                    else {
-                        command.error = response;
-                        _self.error = response;
+                        command.error = error_message;
+                        _self.error = error_message;
                     }
                     _self.active = false;
                 });

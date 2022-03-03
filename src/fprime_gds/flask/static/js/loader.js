@@ -29,45 +29,70 @@ class Loader {
             // Dictionary endpoints
             "command-dict": {
                 "url": "/dictionary/commands",
-                "startup": true
+                "startup": true,
+                "running": false,
+                "queued": false
             },
             "event-dict":{
                 "url": "/dictionary/events",
-                "startup": true
+                "startup": true,
+                "running": false,
+                "queued": false
             },
             "channel-dict": {
                 "url": "/dictionary/channels",
-                "startup": true
+                "startup": true,
+                "running": false,
+                "queued": false
             },
             // Data endpoints
             "commands": {
                 "url": "/commands",
                 "last": null,
-                "shutdown": true
+                "running": false,
+                "queued": false
             },
             "events": {
                 "url": "/events",
                 "last": null,
-                "shutdown": true
+                "running": false,
+                "queued": false
             },
             "channels": {
                 "url": "/channels",
                 "last": null,
-                "shutdown": true
+                "running": false,
+                "queued": false
             },
             "logdata": {
                 "url": "/logdata",
-                "last": null
+                "last": null,
+                "running": false,
+                "queued": false
             },
             "upfiles": {
                 "url": "/upload/files",
-                "last": null
+                "last": null,
+                "running": false,
+                "queued": false
             },
             "downfiles": {
                 "url": "/download/files",
-                "last": null
+                "last": null,
+                "running": false,
+                "queued": false
+            },
+            "stats": {
+                "url": "/stats",
+                "last": null,
+                "running": false,
+                "queued": false
             }
         };
+        // Attach a name to each endpoint
+        for (let endpoint in this.endpoints) {
+            this.endpoints[endpoint].name = endpoint;
+        }
     }
     /**
      * Sets up the loader by issuing the initial requests for the dictionary endpoints. Will "finish" when all the dicts
@@ -108,6 +133,7 @@ class Loader {
      * @param method: HTTP method to use to communicate with server. Default: "GET"
      * @param data: data to send.  Only useful if method != "GET". Default: no data
      * @param jsonify: jsonify the data. Default: true.
+     * @param raw: return raw response, not a json parsed dataset
      */
     load(endpoint, method, data, jsonify, raw) {
         let _self = this;
@@ -124,12 +150,12 @@ class Loader {
             var xhttp = new XMLHttpRequest();
             xhttp.onreadystatechange = function() {
                 // Parse as JSON or send back raw error
-		if (this.readyState == 4 && this.status == 200 && raw) {
+                if (this.readyState === 4 && this.status === 200 && raw) {
                     resolve(this.responseText);
-		} else if (this.readyState == 4 && this.status == 200) {
+                } else if (this.readyState === 4 && this.status === 200) {
                     let dataObj = JSON.parse(this.responseText);
                     resolve(dataObj);
-                } else if(this.readyState == 4) {
+                } else if(this.readyState === 4) {
                     reject(this.responseText);
                 }
             };
@@ -149,50 +175,62 @@ class Loader {
     }
 
     /**
+     * Default error handler that prints to console
+     * @param endpoint: endpoint being polled
+     * @param error: error to print to console
+     */
+    error_handler(endpoint, error) {
+        let details = "'" + (error.message || error)  + "' (" + (error.type || "unknown") + ")";
+        console.error("[ERROR] " + endpoint + " erred with " + details);
+    }
+
+    poller(context, callback, error_handler) {
+        let _self = this;
+        // If already running, mark as queued and bail
+        if (context.running) {
+            context.queued = true;
+            return;
+        }
+        // Running, reset queue
+        context.running = true;
+        context.queued = false;
+        let start_time = new Date();
+        // Load the endpoint and respond to the response
+        _self.load(context.url).then((data) => {
+            (data.errors || []).map(error_handler.bind(undefined, context.name));
+            callback(data);
+        }).catch((error) => {
+            error_handler(context.name, error)
+        }).finally(() => {
+            // Context variables reset after finishing
+            context.running = false;
+            context.last = (new Date() - start_time)/1000;
+            // If a request has been asked, prepare a follow-up request
+            if (context.queued) {
+                _self.poller(context, callback, error_handler);
+            }
+        });
+    }
+
+    /**
      * Register a polling function to receive updates and post updates to the callback function. This takes an endpoint
      * name from the setup list of endpoints known by this Loader, and a callback to return data to on the clock.
      * @param endpoint: endpoint to load
      * @param callback: callback to return resulting data to.
+     * @param error_handler: handler to call for each error found in the response and all communication errors
      */
-    registerPoller(endpoint, callback) {
-        let _self = this;
-        let inProgress = false; // Used to prevent re-entrant requests
-        let handler = function()
-        {
-            // Don't request if already requesting
-            if (!inProgress) {
-                inProgress = true;
-                _self.load(_self.endpoints[endpoint]["url"]).then(
-                    function(data) {
-                        inProgress = false;
-                        callback(data);
-                    }
-                ).catch(function(error) {
-                    inProgress = false;
-                    console.error("[ERROR] Polling " + _self.endpoints[endpoint]["url"] + " failed with: " + error);
-                });
-            }
-        };
-        // Clear old intervals
-        if ("interval" in this.endpoints[endpoint]) {
-            clearInterval(this.endpoints[endpoint]["interval"]);
-        }
-        let interval = config.dataPollIntervalsMs[endpoint] || config.dataPollIntervalsMs.default || 1000;
-        this.endpoints[endpoint]["interval"] = setInterval(handler, interval);
-        handler();
-    }
+    registerPoller(endpoint, callback, error_handler, interval) {
+        let current_endpoint = this.endpoints[endpoint];
+        error_handler = (error_handler instanceof Function) ?  error_handler : this.error_handler;
+        let handler = this.poller.bind(this, current_endpoint, callback, error_handler);
 
-    /**
-     * Destroys the session tracking items. Best-effort shutdown attempt.
-     */
-    destroy() {
-        for (let endpoint in this.endpoints) {
-            endpoint = this.endpoints[endpoint];
-            if (typeof(endpoint["shutdown"]) !== "undefined" && endpoint["shutdown"]) {
-                this.load(endpoint["url"], "DELETE");
-            }
+        // Clear old intervals
+        if ("interval" in current_endpoint) {
+            clearInterval(current_endpoint.interval);
         }
+        interval = interval || config.dataPollIntervalsMs.default || 1000;
+        current_endpoint.interval = setInterval(handler, interval);
     }
-};
+}
 export let _loader = new Loader();
 

@@ -9,83 +9,47 @@
 #                      "start-time": "YYYY-MM-DDTHH:MM:SS.sss" #Start time for event listing
 #                  }
 ####
+import copy
 import types
 
-import flask_restful
-import flask_restful.reqparse
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.array_type import ArrayType
+from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
 
-class ChannelDictionary(flask_restful.Resource):
+
+class ChannelDictionary(DictionaryResource):
+    """ Channel dictionary shares implementation """
+
+
+class ChannelHistory(HistoryResourceBase):
     """
-    Channel dictionary endpoint. Will return dictionary when hit with a GET.
-    """
-
-    def __init__(self, dictionary):
-        """
-        Constructor used to setup for dictionary.
-        """
-        self.dictionary = dictionary
-
-    def get(self):
-        """
-        Returns the dictionary object
-        """
-        return self.dictionary
-
-
-class ChannelHistory(flask_restful.Resource):
-    """
-    Endpoint to return telemetry history data with optional time argument.
+    Resource supplying the history of channels in the system. Includes `get_display_text` postprocessing to add in the
+    getter for the display text.
     """
 
-    def __init__(self, history):
-        """
-        Constructor used to setup time argument to this history.
+    def process(self, chan):
+        """ Process the channel to add get_display_text """
+        chan = copy.copy(chan)
+        # Setup display_text and when needed
+        if isinstance(chan.val_obj, (SerializableType, ArrayType)):
+            setattr(
+                chan,
+                "display_text",
+                chan.val_obj.formatted_val
+            )
+        elif chan.template.get_format_str() is not None:
+            setattr(
+                chan,
+                "display_text",
+                chan.template.get_format_str() % (chan.val_obj.val),
+            )
+        # If we added display_text, then add a getter and test it
+        if hasattr(chan, "display_text"):
+            def func(this):
+                return this.display_text
+            setattr(chan, "get_display_text", types.MethodType(func, chan))
+            # Pre-trigger any errors in the display text getter
+            _ = chan.get_display_text()
+        return chan
 
-        :param history: history object holding channel
-        """
-        self.parser = flask_restful.reqparse.RequestParser()
-        self.parser.add_argument(
-            "session", required=True, help="Session key for fetching data."
-        )
-        self.history = history
 
-    def get(self):
-        """
-        Return the telemetry history object
-        """
-        args = self.parser.parse_args()
-        new_channels = self.history.retrieve(start=args.get("session"))
-        self.history.clear()
-        for chan in new_channels:
-            # Add the 'display_text' to the channel, along with a getter
-            if isinstance(chan.val_obj, (SerializableType, ArrayType)):
-                setattr(
-                    chan,
-                    "display_text",
-                    chan.val_obj.formatted_val
-                )
-
-                def func(this):
-                    return this.display_text
-                setattr(chan, "get_display_text", types.MethodType(func, chan))
-            
-            elif chan.template.get_format_str() is not None:
-                setattr(
-                    chan,
-                    "display_text",
-                    chan.template.get_format_str() % (chan.val_obj.val),
-                )
-
-                def func(this):
-                    return this.display_text
-                setattr(chan, "get_display_text", types.MethodType(func, chan))
-        return {"history": new_channels}
-
-    def delete(self):
-        """
-        Delete the event history for a given session. This keeps the data all clear like.
-        """
-        args = self.parser.parse_args()
-        self.history.clear(start=args.get("session"))

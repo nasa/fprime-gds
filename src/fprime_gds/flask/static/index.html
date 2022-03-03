@@ -90,7 +90,18 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                             <span class="navbar-brand">
                                     <img v-bind:src="orb ? config.dataSuccessIcon : config.dataErrorIcon"
                                          width="30" height="30">
+                            </span>
+                            <div class="btn-group-sm btn-group-vertical">
+                                <button class="btn btn-sm btn-warning">
+                                    WARNING_HI: {{ (this.counts.warning_hi >= 99) ? "99+" : this.counts.warning_hi }}
+                                </button>
+                               <span class="btn btn-sm btn-danger">
+                                    FATAL: {{ (this.counts.fatal >= 99) ? "99+" : this.counts.fatal }}
                                 </span>
+                                <span class="btn btn-sm btn-danger">
+                                    GDS Errors: {{ (this.counts.errors >= 99) ? "99+" : this.counts.errors }}
+                                </span>
+                            </div>
                         </nav>
                     </div>
                     <div class="container-fluid fp-flex-repeater">
