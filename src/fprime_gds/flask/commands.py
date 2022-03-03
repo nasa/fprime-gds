@@ -21,64 +21,40 @@
 #       a restful interface here. It is done this way to be in-tandem with the events and telemetry
 #       APIs for maintainability.
 ####
+import werkzeug.exceptions
 import flask_restful
 import flask_restful.reqparse
 
 import fprime.common.models.serialize.type_exceptions
 import fprime_gds.common.data_types.cmd_data
+from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
 
 
-class CommandDictionary(flask_restful.Resource):
-    """
-    Command dictionary endpoint. Will return dictionary when hit with a GET.
-    """
-
-    def __init__(self, dictionary):
-        """
-        Constructor used to setup for dictionary.
-        """
-        self.dictionary = dictionary
-
-    def get(self):
-        """
-        Returns the dictionary object
-        """
-        return self.dictionary
+class CommandDictionary(DictionaryResource):
+    """ Channel dictionary shares implementation """
 
 
-class CommandHistory(flask_restful.Resource):
-    """
-    Command history returning both the full list of available commands and the global history of all
-    of these commands that have run.
-    """
+class CommandHistory(HistoryResourceBase):
+    """ Command history requires no deviation from the base history implementation """
 
-    def __init__(self, history):
-        """
-        Constructor: setup the parser for incoming command runs
 
-        :param history: history object holding commands
-        """
-        self.parser = flask_restful.reqparse.RequestParser()
-        self.parser.add_argument(
-            "session", required=True, help="Session key for fetching data."
-        )
-        self.history = history
+class MissingArgumentException(werkzeug.exceptions.BadRequest):
+    """ Did not supply an argument """
+    def __init__(self):
+        super().__init__("Did not supply all required arguments.")
 
-    def get(self):
-        """
-        Return the command history object
-        """
-        args = self.parser.parse_args()
-        return_set = {"history": self.history.retrieve(start=args.get("session"))}
-        self.history.clear()
-        return return_set
 
-    def delete(self):
-        """
-        Delete the event history for a given session. This keeps the data all clear like.
-        """
-        args = self.parser.parse_args()
-        self.history.clear(start=args.get("session"))
+class CommandArgumentsInvalidException(werkzeug.exceptions.BadRequest):
+    """ Command arguments failed to validate properly """
+    def __init__(self, errors):
+        super().__init__("Failed to validate all arguments")
+        self.args = errors
+
+
+class InvalidCommandException(werkzeug.exceptions.BadRequest):
+    """ Requested invalid command """
+    def __init__(self, key):
+        super().__init__(f"{ key } is not a valid command")
 
 
 class Command(flask_restful.Resource):
@@ -118,9 +94,9 @@ class Command(flask_restful.Resource):
         try:
             self.sender.send_command(command, arg_list)
         except fprime.common.models.serialize.type_exceptions.NotInitializedException:
-            flask_restful.abort(403, message="Did not supply all required arguments.")
+            raise MissingArgumentException()
         except fprime_gds.common.data_types.cmd_data.CommandArgumentsException as exc:
-            flask_restful.abort(403, message={"errors": exc.errors})
+            raise CommandArgumentsInvalidException(exc.errors)
         except KeyError as key_error:
-            flask_restful.abort(403, message=f"{key_error} is not a valid command")
+            raise InvalidCommandException(key_error)
         return {"message": "success"}

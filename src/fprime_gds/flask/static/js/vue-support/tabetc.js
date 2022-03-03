@@ -43,10 +43,12 @@ Vue.component("tabbed-etc", {
                     ["Logs", "Log"],
                     ["Charts", "Chr"], 
                     ["Sequences", "Seq"], 
-                    ["Dashboard", "Dsh"]
+                    ["Dashboard", "Dsh"],
+                    ["Advanced", "Adv"]
                 ],
                 "config": config,
-                "active": _datastore.active
+                "active": _datastore.active,
+                "counts": _datastore.counts
             }
         },
     methods: {
@@ -92,6 +94,13 @@ Vue.component("tabbed-etc", {
                 orb = orb || this.active[i];
             }
             return orb;
+        },
+        /**
+         * Returns the number of errors detected this run
+         * @returns {number} count of errors
+         */
+        error_count() {
+            return this.errors.length;
         }
 
     }

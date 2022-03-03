@@ -22,8 +22,11 @@ import fprime_gds.flask.json
 import fprime_gds.flask.logs
 import fprime_gds.flask.updown
 import fprime_gds.flask.sequence
+import fprime_gds.flask.stats
+import fprime_gds.flask.errors
 
 from . import components
+
 
 # Update logging to avoid redundant messages
 logger = logging.getLogger("werkzeug")
@@ -65,8 +68,9 @@ def construct_app():
         app.config["ADDRESS"],
         app.config["PORT"],
     )
+
     # Restful API registration
-    api = flask_restful.Api(app)
+    api = fprime_gds.flask.errors.setup_error_handling(app)
     # File upload configuration, 1 set for everything
     uplink_set = flask_uploads.UploadSet("uplink", flask_uploads.ALL)
     flask_uploads.configure_uploads(app, [uplink_set])
@@ -129,6 +133,15 @@ def construct_app():
         resource_class_args=[app.config["DICTIONARY"], app.config["UPLOADED_UPLINK_DEST"], pipeline.files.uplinker,
                              app.config["REMOTE_SEQ_DIRECTORY"]],
     )
+    api.add_resource(
+        fprime_gds.flask.stats.StatsBlob,
+        "/stats",
+        resource_class_args=[{
+            "events": pipeline.histories.events,
+            "channels": pipeline.histories.channels,
+            "commands": pipeline.histories.commands
+        }],
+    )
 
     # Optionally serve log files
     if app.config["SERVE_LOGS"]:
@@ -150,6 +163,15 @@ try:
 except Exception as exc:
     print(f"[ERROR] {exc}", file=sys.stderr)
     sys.exit(1)
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    status_code = 500
+    response = {
+        "errors": [fprime_gds.flask.errors.build_error_object(error)]
+    }
+    return flask.jsonify(response), status_code
 
 
 

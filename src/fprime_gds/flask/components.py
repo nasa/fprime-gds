@@ -7,6 +7,7 @@ pipeline and other components are created to interact with Flask.
 import os
 
 import fprime_gds.common.pipeline.standard
+from fprime_gds.common.history.ram import SelfCleaningRamHistory
 
 # Module variables, should remain hidden. These are singleton top-level objects used by Flask, and its various
 # blueprints needed to run the system.
@@ -38,6 +39,10 @@ def setup_pipelined_components(
     ):
         pipeline = fprime_gds.common.pipeline.standard.StandardPipeline()
         pipeline.setup(config, dictionary, down_store, logging_prefix=log_dir)
+        pipeline.histories.events = SelfCleaningRamHistory()
+        pipeline.histories.channels = SelfCleaningRamHistory()
+        pipeline.histories.commands = SelfCleaningRamHistory()
+
         logger.info(
             f"Connecting to GDS at: {tts_address}:{tts_port} from pid: {os.getpid()}"
         )
