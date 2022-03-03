@@ -26,7 +26,19 @@ export let chart_wrapper_template = `
                     </div>
                 </div>
             </div>
-            <div class="col-md-8"></div>
+            <div class="col-md-6"></div>
+            <div class="col-md-1">
+                <button class="btn btn-secondary btn-block" v-on:click="saveCharts">
+                    <i class="fas fa-save"></i>
+                    <span class="d-md-none d-lg-inline">Save</span>
+                </button>
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-secondary btn-block" v-on:click="loadCharts">
+                    <i class="fas fa-folder-open"></i>
+                    <span class="d-md-none d-lg-inline">Load</span>
+                </button>
+            </div>
             <div class="col-md-1">
                 <button class="btn btn-secondary btn-block float-right" v-on:click="isHelpActive = !isHelpActive">
                     <i class="fas fa-question-circle"></i>
@@ -55,7 +67,7 @@ export let chart_wrapper_template = `
             </div>
         </transition>
         <component v-for="(chartInst, index) in wrappers" is="chart-display" :key="chartInst.id"
-            :id="chartInst.id" :siblings="siblings" v-on:delete-chart="deleteChart">
+            :id="chartInst.id" :siblings="siblings" v-on:delete-chart="deleteChart" v-on:select-update="selected">
         </component>
     </div>
 `;
@@ -83,6 +95,13 @@ export let chart_display_template = `
                                   :clearable="false" :searchable="true" :filterable="true" :options="channelNames"
                                   v-model="selected">
                         </v-select>
+                    </div>
+                    <div class="col-md-4 input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">Data Window:</span>
+                        </div>
+                        <input name="timespan" type="number" v-model="timespan" class="form-control" />
+                        <span class="input-group-text">(S)</span>
                     </div>
                 </div>
 
