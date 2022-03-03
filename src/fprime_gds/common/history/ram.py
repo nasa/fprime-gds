@@ -9,6 +9,7 @@ Note: this RAM history treats "start times" as session tokens to remember where 
 
 :author: lestarch
 """
+import time
 import threading
 
 from fprime_gds.common.history.history import History
@@ -90,6 +91,15 @@ class RamHistory(History):
             for key in self.retrieved_cursors.keys():
                 self.retrieved_cursors[key] -= earliest
 
+    def sessions(self):
+        """
+        Accessor for the number of stored sessions
+
+        Returns:
+            number of tracked sessions
+        """
+        return len(self.retrieved_cursors.values())
+
     def size(self):
         """
         Accessor for the number of objects in the history
@@ -97,3 +107,56 @@ class RamHistory(History):
             the number of objects (int)
         """
         return len(self.objects)
+
+
+class SelfCleaningRamHistory(RamHistory):
+    """A Ram history which clears itself after a time of inactivity"""
+
+    def __init__(self):
+        """Construct object"""
+        super().__init__()
+        self.last_request = {}
+        self.clear_time = -1
+
+    def set_clear_time(self, time):
+        """Update the clear time"""
+        self.clear_time = time
+
+    def retrieve(self, start=None):
+        """
+        Retrieve objects from this history. 'start' is the session token for retrieving new elements. If session is not
+        specified, all elements are retrieved. If session is specified, then unseen elements are returned. If the
+        session itself is new, it is recorded and set to the newest data. This refreshes the last polled time preventing
+        self clearing for another time
+
+        :param start: return all objects newer than given start session key
+        :return: a list of objects
+        """
+        if start is not None:
+            with self.lock:
+                self.last_request[start] = time.time()
+        return super().retrieve(start)
+
+    def clear(self, start=None):
+        """
+        Clears objects from RamHistory. It clears upto the earliest session. If session is supplied, the session id will
+        be deleted as well. This will also check all sessions for expiration and clear any sessions that have not been
+        updated in self.clear_time seconds, unless that value is negative.
+
+        Args:
+            start: a position in the history's order (int).
+        """
+        current = time.time()
+        with self.lock:
+            deletes = [
+                key
+                for key, last in self.last_request.items()
+                if self.clear_time > 0 and (last + self.clear_time) < current
+            ]
+            for delete in deletes:
+                for container in [self.retrieved_cursors, self.last_request]:
+                    try:
+                        del container[delete]
+                    except KeyError:
+                        pass
+        return super().clear(start)
