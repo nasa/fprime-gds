@@ -15,6 +15,7 @@ import { _datastore } from "../../js/datastore.js";
 import { _loader } from "../../js/loader.js";
 import { SiblingSet } from "./sibling.js";
 import { timeToDate } from "../../js/vue-support/utils.js";
+import {loadTextFileInputData, saveTextFileViaHref} from "../../js/loader.js";
 
 import "./vendor/chart.js";
 import "./vendor/chartjs-adapter-luxon.min.js";
@@ -35,7 +36,7 @@ Vue.component("chart-wrapper", {
             counter: 1,
             locked: false,
             isHelpActive: false,
-            wrappers: [{ id: 0 }], // Starts with a single chart
+            wrappers: [{ id: 0, "selected": null }], // Starts with a single chart
             siblings: new SiblingSet(),
         };
     },
@@ -44,8 +45,9 @@ Vue.component("chart-wrapper", {
         /**
          * Add new chart handling the Chart+ button.
          */
-        addChart(type) {
-            this.wrappers.push({ id: this.counter });
+        addChart(event, selected) {
+            selected = selected || null;
+            this.wrappers.push({ id: this.counter, selected: selected });
             this.counter += 1;
         },
         /**
@@ -61,16 +63,28 @@ Vue.component("chart-wrapper", {
             this.wrappers[index].selected = data.selected;
         },
 
-        saveCharts() {
-            let data = this.wrappers.map((item) => { return item.selected} );
-            data = data.filter((item) => {return item || false});
-            window.localStorage.setItem("charts", data);
-        },
+        loadCharts(event) {
+            loadTextFileInputData(event).then((data) => {
+                let splits = data.split(/\s/);
+                // Remove trailing blank chart if it exists and we are loading something to replace it
+                if (splits.length > 0 && this.wrappers.length > 0 && this.wrappers[this.wrappers.length - 1].selected == null) {
+                    this.wrappers.splice(this.wrappers.length - 1, 1);
+                }
 
-        loadCharts() {
-            let selected = window.localStorage.getItem("charts").split(",");
+                for (let i = 0; i < splits.length; i++) {
+                    let new_chart_selected = splits[i].trim();
+                    this.addChart(null, new_chart_selected);
+                }
+            }).catch(console.error);
         }
     },
+    computed: {
+         saveChartsHref() {
+            let data = this.wrappers.map((item) => { return item.selected} );
+            data = data.filter((item) => {return item || false});
+            return saveTextFileViaHref(data.join("\n"));
+        }
+    }
 });
 
 /**
@@ -78,7 +92,7 @@ Vue.component("chart-wrapper", {
  */
 Vue.component("chart-display", {
     template: chart_display_template,
-    props: ["id", "siblings"],
+    props: ["id", "siblings", "selected"],
     data: function () {
         const names_list = Object.values(
             _loader.endpoints["channel-dict"].data
@@ -93,7 +107,6 @@ Vue.component("chart-display", {
 
         return {
             channelNames: names,
-            selected: null,
             oldSelected: null,
 
             isCollapsed: false,
@@ -102,6 +115,11 @@ Vue.component("chart-display", {
             chart: null,
             timespan: 3600
         };
+    },
+    mounted() {
+        if (this.selected != null) {
+            this.registerChart();
+        }
     },
     methods: {
         /**
@@ -225,11 +243,18 @@ Vue.component("chart-display", {
             let millis = (last.x - first.x) * this.samples / (data_array.length - 1);
             this.samples_duration = Math.floor(millis / 1000);
         },
+        updateSelected(new_selected) {
+            if (new_selected !== this.oldSelected) {
+                this.$emit('input', new_selected);
+                this.oldSelected = new_selected;
+                this.$nextTick().then(() => {this.registerChart()});
+            }
+        }
     },
     /**
      * Watch for new selection of channel and re-register the chart
      */
-    watch: {
+    /**watch: {
         selected: function () {
             if (this.selected !== this.oldSelected) {
                 this.oldSelected = this.selected;
@@ -238,5 +263,5 @@ Vue.component("chart-display", {
                 this.$emit("select-update", data);
             }
         },
-    },
+    },*/
 });

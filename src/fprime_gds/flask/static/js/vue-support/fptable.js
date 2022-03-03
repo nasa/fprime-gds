@@ -1,5 +1,7 @@
 import {filter, toArrayIfString} from "./utils.js";
 import {_uploader} from "../uploader.js";
+import {loadTextFileInputData, saveTextFileViaHref} from "../loader.js";
+
 /**
  * fp-row:
  *
@@ -85,7 +87,7 @@ Vue.component("fp-row", {
             if (typeof (this.itemToColumns) !== "function") {
                 throw Error("Failed to define required 'itemToColumns' function on fp-table")
             }
-            return this.itemToColumns(this.item).filter((item, index) => this.visible == null || this.visible.indexOf(index) != -1);
+            return this.itemToColumns(this.item).filter((item, index) => this.visible == null || this.visible.indexOf(index) !== -1);
         },
         /**
          * Calculates the style of the row based on a given item. This is optional and will not raise an error if the
@@ -388,24 +390,14 @@ Vue.component("fp-table", {
          * @param event: event to represent a file load
          */
         readFile(event) {
-            // Check file size and read
-            let file = event.target.files[0];
             let _self = this;
-            if (file.size < 50 * 1024) {
-                let filer = new FileReader();
-                filer.readAsText(file);
-                filer.onload = function (something) {
-                    if (FileReader.DONE == filer.DONE) {
-                        let splits = filer.result.split(/\s/);
-                        for (let i = 0; i < splits.length; i++) {
-                            splits[i] = splits[i].trim();
-                        }
-                        _self.view = splits;
-                    }
-                };
-            } else {
-                console.error("[ERROR] File too big. Try again champ");
-            }
+            loadTextFileInputData(event).then((data) => {
+               let splits = data.split(/\s/);
+                for (let i = 0; i < splits.length; i++) {
+                    splits[i] = splits[i].trim();
+                }
+                _self.view = splits;
+            }).catch(console.error);
         }
     },
     // Computed items
@@ -481,7 +473,7 @@ Vue.component("fp-table", {
          * @return {string} href string bound to href attribute
          */
         viewHref: function() {
-            return 'data:text/plain;charset=utf-8,' + encodeURIComponent(this.view.join("\n"));
+            return saveTextFileViaHref(this.view.join("\n"));
         }
     },
     // Makes the table sortable after creation using post creation updates
