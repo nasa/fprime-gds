@@ -55,6 +55,21 @@ Vue.component("chart-wrapper", {
             const index = this.wrappers.findIndex((f) => f.id === id);
             this.wrappers.splice(index, 1);
         },
+
+        selected(data) {
+            const index = this.wrappers.findIndex((f) => f.id === data.id);
+            this.wrappers[index].selected = data.selected;
+        },
+
+        saveCharts() {
+            let data = this.wrappers.map((item) => { return item.selected} );
+            data = data.filter((item) => {return item || false});
+            window.localStorage.setItem("charts", data);
+        },
+
+        loadCharts() {
+            let selected = window.localStorage.getItem("charts").split(",");
+        }
     },
 });
 
@@ -85,6 +100,7 @@ Vue.component("chart-display", {
             pause: false,
 
             chart: null,
+            timespan: 3600
         };
     },
     methods: {
@@ -196,8 +212,18 @@ Vue.component("chart-display", {
             });
 
             // Graph and update
-            this.chart.data.datasets[0].data.push(...new_channels);
+            let data_array = this.chart.data.datasets[0].data;
+            data_array.push(...new_channels);
+
+            this.chart.options.scales.x.realtime.ttl = this.timespan * 1000;
             this.chart.update("quiet");
+
+            // Calculate the window span by max samples
+            let first = data_array[0] || {x: NaN};
+            let last = data_array[data_array.length - 1] || {x: NaN};
+
+            let millis = (last.x - first.x) * this.samples / (data_array.length - 1);
+            this.samples_duration = Math.floor(millis / 1000);
         },
     },
     /**
@@ -208,6 +234,8 @@ Vue.component("chart-display", {
             if (this.selected !== this.oldSelected) {
                 this.oldSelected = this.selected;
                 this.registerChart();
+                let data = {"id": this.id, "selected": this.selected};
+                this.$emit("select-update", data);
             }
         },
     },
