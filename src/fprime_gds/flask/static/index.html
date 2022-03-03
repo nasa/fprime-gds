@@ -559,9 +559,13 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <div class="col-4"></div>
                         <div class="btn-group col-8 mb-1 mt-1 btn-group-sm">
                             <div type="button" class="btn btn-secondary" v-on:click="clearView">Clear</div>
-                            <a :href="viewHref" download="current-view.txt" class="btn btn-info">Export</a>
+                            <a :href="viewHref" download="current-view.txt" class="btn btn-info">
+                                <i class="fa fa-save"></i><span class="d-md-none d-lg-inline">Save</span>
+                            </a>
                             <label class="btn btn-info btn-file">
-                                Import<input type="file" v-on:input="readFile" style="display: none;">
+                                <i class="fa fa-folder-open"></i>
+                                <span class="d-md-none d-lg-inline">Load</span>
+                                <input type="file" v-on:input="readFile" style="display: none;">
                             </label>
                             <div type="button" class="btn btn-primary" v-on:click="saveView">Done</div>
                         </div>

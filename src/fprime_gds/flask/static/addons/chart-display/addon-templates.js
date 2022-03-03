@@ -28,16 +28,16 @@ export let chart_wrapper_template = `
             </div>
             <div class="col-md-6"></div>
             <div class="col-md-1">
-                <button class="btn btn-secondary btn-block" v-on:click="saveCharts">
-                    <i class="fas fa-save"></i>
-                    <span class="d-md-none d-lg-inline">Save</span>
-                </button>
+                <a :href="saveChartsHref" download="current-charts.txt" class="btn btn-secondary btn-block">
+                    <i class="fa fa-save"></i><span class="d-md-none d-lg-inline">Save</span>
+                </a>
             </div>
             <div class="col-md-1">
-                <button class="btn btn-secondary btn-block" v-on:click="loadCharts">
-                    <i class="fas fa-folder-open"></i>
+                <label class="btn btn-secondary btn-file btn-block">
+                    <i class="fa fa-folder-open"></i>
                     <span class="d-md-none d-lg-inline">Load</span>
-                </button>
+                    <input type="file" v-on:input="loadCharts" style="display: none;">
+                </label>
             </div>
             <div class="col-md-1">
                 <button class="btn btn-secondary btn-block float-right" v-on:click="isHelpActive = !isHelpActive">
@@ -67,7 +67,8 @@ export let chart_wrapper_template = `
             </div>
         </transition>
         <component v-for="(chartInst, index) in wrappers" is="chart-display" :key="chartInst.id"
-            :id="chartInst.id" :siblings="siblings" v-on:delete-chart="deleteChart" v-on:select-update="selected">
+            :id="chartInst.id" :siblings="siblings" v-on:delete-chart="deleteChart" v-bind:selected="chartInst.selected"
+            v-on:input="chartInst.selected = $event" >
         </component>
     </div>
 `;
@@ -86,14 +87,13 @@ export let chart_display_template = `
                 </button>
                 <span class="card-subtitle text-muted">{{ selected }} </span>
             </div>
-            
             <div class="card-body" v-bind:class="{'collapse': isCollapsed}">
                 
                 <div class="row">
                     <div class="col-md-4">
                         <v-select placeholder="Select a Channel" id="channelList" label="option" style="flex: 1 1 auto;" 
                                   :clearable="false" :searchable="true" :filterable="true" :options="channelNames"
-                                  v-model="selected">
+                                  v-bind:value="selected" v-on:input="updateSelected($event)">
                         </v-select>
                     </div>
                     <div class="col-md-4 input-group">

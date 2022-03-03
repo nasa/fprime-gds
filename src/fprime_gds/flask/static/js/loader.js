@@ -14,6 +14,41 @@
 import {config} from "./config.js";
 
 /**
+ * Function allowing for the saving of some data to a downloadable file.
+ * @param data: data to download as file, should be text
+ * @return: href link triggering file save
+ */
+export function saveTextFileViaHref(data) {
+    return 'data:text/plain;charset=utf-8,' + encodeURIComponent(data);
+}
+
+/**
+ * Function to load a text file via a file input dialog. Limited to files of < 1MiB
+ * @param event: event triggered via the file input dialog
+ * @return {Promise<unknown>}: promise yielding text data
+ */
+export function loadTextFileInputData(event) {
+    return new Promise((callback, error_fn) => {
+        let _self = this;
+        let file = event.target.files[0];
+        // Limit the size to 1MiB
+        if (file.size < 1048576) {
+            let filer = new FileReader();
+            filer.readAsText(file);
+            filer.onload = (_) => {
+                if (FileReader.DONE === filer.DONE) {
+                    callback(filer.result)
+                }
+            };
+            filer.onerror = error_fn;
+            filer.onabort = error_fn;
+        } else {
+            error("[ERROR] File too large: " + (file.size / 1024 / 1024).toLocaleString(undefined) + " MiB > 1MiB");
+        }
+    });
+}
+
+/**
  * Loader:
  *
  * Loader that is used to pull in data from the REST API. This loader is intended to be a singleton and thus will be
