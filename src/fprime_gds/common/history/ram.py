@@ -25,7 +25,7 @@ class RamHistory(History):
         """
         Constructor used to set-up in-memory store for history
         """
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.objects = []
         self.retrieved_cursors = {}
 

@@ -20,5 +20,7 @@ export let config = {
     dataPollIntervalsMs: {
         channels: 500,
         default: 1000
-    }
+    },
+    // Summary counter fields containing object of field: bootstrap class
+    summaryFields: {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"}
 };

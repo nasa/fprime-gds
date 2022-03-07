@@ -17,6 +17,7 @@ import "./log.js"
 import "./uplink.js"
 import "./dashboard.js"
 import {_datastore} from "../datastore.js";
+import {_validator} from "../validate.js";
 
 /**
  * tabbed-ect:
@@ -33,7 +34,7 @@ Vue.component("tabbed-etc", {
         function () {
             let hash = window.location.hash.replace("#", "");
             return {
-                "currentTab": (hash == "")? "Commanding" : hash,
+                "currentTab": (hash === "")? "Commanding" : hash,
                 "tabs": [
                     ["Commanding", "Cmd"], 
                     ["Events", "Evn"], 
@@ -48,7 +49,7 @@ Vue.component("tabbed-etc", {
                 ],
                 "config": config,
                 "active": _datastore.active,
-                "counts": _datastore.counts
+                "counts": _validator.counts
             }
         },
     methods: {

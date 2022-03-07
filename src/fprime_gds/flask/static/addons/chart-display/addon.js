@@ -16,6 +16,7 @@ import { _loader } from "../../js/loader.js";
 import { SiblingSet } from "./sibling.js";
 import { timeToDate } from "../../js/vue-support/utils.js";
 import {loadTextFileInputData, saveTextFileViaHref} from "../../js/loader.js";
+import {_performance} from "../../js/performance.js";
 
 import "./vendor/chart.js";
 import "./vendor/chartjs-adapter-luxon.min.js";
@@ -149,6 +150,7 @@ Vue.component("chart-display", {
                     this.$el.querySelector("#ds-line-chart"),
                     config
                 );
+                _performance.addCachingObject("Chart " + this.id, this.chart.data.datasets[0].data);
             } catch (err) {
                 // Todo. This currently suppresses the following bug error
                 // See ChartJs bug report https://github.com/chartjs/Chart.js/issues/9368
@@ -170,6 +172,7 @@ Vue.component("chart-display", {
             if (this.chart == null) {
                 return;
             }
+            _performance.removeCachingObject("Chart " + this.id);
             _datastore.deregisterChannelConsumer(this);
             this.chart.data.datasets.forEach((dataset) => {
                 dataset.data = [];

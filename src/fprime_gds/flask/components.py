@@ -14,6 +14,54 @@ from fprime_gds.common.history.ram import SelfCleaningRamHistory
 __PIPELINE = None
 
 
+class CountingSelfCleaningRamHistory(SelfCleaningRamHistory):
+    """ Counts and cleans on top of the standard RAM history
+
+    Counts object as the objects are submitted into the history tracking a total number of object tracked. During
+    retrieval of the object, a counter value is saved w.r.t. the session token such that the response may be augmented
+    with a validation count of objects consistent with this request. This is designed to help track GDS performance
+    and track missing/lost data.
+    """
+
+    def __init__(self):
+        """ Constructor """
+        super().__init__()
+        self.count = 0
+        self.count_offsets = {}
+        self.count_values = {}
+
+    def data_callback(self, data, sender=None):
+        """ Counts this object before adding to history
+
+        Callback passed in data. This variant counts the object that is supplied and passes the object back out to the
+        parent history in order to store this object in the history.
+
+        :param data: object to store
+        """
+        with self.lock:
+            self.count += 1
+            super().data_callback(data, sender)
+
+    def retrieve(self, start=None):
+        """ Retrieve objects and store current count
+
+        Stash the current count of objects w.r.t the supplied session when supplied and then retrieve the objects in
+        history through the parent. In this way the current count of objects w.r.t. the session is kept consistent with
+        the last call through this retrieve function.
+        """
+        with self.lock:
+            if start is not None:
+                if start not in self.retrieved_cursors:
+                    self.count_offsets[start] = self.count
+                self.count_values[start] = self.count - self.count_offsets[start]
+            return super().retrieve(start)
+
+    def get_seen_count(self, start=None):
+        """ Get the count of the seen items at the time of the last retrieve call """
+        with self.lock:
+            return self.count_values.get(start, self.count)
+
+
 def setup_pipelined_components(
     debug, logger, config, dictionary, down_store, log_dir, tts_address, tts_port
 ):
@@ -39,9 +87,9 @@ def setup_pipelined_components(
     ):
         pipeline = fprime_gds.common.pipeline.standard.StandardPipeline()
         pipeline.setup(config, dictionary, down_store, logging_prefix=log_dir)
-        pipeline.histories.events = SelfCleaningRamHistory()
-        pipeline.histories.channels = SelfCleaningRamHistory()
-        pipeline.histories.commands = SelfCleaningRamHistory()
+        pipeline.histories.events = CountingSelfCleaningRamHistory()
+        pipeline.histories.channels = CountingSelfCleaningRamHistory()
+        pipeline.histories.commands = CountingSelfCleaningRamHistory()
 
         logger.info(
             f"Connecting to GDS at: {tts_address}:{tts_port} from pid: {os.getpid()}"

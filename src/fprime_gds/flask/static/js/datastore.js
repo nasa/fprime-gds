@@ -7,41 +7,10 @@
  *  @author mstarch
  */
 import {config} from "./config.js";
+import {_validator} from "./validate.js";
+import {_settings} from "./settings.js";
 import {_loader} from "./loader.js";
-
-/**
- * Class tracking the responsiveness of the javascript application through set timeout
- */
-class ResponsiveChecker {
-    constructor(resolution_ms, window_size) {
-        this.start = null;
-        this.last = [];
-        this.resolution = resolution_ms || 10;
-        this.checker_fn = this.checker.bind(this);
-        this.window_size = window_size || 100;
-        setTimeout(this.checker_fn, this.resolution)
-    }
-    /**
-     * Function that runs updating the time since last run minus the expected time
-     */
-    checker() {
-        let now = new Date();
-        this.last.push(now - (this.start || now) - this.resolution);
-
-        this.start = new Date();
-        setTimeout(this.checker_fn, this.resolution);
-        this.last.splice(0, this.last.length - this.window_size);
-    }
-
-    /**
-     * Responsiveness metric.
-     * @returns maximum delay in ms of last (window) samples
-     */
-    responsiveness() {
-        return Math.max(...this.last);
-    }
-
-}
+import {_performance} from "./performance.js";
 
 /**
  * DataStore:
@@ -59,11 +28,6 @@ class ResponsiveChecker {
 export class DataStore {
 
     constructor() {
-        this.settings = {
-            "event_buffer_size": -1,
-            "command_buffer_size": -1
-        };
-
         // Activity timeout for checking spacecraft health and "the orb" (ours, not Keynes')
         this.active = [false, false];
         this.active_timeout = null;
@@ -83,12 +47,6 @@ export class DataStore {
 
         // Consumers
         this.channel_consumers = [];
-
-        // Error handling and display
-        this.errors = [];
-        this.times = {}
-        this.counts = {"warning_hi": 0, "fatal": 0, "errors": 0};
-        this.responsive = new ResponsiveChecker();
 
         this.polling_info = [
             {
@@ -120,9 +78,8 @@ export class DataStore {
                 "handler": this.updateStats,
             },
         ];
-        this.polling_info.forEach((item) => {
-            item.interval = config.dataPollIntervalsMs[item.endpoint] || config.dataPollIntervalsMs.default || 1000;
-        });
+        let polling_keys = this.polling_info.map((item) => { return item.endpoint; });
+        _settings.setupPollingSettings(polling_keys);
     }
 
     startup() {
@@ -152,7 +109,20 @@ export class DataStore {
     reregisterPoller(endpoint) {
         let ep_data = this.polling_info.filter((item) => item.endpoint === endpoint)[0] || null;
         if (ep_data !== null) {
-            _loader.registerPoller(endpoint, ep_data.handler.bind(this), this.handleError.bind(this), ep_data.interval);
+            let processor = _validator.wrapResponseHandler(ep_data.endpoint, ep_data.handler.bind(this));
+            if (endpoint === "events") {
+                let severity_processor = (severity) => {
+                    return severity.value.replace("EventSeverity.", "");
+                };
+                processor = _validator.wrapFieldCounter(
+                    "severity",
+                    processor,
+                    severity_processor,
+                    Object.fromEntries(Object.keys(config.summaryFields).map((field_key) => [field_key, 0]))
+                );
+            }
+            let error_fn = _validator.getErrorHandler();
+            _loader.registerPoller(endpoint, processor, error_fn, _settings.polling_intervals[endpoint]);
         }
     }
 
@@ -161,10 +131,11 @@ export class DataStore {
         return [false, false];
     }
 
+
     updateCommandHistory(data) {
         this.command_history.push(...data["history"]);
-        if (this.settings.command_buffer_size >= 0) {
-            this.command_history.splice(0, this.command_history.length - this.settings.command_buffer_size);
+        if (_settings.miscellaneous.command_buffer_size >= 0) {
+            this.command_history.splice(_settings.miscellaneous.command_buffer_size, this.command_history.length - _settings.miscellaneous.command_buffer_size);
         }
     }
 
@@ -181,7 +152,7 @@ export class DataStore {
             try {
                 consumer.sendChannels(new_channels);
             } catch (e) {
-                console.error(e);
+                _validator.updateErrors(e);
             }
         });
         this.updateActivity(new_channels, 0);
@@ -191,55 +162,14 @@ export class DataStore {
         let new_events = data["history"];
         this.events.push(...new_events);
         // Fix events to a known size
-        if (this.settings.event_buffer_size >= 0) {
-            this.events.splice(0, this.events.length - this.settings.event_buffer_size);
+        if (_settings.miscellaneous.event_buffer_size >= 0) {
+            this.events.splice(0, this.events.length - _settings.miscellaneous.event_buffer_size);
         }
         this.updateActivity(new_events, 1);
-
-        // Loop through events and count the types received
-        for (let i = 0; i < new_events.length; i++) {
-            let count_key = new_events[i].severity.value.replace("EventSeverity.", "").toLowerCase();
-            this.counts[count_key] = (this.counts[count_key] || 0) + 1;
-        }
     }
 
-    updateRequestTimeWindows() {
-        for (let endpoint in _loader.endpoints) {
-            let last = _loader.endpoints[endpoint].last || null;
-            // Don't update window if bad reading
-            if (last != null) {
-                this.times[endpoint] = this.times[endpoint] || [];
-                let data_window = this.times[endpoint];
-                data_window.push(last);
-                data_window.splice(0, window.length - 60);
-            }
-        }
-    }
-
-    updateStats(stats) {
-        this.updateRequestTimeWindows();
-        let new_times = Object.fromEntries(Object.keys(this.times).map((key) => [key, Math.max(...this.times[key])]));
-        let mem_data = window.performance.memory || {};
-        let formatter = (data) => {return (data / 1048576).toLocaleString(undefined) + " MiB"};
-        let performance = {
-            "memory used": formatter(mem_data.usedJSHeapSize),
-            "memory allocated": formatter(mem_data.totalJSHeapSize),
-            "memory limit": formatter(mem_data.jsHeapSizeLimit),
-            "response delay": this.responsive.responsiveness() + " ms"
-        }
-
-        let local_stats = {
-            "Cached Items": {
-                "total": this.events.length + this.command_history.length + Object.keys(this.channels).length,
-                "events": this.events.length,
-                "commands": this.command_history.length,
-                "channels": Object.keys(this.channels).length
-            },
-            "Request Times": new_times,
-            "Performance": performance
-        };
-        Object.assign(this.stats, stats);
-        Object.assign(this.stats, local_stats);
+    updateStats(statistics) {
+        _performance.updateStats(statistics);
     }
 
     updateLogs(log_data) {
@@ -268,22 +198,24 @@ export class DataStore {
         }
     }
 
+    /**
+     * Register a new channel consumer. Henceforth new channels will be provided directly as a list to the consumer.
+     * @param consumer: channel consumer to register
+     */
     registerChannelConsumer(consumer) {
         this.channel_consumers.push(consumer);
     }
+
+    /**
+     * Deregister the channel consumer passed in. Thus the consumer would henceforth not be provided with new channel
+     * information.
+     * @param consumer: consumer to deregister
+     */
     deregisterChannelConsumer(consumer) {
         let index = this.channel_consumers.indexOf(consumer);
         if (index !== -1) {
             this.channel_consumers.splice(index, 1);
         }
-    }
-
-    handleError(endpoint, error) {
-        //error.timestamp = new Date();
-        this.errors.push(error);
-        this.errors.splice(0, this.errors.length - 100);
-        this.counts.errors += 1;
-        _loader.error_handler(endpoint, error);
     }
 }
 
