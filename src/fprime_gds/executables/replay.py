@@ -17,6 +17,7 @@ class ReplayForwarder(DataHandler):
 
     def __init__(self, encoder, sender, realtime=False):
         """ Setup the forwarder """
+        self.last_stamp = None
         self.last_time = None
         self.encoder = encoder
         self.encoder.register(sender)
@@ -27,23 +28,29 @@ class ReplayForwarder(DataHandler):
         """ Convert timeval to fractional time """
         return time_val.seconds + time_val.useconds / 100000
 
-    def get_sleep_time(self, new_time):
+    def get_sleep_time(self, new_stamp):
         """ Get the necessary sleep time """
+        last_as_fraction = self.as_fraction(self.last_stamp if self.last_stamp is not None else new_stamp)
+        new_as_fraction = self.as_fraction(new_stamp)
 
+        # Needed time to wait
+        now = time.time()
+        needed_delta = new_as_fraction - last_as_fraction
+        current_delta = now - (self.last_time if self.last_time is not None else now)
+        self.last_time = now
+        self.last_stamp = new_stamp
+        if (needed_delta + 0.001) < current_delta and new_as_fraction > last_as_fraction:
+            print(f"[WARNING] Failed to keep up with realtime flow: {current_delta - needed_delta} S late")
+        return current_delta - needed_delta
 
-        last_as_fraction = self.last_time.seconds + (self.last_time.useconds / 1000000)
-        new_as_fraction = new_time.seconds + (new_time)
 
 
     def data_callback(self, data, sender=None):
         """ Encode and send the data packet """
-        sleep_time = self.as_fraction(data.time) - self.as_fraction(data.time if self.last_time is None else self.last_time)
-        self.last_time = data.time
-        # Handle time
+        sleep_time = self.get_sleep_time(data.time)
+        # Handle realtime
         if self.realtime and sleep_time > 0:
             time.sleep(sleep_time)
-        elif self.realtime and sleep_time < 0:
-            print("[WARNING] Unable to keep up with realtime flow")
         self.encoder.data_callback(data)
 
 

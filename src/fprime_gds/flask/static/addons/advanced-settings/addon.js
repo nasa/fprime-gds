@@ -1,6 +1,7 @@
 import {advanced_template} from "./addon-templates.js";
 import {_datastore} from "../../js/datastore.js";
-import {_loader} from "../../js/loader.js";
+import {_performance} from "../../js/performance.js"
+import {_settings} from "../../js/settings.js";
 
 
 /**
@@ -10,16 +11,32 @@ Vue.component("advanced-settings", {
     template: advanced_template,
     data() {
         return {
-            stats: _datastore.stats,
-            polling_info: _datastore.polling_info,
+            statistics: _performance.statistics,
             settings: {
-                "Data Settings": _datastore.settings
-            }
+                "Polling_Intervals": _settings.polling_intervals,
+                "Miscellaneous": _settings.miscellaneous
+            },
+            old_polling: {..._settings.polling_intervals}
         };
     },
-    methods: {
-        reregister() {
-            this.polling_info.forEach((item) => {_datastore.reregisterPoller(item.endpoint)});
+    watch: {
+        /**
+         * This is used to update polling intervals. This is because even though the data can change, we need to restart
+         * the setInterval call to kick the process off again. Thus we watch this specific setting, check for changes,
+         * and kick-off a new poller when it has changes.
+         */
+        "settings.Polling_Intervals": {
+            // Handler for on-change
+            handler(polling) {
+                Object.keys(polling).forEach((key) => {
+                   if (polling[key] !== this.old_polling[key]) {
+                       _datastore.reregisterPoller(key);
+                   }
+                });
+                this.old_polling = {...polling};
+            },
+            // Must watch sub-keys
+            deep: true
         }
     }
 });

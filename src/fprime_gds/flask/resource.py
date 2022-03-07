@@ -9,6 +9,7 @@ from flask_restful import Resource
 from flask_restful.reqparse import RequestParser
 from fprime_gds.flask.errors import build_error_object
 
+
 class DictionaryResource(Resource):
     """
     Resource tasked with serving the supplied dictionary through flask. The dictionary will be returned as-is and thus
@@ -70,7 +71,11 @@ class HistoryResourceBase(Resource):
 
         # Get the new items from history ensuring it is clear in a fail-safe attempt to repeat recuring errors
         try:
-            new_items = self.history.retrieve(args.get("session"))
+            session = args.get("session")
+            new_items = self.history.retrieve(session)
+            validation = -1
+            if hasattr(self.history, "get_seen_count"):
+                validation = self.history.get_seen_count(session)
         finally:
             self.history.clear()
 
@@ -80,4 +85,4 @@ class HistoryResourceBase(Resource):
                 returned_items.append(self.process(item))
             except Exception as exc:
                 errors.append(build_error_object(exc))
-        return {"history": returned_items, "errors": errors}
+        return {"history": returned_items, "validation": validation, "errors": errors}

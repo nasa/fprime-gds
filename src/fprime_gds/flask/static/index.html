@@ -92,15 +92,10 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                          width="30" height="30">
                             </span>
                             <div class="btn-group-sm btn-group-vertical">
-                                <button class="btn btn-sm btn-warning">
-                                    WARNING_HI: {{ (this.counts.warning_hi >= 99) ? "99+" : this.counts.warning_hi }}
+                                <button v-for="(display_class, counter) in config.summaryFields"
+                                        :class="['btn', 'btn-sm', 'btn-' + display_class]">
+                                    {{ counter.replace("_", " ") }}: {{ (counts[counter] >= 99) ? "99+" : counts[counter] }}
                                 </button>
-                               <span class="btn btn-sm btn-danger">
-                                    FATAL: {{ (this.counts.fatal >= 99) ? "99+" : this.counts.fatal }}
-                                </span>
-                                <span class="btn btn-sm btn-danger">
-                                    GDS Errors: {{ (this.counts.errors >= 99) ? "99+" : this.counts.errors }}
-                                </span>
                             </div>
                         </nav>
                     </div>
