@@ -73,7 +73,6 @@ class CmdEncoder(encoder.Encoder):
         self.desc_obj = self.config.get_type("msg_desc")
         self.opcode_obj = self.config.get_type("op_code")
 
-
     def encode_api(self, data):
         """
         Encodes the given CmdData object as binary data and returns the result.

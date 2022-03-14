@@ -21,10 +21,10 @@ class BaseAdapter(abc.ABC):
     """
 
     def open(self):
-        """Null default implementation """
+        """Null default implementation"""
 
     def close(self):
-        """Null default implementation """
+        """Null default implementation"""
 
     @abc.abstractmethod
     def read(self, timeout=0.500):

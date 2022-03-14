@@ -51,6 +51,9 @@ class DataLogger(fprime_gds.common.handlers.DataHandler):
             )
             self.f_command.flush()
 
+        if isinstance(data, (bytes, bytearray)):
+            self.on_recv(data)
+
     def send(self, data, dest):
         """Send callback for the encoder
 

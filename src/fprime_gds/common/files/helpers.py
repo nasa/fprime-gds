@@ -19,13 +19,14 @@ import struct
 import threading
 from pathlib import Path
 
+
 class Timeout:
     """
     Starts a timeout thread and will respond with a callback to a function when the timeout expires.
     """
 
     def __init__(self):
-        """ Sets up needed member variables """
+        """Sets up needed member variables"""
         self.__timer = None
         self.__timeout = None
         self.__callback = None
@@ -44,7 +45,7 @@ class Timeout:
         self.args = args
 
     def start(self):
-        """ Starts the timeout after a previous setup. """
+        """Starts the timeout after a previous setup."""
         assert self.__timer is None, "Timer already started, call restart() instead"
         assert self.__callback is not None, "Setup timeout before calling start"
         assert self.__timeout is not None, "Setup timeout before calling start"
@@ -79,14 +80,14 @@ class FileStates(enum.Enum):
 
 
 class CFDPChecksum:
-    """ Class running the CFDG checksum """
+    """Class running the CFDG checksum"""
 
     def __init__(self):
-        """ Set initial value as zero """
+        """Set initial value as zero"""
         self.__value = 0
 
     def update(self, data, offset):
-        """ Update the checksum """
+        """Update the checksum"""
         while data:
             padding_len = offset % 4
             calc_bytes = (
@@ -96,12 +97,13 @@ class CFDPChecksum:
                 self.__value + struct.unpack_from(">I", calc_bytes, 0)[0]
             ) & 0xFFFFFFFF
             # Update pointers
-            data = data[4 - padding_len:]
+            data = data[4 - padding_len :]
             offset = offset + (4 - padding_len)
 
     @property
     def value(self):
         return self.__value
+
 
 class TransmitFileState(enum.Enum):
     READ = 0
@@ -114,7 +116,7 @@ class TransmitFile:
     """
 
     def __init__(self, source, destination, size=None, log_dir=None):
-        """ Construct the uplink file """
+        """Construct the uplink file"""
         self.__mode = None
         self.__start = None
         self.__end = None
@@ -152,7 +154,7 @@ class TransmitFile:
             )
 
     def read(self, chunk):
-        """ Read the chunk from the file """
+        """Read the chunk from the file"""
         assert self.__fd is not None, "Must open file before reading"
         assert self.__mode == TransmitFileState.READ, "Cannot read in WRITE mode"
         return self.__fd.read(chunk)

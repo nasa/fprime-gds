@@ -204,7 +204,7 @@ class QueryHistoryCommand(BaseCommand):
                     min_start_time = filtering_utils.time_to_data_predicate(
                         min_start_time
                     )
-                return min_start_time,
+                return (min_start_time,)
 
             misc_utils.repeat_until_interrupt(print_upcoming_item, "NOW")
 

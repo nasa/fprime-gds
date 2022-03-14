@@ -2,11 +2,14 @@ import argparse
 import copy
 import time
 import sys
+import functools
 from pathlib import Path
 
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.handlers import DataHandler
-from fprime_gds.common.client_socket.client_socket import ThreadedTCPSocketClient, GUI_TAG, FSW_TAG
+
+# from fprime_gds.common.client_socket.client_socket import ThreadedTCPSocketClient, GUI_TAG, FSW_TAG
+from fprime_gds.common.zmq_data import ZmqClient, Routing
 
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.data_types.ch_data import ChData
@@ -16,28 +19,25 @@ from fprime_gds.common.encoders.event_encoder import EventEncoder
 from fprime_gds.common.encoders.ch_encoder import ChEncoder
 from fprime_gds.common.utils.config_manager import ConfigManager
 
+CHUNK_SIZE = 1024 * 1024
 
-# Global tracking tokens
-TRACKING = {
-    "realtime_slips": 0,
-    "out_of_order_packets": 0,
-    "realtime_slip_data": []
-}
+
+def as_fraction(time_val):
+    """Convert timeval to fractional time"""
+    time_val = getattr(time_val, "time", time_val)
+    return time_val.seconds + time_val.useconds / 100000.0
 
 
 class MultiEncoder(Encoder):
-    """ Encodes multiple different object types """
+    """Encodes multiple different object types"""
 
     def __init__(self, config):
-        """ Sets up sub-encoders """
+        """Sets up sub-encoders"""
         super().__init__(config)
-        self.encoders = {
-            EventData: EventEncoder(config),
-            ChData: ChEncoder(config)
-        }
+        self.encoders = {EventData: EventEncoder(config), ChData: ChEncoder(config)}
 
     def encode_api(self, data):
-        """ Delegates encoding to sub encoder by type """
+        """Delegates encoding to sub encoder by type"""
         encoder = self.encoders.get(type(data), None)
         if encoder is not None:
             return encoder.encode_api(data)
@@ -45,107 +45,191 @@ class MultiEncoder(Encoder):
         return None
 
 
-class ReplayForwarder(DataHandler):
-    """ Class used to replay data by forwarding packets to GDS """
+class ChainableDataHandler(DataHandler):
+    """Chainable data handler"""
 
-    def __init__(self, encoder, realtime=False, filter_times=(0, 99999999999999.999999), base=None, filter_after=False):
-        """ Setup the forwarder """
-        self.last_stamp = None
-        self.last_time = None
-        self.encoder = encoder
-        self.realtime = realtime
-        self.filter_times = filter_times
+    def __init__(self):
+        """Constructor"""
+        self.next = None
+
+    def data_callback(self, data, sender=None):
+        """Callback that passes data onward"""
+        if self.next is not None:
+            self.next.data_callback(data, self)
+
+
+class DataWatcher(ChainableDataHandler):
+    """Handler for watching data"""
+
+    def __init__(self, watched_ids=None):
+        """Initialize this watcher"""
+        super().__init__()
+        self.watchers = {
+            watch_id: None for watch_id in (watched_ids if watched_ids else [])
+        }
+
+    def data_callback(self, item, sender=None):
+        """Look at data for watchers"""
+        if item.id in self.watchers:
+            time_as_fraction = as_fraction(item)
+            print(f"[WATCH {time.time()}] {time_as_fraction} {item}")
+        super().data_callback(item, self)
+
+
+class SleepingDataHandler(ChainableDataHandler):
+    """Sleeping data handler"""
+
+    def __init__(self, threshold=0.50):
+        """Sleep"""
+        super().__init__()
+        self.initial_data_time = None
+        self.initial_program_time = None
+        self.threshold = threshold
+        self.slip_count = 0
+        self.slip_history = []
+        self.last_sleep_item_time = None
+
+    def data_callback(self, data, sender=None):
+        """Sleeps based on the delta from the start of the run"""
+        current_data_time = as_fraction(data)
+        now = time.time()
+        if not self.initial_data_time or not self.initial_program_time:
+            self.initial_data_time = current_data_time
+            self.initial_program_time = now
+            self.last_sleep_item_time = current_data_time
+        rt_delta = now - self.initial_program_time
+        data_delta = current_data_time - self.initial_data_time
+
+        # Check if sleep is needed
+        sleep_time = data_delta - rt_delta
+        if (
+            sleep_time > self.threshold
+            and current_data_time > self.last_sleep_item_time
+        ):
+            self.last_sleep_item_time = current_data_time
+            time.sleep(sleep_time)
+        elif (
+            sleep_time < -self.threshold
+            and current_data_time > self.last_sleep_item_time
+        ):
+            self.slip_count += 1
+            if len(self.slip_history) < 10000:
+                self.slip_history.append(abs(sleep_time))
+        self.last_item_time = current_data_time
+        super().data_callback(data, self)
+
+
+class ShiftyDataHandler(ChainableDataHandler):
+    """Data handler used to shift data"""
+
+    def __init__(self, base):
+        """Initialize"""
+        super().__init__()
         self.base = base
         self.offset = None
-        self.rt_threshold = 0.050 # 50 ms before printing warning
-        self.filter_after = filter_after
-
-    @staticmethod
-    def as_fraction(time_val):
-        """ Convert timeval to fractional time """
-        return time_val.seconds + time_val.useconds / 100000.0
-
-    @staticmethod
-    def populate_time(time_item, time_fraction):
-        """ Populate time item with fractional time """
-        time_item.seconds = int(time_fraction)
-        time_item.useconds = int((time_fraction - int(time_fraction)) * 100000.0)
-
-    def set_offset_time(self, time_frac):
-        """ Sets the first_time time if not set """
-        if self.offset is None:
-            self.offset = self.base - time_frac
-
-    def get_sleep_time(self, new_stamp):
-        """ Get the necessary sleep time """
-        now = time.time()
-        last_as_fraction = self.as_fraction(self.last_stamp if self.last_stamp is not None else new_stamp)
-        new_as_fraction = self.as_fraction(new_stamp)
-
-        # Check out-of-order packets. Ill-ordered packets do not wait
-        if last_as_fraction > new_as_fraction:
-            TRACKING["out_of_order_packets"] += 1
-            self.last_stamp = new_stamp
-            return 0.0
-
-        # Non-realtime runs also doe not wait
-        if not self.realtime:
-            return 0.0
-
-        # Calculate the new sleep time based on what time it is now, and the needed data
-        needed_delta = new_as_fraction - last_as_fraction
-        current_delta = now - (self.last_time if self.last_time is not None else now)
-
-        # Update the last tracking tokens
-        self.last_stamp = new_stamp
-
-        sleep_time_calculate = needed_delta - current_delta
-        # Ignore sleeps within threshold
-        if abs(sleep_time_calculate) < self.rt_threshold:
-            return 0.0
-        elif needed_delta < current_delta:
-            TRACKING["realtime_slips"] += 1
-            if len(TRACKING["realtime_slip_data"]) < 10000:
-                TRACKING["realtime_slip_data"].append(abs(sleep_time_calculate))
-            return 0.0
-        assert sleep_time_calculate >= 0, f"Sleep time must be positive not {sleep_time_calculate}"
-        return sleep_time_calculate
 
     def rewrite_time(self, data):
-        """ Rewrite the time of the item w.r.t. the base if set """
+        """Rewrite the time of the item w.r.t. the base if set"""
         if self.base is None:
             return data
         new_item = copy.copy(data)
         new_time = copy.copy(new_item.time)
         new_item.time = new_time
-        fractional = self.as_fraction(new_time)
+        fractional = as_fraction(new_time)
 
         self.set_offset_time(fractional)
         self.populate_time(new_time, self.offset + fractional)
         return new_item
 
+    def set_offset_time(self, time_frac):
+        """Sets the first_time time if not set"""
+        if self.offset is None:
+            self.offset = self.base - time_frac
+
     def data_callback(self, data, sender=None):
-        """ Encode and send the data packet """
-        data_new = self.rewrite_time(data)
+        """Data callback that shifts data"""
+        data = self.rewrite_time(data)
+        super().data_callback(data, self)
 
-        item_time = self.as_fraction((data_new if self.filter_after else data).time)
-        # Filter out items for focusing on items
-        if item_time < self.filter_times[0] or item_time > self.filter_times[1]:
+    @staticmethod
+    def populate_time(time_item, time_fraction):
+        """Populate time item with fractional time"""
+        time_item.seconds = int(time_fraction)
+        time_item.useconds = int((time_fraction - int(time_fraction)) * 100000.0)
+
+
+class FilteringDataHandler(ChainableDataHandler):
+    """Filters data"""
+
+    def __init__(self, filters=(0, 99999999999999.999999)):
+        """Filter times"""
+        super().__init__()
+        self.filters = filters
+
+    def data_callback(self, data, sender=None):
+        """Callback to do"""
+        item_time = as_fraction(data)
+        if item_time < self.filters[0] or item_time > self.filters[1]:
             return
-        data = data_new
+        super().data_callback(data, self)
 
-        sleep_time = self.get_sleep_time(data.time)
-        # Handle realtime
-        if self.realtime and sleep_time > 0:
-            time.sleep(sleep_time)
-        # Update the last time we did something after the sleep
-        self.last_time = time.time()
 
-        self.encoder.data_callback(data)
+class TrackingDataHandler(ChainableDataHandler):
+    """Tracks various items about our data"""
+
+    def __init__(self, verbose=False):
+        """Initialize"""
+        super().__init__()
+        self.verbose = verbose
+        self.count = 0
+        self.bounding = (None, None)
+        self.last_times = {}
+        self.ooo_counts = {}
+        self.all_counts = {}
+        self.last_time = None
+
+    def data_callback(self, data, sender=None):
+        """Track items"""
+        self.count += 1
+        current_time = as_fraction(data)
+        if not self.verbose and (self.count % 100) == 0:
+            print(f"[INFO] Processing item: {self.count}          ", end="\r")
+        # Channel Key
+        ooo_key = type(data).__name__ + "-" + data.template.get_full_name()
+        if self.last_times.get(ooo_key, -0.000) > current_time:
+            self.ooo_counts[ooo_key] = self.ooo_counts.get(ooo_key, 0) + 1
+        self.all_counts[ooo_key] = self.all_counts.get(ooo_key, 0) + 1
+        self.last_times[ooo_key] = current_time
+        self.bounding = (
+            current_time if self.bounding[0] is None else self.bounding[0],
+            current_time,
+        )
+        if not self.last_time or current_time >= self.last_time:
+            self.last_time = current_time
+        super().data_callback(data, self)
+
+
+class ReplayForwarder(DataHandler):
+    """Class used to replay data by forwarding packets to GDS"""
+
+    def __init__(self, encoder, handlers):
+        """Setup the forwarder"""
+        self.handlers = handlers + [encoder]
+
+        def chainer(last, current):
+            """Chains the callbacks together"""
+            last.next = current
+            return current
+
+        functools.reduce(chainer, self.handlers)
+
+    def data_callback(self, data, sender=None):
+        """Encode and send the data packet"""
+        self.handlers[0].data_callback(data, self)
 
 
 def parse_args():
-    """ Setup argument parser """
+    """Setup argument parser"""
     parser = argparse.ArgumentParser(description="A replayer for RAW GUI logged data")
     parser.add_argument(
         "-d",
@@ -185,15 +269,32 @@ def parse_args():
         help="Filter out all objects after this time in seconds.microseconds format.",
     )
     parser.add_argument(
+        "-w",
+        "--watch",
+        type=lambda x: int(x, 0),
+        action="append",
+        default=None,
+        help="Watch the values of a specific id in the system.",
+    )
+    parser.add_argument(
         "--shift-to-time",
         type=float,
         default=None,
         help="Shift times so the first post-filter record starts at the given time in seconds.microseconds format.",
-        dest="shift"
+        dest="shift",
     )
-    parser.add_argument("--filter-after-shift", default=False, action="store_true",
-                        help="Change filtering to affect post shifted data")
-    parser.add_argument("--realtime", default=False, action="store_true", help="Delay replay to be pseudo-realtime")
+    parser.add_argument(
+        "--filter-after-shift",
+        default=False,
+        action="store_true",
+        help="Change filtering to affect post shifted data",
+    )
+    parser.add_argument(
+        "--realtime",
+        default=False,
+        action="store_true",
+        help="Delay replay to be pseudo-realtime",
+    )
     parser.add_argument("raw", help="Raw logfile to replay")
     return parser.parse_args()
 
@@ -201,6 +302,27 @@ def parse_args():
 def main():
     """ """
     args = parse_args()
+
+    # Build hanndler chain for processing
+    # Needed for tracking purposes
+    tracker_pre = TrackingDataHandler(True)
+    tracker_post = TrackingDataHandler(False)
+    filtering = [FilteringDataHandler((args.starttime, args.endtime))]
+    shifter = [ShiftyDataHandler(args.shift)]
+
+    # Build handlers set for processing data
+    handlers = [tracker_pre]
+    if not args.filter_after_shift:
+        handlers += filtering
+    if args.shift:
+        handlers += shifter + filtering
+    handlers += [DataWatcher(args.watch), tracker_post]
+    sleep_handler = None
+    if args.realtime:
+        sleep_handler = SleepingDataHandler()
+        handlers += [sleep_handler]
+
+    # Config manager setup
     config = ConfigManager()
 
     if not Path(args.raw).exists():
@@ -211,35 +333,70 @@ def main():
     pipeline.setup(config, args.dictionary, "/tmp/replay-store", None, None)
 
     # Setup custom connection
-    client_socket = ThreadedTCPSocketClient(dest=GUI_TAG)
-    client_socket.stop_event.set() # Kill the receive thread before it gets going
-    client_socket.connect(args.ip_address, args.port)
+    client_socket = ZmqClient()  # ThreadedTCPSocketClient(dest=GUI_TAG)
+    client_socket.stop_event.set()  # Kill the receive thread before it gets going
+    client_socket.configure(Routing.FSW, Routing.GUI)
+    client_socket.connect(args.ip_address, args.port, True)
+    time_pairs = ((None, None), (None, None))
+    forwarder = None
+    start_time = 0.0
     try:
-        client_socket.register_to_server(FSW_TAG) # Pretend to be FSW
+        # client_socket.register_to_server(FSW_TAG) # Pretend to be FSW
 
-        pipeline.client_socket = client_socket # Override client socket
+        pipeline.client_socket = client_socket  # Override client socket
         multi_encoder = MultiEncoder(config)
         multi_encoder.register(client_socket)
 
-        forwarder = ReplayForwarder(multi_encoder, args.realtime, (args.starttime, args.endtime),
-                                    args.shift, args.filter_after_shift)
+        forwarder = ReplayForwarder(multi_encoder, handlers)
 
         # Update handlers
         pipeline.histories.channels = forwarder
         pipeline.histories.events = forwarder
 
         with open(args.raw, "rb") as file_handle:
-            pipeline.distributor.on_recv(file_handle.read())
+            print("[INFO] Reading data from disk. This may take a few moments.")
+            data = file_handle.read()
+            print(
+                "[INFO] Processing raw data through: ",
+                [type(item).__name__ for item in handlers],
+            )
+            start_time = time.time()
+            pipeline.distributor.on_recv(data)
     finally:
+        end_time = time.time()
+        if forwarder is not None:
+            time_pairs = (tracker_pre.bounding, tracker_post.bounding)
         client_socket.disconnect()
         pipeline.disconnect()
 
-    print(f"[INFO] Run ended:")
-    print(f"    { TRACKING['out_of_order_packets'] } out-of-order packets")
-    # Print realtime slip data
-    rt_data = TRACKING["realtime_slip_data"]
-    if args.realtime and rt_data:
-        print(f"    { TRACKING['realtime_slips'] } realtime slips with duration min ~{ min(rt_data) } max ~{ max(rt_data) }")
+        print(
+            f"[INFO] Run ended with total processed items: {tracker_post.count}/{tracker_pre.count} in {end_time - start_time} S"
+        )
+        time_data = time_pairs[0]
+        total_time = (time_data[1] if time_data[1] is not None else 0) - (
+            time_data[0] if time_data[0] is not None else 0
+        )
+        print(
+            f"    Time range {time_pairs[0]} shifted/filtered to {time_pairs[1]} with total time range of {total_time} S"
+        )
+        for tracker, stage in [(tracker_pre, "input"), (tracker_post, "output")]:
+            for type_prefix in ["Ch", "Ev"]:
+                print(
+                    f"    { sum([value for key, value in tracker.all_counts.items() if key.startswith(type_prefix)]) } total {type_prefix} packets on {stage}"
+                )
+                print(
+                    f"    { sum([value for key, value in tracker.ooo_counts.items() if key.startswith(type_prefix)]) } out-of-order {type_prefix} packets on {stage}"
+                )
+                for key_name, key_value in tracker.ooo_counts.items():
+                    if key_name.startswith(type_prefix):
+                        print(f"        {key_name}: {tracker.all_counts[key_name]}")
+                        print(f"        {key_name} (Missing): {key_value}")
+        # Print realtime slip data
+        if args.realtime and sleep_handler.slip_history:
+            print(
+                f"  **** { sleep_handler.slip_count } realtime slips with duration min ~{ min(sleep_handler.slip_history) } max ~{ max(sleep_handler.slip_history) }"
+            )
+        sys.stdout.flush()
 
 
 if __name__ == "__main__":

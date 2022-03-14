@@ -35,7 +35,7 @@ class Dictionaries:
     """
 
     def __init__(self):
-        """ Constructor of the dictionaries object """
+        """Constructor of the dictionaries object"""
         self._command_id_dict = None
         self._event_id_dict = None
         self._channel_id_dict = None
@@ -105,35 +105,35 @@ class Dictionaries:
 
     @property
     def command_id(self):
-        """ Command dictionary by ID """
+        """Command dictionary by ID"""
         return self._command_id_dict
 
     @property
     def event_id(self):
-        """ Event dictionary by ID """
+        """Event dictionary by ID"""
         return self._event_id_dict
 
     @property
     def channel_id(self):
-        """ Channel dictionary by ID """
+        """Channel dictionary by ID"""
         return self._channel_id_dict
 
     @property
     def command_name(self):
-        """ Command dictionary by name """
+        """Command dictionary by name"""
         return self._command_name_dict
 
     @property
     def event_name(self):
-        """ Event dictionary by name """
+        """Event dictionary by name"""
         return self._event_name_dict
 
     @property
     def channel_name(self):
-        """ Channel dictionary by name """
+        """Channel dictionary by name"""
         return self._channel_name_dict
 
     @property
     def packet(self):
-        """ Packet dictionary """
+        """Packet dictionary"""
         return self._packet_dict

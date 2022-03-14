@@ -44,10 +44,7 @@ setup(
     # information should match the F prime description information.
     ####
     name="fprime_gds",
-    use_scm_version={
-        "root": ".",
-        "relative_to": __file__
-    },
+    use_scm_version={"root": ".", "relative_to": __file__},
     license="Apache 2.0 License",
     description="F Prime Flight Software Ground Data System layer.",
     long_description="""
@@ -83,8 +80,10 @@ integrated configuration with ground in-the-loop.
     ####
     entry_points={
         "gui_scripts": ["fprime-gds = fprime_gds.executables.run_deployment:main"],
-        "console_scripts": ["fprime-cli = fprime_gds.executables.fprime_cli:main",
-                            "fprime-seqgen = fprime_gds.common.tools.seqgen:main"],
+        "console_scripts": [
+            "fprime-cli = fprime_gds.executables.fprime_cli:main",
+            "fprime-seqgen = fprime_gds.common.tools.seqgen:main",
+        ],
     },
     ####
     # Classifiers:
@@ -110,6 +109,8 @@ integrated configuration with ground in-the-loop.
     setup_requires=["setuptools_scm==6.0.1"],
     install_requires=[
         "flask==1.1.2",
+        "flask_compress==1.11",
+        "pyzmq==22.3.0",
         "pexpect==4.8.0",
         "pytest==6.2.4",
         "flask_restful==0.3.8",

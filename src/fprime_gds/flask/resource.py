@@ -15,8 +15,9 @@ class DictionaryResource(Resource):
     Resource tasked with serving the supplied dictionary through flask. The dictionary will be returned as-is and thus
     should be flask compatible. Errors with the dictionary are a 500 server error and may not be recovered.
     """
+
     def __init__(self, dictionary):
-        """ Constructor used to setup for dictionary
+        """Constructor used to setup for dictionary
 
         Args:
             dictionary: dictionary to serve when GET is called
@@ -24,7 +25,7 @@ class DictionaryResource(Resource):
         self.dictionary = dictionary
 
     def get(self):
-        """ HTTP GET method handler for dictionary resource
+        """HTTP GET method handler for dictionary resource
 
         Returns:
             dictionary ready for conversion into JSON
@@ -43,8 +44,9 @@ class HistoryResourceBase(Resource):
     into the history. This session is automatically deleted when the DELETE handler is invoked such that the GDS is
     kept cleaned-up.
     """
+
     def __init__(self, history):
-        """ Construct this history resource around a supplied history
+        """Construct this history resource around a supplied history
 
         Args:
             history: history used as a base data store for this resource
@@ -56,11 +58,11 @@ class HistoryResourceBase(Resource):
         self.history = history
 
     def process(self, item):
-        """ Base history objecy processing function (does nothing) """
+        """Base history objecy processing function (does nothing)"""
         return item
 
     def get(self):
-        """ HTTP GET handler returning new history objects """
+        """HTTP GET handler returning new history objects"""
         errors = []
         returned_items = []
         args = self.parser.parse_args()

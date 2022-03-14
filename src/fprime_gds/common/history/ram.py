@@ -48,10 +48,10 @@ class RamHistory(History):
         :return: a list of objects
         """
         index = 0
-        size = self.size()
-        if start is not None:
-            index = self.retrieved_cursors.get(start, size)
         with self.lock:
+            size = self.size()
+            if start is not None:
+                index = self.retrieved_cursors.get(start, size)
             objs = self.objects[index:size]
             self.retrieved_cursors[start] = size
         return objs
@@ -65,9 +65,9 @@ class RamHistory(History):
             a list of objects in chronological order
         """
         index = 0
-        if len(self.retrieved_cursors.values()) > 0:
-            index = max(self.retrieved_cursors.values())
         with self.lock:
+            if len(self.retrieved_cursors.values()) > 0:
+                index = max(self.retrieved_cursors.values())
             return self.objects[index:]
 
     def clear(self, start=None):
@@ -106,7 +106,8 @@ class RamHistory(History):
         Returns:
             the number of objects (int)
         """
-        return len(self.objects)
+        with self.lock:
+            return len(self.objects)
 
 
 class SelfCleaningRamHistory(RamHistory):

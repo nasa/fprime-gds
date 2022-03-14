@@ -99,7 +99,10 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
                             "Line %d: %s"
                             % (
                                 i + 1,
-                                "'" + mnemonic + "' argument type mismatch. " + e.getMsg(),
+                                "'"
+                                + mnemonic
+                                + "' argument type mismatch. "
+                                + e.getMsg(),
                             )
                         )
                     # Set the command time and descriptor:

@@ -11,14 +11,14 @@
 ####
 import copy
 import types
-
+import time
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
 
 
 class ChannelDictionary(DictionaryResource):
-    """ Channel dictionary shares implementation """
+    """Channel dictionary shares implementation"""
 
 
 class ChannelHistory(HistoryResourceBase):
@@ -28,15 +28,11 @@ class ChannelHistory(HistoryResourceBase):
     """
 
     def process(self, chan):
-        """ Process the channel to add get_display_text """
+        """Process the channel to add get_display_text"""
         chan = copy.copy(chan)
         # Setup display_text and when needed
         if isinstance(chan.val_obj, (SerializableType, ArrayType)):
-            setattr(
-                chan,
-                "display_text",
-                chan.val_obj.formatted_val
-            )
+            setattr(chan, "display_text", chan.val_obj.formatted_val)
         elif chan.template.get_format_str() is not None:
             setattr(
                 chan,
@@ -45,11 +41,11 @@ class ChannelHistory(HistoryResourceBase):
             )
         # If we added display_text, then add a getter and test it
         if hasattr(chan, "display_text"):
+
             def func(this):
                 return this.display_text
+
             setattr(chan, "get_display_text", types.MethodType(func, chan))
             # Pre-trigger any errors in the display text getter
             _ = chan.get_display_text()
         return chan
-
-

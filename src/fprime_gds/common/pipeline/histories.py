@@ -6,6 +6,7 @@ to compose in this code.
 
 @author mstarch
 """
+from typing import Type
 from fprime_gds.common.history.history import History
 from fprime_gds.common.history.ram import RamHistory
 
@@ -25,6 +26,7 @@ class Histories:
         self._command_hist = None
         self._event_hist = None
         self._channel_hist = None
+        self._implementation_type = RamHistory
 
     def setup_histories(self, coders):
         """
@@ -35,9 +37,24 @@ class Histories:
         """
         self.coders = coders
         # Create histories, RAM histories for now
-        self.commands = RamHistory()
-        self.events = RamHistory()
-        self.channels = RamHistory()
+        self.commands = self._implementation_type()
+        self.events = self._implementation_type()
+        self.channels = self._implementation_type()
+
+    @property
+    def implementation(self):
+        """Get implementation type"""
+        return self._implementation_type
+
+    @implementation.setter
+    def implementation(self, implementation_type: Type[History]):
+        """Set the implementation type"""
+        assert (
+            self._command_hist is None
+            and self._event_hist is None
+            and self._channel_hist is None
+        ), "Cannot setup implementation types after setup"
+        self._implementation_type = implementation_type
 
     @property
     def events(self):

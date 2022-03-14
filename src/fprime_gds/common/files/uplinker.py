@@ -62,19 +62,19 @@ class UplinkQueue:
         self.__file_store.append(file_obj)
 
     def pause(self):
-        """ Pause the uplinker, setting the running flag off, then holding the busy semaphore """
+        """Pause the uplinker, setting the running flag off, then holding the busy semaphore"""
         if self.running:
             self.running = False
             self.busy.acquire()
 
     def unpause(self):
-        """ Unpause the uplinker, releasing the busy semaphore and then restoring the running flag """
+        """Unpause the uplinker, releasing the busy semaphore and then restoring the running flag"""
         if not self.running:
             self.busy.release()
             self.running = True
 
     def is_running(self):
-        """ Check if the uplink is running """
+        """Check if the uplink is running"""
         return self.running
 
     def remove(self, source):
@@ -129,7 +129,7 @@ class UplinkQueue:
         return file_to_dict(self.__file_store)
 
     def exit(self):
-        """ Exit event to shutdown the thread """
+        """Exit event to shutdown the thread"""
         self.__exit.set()
         self.running = False
         self.queue.put(
@@ -137,7 +137,7 @@ class UplinkQueue:
         )  # Force an end to the wait for a file, if an uplink is not in-progress
 
     def join(self):
-        """ Join with this uplinker """
+        """Join with this uplinker"""
         self.__thread.join()
 
 
@@ -179,22 +179,22 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
         self.queue.enqueue(filepath, destination)
 
     def exit(self):
-        """ Exit this uplinker by killing the thread """
+        """Exit this uplinker by killing the thread"""
         self.queue.exit()
         self.cancel()
         self.queue.join()
 
     def is_running(self):
-        """ Check if the queue is running """
+        """Check if the queue is running"""
         return self.queue.is_running()
 
     def pause(self):
-        """ Pause uplink by canceling the uplink, and then pausing the uplink queue """
+        """Pause uplink by canceling the uplink, and then pausing the uplink queue"""
         self.cancel()
         self.queue.pause()
 
     def unpause(self):
-        """ Unpauses the uplink by unpausing the internal queue """
+        """Unpauses the uplink by unpausing the internal queue"""
         self.queue.unpause()
 
     def cancel_remove(self, file):
@@ -302,7 +302,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
             # self.queue.pause()
 
     def timeout(self):
-        """ Handles timeout o file packet by finishing the upload immediately, and setting the state to timeout """
+        """Handles timeout o file packet by finishing the upload immediately, and setting the state to timeout"""
         self.finish(False)
         self.active.state = "TIMEOUT"
 
@@ -325,7 +325,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
             self.__timeout.stop()
 
     def get_next_sequence(self):
-        """ Gets the next sequence number """
+        """Gets the next sequence number"""
         tmp = self.sequence
         self.sequence = self.sequence + 1
         return tmp
@@ -360,4 +360,4 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
 
 
 class FileUplinkerBusyException(Exception):
-    """ File uplinker is busy and cannot uplink more files """
+    """File uplinker is busy and cannot uplink more files"""

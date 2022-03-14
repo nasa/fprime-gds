@@ -11,16 +11,16 @@ from flask_restful import Api
 
 
 def build_error_object(error, args=None):
-    """ Builds an error object from an error """
+    """Builds an error object from an error"""
     return {
         "type": str(type(error).__name__),
         "message": str(error),
-        "args": args if args is not None else []
+        "args": args if args is not None else [],
     }
 
 
 def handle_flask_error(error):
-    """ Handle an error within the flask usage
+    """Handle an error within the flask usage
 
     Handling an error within flask should produce a standard error message and pass it back to the JavaScript
     application. The error response is expected to look like:
@@ -37,22 +37,20 @@ def handle_flask_error(error):
         response JSON, status code
     """
     status_code = getattr(error, "code", 500)
-    response = {
-        "errors": [build_error_object(error, getattr(error, "args", []))]
-    }
+    response = {"errors": [build_error_object(error, getattr(error, "args", []))]}
     return jsonify(response), status_code
 
 
 class ErrorHandlingApi(Api):
-    """ Subclass of the flask_restful API only to change the error handle """
+    """Subclass of the flask_restful API only to change the error handle"""
 
     def handle_error(self, error):
-        """ Handle errors within flask_restful by overriding the handle_error method """
+        """Handle errors within flask_restful by overriding the handle_error method"""
         return handle_flask_error(error)
 
 
 def setup_error_handling(app: Flask):
-    """ Setup the error handling for flask and get a flask_restful API with similar error handling
+    """Setup the error handling for flask and get a flask_restful API with similar error handling
 
     Sets up a flask_restful API that will handle errors in the standard way and registers the same error handling to
     the flask app for non-restful errorrs
@@ -65,5 +63,3 @@ def setup_error_handling(app: Flask):
     """
     app.errorhandler(Exception)(handle_flask_error)
     return Api(app)
-
-

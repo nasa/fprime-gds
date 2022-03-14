@@ -18,8 +18,10 @@ DOWNLINK_DIR = os.environ.get("DOWN_FILES_DIR", "/tmp/fprime-downlink/")
 
 # Configuration is mostly driven from environment variables
 DICTIONARY = os.environ.get("DICTIONARY", None)
+ZMQ_TRANSPORT = os.environ.get("ZMQ_TRANSPORT", None)
 PORT = int(os.environ.get("TTS_PORT", "50050"), 0)
-ADDRESS = os.environ.get("TTS_ADDR", "0.0.0.0")
+ADDRESS = os.environ.get("TTS_ADDR", "127.0.0.1")
+
 LOG_DIR = os.environ.get("LOG_DIR", None)
 SERVE_LOGS = os.environ.get("SERVE_LOGS", "YES") == "YES"
 UPLOADED_UPLINK_DEST = uplink_dir

@@ -72,7 +72,10 @@ class CmdData(sys_data.SysData):
             except Exception as exc:
                 error_message = str(exc)
                 # Patch old versions of fprime-tools to replace a bad error message with the correct one
-                if isinstance(exc, TypeError) and "object of type 'NoneType' has no len()" in error_message:
+                if (
+                    isinstance(exc, TypeError)
+                    and "object of type 'NoneType' has no len()" in error_message
+                ):
                     error_message = f"String size {len(val)} is greater than {typ.__max_string_len}!"
                 errors.append(error_message)
         # If any errors occur, then raise a aggregated error
@@ -170,9 +173,7 @@ class CmdData(sys_data.SysData):
             elif value in ("false", "no"):
                 av = False
             else:
-                raise CommandArgumentException(
-                    "Argument value is not a valid boolean"
-                )
+                raise CommandArgumentException("Argument value is not a valid boolean")
             arg_type.val = av
         elif isinstance(arg_type, EnumType):
             arg_type.val = arg_val

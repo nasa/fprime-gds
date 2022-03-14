@@ -28,6 +28,10 @@ try:
     import fprime_gds.common.communication.adapters.uart
 except ImportError:
     pass
+try:
+    import zmq
+except ImportError:
+    zmq = None
 # Try to import each GUI type, and if it can be imported
 # it will be provided to the user as an option
 GUIS = ["none", "html"]
@@ -217,7 +221,7 @@ class CommParser(ParserBase):
             action="store",
             type=str,
             help="Adapter for communicating to flight deployment. [default: %(default)s]",
-            choices=adapters,
+            choices=["none"] + list(adapters),
             default="ip",
         )
         parser.add_argument(
@@ -226,7 +230,11 @@ class CommParser(ParserBase):
             action="store",
             type=str,
             help="Setup the checksum algorithm. [default: %(default)s]",
-            choices=[item for item in fprime_gds.common.communication.checksum.CHECKSUM_MAPPING.keys() if item != "default"],
+            choices=[
+                item
+                for item in fprime_gds.common.communication.checksum.CHECKSUM_MAPPING.keys()
+                if item != "default"
+            ],
             default=fprime_gds.common.communication.checksum.CHECKSUM_SELECTION,
         )
         return parser
@@ -336,6 +344,30 @@ class MiddleWareParser(ParserBase):
             description="Process arguments needed to specify a tool using the middleware",
             add_help=False,
         )
+        # May use ZMQ transportation layer if zmq package is available
+        if zmq is not None:
+            parser.add_argument(
+                "--zmq",
+                dest="zmq",
+                action="store_true",
+                help="Switch to using the ZMQ transportation layer",
+                default=False,
+            )
+            parser.add_argument(
+                "--zmq-server",
+                dest="zmq_server",
+                action="store_true",
+                help="Sets the ZMQ connection to be a server. Default: false (client)",
+                default=False,
+            )
+            parser.add_argument(
+                "--zmq-transport",
+                dest="zmq_transport",
+                action="store",
+                type=str,
+                help="Sets ZMQ transport layer url for use when --zmq has been supplied [default: %(default)s]",
+                default="tcp://localhost:5005",  # "ipc:///tmp/fprime-ipc-0"
+            )
         parser.add_argument(
             "--tts-port",
             dest="tts_port",
@@ -349,7 +381,7 @@ class MiddleWareParser(ParserBase):
             dest="tts_addr",
             action="store",
             type=str,
-            help="set the threaded TCP socket server address [default: %(default)s]",
+            help="Set the threaded TCP socket server address [default: %(default)s]",
             default="0.0.0.0",
         )
         return parser
@@ -363,7 +395,13 @@ class MiddleWareParser(ParserBase):
         :param args: parsed argument namespace
         :return: args namespace
         """
-        if "client" not in kwargs or not kwargs["client"]:
+        # Check ZMQ settings
+        if args.zmq and zmq is None:
+            print("[ERROR] ZeroMQ is not available. Install pyzmq.", file=sys.stderr)
+            sys.exit(-1)
+        elif args.zmq:
+            pass
+        elif not kwargs.get("client", False):
             fprime_gds.common.communication.adapters.ip.check_port(
                 args.tts_addr, args.tts_port
             )

@@ -14,10 +14,11 @@ descriptor header will be passed on to the registered objects.
 @bug No known bugs
 """
 from fprime_gds.common.utils import config_manager, data_desc_type
+from fprime_gds.common.handlers import DataHandler
 
 
 # NOTE decoder function to call is called data_callback(data)
-class Distributor:
+class Distributor(DataHandler):
     """
     A distributor contains a socket client that connects to a ThreadedTCPServer.
     It then sends and recvs data from a FPrime deployment.
@@ -43,7 +44,7 @@ class Distributor:
         self.__decoders = {key.name: [] for key in list(data_desc_type.DataDescType)}
 
         # Internal buffer for un distributed data
-        self.__buf = b""
+        self.__buf = bytearray(b"")
         # Setup key framing
         self.key_frame = None
         tmp_frame = config.get("framing", "use_key", fallback="false")
@@ -97,17 +98,16 @@ class Distributor:
                     # Check leading key size bytes to see if it is the key
                     self.key_obj.deserialize(data_left, 0)
                     if self.key_obj.val != self.key_frame:
-                        data_left = data_left[1:]
+                        del data_left[1]
                         continue
                     # Key found break
-                    data_left = data_left[self.key_obj.getSize():]
+                    del data_left[: self.key_obj.getSize()]
                     break
 
             # Check if we have enough data to parse a length
             if len(data_left) < self.len_obj.getSize():
                 break
             self.len_obj.deserialize(data_left, 0)
-
             expected_len = self.len_obj.val + self.len_obj.getSize()
 
             # Check if we have enough data to parse
@@ -115,9 +115,7 @@ class Distributor:
                 break
 
             raw_msgs.append(data_left[:expected_len])
-
-            data_left = data_left[expected_len:]
-
+            del data_left[:expected_len]
         return data_left, raw_msgs
 
     def parse_raw_msg_api(self, raw_msg):
@@ -161,6 +159,13 @@ class Distributor:
 
         return length, desc, msg
 
+    def data_callback(self, data, sender=None):
+        """Delegates to on_recv after checking data is binary"""
+        assert isinstance(
+            data, (bytes, bytearray)
+        ), "Distributor must be registered to handle binary data only"
+        return self.on_recv(data)
+
     def on_recv(self, data):
         """
         Called by the internal socket client when data is received from the socket
@@ -180,10 +185,10 @@ class Distributor:
 
         # Add new data to end of buffer
 
-        self.__buf = self.__buf + data
+        self.__buf.extend(data)
 
         (leftover_data, raw_msgs) = self.parse_into_raw_msgs_api(self.__buf)
-        self.__buf = leftover_data
+        assert leftover_data == self.__buf, "Weirdness happened"
 
         for raw_msg in raw_msgs:
             (length, data_desc, msg) = self.parse_raw_msg_api(raw_msg)
