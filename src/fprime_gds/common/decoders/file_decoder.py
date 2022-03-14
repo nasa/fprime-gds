@@ -46,13 +46,13 @@ class FileDecoder(decoder.Decoder):
         # Packet Type determines the variables following the seqID
         if packetType == "START":  # Packet Type is START
             fileSize, sourcePathSize = struct.unpack_from(">IB", data, 5)
-            sourcePath = data[10: sourcePathSize + 10]
+            sourcePath = data[10 : sourcePathSize + 10]
             (destPathSize,) = struct.unpack_from(">B", data, sourcePathSize + 10)
-            destPath = data[sourcePathSize + 11: sourcePathSize + destPathSize + 11]
+            destPath = data[sourcePathSize + 11 : sourcePathSize + destPathSize + 11]
             return file_data.StartPacketData(seqID, fileSize, sourcePath, destPath)
         elif packetType == "DATA":  # Packet Type is DATA
             offset, length = struct.unpack_from(">IH", data, 5)
-            dataVar = data[11: 11 + length]
+            dataVar = data[11 : 11 + length]
             return file_data.DataPacketData(seqID, offset, dataVar)
         elif packetType == "END":  # Packet Type is END
             hashValue = struct.unpack_from(">I", data, 5)

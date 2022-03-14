@@ -17,7 +17,7 @@ from fprime_gds.common.utils.string_util import format_string_template
 
 
 class EventDictionary(DictionaryResource):
-    """ Channel dictionary shares implementation """
+    """Channel dictionary shares implementation"""
 
 
 class EventHistory(HistoryResourceBase):
@@ -27,16 +27,19 @@ class EventHistory(HistoryResourceBase):
     """
 
     def process(self, event):
-        """ Process item and return one with get_display_text """
+        """Process item and return one with get_display_text"""
         event = copy.copy(event)
         setattr(
             event,
             "display_text",
-            format_string_template(event.template.format_str, tuple([arg.val for arg in event.args])),
+            format_string_template(
+                event.template.format_str, tuple([arg.val for arg in event.args])
+            ),
         )
 
         def func(this):
             return this.display_text
+
         setattr(event, "get_display_text", types.MethodType(func, event))
 
         # Pre-trigger errors before JSON serialization

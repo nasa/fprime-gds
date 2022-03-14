@@ -17,6 +17,7 @@ import copy
 import struct
 from .checksum import calculate_checksum
 
+
 class FramerDeframer(abc.ABC):
     """
     Abstract base class of the Framer/Deframer variety. Framers and Deframers have to define two methods, one for
@@ -94,7 +95,7 @@ class FpFramerDeframer(FramerDeframer):
     START_TOKEN = None
 
     def __init__(self):
-        """ Sets constants on construction. """
+        """Sets constants on construction."""
         # Setup the constants as soon as possible.
         FpFramerDeframer.set_constants()
 
@@ -174,8 +175,10 @@ class FpFramerDeframer(FramerDeframer):
                     data = data[total_size:]
                     return deframed, data
                 else:
-                    print("[WARNING] Checksum validation failed. Have you correctly set '--comm-checksum-type'",
-                          file=sys.stderr)
+                    print(
+                        "[WARNING] Checksum validation failed. Have you correctly set '--comm-checksum-type'",
+                        file=sys.stderr,
+                    )
                 # Bad checksum, rotate 1 and keep looking for non-garbage
                 data = data[1:]
                 continue
@@ -238,6 +241,6 @@ class TcpServerFramerDeframer(FramerDeframer):
         (data_len,) = struct.unpack_from(">I", data, 4)
         if len(data) < data_len + 8:
             return None, data
-        packet = data[8: data_len + 8]
-        data = data[data_len + 8:]
+        packet = data[8 : data_len + 8]
+        data = data[data_len + 8 :]
         return packet, data

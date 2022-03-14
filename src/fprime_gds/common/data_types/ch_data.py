@@ -129,7 +129,7 @@ class ChData(sys_data.SysData):
         if self.val_obj is None:
             ch_val = "EMPTY CH OBJ"
         elif fmt_str:
-            ch_val  = format_string_template(fmt_str, (self.val_obj.val,))
+            ch_val = format_string_template(fmt_str, (self.val_obj.val,))
         else:
             ch_val = str(self.val_obj.val)
 

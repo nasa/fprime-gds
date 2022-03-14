@@ -410,13 +410,13 @@ class XmlLoader(dict_loader.DictLoader):
 
 
 class UnsupportedDictionaryVersionException(Exception):
-    """ Dictionary is of unsupported version """
+    """Dictionary is of unsupported version"""
 
     def __init__(self, version):
-        """ Create a dictionary of a specific version """
+        """Create a dictionary of a specific version"""
 
         def pretty(version_tuple):
-            """ Pretty print version """
+            """Pretty print version"""
             return ".".join([str(item) for item in version_tuple])
 
         super().__init__(

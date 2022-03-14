@@ -39,7 +39,7 @@ class UTPipeline(StandardPipeline):
         pass
 
     def disconnect(self):
-        #Standard pipeline starts uplink thread that must be stopped
+        # Standard pipeline starts uplink thread that must be stopped
         self.files.uplinker.exit()
 
     def send_command(self, command, args):

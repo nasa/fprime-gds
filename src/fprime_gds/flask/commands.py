@@ -31,28 +31,31 @@ from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
 
 
 class CommandDictionary(DictionaryResource):
-    """ Channel dictionary shares implementation """
+    """Channel dictionary shares implementation"""
 
 
 class CommandHistory(HistoryResourceBase):
-    """ Command history requires no deviation from the base history implementation """
+    """Command history requires no deviation from the base history implementation"""
 
 
 class MissingArgumentException(werkzeug.exceptions.BadRequest):
-    """ Did not supply an argument """
+    """Did not supply an argument"""
+
     def __init__(self):
         super().__init__("Did not supply all required arguments.")
 
 
 class CommandArgumentsInvalidException(werkzeug.exceptions.BadRequest):
-    """ Command arguments failed to validate properly """
+    """Command arguments failed to validate properly"""
+
     def __init__(self, errors):
         super().__init__("Failed to validate all arguments")
         self.args = errors
 
 
 class InvalidCommandException(werkzeug.exceptions.BadRequest):
-    """ Requested invalid command """
+    """Requested invalid command"""
+
     def __init__(self, key):
         super().__init__(f"{ key } is not a valid command")
 

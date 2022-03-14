@@ -23,6 +23,10 @@ import signal
 
 
 # Required adapters built on standard tools
+try:
+    from fprime_gds.common.zmq_transport import ZmqGround
+except ImportError:
+    ZmqGround = None
 import fprime_gds.common.communication.adapters.base
 import fprime_gds.common.communication.checksum
 import fprime_gds.common.communication.ground
@@ -59,10 +63,23 @@ def main():
         client=True,
     )
     fprime_gds.common.communication.checksum = args.checksum_type
+    if args.comm_adapter == "none":
+        print("[ERROR] Comm adapter set to 'none'. Nothing to do but exit.")
+        sys.exit(-1)
+
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
-    ground = fprime_gds.common.communication.ground.TCPGround(
-        args.tts_addr, args.tts_port
-    )
+    if args.zmq and ZmqGround is None:
+        print("[ERROR] ZeroMQ is not available. Install pyzmq.", file=sys.stderr)
+        sys.exit(-1)
+    elif args.zmq:
+        ground = fprime_gds.common.zmq_transport.ZmqGround(args.zmq_transport)
+        # Check for need to make this a server
+        if args.zmq_server:
+            ground.make_server()
+    else:
+        ground = fprime_gds.common.communication.ground.TCPGround(
+            args.tts_addr, args.tts_port
+        )
 
     adapter = args.comm_adapter
 
@@ -83,7 +100,7 @@ def main():
     # Wait for shutdown event in the form of a KeyboardInterrupt then stop the processing, close resources, and wait for
     # everything to terminate as expected.
     def shutdown(*_):
-        """ Shutdown function for signals"""
+        """Shutdown function for signals"""
         uplinker.stop()
         downlinker.stop()
         ground.close()

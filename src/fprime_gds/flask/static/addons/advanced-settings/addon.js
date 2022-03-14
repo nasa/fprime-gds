@@ -2,6 +2,7 @@ import {advanced_template} from "./addon-templates.js";
 import {_datastore} from "../../js/datastore.js";
 import {_performance} from "../../js/performance.js"
 import {_settings} from "../../js/settings.js";
+import {_loader} from "../../js/loader.js";
 
 
 /**

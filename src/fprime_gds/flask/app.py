@@ -8,9 +8,15 @@
 import logging
 import os
 import sys
-
+import uuid
 import flask
-import flask_restful
+
+# Try to import Compress, but disable compression if not installed
+try:
+    from flask_compress import Compress
+except ImportError:
+    Compress = None
+
 from fprime_gds.flask import flask_uploads
 
 import fprime_gds.flask.channels
@@ -49,6 +55,11 @@ def construct_app():
     :return: setup app
     """
     app = flask.Flask(__name__, static_url_path="")
+    # Enable compression if it is installed
+    if Compress is not None:
+        compress = Compress()
+        compress.init_app(app)
+
     app.config.from_object("fprime_gds.flask.default_settings")
     # Override defaults from python files specified in 'FP_FLASK_SETTINGS'
     if "FP_FLASK_SETTINGS" in os.environ:
@@ -67,6 +78,7 @@ def construct_app():
         app.config["LOG_DIR"],
         app.config["ADDRESS"],
         app.config["PORT"],
+        app.config["ZMQ_TRANSPORT"],
     )
 
     # Restful API registration
@@ -130,17 +142,23 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.sequence.SequenceCompiler,
         "/sequence",
-        resource_class_args=[app.config["DICTIONARY"], app.config["UPLOADED_UPLINK_DEST"], pipeline.files.uplinker,
-                             app.config["REMOTE_SEQ_DIRECTORY"]],
+        resource_class_args=[
+            app.config["DICTIONARY"],
+            app.config["UPLOADED_UPLINK_DEST"],
+            pipeline.files.uplinker,
+            app.config["REMOTE_SEQ_DIRECTORY"],
+        ],
     )
     api.add_resource(
         fprime_gds.flask.stats.StatsBlob,
         "/stats",
-        resource_class_args=[{
-            "events": pipeline.histories.events,
-            "channels": pipeline.histories.channels,
-            "commands": pipeline.histories.commands
-        }],
+        resource_class_args=[
+            {
+                "events": pipeline.histories.events,
+                "channels": pipeline.histories.channels,
+                "commands": pipeline.histories.commands,
+            }
+        ],
     )
 
     # Optionally serve log files
@@ -168,11 +186,8 @@ except Exception as exc:
 @app.errorhandler(Exception)
 def handle_unexpected_error(error):
     status_code = 500
-    response = {
-        "errors": [fprime_gds.flask.errors.build_error_object(error)]
-    }
+    response = {"errors": [fprime_gds.flask.errors.build_error_object(error)]}
     return flask.jsonify(response), status_code
-
 
 
 @app.route("/js/<path:path>")
@@ -199,6 +214,18 @@ def log():
     A function used to serve the JS files needed for the GUI layers.
     """
     return flask.send_from_directory("static", "logs.html")
+
+
+@app.route("/session")
+def session():
+    return flask.jsonify({"session": uuid.uuid4()}), 200
+
+
+@app.after_request
+def set_no_cache(response):
+    """Set the no-cache header"""
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 # When running from the command line, this will allow the flask development server to launch

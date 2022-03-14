@@ -17,7 +17,8 @@ class SeqBinaryWriter:
     """
     Write out the Binary (ASTERIA) form of sequencer file.
     """
-    def __init__(self, timebase=0xffff, config=None):
+
+    def __init__(self, timebase=0xFFFF, config=None):
         """
         Constructor
         """
@@ -60,18 +61,20 @@ class SeqBinaryWriter:
             return U8Type(cmd_obj.getDescriptor().value - 1).serialize()
 
         def __command(cmd_obj):
-          self.desc_obj.val = DataDescType["FW_PACKET_COMMAND"].value
-          self.opcode_obj.val = cmd_obj.getOpCode()
-          command = self.desc_obj.serialize()  # serialize combuffer type enum: FW_PACKET_COMMAND
-          command += self.opcode_obj.serialize()  # serialize opcode
-          # Command arguments
-          for arg in cmd_obj.getArgs():
-              command += arg[2].serialize()
-          return command
+            self.desc_obj.val = DataDescType["FW_PACKET_COMMAND"].value
+            self.opcode_obj.val = cmd_obj.getOpCode()
+            command = (
+                self.desc_obj.serialize()
+            )  # serialize combuffer type enum: FW_PACKET_COMMAND
+            command += self.opcode_obj.serialize()  # serialize opcode
+            # Command arguments
+            for arg in cmd_obj.getArgs():
+                command += arg[2].serialize()
+            return command
 
         def __length(command):
-          self.len_obj.val = len(command)
-          return self.len_obj.serialize()
+            self.len_obj.val = len(command)
+            return self.len_obj.serialize()
 
         def __print(byteBuffer):
             print("Byte buffer size: %d" % len(byteBuffer))

@@ -64,7 +64,8 @@ class Performance {
             "Page Performance": {},
             "Cached Items": {},
             "Request Times": {},
-            "Dropped Packets": _validator.dropped
+            "Dropped Items": _validator.dropped,
+            "Misc. Counts": _validator.misc_counts
         };
         // Implementation variables
         this.cached_objects = {};

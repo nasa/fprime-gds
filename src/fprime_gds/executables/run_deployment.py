@@ -242,7 +242,9 @@ def launch_wx(port, dictionary, connect_address, log_dir, config, **_):
     return launch_process(gse_args, name="WX GUI")
 
 
-def launch_html(tts_port, dictionary, connect_address, logs, gui_addr, gui_port, **extras):
+def launch_html(
+    tts_port, dictionary, connect_address, logs, gui_addr, gui_port, **extras
+):
     """
     Launch the flask server and a browser pointed at the HTML page.
 
@@ -259,18 +261,36 @@ def launch_html(tts_port, dictionary, connect_address, logs, gui_addr, gui_port,
         {
             "DICTIONARY": str(dictionary),
             "FLASK_APP": "fprime_gds.flask.app",
-            "TTS_PORT": str(tts_port),
-            "TTS_ADDR": connect_address,
             "LOG_DIR": logs,
             "SERVE_LOGS": "YES",
         }
     )
-    gse_args = [sys.executable, "-u", "-m", "flask", "run", 
-                "--host", str(gui_addr), 
-                "--port", str(gui_port)]
+    if tts_port is not None:
+        gse_env.update(
+            {
+                "TTS_PORT": str(tts_port),
+                "TTS_ADDR": connect_address,
+            }
+        )
+    else:
+        gse_env.update({"ZMQ_TRANSPORT": connect_address})
+
+    gse_args = [
+        sys.executable,
+        "-u",
+        "-m",
+        "flask",
+        "run",
+        "--host",
+        str(gui_addr),
+        "--port",
+        str(gui_port),
+    ]
     ret = launch_process(gse_args, name="HTML GUI", env=gse_env, launch_time=2)
     if extras["gui"] == "html":
-        webbrowser.open(f"http://{str(gui_addr)}:{str(gui_port)}/", new=0, autoraise=True)
+        webbrowser.open(
+            f"http://{str(gui_addr)}:{str(gui_port)}/", new=0, autoraise=True
+        )
     return ret
 
 
@@ -297,24 +317,22 @@ def launch_comm(comm_adapter, tts_port, connect_address, logs, **all_args):
 
     :return:
     """
-
+    transport_args = ["--tts-addr", connect_address, "--tts-port", str(tts_port)]
+    if tts_port is None:
+        transport_args = ["--zmq", "--zmq-transport", connect_address, "--zmq-server"]
     app_cmd = [
         sys.executable,
         "-u",
         "-m",
         "fprime_gds.executables.comm",
-        "--tts-addr",
-        connect_address,
-        "--tts-port",
-        str(tts_port),
         "-l",
         logs,
         "--log-directly",
         "--comm-adapter",
         all_args["adapter"],
         "--comm-checksum-type",
-        all_args["checksum_type"]
-    ]
+        all_args["checksum_type"],
+    ] + transport_args
     # Manufacture arguments for the selected adapter
     for arg in comm_adapter.get_arguments().keys():
         definition = comm_adapter.get_arguments()[arg]
@@ -332,12 +350,20 @@ def main():
     Main function used to launch processes.
     """
     settings = vars(get_settings())
+    launchers = []
     # Launch a gui, if specified
-    settings["connect_address"] = (
-        settings["tts_addr"] if settings["tts_addr"] != "0.0.0.0" else "127.0.0.1"
-    )
-    # List of things to launch, in order.
-    launchers = [launch_tts, launch_comm]
+    if settings["zmq"]:
+        settings["connect_address"] = settings["zmq_transport"]
+        settings["tts_port"] = None
+    else:
+        launchers.append(launch_tts)
+        settings["connect_address"] = (
+            settings["tts_addr"] if settings["tts_addr"] != "0.0.0.0" else "127.0.0.1"
+        )
+    # Check if we are running with communications
+    if settings.get("adapter", "") != "none":
+        launchers.append(launch_comm)
+
     # Add app, if possible
     if settings.get("app", None) is not None and settings.get("adapter", "") == "ip":
         launchers.append(launch_app)

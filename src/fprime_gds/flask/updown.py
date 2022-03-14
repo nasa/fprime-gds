@@ -114,7 +114,7 @@ class FileUploads(flask_restful.Resource):
 
 
 class FileDownload(flask_restful.Resource):
-    """  """
+    """ """
 
     def __init__(self, downlinker):
         """

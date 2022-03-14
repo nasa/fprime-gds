@@ -7,7 +7,7 @@ import flask_restful.reqparse
 
 
 class LogList(flask_restful.Resource):
-    """ A list of log files as produced by the GDS. """
+    """A list of log files as produced by the GDS."""
 
     def __init__(self, logdir):
         """
@@ -18,7 +18,7 @@ class LogList(flask_restful.Resource):
         self.logdir = logdir
 
     def get(self):
-        """ Returns a list of log files that are available. """
+        """Returns a list of log files that are available."""
         logs = {}
         listing = os.listdir(self.logdir)
         return {"logs": [name for name in listing if name.endswith(".log")]}

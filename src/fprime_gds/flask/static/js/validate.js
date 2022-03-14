@@ -111,11 +111,24 @@ class LoadValidator {
         this.counts = {};
         this.dropped = {};
         this.times = {};
+        this.misc_counts = {};
 
         // Implementation variables
         this.errors_to_console = errors_to_console || false;
         this.error_limit = error_backlog_limit || 100;
         this.validation_counts = {}
+    }
+
+    /**
+     * Update an arbitrary counter by one.
+     * @param count_key: counter key that will be updated
+     * @param init: (optional) init the count but do not add to it
+     */
+    arbitraryCount(count_key, init) {
+        this.misc_counts[count_key] = (this.misc_counts[count_key] || 0);
+        if (!init) {
+            this.misc_counts[count_key] += 1;
+        }
     }
 
     /**
@@ -131,7 +144,7 @@ class LoadValidator {
         this.errors.splice(0, this.errors.length - this.error_limit);
         // Log errors to the console when requested
         if (this.errors_to_console) {
-            errors.forEach(console.error);
+            errors.forEach((error) => { console.error(error); });
         }
     }
 
@@ -157,7 +170,7 @@ class LoadValidator {
         if (last != null) {
             this.times[key] = this.times[key] || [];
             this.times[key].push(last);
-            this.times[key].splice(0, window.length - 60);
+            //this.times[key].splice(0, this.times[key] - 60000);
         }
     }
 
@@ -207,7 +220,7 @@ class LoadValidator {
     getErrorHandler() {
         let handler = (key, error) => {
             this.updateTiming(key);
-            this.updateErrors([error]);
+            this.updateErrors(["[ERROR] '" + key + "' produced error: " +error]);
         };
         return handler.bind(this)
     }

@@ -15,24 +15,25 @@ class StdioTheif(object):
     """
     This class consumes all standard out and error production produced with-in a context block (with :) capturing it.
     """
+
     def __init__(self):
-        """ Setup our capture devices """
+        """Setup our capture devices"""
         self.io = StringIO()
         self.output = ""
 
     def write(self, *args, **kwargs):
-        """ Write tee for all possible inputs """
+        """Write tee for all possible inputs"""
         stripped_msg = " ".join(args)
         self.io.write(stripped_msg, **kwargs)
 
     def __enter__(self):
-        """ Entry overwrite """
+        """Entry overwrite"""
         sys.stdout = self
         sys.stderr = self
         return None
 
     def __exit__(self, *_):
-        """ No worries here """
+        """No worries here"""
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
         self.io.seek(0)
@@ -72,7 +73,10 @@ class SequenceCompiler(flask_restful.Resource):
                 message=f"{key} is invalid command key. Supply 0xfeedcafe to run command.",
             )
         elif not re.match(".*\.seq", name) or Path(name).name != name:
-            flask_restful.abort(403, message={"error": "Supply filename with .seq suffix", "type": "error"})
+            flask_restful.abort(
+                403,
+                message={"error": "Supply filename with .seq suffix", "type": "error"},
+            )
         temp_seq_path = self.tempdir / Path(name).name
         temp_bin_path = temp_seq_path.with_suffix(".bin")
         messages = ""
@@ -81,7 +85,9 @@ class SequenceCompiler(flask_restful.Resource):
                 file_handle.write(text)
             thief = StdioTheif()
             with thief:
-                generateSequence(temp_seq_path, temp_bin_path, self.dictionary, 0xFFFF, cont=True)
+                generateSequence(
+                    temp_seq_path, temp_bin_path, self.dictionary, 0xFFFF, cont=True
+                )
             messages += thief.output
             if uplink:
                 destination = Path(self.destination) / temp_bin_path.name

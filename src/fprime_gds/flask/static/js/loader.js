@@ -59,9 +59,15 @@ class Loader {
      * Sets up the list of endpoints, and preps for the initial loading of the dictionaries.
      */
     constructor() {
-        this.session = new Date().getTime().toString();
         this.endpoints = {
             // Dictionary endpoints
+            "session": {
+                "url": "/session",
+                "startup": true,
+                "running": false,
+                "queued": false,
+                "blocking": true,
+            },
             "command-dict": {
                 "url": "/dictionary/commands",
                 "startup": true,
@@ -143,7 +149,7 @@ class Loader {
             for (let endpoint in _self.endpoints) {
                 endpoint = _self.endpoints[endpoint];
                 // Send out request if not loaded, and update the pending count
-                if (endpoint["startup"] == true && typeof(endpoint["data"]) === "undefined") {
+                if (endpoint["startup"] && typeof(endpoint["data"]) === "undefined") {
                     pending = pending + 1;
                     _self.load(endpoint["url"]).then(
                         // Data successfully returned, lower pending count and set it
@@ -194,14 +200,16 @@ class Loader {
                     reject(this.responseText);
                 }
             };
-            let random = new Date().getTime().toString();
-            let url = endpoint + "?_no_cache=" + random + "&session=" + _self.session;
+            let url = endpoint;
+            let session = (_self.endpoints["session"].data || {}).session || null;
+            url += (session !== null) ? ("?session=" + session) : "";
             let is_async = true; // all calls will be async
             xhttp.open(method, url , is_async); 
+            xhttp.setRequestHeader("Cache-Control", "no-cache");
             if (typeof(data) === "undefined") {
                 xhttp.send();
             } else if (typeof(jsonify) === "undefined" || jsonify) {
-                xhttp.setRequestHeader("Content-Type", "application/json")
+                xhttp.setRequestHeader("Content-Type", "application/json");
                 xhttp.send(data);
             } else {
                 xhttp.send(data);
@@ -253,6 +261,7 @@ class Loader {
      * @param endpoint: endpoint to load
      * @param callback: callback to return resulting data to.
      * @param error_handler: handler to call for each error found in the response and all communication errors
+     * @param interval: polling interval to use. (Optional) Pulls from config when not set
      */
     registerPoller(endpoint, callback, error_handler, interval) {
         let current_endpoint = this.endpoints[endpoint];

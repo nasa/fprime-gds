@@ -56,7 +56,7 @@ class Downlinker:
         self.outgoing = Queue()
 
     def start(self):
-        """ Starts the downlink pipeline """
+        """Starts the downlink pipeline"""
         self.th_ground = threading.Thread(target=self.sending)
         self.th_ground.daemon = True
         self.th_ground.start()
@@ -99,11 +99,11 @@ class Downlinker:
             self.ground.send_all(frames)
 
     def stop(self):
-        """ Stop the thread depends will close the ground resource which may be blocking """
+        """Stop the thread depends will close the ground resource which may be blocking"""
         self.running = False
 
     def join(self):
-        """ Join on the ending threads """
+        """Join on the ending threads"""
         for thread in [self.th_data, self.th_ground]:
             if thread is not None:
                 thread.join()
@@ -163,7 +163,7 @@ class Uplinker:
         self.framer = framer
 
     def start(self):
-        """ Starts the uplink pipeline """
+        """Starts the uplink pipeline"""
         self.th_uplink = threading.Thread(target=self.uplink)
         self.th_uplink.daemon = True
         self.th_uplink.start()
@@ -194,7 +194,8 @@ class Uplinker:
                     else:
                         UP_LOGGER.warning(
                             "Uplink failed to send %d bytes of data after %d retries",
-                            len(framed), Uplinker.RETRY_COUNT 
+                            len(framed),
+                            Uplinker.RETRY_COUNT,
                         )
         # An OSError might occur during shutdown and is harmless. If we are not shutting down, this error should be
         # propagated up the stack.
@@ -203,11 +204,11 @@ class Uplinker:
                 raise
 
     def stop(self):
-        """ Stop the thread depends will close the ground resource which may be blocking """
+        """Stop the thread depends will close the ground resource which may be blocking"""
         self.running = False
 
     def join(self):
-        """ Join on the ending threads """
+        """Join on the ending threads"""
         if self.th_uplink is not None:
             self.th_uplink.join()
 

@@ -11,6 +11,7 @@ import {_validator} from "./validate.js";
 import {_settings} from "./settings.js";
 import {_loader} from "./loader.js";
 import {_performance} from "./performance.js";
+import {timeToDate} from "./vue-support/utils.js";
 
 /**
  * DataStore:
@@ -145,7 +146,13 @@ export class DataStore {
         for (let i = 0; i < new_channels.length; i++) {
             let channel = new_channels[i];
             let id = channel.id;
-            this.channels[id] = channel;
+            // Check for miss-ordered updates
+            if (this.channels[id].time == null || timeToDate(new_channels[i].time) >= timeToDate(this.channels[id].time)) {
+                this.channels[id] = channel;
+            } else {
+                _validator.arbitraryCount("Total Missed Updates");
+                _validator.arbitraryCount(channel.template.full_name + " Missed Updates");
+            }
         }
         this.channel_consumers.forEach((consumer) =>
         {

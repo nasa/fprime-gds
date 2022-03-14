@@ -16,7 +16,12 @@ import os
 import fprime.constants
 import fprime_gds.common.handlers
 from fprime_gds.common.data_types.file_data import FilePacketType
-from fprime_gds.common.files.helpers import FileStates, TransmitFile, TransmitFileState, file_to_dict
+from fprime_gds.common.files.helpers import (
+    FileStates,
+    TransmitFile,
+    TransmitFileState,
+    file_to_dict,
+)
 
 LOGGER = logging.getLogger("downlink")
 LOGGER.setLevel(logging.INFO)
@@ -163,12 +168,12 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
             self.finish()
 
     def timeout(self):
-        """ Timeout the current downlink """
+        """Timeout the current downlink"""
         LOGGER.warning("Timeout while downlinking file, aborting")
         self.finish()
 
     def finish(self):
-        """ Finish the file downlink """
+        """Finish the file downlink"""
         self.timer.stop()
         self.state = FileStates.IDLE
         self.sequence = 0
@@ -178,7 +183,7 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
         self.active = None
 
     def current_files(self):
-        """ Return the current list of downlinked files"""
+        """Return the current list of downlinked files"""
         return file_to_dict(self.files, uplink=False)
 
     @staticmethod
