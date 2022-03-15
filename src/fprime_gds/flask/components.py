@@ -52,12 +52,16 @@ class FlaskEndpointRamHistory(SelfCleaningRamHistory):
             self.count += 1
             super().data_callback(data, sender)
 
-    def retrieve(self, start=None):
+    def retrieve(self, start=None, limit=None):
         """Retrieve objects and store current count
 
         Stash the current count of objects w.r.t the supplied session when supplied and then retrieve the objects in
         history through the parent. In this way the current count of objects w.r.t. the session is kept consistent with
         the last call through this retrieve function.
+
+        Args:
+            start: session key for retrieving new results
+            limit: limit (count) for maximum results returned
         """
         with self.lock:
 
@@ -65,7 +69,7 @@ class FlaskEndpointRamHistory(SelfCleaningRamHistory):
                 if start not in self.retrieved_cursors:
                     self.count_offsets[start] = self.count
                 self.count_values[start] = self.count - self.count_offsets[start]
-            return super().retrieve(start)
+            return super().retrieve(start, limit)
 
     def get_seen_count(self, start=None):
         """Get the count of the seen items at the time of the last retrieve call"""

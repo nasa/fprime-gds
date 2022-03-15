@@ -13,7 +13,7 @@ import time
 import threading
 
 from fprime_gds.common.history.history import History
-
+from fprime_gds.common.data_types.ch_data import ChData
 
 class RamHistory(History):
     """
@@ -38,13 +38,14 @@ class RamHistory(History):
         with self.lock:
             self.objects.append(data)
 
-    def retrieve(self, start=None):
+    def retrieve(self, start=None, limit=None):
         """
         Retrieve objects from this history. 'start' is the session token for retrieving new elements. If session is not
         specified, all elements are retrieved. If session is specified, then unseen elements are returned. If the
         session itself is new, it is recorded and set to the newest data.
 
         :param start: return all objects newer than given start session key
+        :param limit: limit (count) of returned results
         :return: a list of objects
         """
         index = 0
@@ -52,8 +53,9 @@ class RamHistory(History):
             size = self.size()
             if start is not None:
                 index = self.retrieved_cursors.get(start, size)
-            objs = self.objects[index:size]
-            self.retrieved_cursors[start] = size
+            end_slice = min(size, index + (limit if limit is not None else size))
+            objs = self.objects[index:end_slice]
+            self.retrieved_cursors[start] = end_slice
         return objs
 
     def retrieve_new(self):
@@ -123,7 +125,7 @@ class SelfCleaningRamHistory(RamHistory):
         """Update the clear time"""
         self.clear_time = time
 
-    def retrieve(self, start=None):
+    def retrieve(self, start=None, limit=None):
         """
         Retrieve objects from this history. 'start' is the session token for retrieving new elements. If session is not
         specified, all elements are retrieved. If session is specified, then unseen elements are returned. If the
@@ -131,12 +133,13 @@ class SelfCleaningRamHistory(RamHistory):
         self clearing for another time
 
         :param start: return all objects newer than given start session key
+        :param limit: limit (count) of returned results
         :return: a list of objects
         """
         if start is not None:
             with self.lock:
                 self.last_request[start] = time.time()
-        return super().retrieve(start)
+        return super().retrieve(start, limit)
 
     def clear(self, start=None):
         """

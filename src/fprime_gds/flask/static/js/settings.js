@@ -10,7 +10,8 @@ class Settings {
     constructor() {
         this.miscellaneous = {
             event_buffer_size: -1,
-            command_buffer_size: -1
+            command_buffer_size: -1,
+            response_object_limit: 2000
          };
          this.polling_intervals = {};
     }

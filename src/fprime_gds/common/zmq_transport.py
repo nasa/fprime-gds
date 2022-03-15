@@ -134,9 +134,9 @@ class ZmqClient(ThreadedTransportClient):
 
     def send(self, data):
         """Send data via ZeroMQ"""
-        self.zmq.send(
-            data[4:]
-        )  # Must strip out ZZZZ as that is a ThreadedTcpServer only property
+        if data[0:4] == b'ZZZZ':
+            data = data[4:]
+        self.zmq.send(data)  # Must strip out ZZZZ as that is a ThreadedTcpServer only property
 
     def recv(self, timeout=None):
         """Receives data from ZeroMQ"""

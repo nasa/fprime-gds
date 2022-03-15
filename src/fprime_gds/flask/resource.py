@@ -55,6 +55,10 @@ class HistoryResourceBase(Resource):
         self.parser.add_argument(
             "session", required=True, help="Session key for fetching data."
         )
+        self.parser.add_argument(
+            "limit", required=False, help="Limit to results returned (default 2000)"
+        )
+
         self.history = history
 
     def process(self, item):
@@ -74,7 +78,8 @@ class HistoryResourceBase(Resource):
         # Get the new items from history ensuring it is clear in a fail-safe attempt to repeat recuring errors
         try:
             session = args.get("session")
-            new_items = self.history.retrieve(session)
+            limit = args.get("limit") if args.get("limit") is not None else 2000
+            new_items = self.history.retrieve(session, int(limit))
             validation = -1
             if hasattr(self.history, "get_seen_count"):
                 validation = self.history.get_seen_count(session)

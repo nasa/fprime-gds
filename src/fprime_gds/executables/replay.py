@@ -5,11 +5,20 @@ import sys
 import functools
 from pathlib import Path
 
+try:
+    import zmq
+except ImportError:
+    zmq = None
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.handlers import DataHandler
 
-# from fprime_gds.common.client_socket.client_socket import ThreadedTCPSocketClient, GUI_TAG, FSW_TAG
-from fprime_gds.common.zmq_data import ZmqClient, Routing
+
+from fprime_gds.common.transport import ThreadedTCPSocketClient, RoutingTag
+try:
+    from fprime_gds.common.zmq_transport import ZmqClient
+except ImportError:
+    ZmqClient = None
+
 
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.data_types.ch_data import ChData
@@ -25,7 +34,7 @@ CHUNK_SIZE = 1024 * 1024
 def as_fraction(time_val):
     """Convert timeval to fractional time"""
     time_val = getattr(time_val, "time", time_val)
-    return time_val.seconds + time_val.useconds / 100000.0
+    return time_val.seconds + time_val.useconds / 1000000.0
 
 
 class MultiEncoder(Encoder):
@@ -185,8 +194,6 @@ class TrackingDataHandler(ChainableDataHandler):
         self.bounding = (None, None)
         self.last_times = {}
         self.ooo_counts = {}
-        self.all_counts = {}
-        self.last_time = None
 
     def data_callback(self, data, sender=None):
         """Track items"""
@@ -196,16 +203,16 @@ class TrackingDataHandler(ChainableDataHandler):
             print(f"[INFO] Processing item: {self.count}          ", end="\r")
         # Channel Key
         ooo_key = type(data).__name__ + "-" + data.template.get_full_name()
-        if self.last_times.get(ooo_key, -0.000) > current_time:
+        last_seen_yolo_time = self.last_times.get(ooo_key, 0.000)
+        if last_seen_yolo_time > current_time:
             self.ooo_counts[ooo_key] = self.ooo_counts.get(ooo_key, 0) + 1
-        self.all_counts[ooo_key] = self.all_counts.get(ooo_key, 0) + 1
-        self.last_times[ooo_key] = current_time
+        else:
+            self.last_times[ooo_key] = current_time
+
         self.bounding = (
             current_time if self.bounding[0] is None else self.bounding[0],
             current_time,
         )
-        if not self.last_time or current_time >= self.last_time:
-            self.last_time = current_time
         super().data_callback(data, self)
 
 
@@ -238,21 +245,45 @@ def parse_args():
         default=None,
         help='path from the current working directory to the "<project name>Dictionary.xml" file for the project you\'re using the API with; if unused, tries to search the current working directory for such a file',
     )
+    # May use ZMQ transportation layer if zmq package is available
+    if zmq is not None:
+        parser.add_argument(
+            "--zmq",
+            dest="zmq",
+            action="store_true",
+            help="Switch to using the ZMQ transportation layer",
+            default=False,
+        )
+        parser.add_argument(
+            "--zmq-server",
+            dest="zmq_server",
+            action="store_true",
+            help="Sets the ZMQ connection to be a server. Default: false (client)",
+            default=False,
+        )
+        parser.add_argument(
+            "--zmq-transport",
+            dest="zmq_transport",
+            action="store",
+            type=str,
+            help="Sets ZMQ transport layer url for use when --zmq has been supplied [default: %(default)s]",
+            default="tcp://localhost:5005",  # "ipc:///tmp/fprime-ipc-0"
+        )
     parser.add_argument(
-        "-ip",
-        "--ip-address",
-        type=str,
-        default="127.0.0.1",
-        help="connect to the GDS server using the given IP or hostname (default=127.0.0.1 (i.e. localhost))",
-        metavar="IP",
+        "--tts-port",
+        dest="tts_port",
+        action="store",
+        type=int,
+        help="Set the threaded TCP socket server port [default: %(default)s]",
+        default=50050,
     )
     parser.add_argument(
-        "-p",
-        "--port",
-        type=int,
-        default=50050,
-        help="connect to the GDS server using the given port number (default=50050)",
-        metavar="PORT",
+        "--tts-addr",
+        dest="tts_addr",
+        action="store",
+        type=str,
+        help="Set the threaded TCP socket server address [default: %(default)s]",
+        default="0.0.0.0",
     )
     parser.add_argument(
         "-s",
@@ -302,6 +333,7 @@ def parse_args():
 def main():
     """ """
     args = parse_args()
+    use_zmq = ZmqClient is not None and args.zmq
 
     # Build hanndler chain for processing
     # Needed for tracking purposes
@@ -315,7 +347,9 @@ def main():
     if not args.filter_after_shift:
         handlers += filtering
     if args.shift:
-        handlers += shifter + filtering
+        handlers += shifter
+    if args.filter_after_shift:
+        handlers += filtering
     handlers += [DataWatcher(args.watch), tracker_post]
     sleep_handler = None
     if args.realtime:
@@ -330,28 +364,25 @@ def main():
 
     # Setup standard pipeline
     pipeline = StandardPipeline()
-    pipeline.setup(config, args.dictionary, "/tmp/replay-store", None, None)
+    pipeline.transport_implementation = ZmqClient if use_zmq else ThreadedTCPSocketClient
 
-    # Setup custom connection
-    client_socket = ZmqClient()  # ThreadedTCPSocketClient(dest=GUI_TAG)
-    client_socket.stop_event.set()  # Kill the receive thread before it gets going
-    client_socket.configure(Routing.FSW, Routing.GUI)
-    client_socket.connect(args.ip_address, args.port, True)
     time_pairs = ((None, None), (None, None))
     forwarder = None
     start_time = 0.0
     try:
-        # client_socket.register_to_server(FSW_TAG) # Pretend to be FSW
-
-        pipeline.client_socket = client_socket  # Override client socket
         multi_encoder = MultiEncoder(config)
-        multi_encoder.register(client_socket)
+        forwarder = lambda *_, **__: ReplayForwarder(multi_encoder, handlers, *_, **__)
 
-        forwarder = ReplayForwarder(multi_encoder, handlers)
+        pipeline.histories.implementation = forwarder
+        pipeline.setup(config, args.dictionary, "/tmp/replay-store", None, None)
+        pipeline.client_socket.stop()
 
-        # Update handlers
-        pipeline.histories.channels = forwarder
-        pipeline.histories.events = forwarder
+        # Handle post setup registrations
+        multi_encoder.register(pipeline.client_socket)
+        if use_zmq:
+            pipeline.client_socket.zmq.make_server()
+        pipeline.connect(args.zmq_transport if use_zmq else f"tcp://{ args.tts_addr }:{ args.tts_port }",
+                         RoutingTag.FSW, RoutingTag.GUI)
 
         with open(args.raw, "rb") as file_handle:
             print("[INFO] Reading data from disk. This may take a few moments.")
@@ -366,7 +397,6 @@ def main():
         end_time = time.time()
         if forwarder is not None:
             time_pairs = (tracker_pre.bounding, tracker_post.bounding)
-        client_socket.disconnect()
         pipeline.disconnect()
 
         print(
@@ -382,15 +412,11 @@ def main():
         for tracker, stage in [(tracker_pre, "input"), (tracker_post, "output")]:
             for type_prefix in ["Ch", "Ev"]:
                 print(
-                    f"    { sum([value for key, value in tracker.all_counts.items() if key.startswith(type_prefix)]) } total {type_prefix} packets on {stage}"
-                )
-                print(
                     f"    { sum([value for key, value in tracker.ooo_counts.items() if key.startswith(type_prefix)]) } out-of-order {type_prefix} packets on {stage}"
                 )
                 for key_name, key_value in tracker.ooo_counts.items():
                     if key_name.startswith(type_prefix):
-                        print(f"        {key_name}: {tracker.all_counts[key_name]}")
-                        print(f"        {key_name} (Missing): {key_value}")
+                        print(f"        {key_name} (Missing Update): {key_value}")
         # Print realtime slip data
         if args.realtime and sleep_handler.slip_history:
             print(
