@@ -273,7 +273,7 @@ def launch_html(
             }
         )
     else:
-        gse_env.update({"ZMQ_TRANSPORT": connect_address})
+        gse_env.update({"ZMQ_TRANSPORT": "|".join(connect_address)})
 
     gse_args = [
         sys.executable,
@@ -319,7 +319,7 @@ def launch_comm(comm_adapter, tts_port, connect_address, logs, **all_args):
     """
     transport_args = ["--tts-addr", connect_address, "--tts-port", str(tts_port)]
     if tts_port is None:
-        transport_args = ["--zmq", "--zmq-transport", connect_address, "--zmq-server"]
+        transport_args = ["--zmq", "--zmq-transport", connect_address[0], connect_address[1], "--zmq-server"]
     app_cmd = [
         sys.executable,
         "-u",

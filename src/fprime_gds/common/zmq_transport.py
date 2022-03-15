@@ -12,6 +12,8 @@ replace the ThreadedTcpServer for several reasons as described below.
 import struct
 import zmq
 
+from typing import Tuple
+
 from fprime_gds.common.communication.ground import GroundHandler
 from fprime_gds.common.transport import (
     RoutingTag,
@@ -27,20 +29,29 @@ class ZmqWrapper(object):
         """Initialize the ZMQ setup"""
         super().__init__()
         self.context = zmq.Context()
-        self.transport_url = None
-        self.zmq_socket_incoming = self.context.socket(zmq.SUB)
-        self.zmq_socket_outgoing = self.context.socket(zmq.PUB)
+        self.zmq_socket_incoming = None
+        self.zmq_socket_outgoing = None
         self.pub_topic = None
         self.sub_topic = None
-        self.bound = False
+        self.transport_url = None
+        self.server = False
 
-    def configure(self, sub_topic: bytes, pub_topic: bytes):
-        """Configure this setup"""
-        self.zmq_socket_incoming.setsockopt(zmq.SUBSCRIBE, sub_topic)
-        self.zmq_socket_incoming.setsockopt(zmq.RCVHWM, 0)
-        self.zmq_socket_incoming.setsockopt(zmq.SNDHWM, 0)
+    def configure(self, transport_url: Tuple[str], sub_topic: bytes, pub_topic: bytes):
+        """Configure the ZeroMQ wrapper
+
+        Configures the ZeroMQ wrapper, but notably does not connect it. This has been separated out because ZeroMQ
+        sockets are expected to be created on their governing thread. As such, we just setup the information but defer
+        the creation of the sockets until the threads exist.
+
+        Args:
+            transport_url: url of the ZeroMQ network to connect to
+            sub_topic: subscription topic used to filter incoming messages
+            pub_topic: publication topic supplied for remote subscription filters
+        """
+        assert len(transport_url) == 2, f"Must supply a pair of URLs for ZeroMQ not '{transport_url}'"
         self.pub_topic = pub_topic
         self.sub_topic = sub_topic
+        self.transport_url = transport_url
 
     def make_server(self):
         """Makes this wrapper a server
@@ -52,40 +63,61 @@ class ZmqWrapper(object):
         assert (
             self.pub_topic is None and self.sub_topic is None
         ), "Cannot make server after connect call"
-        self.bound = True
+        self.server = True
 
-    def connect(self, transport_url: str, sub_routing: bytes, pub_routing: bytes):
-        """Sets up a ZeroMQ connection
+    def connect_outgoing(self):
+        """Sets up a ZeroMQ connection for outgoing data
 
         ZeroMQ allows multiple connections to a single endpoint. However, there must be at least one bind client in the
-        system. This will connect the ZeroMQ topology and if server is set, will bind the outgoing port rather than
-        connect it such that this wrapper will act as a host.
+        system. This will connect the ZeroMQ topology and if self.server is set, will bind the outgoing port rather than
+        connect it such that this wrapper will act as a host. This only affects outgoing connections as sockets must be
+        created on their owning threads.
 
-        Args:
-            transport_url: transportation URL for use with communication
-            sub_routing: routing tag dictating the subscription topic
-            pub_routing: routing tag dictating the publishing topic
+        The connection is made using self.transport_url, and as such, this must be configured before running. This is
+        intended to be called on the sending thread.
         """
-        assert (
-            self.pub_topic is None and self.sub_topic is None
-        ), "Cannot connect multiple times"
-        self.configure(sub_routing, pub_routing)
-        self.transport_url = transport_url
-        if self.bound:
-            self.zmq_socket_outgoing.bind(
-                self.transport_url.replace("localhost", "*") + "1"
-            )
-            self.zmq_socket_incoming.bind(
-                self.transport_url.replace("localhost", "*") + "0"
-            )
+        assert self.transport_url is not None and len(self.transport_url) == 2, "Must configure before connecting"
+        assert self.zmq_socket_outgoing is None, "Cannot connect outgoing multiple times"
+        assert self.pub_topic is not None, "Must configure sockets before connecting"
+        self.zmq_socket_outgoing = self.context.socket(zmq.PUB)
+        self.zmq_socket_outgoing.setsockopt(zmq.SNDHWM, 0)
+        # When set to bind sockets, connect via a bind call
+        if self.server:
+            self.zmq_socket_outgoing.bind(self.transport_url[1].replace("localhost", "127.0.0.1"))
         else:
-            self.zmq_socket_outgoing.connect(self.transport_url + "0")
-            self.zmq_socket_incoming.connect(self.transport_url + "1")
+            self.zmq_socket_outgoing.connect(self.transport_url[0])
 
-    def disconnect(self):
+    def connect_incoming(self):
+        """ Sets up a ZeroMQ connection for incoming data
+
+        ZeroMQ allows multiple connections to a single endpoint. This only affects incoming connections as sockets must
+        be created on their owning threads. This will connect the ZeroMQ topology and if self.server is set, will bind
+        the incoming port rather than connect it such that this wrapper will act as a host.
+
+        The connection is made using self.transport_url, and as such, this must be configured before running. This is
+        intended to be called on the receiving thread.
+        """
+        assert self.transport_url is not None and len(self.transport_url) == 2, "Must configure before connecting"
+        assert self.zmq_socket_incoming is None, "Cannot connect incoming multiple times"
+        assert self.sub_topic is not None, "Must configure sockets before connecting"
+        self.zmq_socket_incoming = self.context.socket(zmq.SUB)
+        self.zmq_socket_incoming.setsockopt(zmq.RCVHWM, 0)
+        self.zmq_socket_incoming.setsockopt(zmq.SUBSCRIBE, self.sub_topic)
+        if self.server:
+            self.zmq_socket_incoming.bind(self.transport_url[0].replace("localhost", "127.0.0.1"))
+        else:
+            self.zmq_socket_incoming.connect(self.transport_url[1])
+
+    def disconnect_outgoing(self):
         """Disconnect the ZeroMQ sockets"""
         self.zmq_socket_outgoing.close()
+
+    def disconnect_incoming(self):
+        """Disconnect the ZeroMQ sockets"""
         self.zmq_socket_incoming.close()
+
+    def terminate(self):
+        """ Terminate the ZeroMQ context"""
         self.context.term()
 
     def recv(self, timeout=None):
@@ -95,6 +127,7 @@ class ZmqWrapper(object):
                 zmq.RCVTIMEO, timeout if timeout is not None else -1
             )
             message = self.zmq_socket_incoming.recv()[len(self.sub_topic) :]
+
         except zmq.Again:
             return b""
         return message
@@ -121,16 +154,17 @@ class ZmqClient(ThreadedTransportClient):
         self.zmq = ZmqWrapper()
 
     def connect(
-        self, transport_url: str, sub_routing: RoutingTag, pub_routing: RoutingTag
+        self, transport_url: Tuple[str], sub_routing: RoutingTag, pub_routing: RoutingTag
     ):
         """Connects to the ZeroMQ network"""
-        self.zmq.connect(transport_url, sub_routing.value, pub_routing.value)
+        self.zmq.configure(transport_url, sub_routing.value, pub_routing.value)
+        self.zmq.connect_outgoing() # Outgoing socket, for clients, exists on the current thread
         super().connect(transport_url, sub_routing, pub_routing)
 
     def disconnect(self):
         """Disconnects from ZeroMQ network"""
+        self.zmq.disconnect_outgoing()  # Outgoing is on the current thread
         super().disconnect()
-        self.zmq.disconnect()
 
     def send(self, data):
         """Send data via ZeroMQ"""
@@ -141,6 +175,17 @@ class ZmqClient(ThreadedTransportClient):
     def recv(self, timeout=None):
         """Receives data from ZeroMQ"""
         return self.zmq.recv(timeout)
+
+    def recv_thread(self):
+        """ Overrides the recv_thread method
+
+        Overrides the recv_thread method of the superclass such that the ZeroMQ socket may be created/destroyed
+        before/after the main recv loop.
+        """
+        self.zmq.connect_incoming()
+        super().recv_thread()  # Contains a while <event> loop, will only return at end of program
+        self.zmq.disconnect_incoming()
+        self.zmq.terminate()  # Everything should be shutdown and safe to terminate the context
 
 
 class ZmqGround(GroundHandler):
@@ -175,7 +220,7 @@ class ZmqGround(GroundHandler):
             True on successful connection, False on error
         """
         try:
-            self.zmq.connect(
+            self.zmq.configure(
                 self.transport_url, RoutingTag.FSW.value, RoutingTag.GUI.value
             )
         except TransportationException:
@@ -184,7 +229,10 @@ class ZmqGround(GroundHandler):
 
     def close(self):
         """Closes the open adapter"""
-        self.zmq.disconnect()
+        # Don't know what else to do, the governing threads are dead, so attempt to close?
+        self.zmq.disconnect_incoming()
+        self.zmq.disconnect_outgoing()
+        self.zmq.terminate()
 
     def make_server(self):
         """Makes it into a server"""
@@ -200,6 +248,8 @@ class ZmqGround(GroundHandler):
         Returns:
             list deframed packets, outstanding data (always b"")
         """
+        if self.zmq.zmq_socket_incoming is None:
+            self.zmq.connect_incoming()
         messages = []
         data = None
         while data != b"":
@@ -221,6 +271,8 @@ class ZmqGround(GroundHandler):
         Args:
             frames: list of bytes messages to send out
         """
+        if self.zmq.zmq_socket_outgoing is None:
+            self.zmq.connect_outgoing()
         for packet in frames:
             # TODO: we need to fix where this is being pulled off, should be done in the framing protocol for uplink
             size_bytes = struct.pack(
