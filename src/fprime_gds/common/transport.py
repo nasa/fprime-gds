@@ -138,6 +138,10 @@ class ThreadedTransportClient(TransportClient, ABC):
         self.__stop_event.set()
         self.__data_recv_thread.join()
 
+    def stop(self):
+        """ Stop the receive thread without waiting """
+        self.__stop_event.set()
+
     def recv_thread(self):
         """Loops reading data and dispatching it to registrants
 

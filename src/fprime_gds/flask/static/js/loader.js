@@ -12,6 +12,7 @@
  * @author mstarch
  */
 import {config} from "./config.js";
+import {_settings} from "./settings.js";
 
 /**
  * Function allowing for the saving of some data to a downloadable file.
@@ -202,7 +203,12 @@ class Loader {
             };
             let url = endpoint;
             let session = (_self.endpoints["session"].data || {}).session || null;
-            url += (session !== null) ? ("?session=" + session) : "";
+
+            let arg_pairs = [["session", session], ["limit", _settings.miscellaneous.response_object_limit]];
+            arg_pairs = arg_pairs.filter(pair => pair[1]);
+            let arg_string = arg_pairs.map(pair =>  pair[0] + "=" + pair[1]).join("&");
+            url += (arg_string !== "") ? ("?"+ arg_string) : "";
+
             let is_async = true; // all calls will be async
             xhttp.open(method, url , is_async); 
             xhttp.setRequestHeader("Cache-Control", "no-cache");
@@ -241,6 +247,8 @@ class Loader {
         // Load the endpoint and respond to the response
         _self.load(context.url).then((data) => {
             (data.errors || []).map(error_handler.bind(undefined, context.name));
+            let more_data = ((data.history || []).length >= _settings.miscellaneous.response_object_limit);
+            context.queued = context.queued || more_data; // Queue if we hit the limit
             callback(data);
         }).catch((error) => {
             error_handler(context.name, error)

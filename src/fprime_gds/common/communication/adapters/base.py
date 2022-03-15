@@ -111,5 +111,7 @@ class BaseAdapter(abc.ABC):
         :param args: namespace of arg value to help build an adapter
         :return: newly constructed adapter
         """
+        if adapter_name == "none":
+            return None
         adapter = cls.get_adapters()[adapter_name]
         return adapter(**cls.process_arguments(adapter, args))

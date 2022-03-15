@@ -150,8 +150,8 @@ export class DataStore {
             if (this.channels[id].time == null || timeToDate(new_channels[i].time) >= timeToDate(this.channels[id].time)) {
                 this.channels[id] = channel;
             } else {
-                _validator.arbitraryCount("Total Missed Updates");
-                _validator.arbitraryCount(channel.template.full_name + " Missed Updates");
+                _validator.arbitraryCount("Total (Missed Update)");
+                _validator.arbitraryCount(channel.template.full_name + " (Missed Update)");
             }
         }
         this.channel_consumers.forEach((consumer) =>
