@@ -363,10 +363,10 @@ class MiddleWareParser(ParserBase):
             parser.add_argument(
                 "--zmq-transport",
                 dest="zmq_transport",
-                action="store",
-                type=str,
-                help="Sets ZMQ transport layer url for use when --zmq has been supplied [default: %(default)s]",
-                default="tcp://localhost:5005",  # "ipc:///tmp/fprime-ipc-0"
+                nargs=2,
+                help="Pair of URls used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
+                default=["ipc:///tmp/fprime-server-in", "ipc:///tmp/fprime-server-out"],
+                metavar=("serverInUrl", "serverOutUrl")
             )
         parser.add_argument(
             "--tts-port",

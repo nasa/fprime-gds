@@ -103,6 +103,8 @@ def main():
         """Shutdown function for signals"""
         uplinker.stop()
         downlinker.stop()
+        uplinker.join()
+        downlinker.join()
         ground.close()
         adapter.close()
 
