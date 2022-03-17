@@ -1,4 +1,4 @@
-import {filter, toArrayIfString} from "./utils.js";
+import {filter, ScrollHandler, toArrayIfString} from "./utils.js";
 import {_uploader} from "../uploader.js";
 import {loadTextFileInputData, saveTextFileViaHref} from "../loader.js";
 
@@ -212,6 +212,16 @@ Vue.component("fp-table", {
          */
         itemToUnique: Function,
         /**
+         * titrate:
+         *
+         * Meter out items into this table through steps/scrolling. This prevents the HTML from slowing down due to the
+         * large number of display items by reducing the number of items actually displayed.
+         */
+        titrate: {
+            type: Boolean,
+            default: false
+        },
+        /**
          * reverse:
          *
          * Reverse the default order of the list of items being displayed. If the sort or filtering functions are used
@@ -326,7 +336,9 @@ Vue.component("fp-table", {
             editing: false,
             // use Vue.util.extend to copy by data, not by reference
             view: Vue.util.extend([], toArrayIfString(this.initialViews)),
-            fields: Vue.util.extend([], toArrayIfString(this.initialFields))
+            fields: Vue.util.extend([], toArrayIfString(this.initialFields)),
+            scroller: !this.titrate ? null : new ScrollHandler(40, 5),
+            scrollStatus: false,
         }
     },
     methods: {
@@ -383,7 +395,7 @@ Vue.component("fp-table", {
          * @return {boolean}
          */
         inView(item) {
-            return !this.supportViews || this.view.indexOf(this.itemToViewName(item)) != -1;
+            return !this.supportViews || this.view.indexOf(this.itemToViewName(item)) !== -1;
         },
         /**
          * Function used to read a file an input it as a view.
@@ -469,6 +481,21 @@ Vue.component("fp-table", {
             return filtered;
         },
         /**
+         * Return the items as a result of a scroll activity. When scrolling is not setup, return the filtered items
+         * instead as that is previous in the chain.
+         * @return {(function(): *[])|*}
+         */
+        scrolledItems() {
+            if (this.scroller == null) {
+                return this.filteredItems;
+            }
+            this.scroller.setData(this.filteredItems);
+            this.scroller.update();
+            this.scrollStatus = this.scroller.filled();
+            let data_items = this.filteredItems.slice(this.scroller.offset, this.scroller.offset + this.scroller.count);
+            return data_items;
+        },
+        /**
          * Generates an href that can be used to download a file.  Keep the download up-to-date with the view.
          * @return {string} href string bound to href attribute
          */
@@ -493,5 +520,36 @@ Vue.component("fp-table", {
                 console.warn("sortable.js not found, not attempting to sort tables");
             }
         })
+    },
+    created: function() {
+        // Setup the data after the reactive property "filteredItems" has been created
+        if (this.scroller != null) {
+            this.scroller.setData(this.filteredItems);
+        }
+    },
+    /**
+     * Add scroll event listener during mounting of element
+     */
+    mounted: function() {
+        // No scrolling control
+        if (this.scroller === null || !this.$el.querySelector) {
+            return;
+        }
+        // Set and handle the element post-render as this will fail if not rendered
+        this.$nextTick(function(e) {
+            let element = this.$el.querySelector("#fp-scrollable-id");
+            if (element != null) {
+                this.scroller.setElement(element);
+            }
+        });
+    },
+    /**
+     * Remove scroll event listener
+     */
+    beforeDestroy: function() {
+        // Check scrolling control and setup
+        if (this.scroller != null) {
+            this.scroller.unsetElement();
+        }
     }
 });

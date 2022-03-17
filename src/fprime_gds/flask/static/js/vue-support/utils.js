@@ -162,3 +162,244 @@ export function listExistsAndItemNameNotInList(list, item) {
     // TODO: Very specific conditions; should probably be broken into separate conditions, but this is what's used to hide rows on several components
     return list.length > 0 && !list.includes(item.template.name);
 }
+
+/**
+ * ScrollHandler:
+ *
+ * A class/object used to manage the scrolling properties of a window. This allows the window to scroll through objects
+ * acting as an infinite list, however; it does not display all those objects. It limits what is displayed to a finite
+ * set as defined by this class. This helps prevent browser lag due to large numbers of HTML elements used to display
+ * objects.
+ */
+export class ScrollHandler {
+    /**
+     * Build the scroll handler. It is passed the element to perform the actual scrolling and the data that is being
+     * scrolled through. Both **must** be reference types. The scroll handler does not provide the ability to update or
+     * change data. It assumes that the element and the data are updated independently.
+     * @param scrollData: data (list) of items to scroll through
+     * @param display_count: (optional) display count of items to show. Default: 100
+     * @param scroll_step: (optional) step size of one unit of scroll. Default: 5
+     */
+    constructor(display_count, scroll_step) {
+        this.element = null;
+        this.data = null;
+
+        this.offset = 0;
+        this.count = (display_count || 100);
+
+        this.step = (scroll_step || 5);
+        this.updating = false;
+        this.locked = false;
+
+        this.prevTime = 0;
+    }
+
+    /**
+     * Bind this scroller to scrolled data. Since the data is a reactive property this function should be called any
+     * time the data is recalculated. It will do it's best to maintain a sensible offset following the following
+     * algorithm:
+     *
+     * 1. If locked, or auto-update set offset to end of list
+     * 2. Else, loop through previous data from offset to offset + count if item remains in data offset = index of item
+     * 3. Else, clamp data to offset or 0/end-of-new-data
+     *
+     * @param scrolled_data: data being scrolled through
+     */
+    setData(scrolled_data) {
+        // Force data to exist prefering old data unless it is not set or was empty
+        this.data = this.data || scrolled_data;
+        // Handling case when staying
+        if (this.updating || this.locked) {
+            this.offset = this.data.length - this.count;
+        }
+        // Loop through previous data looking for remaining items and relocate offset there
+        else if (this.offset >= 0 && this.offset < this.data.length) {
+            for (let i = this.offset; i < (this.offset + this.count) && i < this.data.length; i++) {
+                // Found an item that carried over
+                let found_index = scrolled_data.indexOf(this.data[i]);
+                if (found_index !== -1) {
+                    this.offset = found_index;
+                    break
+                }
+            }
+        }
+        // Safety clamp in all cases will maintain offset unless offset is out of valid range
+        this.offset = Math.max(0, Math.min(this.offset, this.data.length - this.count));
+        // Update data now that old data is no longer useful
+        this.data = scrolled_data;
+    }
+
+    /**
+     * Set the element for the scroller since it is only available right after it renders.
+     * @param scroller_element: scrolled element to attach this scroller to
+     */
+    setElement(scroller_element) {
+        this.element = scroller_element;
+        this.element.addEventListener('scroll', this.onScroll.bind(this), true);
+    }
+
+    /**
+     * Un set the element for destruction time to cleanup the event listener.
+     */
+    unsetElement() {
+        if (this.element != null) {
+            this.element.removeEventListener('scroll', this.onScroll.bind(this));
+            this.element = null;
+        }
+    }
+
+    /**
+     * Has the data filled at least one display size.
+     * @return {boolean}: filled or not
+     */
+    filled() {
+        return this.data.length > this.count;
+    }
+
+    /**
+     * Toggle the lock state and force a move to the bottom of the data list.
+     */
+    toggleLock() {
+        this.locked = !this.locked;
+        this.last();
+    }
+
+    /**
+     * Slice the data from offset through offset + count. This returns the viewable subset of data for actual display.
+     */
+    slice() {
+        return this.data.slice(this.offset, this.offset + this.count);
+    }
+
+    /**
+     * Returns to the first "page" of the data. Resets the scroll position and index into the data to the top of the
+     * supplied list. Turns off updates such that the scrolling does not pull us away from the top of the list.
+     */
+    first() {
+        this.element.scrollTop = 0;
+        this.updating = false;
+        if (!this.filled()) {
+            return;
+        }
+        this.offset = 0;
+    }
+
+    /**
+     * Moves to the last "page" of the data. Resets the scroll position to the bottom and move the index into the data
+     * as low as it can go while still displaying a page of data.
+     */
+    last() {
+        this.element.scrollTop = this.element.scrollHeight - this.element.clientHeight;
+        this.updating = true;
+        if (!this.filled()) {
+            return;
+        }
+        this.offset = this.data.length - this.count;
+    }
+
+    /**
+     * Only when filled, turn off auto-updating and move one step previous. Otherwise do nothing.
+     */
+    prev() {
+        // Do nothing when not full
+        if (!this.filled()) {
+            return;
+        }
+        this.updating = false;
+        this.move(-this.step);
+    }
+
+    /**
+     * Only when filled, turn off auto-updating and move one step forward. Otherwise do nothing.
+     */
+    next() {
+        if (!this.filled()) {
+            return;
+        }
+        this.updating = false;
+        this.move(this.step);
+    }
+
+    /**
+     * Update the data elements for handling the automatic updates.
+     */
+    update() {
+        // When auto-updating, filled, and not displaying the last this.count of items, then auto update the offset
+        if (this.updating && this.filled() && (this.offset + this.count) < this.data.length) {
+            this.offset = this.data.length - this.count;
+            // Force scroll-bar to bottom
+            this.element.scrollTop = this.element.scrollHeight - this.element.clientHeight;
+        }
+    }
+
+    /**
+     * Handle a scroll event. This turns off auto-updating when the user triggered the scroll and meters in elements
+     * only when the scroll is at the top or bottom of the element.
+     * @param e: scroll event being handled
+     */
+    onScroll(e) {
+        // Ignore scrolling when locked
+        if (this.locked) {
+            return;
+        }
+        let user_scrolled = this.userScrolled(e);
+        // Only when the user scrolls should we change the view
+        if (this.filled() && user_scrolled) {
+            let updating = false;
+            let elmH = this.element.scrollHeight;
+            let elmT = this.element.scrollTop;
+            let elmC = this.element.clientHeight;
+            let isAtBottom = (Math.abs(elmH - elmT - elmC) <= 2.0) && (elmT !== 0);
+
+            // When scrolled to the bottom or top update range
+            if (isAtBottom) {
+                this.next(this.step);
+            } else if (this.element.scrollTop === 0) {
+                this.prev(this.step);
+            }
+        }
+    }
+
+    /**
+     * Move the offset by the given change. Change is usually +this.step or -this.step. If the change would result in
+     * before the beginning or past the end of the data, this will delegate to first/last as appropriate. Otherwise this
+     * will move by the change and offset the scrollbar slightly to keep within range.
+     * @param change: number of elements to moce by
+     */
+    move(change) {
+        let new_offset = this.offset + change;
+
+        // Hit the end of the list thus handle appropriately
+        if ((new_offset + this.count) >= this.data.length) {
+            this.last();
+        }
+        // Hit beginning of list
+        else if (new_offset <= 0) {
+            this.first();
+        }
+        // Standard move: change offset, turn off updating, and back-off the scroll bar a bit
+        else {
+            this.offset = new_offset;
+            this.updating = false;
+
+            let top = (change >= 0) ? (this.element.scrollHeight - this.element.clientHeight) - 20 : 20;
+            this.element.scrollTop = top > 0 ? top : 0;
+        }
+    }
+
+    /**
+     * Check the timestamp of scroll event and if less than a certain millisecond interval (800ms) it is a user
+     * triggered scroll. If no event triggered the scroll, then it is not considered a user scroll.
+     * @param e: scroll event
+     * @return: true on user scroll, false otherwise
+     */
+    userScrolled(e) {
+        if (e === undefined) {
+            return false;
+        }
+        let current = e.timeStamp;
+        let user_scrolled = (current - this.prevTime) < 800;
+        this.prevTime = current;
+        return user_scrolled;
+    }
+}

@@ -289,30 +289,8 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div class="fp-flex-header">
                         <h2>Events</h2>
                     </div>
-                    <div class="row justify-content-end no-gutters">
-                        <div class="col-lg-4">
-                            <div class="input-group mb-3">
-                                <div class="input-group-prepend">
-                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToFirst">First</button>
-                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToPrev" v-bind:class="{ 'disabled': !scrollStatus }">&lt;</button>
-                                    <span class="input-group-text" v-bind:class="{ 'fp-auto-increment': isAutoUpdate }">
-                                        {{ eventsStartOffset }} - {{ eventsEndOffset }}
-                                    </span>
-                                </div>
-                                <input type="text" class="form-control" v-model="totalEventsSize" disabled>
-                                <div class="input-group-append">
-                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToNext" v-bind:class="{ 'disabled': !scrollStatus }">&gt;</button>
-                                    <button class="btn btn-secondary" type="button" v-on:click="offsetToLast">Last</button>
-                                    <button class="btn btn-secondary" v-bind:class="{ 'btn-warning': isLockedToBottom,  }" type="button" v-on:click="toggleLockToBottom">
-                                        <i class="fas fa-lock-open" v-if="!isLockedToBottom"></i>
-                                        <i class="fas fa-lock" v-if="isLockedToBottom"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                     <fp-table :header-columns="['Event Time', 'Event Id', 'Event Name', 'Event Severity', 'Event Description']"
-                        :items="componentEvents"
+                        :items="events"
                         :item-to-columns="columnify"
                         :row-style="style"
                         :item-to-unique="keyify"
@@ -322,13 +300,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         :filter-text="filterText"
                         :initial-views="itemsShown"
                         :compact="compact"
-                        :totalEventsSize="updateTotalEventsSize"
-                        :eventsStartOffset="eventsStartOffset"
-                        :eventsEndOffset="eventsEndOffset"
-                        :isAutoUpdate="isAutoUpdate"
-                        :toggleLockToBottom="toggleLockToBottom"
-                        :isLockedToBottom="isLockedToBottom"
-                        :scrollStatus="scrollStatus"
+                        :titrate="true"
                     ></fp-table>
                 </div>
             </template>
@@ -416,7 +388,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div v-if="error != null" class="alert alert-danger" role="alert">
                         {{ this.error }}
                         <button type="button" class="close" data-dismiss="alert" v-on:click="dismiss_alert()">
-                            <li class="fas fa-times" style="font-size: 0.75em"></i>
+                            <li class="fas fa-times" style="font-size: 0.75em"></li>
                         </button>
                     </div>
                     <fp-table :header-columns="['Start Time', 'End Time', 'Source', 'Destination', 'State', 'Control', 'Progress']"
@@ -511,12 +483,32 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             -->
             <template id="fp-table-template">
                 <div class="fp-flex-repeater mt-2">
-                    <div class="row fp-flex-header no-gutters justify-content-end" v-if="!compact">
-                        <div class="input-group col-3">
+                    <div class="row justify-content-end no-gutters" v-if="!compact">
+                        <div class="input-group col-lg-4">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">Filters:</span>
                             </div>
                             <input class="form-control" type="text" v-model="matching" />
+                        </div>
+                        <div class="col-lg-4" v-if="scroller != null">
+                            <div class="input-group mb-3">
+                                <div class="input-group-prepend">
+                                    <button class="btn btn-secondary" type="button" v-on:click="scroller.first()">First</button>
+                                    <button class="btn btn-secondary" type="button" v-on:click="scroller.prev()" v-bind:class="{ 'disabled': !scrollStatus }">&lt;</button>
+                                    <span class="input-group-text" v-bind:class="{ 'fp-auto-increment': scroller.updating }">
+                                        {{ scroller.offset }} - {{ Math.min(scroller.offset + scroller.count, filteredItems.length)  }}
+                                    </span>
+                                </div>
+                                <input type="text" class="form-control" v-model="filteredItems.length" disabled>
+                                <div class="input-group-append">
+                                    <button class="btn btn-secondary" type="button" v-on:click="scroller.next()" v-bind:class="{ 'disabled': !scrollStatus }">&gt;</button>
+                                    <button class="btn btn-secondary" type="button" v-on:click="scroller.last()">Last</button>
+                                    <button class="btn btn-secondary" v-bind:class="{ 'btn-warning': scroller.locked }" type="button" v-on:click="scroller.toggleLock()">
+                                        <i class="fas fa-lock-open" v-if="!scroller.locked"></i>
+                                        <i class="fas fa-lock" v-if="scroller.locked"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="fp-scroll-container">
@@ -532,7 +524,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr :is="displayTemplate" v-for="item in filteredItems" :item="item"
+                                    <tr :is="displayTemplate" v-for="item in scrolledItems" :item="item"
                                         :item-to-columns="itemToColumns"
                                         :row-style="rowStyle"
                                         :key="itemToUnique(item)"
@@ -540,7 +532,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                         :in-view="inView(item)"
                                         v-on:row-checked="checkedChild"
                                         :click-action="clickAction"
-                                        :all-items="filteredItems"
+                                        :all-items="scrolledItems"
                                         :visible="visibleIndices"
                                     >
                                     </tr>
