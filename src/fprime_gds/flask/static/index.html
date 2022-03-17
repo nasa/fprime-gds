@@ -512,12 +512,11 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             <template id="fp-table-template">
                 <div class="fp-flex-repeater mt-2">
                     <div class="row fp-flex-header no-gutters justify-content-end" v-if="!compact">
-                        <div class="mx-1">Filters:</div>
-                        <div class="ml-1 mb-2 col-4">
-                            <v-select id="fp-table-filter" :clearable="true" :searchable="true" :taggable="true"
-                                      :no-drop="true" :options="[]" :multiple="true"
-                                      v-model="matching">
-                            </v-select>
+                        <div class="input-group col-3">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">Filters:</span>
+                            </div>
+                            <input class="form-control" type="text" v-model="matching" />
                         </div>
                     </div>
                     <div class="fp-scroll-container">

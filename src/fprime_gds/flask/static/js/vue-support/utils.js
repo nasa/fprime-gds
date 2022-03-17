@@ -4,6 +4,41 @@
  * This file contains utility functions used by various parts of the vue-support system. Each item here intended for use
  * elsewhere should be "export"ed as then they can then be imported for use elsewhere.
  */
+/**
+ * Preprocessing the matching tokens to make them easier to match match against. It takes the following steps:
+ * 1. Ensure all tokens are defined
+ * 2. Make all tokens lowercase, for case insensitivity
+ * 3. Convert tokens into the following format (ANDed list of ORed sets) [[OR...] AND [OR...] AND [OR...]]
+ * 4. Make sure all items in the ANDed list are not empty
+ * @param matching_tokens: matching tokens to convert
+ * @return tokens matched
+ */
+function preprocess_matchings(matching_tokens) {
+    let matching_tokens_arr = !Array.isArray(matching_tokens) ? [matching_tokens] : matching_tokens;
+    matching_tokens_arr = matching_tokens_arr.filter(item => typeof(item) !== "undefined");
+    matching_tokens_arr = matching_tokens_arr.map(item => item.toLowerCase());
+
+    let oring = false;
+    let processed = [[]];
+    // Loop through all of the tokens, spliting them itn
+    for (let i = 0; i < matching_tokens_arr.length; i++) {
+        // If token is -or- we eill be oring next time
+        if (matching_tokens_arr[i] === "-or-") {
+            oring = true;
+        }
+        // Push as an ORed token to the last AND tokens
+        else if (oring) {
+            processed[processed.length - 1].push(matching_tokens_arr[i]);
+            oring = false;
+        }
+        // Add a new AND tokens
+        else {
+            processed.push([matching_tokens_arr[i]]);
+            oring = false;
+        }
+    }
+    return processed.filter(array => array.length > 0);
+}
 
 /**
  * Filter the given items by looking for a the matching string inside the list of items.  Each item is converted to a
@@ -15,10 +50,8 @@
  * @return {[]}
  */
 export function filter(items, matching, ifun) {
-    // Support multiple filters
-    if (!Array.isArray(matching)) {
-        matching = [matching];
-    }
+    matching = preprocess_matchings(matching);
+
     // Convert object to string using given ifun function, or JSON.stringify
     let stringer = ifun;
     if (typeof(stringer) === "undefined") {
@@ -29,15 +62,18 @@ export function filter(items, matching, ifun) {
     for (let i = 0; i < items.length; i++) {
         let j = 0;
         let item = items[i];
+        // ANDed loop, every iteration must match something in the sub list
         for (j = 0; j < matching.length; j++) {
-            // All filters must match (ANDed).  Throw out non-matching.
-            if (typeof (matching[j]) !== "undefined" &&
-                stringer(item).toLowerCase().indexOf(matching[j].toLowerCase()) == -1) {
+            let stringified = stringer(item).toLowerCase();
+            // Any of the OR array may match
+            let any = matching[j].reduce((prev, current) => prev || stringified.indexOf(current) !== -1, false);
+            // Not anything matches means this token does not match
+            if (!any) {
                 break;
             }
         }
         // Made it all the way through the loop, add item
-        if (j == matching.length) {
+        if (j === matching.length) {
             output.push(item);
         }
     }
