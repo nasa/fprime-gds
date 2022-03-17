@@ -322,7 +322,7 @@ Vue.component("fp-table", {
     // Required data items (unique for each table instance)
     data: function() {
         return {
-            matching: (this.filterText) ? [this.filterText] : [],
+            matching: this.filterText,
             editing: false,
             // use Vue.util.extend to copy by data, not by reference
             view: Vue.util.extend([], toArrayIfString(this.initialViews)),
@@ -368,7 +368,7 @@ Vue.component("fp-table", {
         checkAll: function(e) {
             let state = e.target.checked;
             let itemToColumns = this.itemToColumns;
-            let filtered = filter(this.items, this.matching,
+            let filtered = filter(this.items, this.matching.split(" "),
                 function(item) {
                     return itemToColumns(item).join(" ");
                 });
@@ -459,7 +459,7 @@ Vue.component("fp-table", {
                 }
             }
             // Now filter items based on removable filters
-            let filtered = filter(items, this.matching,
+            let filtered = filter(items, this.matching.split(" "),
                 function(item) {
                     return itemToColumns(item).join(" ");
                 });
