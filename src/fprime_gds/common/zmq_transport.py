@@ -85,11 +85,11 @@ class ZmqWrapper(object):
         # When set to bind sockets, connect via a bind call
         if self.server:
             server_transport = self.transport_url[1].replace("localhost", "127.0.0.1")
+            LOGGER.info("Outgoing binding to: %s", (server_transport))
             self.zmq_socket_outgoing.bind(server_transport)
-            LOGGER.info("Outgoing bound to: %s", (server_transport))
         else:
+            LOGGER.info("Outgoing connecting to: %s", (self.transport_url[0]))
             self.zmq_socket_outgoing.connect(self.transport_url[0])
-            LOGGER.info("Outgoing connected to: %s", (self.transport_url[0]))
 
     def connect_incoming(self):
         """ Sets up a ZeroMQ connection for incoming data
@@ -109,11 +109,12 @@ class ZmqWrapper(object):
         self.zmq_socket_incoming.setsockopt(zmq.SUBSCRIBE, self.sub_topic)
         if self.server:
             server_transport = self.transport_url[0].replace("localhost", "127.0.0.1")
+            LOGGER.info("Incoming binding to: %s", (server_transport))
             self.zmq_socket_incoming.bind(server_transport)
-            LOGGER.info("Incoming bound to: %s", (server_transport))
         else:
+            LOGGER.info("Incoming connecting to: %s", (self.transport_url[1]))
             self.zmq_socket_incoming.connect(self.transport_url[1])
-            LOGGER.info("Incoming connected to: %s", (self.transport_url[1]))
+
 
     def disconnect_outgoing(self):
         """Disconnect the ZeroMQ sockets"""
