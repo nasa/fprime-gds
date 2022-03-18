@@ -19,6 +19,7 @@ import sys
 
 import fprime_gds.common.communication.adapters.base
 import fprime_gds.common.communication.checksum
+import fprime_gds.common.logger
 
 # Include basic adapters
 import fprime_gds.common.communication.adapters.ip
@@ -295,6 +296,8 @@ class LogDeployParser(ParserBase):
             default=False,
             help="Logging directory is used directly, no extra dated directories created.",
         )
+        parser.add_argument("--log-to-stdout", action="store_true", default=False,
+                            help="Log to standard out along with log output files")
         return parser
 
     @classmethod
@@ -320,6 +323,9 @@ class LogDeployParser(ParserBase):
         except OSError as osexc:
             if osexc.errno != errno.EEXIST:
                 raise
+        # Setup the basic python logging
+        fprime_gds.common.logger.configure_py_log(args.logs, mirror_to_stdout=args.log_to_stdout)
+
         return args
 
 

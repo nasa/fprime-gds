@@ -86,6 +86,7 @@ def main():
     # Set the framing class used and pass it to the uplink and downlink component constructions giving each a separate
     # instantiation
     framer_class = FpFramerDeframer
+    LOGGER.info("Starting uplinker/downlinker connecting to FSW using %s with %s", adapter, framer_class.__name__)
     downlinker = Downlinker(adapter, ground, framer_class())
     uplinker = Uplinker(adapter, ground, framer_class(), downlinker)
 
@@ -96,6 +97,7 @@ def main():
     # Finally start the processing of uplink and downlink
     downlinker.start()
     uplinker.start()
+    LOGGER.debug("Uplinker and downlinker running")
 
     # Wait for shutdown event in the form of a KeyboardInterrupt then stop the processing, close resources, and wait for
     # everything to terminate as expected.

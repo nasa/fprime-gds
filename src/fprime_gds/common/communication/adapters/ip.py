@@ -58,6 +58,8 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         Initialize this adapter by creating a handler for UDP and TCP. A thread for the KEEPALIVE application packets
         will be created, if the interval is not none.
         """
+        self.address = address
+        self.port = port
         self.stop = False
         self.keepalive = None
         self.tcp = TcpHandler(address, port)
@@ -66,6 +68,10 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         self.thudp = None
         self.data_chunks = queue.Queue()
         self.blob = b""
+
+    def __repr__(self):
+        """ String representation for logging """
+        return f"Paired-TCP/UDP@{self.address}:{self.port}"
 
     def open(self):
         """
