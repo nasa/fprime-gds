@@ -2,7 +2,7 @@ import {advanced_template} from "./addon-templates.js";
 import {_datastore} from "../../js/datastore.js";
 import {_performance} from "../../js/performance.js"
 import {_settings} from "../../js/settings.js";
-import {_loader} from "../../js/loader.js";
+import {_validator} from "../../js/validate.js";
 
 
 /**
@@ -17,8 +17,18 @@ Vue.component("advanced-settings", {
                 "Polling_Intervals": _settings.polling_intervals,
                 "Miscellaneous": _settings.miscellaneous
             },
-            old_polling: {..._settings.polling_intervals}
+            old_polling: {..._settings.polling_intervals},
+            errors: _validator.errors
         };
+    },
+    methods: {
+        /**
+         * Clear the errors that occurred within the GDS and reset the counts.
+         */
+        clearErrors() {
+            _validator.errors.splice(0, _validator.errors.length);
+            _validator.counts.GDS_Errors = 0;
+        }
     },
     watch: {
         /**

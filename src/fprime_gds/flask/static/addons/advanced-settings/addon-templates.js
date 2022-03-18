@@ -25,6 +25,13 @@ export let advanced_template = `
                     </tr>
                 </table>
             </div>
+            <div class="col-8">
+                <h3>GDS Error Log</h3>
+                <table class="col-8 table table-bordered">
+                    <tr><th><button v-on:click="clearErrors()" class="btn btn-danger">Clear Errors</button></th></tr>
+                    <tr v-for="error in errors.slice().reverse()"><td>{{ error }}</td></tr>
+                </table>
+            </div>
         </div>
 </div>
 `;
