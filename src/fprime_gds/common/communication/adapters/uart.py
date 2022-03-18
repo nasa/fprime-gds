@@ -67,6 +67,10 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         self.baud = baud
         self.serial = None
 
+    def __repr__(self):
+        """ String representation for logging """
+        return f"UART@{self.device}:{self.baud}bps"
+
     def open(self):
         """
         Opens the serial port based on previously supplied settings. If the port is already open, then close it first.
