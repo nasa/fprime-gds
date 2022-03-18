@@ -246,16 +246,17 @@ class Loader {
         let start_time = new Date();
         // Load the endpoint and respond to the response
         _self.load(context.url).then((data) => {
+            context.last = (new Date() - start_time)/1000;
             (data.errors || []).map(error_handler.bind(undefined, context.name));
             let more_data = ((data.history || []).length >= _settings.miscellaneous.response_object_limit);
             context.queued = context.queued || more_data; // Queue if we hit the limit
             callback(data);
         }).catch((error) => {
+            context.last = (new Date() - start_time)/1000;
             error_handler(context.name, error)
         }).finally(() => {
             // Context variables reset after finishing
             context.running = false;
-            context.last = (new Date() - start_time)/1000;
             // If a request has been asked, prepare a follow-up request
             if (context.queued) {
                 _self.poller(context, callback, error_handler);

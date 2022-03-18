@@ -484,11 +484,13 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             <template id="fp-table-template">
                 <div class="fp-flex-repeater mt-2">
                     <div class="row justify-content-end no-gutters" v-if="!compact">
-                        <div class="input-group col-lg-4">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text">Filters:</span>
+                        <div class="col-lg-4">
+                            <div class="input-group mb-3">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">Filters:</span>
+                                </div>
+                                <input class="form-control" type="text" v-model="matching" />
                             </div>
-                            <input class="form-control" type="text" v-model="matching" />
                         </div>
                         <div class="col-lg-4" v-if="scroller != null">
                             <div class="input-group mb-3">
@@ -561,7 +563,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                 v-on:click="editViews">Edit View</button>
                     </div>
                     <div class="row fp-flex-header no-gutters justify-content-end mb-1" v-if="!editing && !compact">
-                        <button class="col-3 btn btn-secondary" v-if="clearRows != null" v-on:click="clearRows">Clear</button>
+                        <button class="col-3 btn btn-secondary" v-if="clearRows != null" v-on:click="clearRows">Clear All</button>
                     </div>
                 </div>
             </template>

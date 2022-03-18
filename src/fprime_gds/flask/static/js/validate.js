@@ -1,4 +1,5 @@
 import {_loader} from "./loader.js";
+import {_settings} from "./settings.js";
 
 /**
  * validate.js:
@@ -112,11 +113,13 @@ class LoadValidator {
         this.dropped = {};
         this.times = {};
         this.misc_counts = {};
+        this.window_ms = 5 * 60 * 1000;
 
         // Implementation variables
         this.errors_to_console = errors_to_console || false;
         this.error_limit = error_backlog_limit || 100;
         this.validation_counts = {}
+        this.falling_behind = {};
     }
 
     /**
@@ -140,7 +143,7 @@ class LoadValidator {
      */
     updateErrors(errors) {
         this.counts.GDS_Errors = (this.counts.GDS_Errors || 0) + errors.length;
-        this.errors.push(errors);
+        this.errors.push(...errors);
         this.errors.splice(0, this.errors.length - this.error_limit);
         // Log errors to the console when requested
         if (this.errors_to_console) {
@@ -168,9 +171,22 @@ class LoadValidator {
         let last = _loader.endpoints[key].last || null;
         // Don't update window if there is no time detect or tracked
         if (last != null) {
+            let polling_interval = parseInt(_settings.polling_intervals[key]) || 1000;
+            let window_samples = Math.round(this.window_ms / polling_interval);
             this.times[key] = this.times[key] || [];
             this.times[key].push(last);
-            //this.times[key].splice(0, this.times[key] - 60000);
+            this.times[key].splice(0, this.times[key].length - window_samples);
+
+            // Update if this is falling behind
+            let time_now = new Date();
+            if (last <= (polling_interval/1000)) {
+                this.falling_behind[key] = time_now;
+            }
+            // Error if last good time was more than 5 seconds ago
+            else if ((time_now - (this.falling_behind[key] || time_now)) >= 5000) {
+                this.updateErrors(["Polling for '" + key + "' is falling behind fore 5 seconds"]);
+                this.falling_behind[key] = time_now;
+            }
         }
     }
 
