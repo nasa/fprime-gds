@@ -99,7 +99,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                             </div>
                         </nav>
                     </div>
-                    <div class="container-fluid fp-flex-repeater">
+                    <div v-if="flags.loaded" class="container-fluid fp-flex-repeater">
                         <!-- NOTE: *must* use v-show, as v-if will perish the component losing state -->
                         <command-input v-show="currentTab == 'Commanding'"></command-input>
                         <channel-table v-show="currentTab == 'Channels'"></channel-table>
@@ -111,6 +111,25 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <sequencer     v-show="currentTab == 'Sequences'"></sequencer>
                         <dashboard     v-show="currentTab == 'Dashboard'"></dashboard>
                         <advanced-settings v-show="currentTab == 'Advanced'"></advanced-settings>
+                    </div>
+                    <div v-if="!flags.loaded" class="container">
+                        <div class="align-middle">
+                            <div class="row">
+                                <div class="col col-3">
+                                    <img v-bind:src="config.logo" width="100%" height="100%"
+                                         v-bind:alt="config.projectName" v-bind:title="config.projectName">
+                                </div>
+                                <div class="col col-8 card">
+                                    <div class="card-header">
+                                        <h3>{{ config.projectName }} is loading...</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <p>{{ config.projectName }} is loading project software dictionaries,
+                                            configuration, and other necessary data. This may take a moment.</p>
+                                    </div>
+                                </div>
+                        </div>
+                    </div>
                     </div>
                 </div>
             </template>
@@ -266,12 +285,12 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             <template id="command-argument-template">
                 <div>
                     <label :for="argument.name" class="control-label font-weight-bold">{{ argument.name }}</label><span v-if="argument.description != null">: {{ argument.description }}</span>
-                    <input v-if="argument.type != 'Enum'" :type="inputType[0]" :id="argument.name" class="form-control fprime-input"
+                    <input v-if="!argument.type.ENUM_DICT" :type="inputType[0]" :id="argument.name" class="form-control fprime-input"
                            :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validate"
                            v-model="argument.value"  :class="argument.error == '' ? '' : 'is-invalid'" required>
-                    <v-select v-if="argument.type == 'Enum'" :id="argument.name" style="flex: 1 1 auto; background-color: white;"
+                    <v-select v-if="argument.type.ENUM_DICT" :id="argument.name" style="flex: 1 1 auto; background-color: white;"
                               :clearable="false" :searchable="true" @input="validate"
-                              :filterable="true"  label="full_name" :options="argument.possible"
+                              :filterable="true"  label="full_name" :options="Object.keys(argument.type.ENUM_DICT)"
                               v-model="argument.value" class="fprime-input" :class="argument.error == '' ? '' : 'is-invalid'" required>
                     </v-select>
                     <div class="invalid-feedback">{{ argument.error }}</div>

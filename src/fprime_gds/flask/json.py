@@ -5,6 +5,10 @@
 ####
 import collections.abc
 import enum
+import inspect
+
+from fprime.common.models.serialize.type_base import BaseType
+from fprime_gds.common.utils.jsonable import jsonify_base_type
 
 import flask.json
 
@@ -23,6 +27,8 @@ class GDSJsonEncoder(flask.json.JSONEncoder):
         :return: JSON
         """
         # Object may already define a method for this, if so call it
+        if inspect.isclass(obj) and issubclass(obj, BaseType):
+            return jsonify_base_type(obj)
         if hasattr(obj, "to_jsonable"):
             return obj.to_jsonable()
         # Dictionaries are "iterable", must handle them first

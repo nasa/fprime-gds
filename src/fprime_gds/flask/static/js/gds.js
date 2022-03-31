@@ -23,7 +23,6 @@ import "./vue-support/tabetc.js"
 function setupBindings() {
     //Startup the global datastore *before* setting-up the Vue application, as Vue needs a configured datastore
     _datastore.startup();
-    new Vue({el: "#tabetc"});
 }
 
 /**
@@ -32,4 +31,5 @@ function setupBindings() {
  */
 document.addEventListener("DOMContentLoaded", function(event) {
     _loader.setup().then(setupBindings).catch(console.error);
+    new Vue({el: "#tabetc"});
 });

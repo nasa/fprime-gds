@@ -29,6 +29,7 @@ import {timeToDate} from "./vue-support/utils.js";
 export class DataStore {
 
     constructor() {
+        this.flags = {loaded: false};
         // Activity timeout for checking spacecraft health and "the orb" (ours, not Keynes')
         this.active = [false, false];
         this.active_timeout = null;
@@ -92,16 +93,14 @@ export class DataStore {
         }
         this.channels = channels; // Forces new channel map into Vue
         this.commands = _loader.endpoints["command-dict"].data;
-        // Clear the commands dictionary for setup
-        for (let command in this.commands) {
-            command = this.commands[command];
-            for (let i = 0; i < command.args.length; i++) {
-                command.args[i].error = "";
-                if (command.args[i].type === "Enum") {
-                    command.args[i].value = command.args[i].possible[0];
-                }
-            }
-        }
+
+        // Setup initial commands data (clearing arguments and setting initial values)
+        Object.values(_datastore.commands).forEach((command) => command.args.forEach((argument) => {
+            let def = argument.value || null;
+            argument.error = "";
+            argument.value = (argument.type.ENUM_DICT) ? (Object.keys(argument.type.ENUM_DICT)[0] || def) : def;
+        }));
+        this.flags.loaded = true;
         this.polling_info.forEach((item) => {
             this.reregisterPoller(item.endpoint);
         });
