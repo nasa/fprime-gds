@@ -63,8 +63,8 @@ class ChTemplate(data_template.DataTemplate):
         if not isinstance(comp_name, str):
             raise TypeMismatchException(str, type(comp_name))
 
-        if not isinstance(ch_type_obj, BaseType):
-            raise TypeMismatchException(BaseType, type(ch_type_obj))
+        if not issubclass(ch_type_obj, BaseType):
+            raise TypeMismatchException(BaseType, ch_type_obj)
 
         if ch_fmt_str is not None and not isinstance(ch_fmt_str, str):
             raise TypeMismatchException(str, type(ch_fmt_str))

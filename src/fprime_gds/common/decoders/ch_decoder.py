@@ -21,7 +21,7 @@ import copy
 
 from fprime.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.ch_data import ChData
-from fprime_gds.common.decoders.decoder import Decoder
+from fprime_gds.common.decoders.decoder import Decoder, DecodingException
 from fprime_gds.common.utils import config_manager
 
 
@@ -78,12 +78,13 @@ class ChDecoder(Decoder):
             # Retrieve the template instance for this channel
             ch_temp = self.__dict[ch_id]
 
-            val_obj = self.decode_ch_val(data, ptr, ch_temp)
-
+            try:
+                val_obj = self.decode_ch_val(data, ptr, ch_temp)
+            except Exception as exc:
+                raise DecodingException(f"Channel {ch_temp.name} failed to decode: {exc}")
             return ChData(val_obj, ch_time, ch_temp)
         else:
-            print("Channel decode error: id %d not in dictionary" % ch_id)
-            return None
+            raise DecodingException(f"Channel {ch_id} not found in dictionary")
 
     @staticmethod
     def decode_ch_val(val_data, offset, template):
@@ -101,14 +102,6 @@ class ChDecoder(Decoder):
             object, and so the channel value can be retrieved from the obj's
             val field.
         """
-        # This line creates a new object of the same type as the template's
-        # type_obj. This allows us to use the new object to deserialize and
-        # store the data value. If we did not do this, the template's object
-        # would be used to deserialize multiple times and channel objects
-        # referencing the template's type object would seem to have their value
-        # changed randomly
-        val_obj = copy.deepcopy(template.get_type_obj())
-
+        val_obj = template.get_type_obj()()
         val_obj.deserialize(val_data, offset)
-
         return val_obj

@@ -64,7 +64,7 @@ class CmdXmlLoader(XmlLoader):
                 cmd_desc = cmd_dict[self.DESC_TAG]
 
             # Parse Arguments
-            args = self.get_args_list(cmd, xml_tree)
+            args = self.get_args_list(cmd, xml_tree, f"{ cmd_comp }::{ cmd_mnemonic }")
 
             cmd_temp = CmdTemplate(cmd_opcode, cmd_mnemonic, cmd_comp, args, cmd_desc)
 

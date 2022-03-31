@@ -158,7 +158,7 @@ class XmlLoader(dict_loader.DictLoader):
 
         return None
 
-    def get_args_list(self, xml_obj, xml_tree):
+    def get_args_list(self, xml_obj, xml_tree, context=None):
         """
         Parses and returns a standard xml dict arguments section:
           Section name: "args"
@@ -170,6 +170,7 @@ class XmlLoader(dict_loader.DictLoader):
                                        to parse.
             xml_tree (lxml etree root): Main xml tree object containing info on
                                         Enums and serializables.
+            context: context for where we are in the tree
 
         Returns:
             List of arguments where each argument is a tuple of the form:
@@ -186,7 +187,7 @@ class XmlLoader(dict_loader.DictLoader):
 
                 arg_name = arg_dict[self.ARG_NAME_TAG]
                 arg_type_name = arg_dict[self.ARG_TYPE_TAG]
-                arg_typ_obj = self.parse_type(arg_type_name, arg, xml_tree)
+                arg_typ_obj = self.parse_type(arg_type_name, arg, xml_tree, context)
 
                 arg_desc = None
                 if self.ARG_DESC_TAG in arg_dict:
@@ -213,9 +214,7 @@ class XmlLoader(dict_loader.DictLoader):
         """
         # Check if there is an already parsed version of this enum
         if enum_name in self.enums:
-            # Return a copy, so that the objects are not shared
-            #  (Could cause nasty issues if two places try to deserialize)
-            return deepcopy(self.enums[enum_name])
+            return self.enums[enum_name]
 
         # Check if the dictionary has an enum section
         enum_section = self.get_xml_section(self.ENUM_SECT, xml_obj)
@@ -232,7 +231,7 @@ class XmlLoader(dict_loader.DictLoader):
                     item_val = int(item.get(self.ENUM_ELEM_VAL_TAG))
                     members[item_name] = item_val
 
-                enum_obj = EnumType(enum_name, members)
+                enum_obj = EnumType.construct_type(enum_name, members)
 
                 self.enums[enum_name] = enum_obj
                 return enum_obj
@@ -257,8 +256,7 @@ class XmlLoader(dict_loader.DictLoader):
         """
         # Check if there is already a parsed version of this serializable
         if type_name in self.serializable_types:
-            # Return a copy, so that the objects are not shared
-            return deepcopy(self.serializable_types[type_name])
+            return self.serializable_types[type_name]
 
         # Check if the dictionary has an enum section
         ser_section = self.get_xml_section(self.SER_SECT, xml_obj)
@@ -285,7 +283,7 @@ class XmlLoader(dict_loader.DictLoader):
 
                     members.append((name, type_obj, fmt_str, desc))
 
-                ser_obj = SerializableType(type_name, members)
+                ser_obj = SerializableType.construct_type(type_name, members)
 
                 self.serializable_types[type_name] = ser_obj
                 return ser_obj
@@ -311,8 +309,7 @@ class XmlLoader(dict_loader.DictLoader):
 
         # Check if there is already a parsed version of this array
         if type_name in self.array_types:
-            # Return a copy, so that the objects are not shared
-            return deepcopy(self.array_types[type_name])
+            return self.array_types[type_name]
 
         # Check if the dictionary has an array section
         arr_section = self.get_xml_section(self.ARR_SECT, xml_obj)
@@ -335,14 +332,14 @@ class XmlLoader(dict_loader.DictLoader):
                 arr_format = arr_memb.get(self.ARR_FORMAT_TAG)
                 arr_size = arr_memb.get(self.ARR_SIZE_TAG)
 
-                arr_obj = ArrayType(type_name, (type_obj, int(arr_size), arr_format))
+                arr_obj = ArrayType.construct_type(type_name, type_obj, int(arr_size), arr_format)
 
                 self.array_types[type_name] = arr_obj
                 return arr_obj
 
         return None
 
-    def parse_type(self, type_name, xml_item, xml_tree):
+    def parse_type(self, type_name, xml_item, xml_tree, context=None):
         """
         Parses the given type string and returns a type object.
 
@@ -353,6 +350,7 @@ class XmlLoader(dict_loader.DictLoader):
                       meta data such as string length.
             xml_tree (lxml etree root): Parsed Xml object containing enum and
                                         serializable type info (may not be used)
+            context: context in the tree
 
         Returns:
             Object of a class derived from the TypeBase class if successful,
@@ -361,32 +359,34 @@ class XmlLoader(dict_loader.DictLoader):
         """
 
         if type_name == "I8":
-            return I8Type()
+            return I8Type
         elif type_name == "I16":
-            return I16Type()
+            return I16Type
         elif type_name == "I32":
-            return I32Type()
+            return I32Type
         elif type_name == "I64":
-            return I64Type()
+            return I64Type
         elif type_name == "U8":
-            return U8Type()
+            return U8Type
         elif type_name == "U16":
-            return U16Type()
+            return U16Type
         elif type_name == "U32":
-            return U32Type()
+            return U32Type
         elif type_name == "U64":
-            return U64Type()
+            return U64Type
         elif type_name == "F32":
-            return F32Type()
+            return F32Type
         elif type_name == "F64":
-            return F64Type()
+            return F64Type
         elif type_name == "bool":
-            return BoolType()
+            return BoolType
         elif type_name == "string":
             if self.STR_LEN_TAG not in xml_item.attrib:
                 print(f"Trying to parse string type, but found {self.STR_LEN_TAG} field")
                 return None
-            return StringType(max_string_len=int(xml_item.get(self.STR_LEN_TAG), 0))
+            max_length = int(xml_item.get(self.STR_LEN_TAG, 0))
+            name = f"{ context if context else '' }::{ xml_item.get(self.ARG_NAME_TAG) }String"
+            return StringType.construct_type(name, max_length)
         else:
             # First try Serialized types:
             result = self.get_serializable_type(type_name, xml_tree)

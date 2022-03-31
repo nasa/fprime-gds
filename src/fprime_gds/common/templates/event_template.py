@@ -62,8 +62,8 @@ class EventTemplate(data_template.DataTemplate):
             if arg_desc is not None and not isinstance(arg_desc, str):
                 raise TypeMismatchException(str, type(arg_desc))
 
-            if not isinstance(arg_type, type_base.BaseType):
-                raise TypeMismatchException(type_base.BaseType, type(arg_type))
+            if not issubclass(arg_type, type_base.BaseType):
+                raise TypeMismatchException(type_base.BaseType, arg_type)
 
         if description is not None and not isinstance(description, str):
             raise TypeMismatchException(str, type(description))

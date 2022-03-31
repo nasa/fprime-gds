@@ -60,8 +60,8 @@ class CmdTemplate(data_template.DataTemplate):
             if argdesc is not None and not isinstance(argdesc, str):
                 raise TypeMismatchException(int, type(argdesc))
             #
-            if not isinstance(argtype, BaseType):
-                raise TypeMismatchException(BaseType, type(argtype))
+            if not issubclass(argtype, BaseType):
+                raise TypeMismatchException(BaseType, argtype)
 
         # Initialize command internal variables
         self.comp_name = component

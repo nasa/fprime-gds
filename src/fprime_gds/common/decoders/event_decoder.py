@@ -109,12 +109,9 @@ class EventDecoder(decoder.Decoder):
 
         # For each argument, use the arg_obj deserialize method to get the value
         for arg in args:
-            (arg_name, arg_desc, template_arg_obj) = arg
+            (arg_name, arg_desc, arg_type) = arg
 
-            # Create a new instance of the argument's type object so we don't
-            # use the template's object for deserialization and storage of the
-            # parsed argument value.
-            arg_obj = copy.deepcopy(template_arg_obj)
+            arg_obj = arg_type()
 
             try:
                 arg_obj.deserialize(arg_data, offset)

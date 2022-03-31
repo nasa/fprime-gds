@@ -115,7 +115,6 @@ class ZmqWrapper(object):
             LOGGER.info("Incoming connecting to: %s", (self.transport_url[1]))
             self.zmq_socket_incoming.connect(self.transport_url[1])
 
-
     def disconnect_outgoing(self):
         """Disconnect the ZeroMQ sockets"""
         self.zmq_socket_outgoing.close()
