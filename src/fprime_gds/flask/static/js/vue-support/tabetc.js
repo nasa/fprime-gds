@@ -49,7 +49,8 @@ Vue.component("tabbed-etc", {
                 ],
                 "config": config,
                 "active": _datastore.active,
-                "counts": _validator.counts
+                "counts": _validator.counts,
+                "flags": _datastore.flags
             }
         },
     methods: {

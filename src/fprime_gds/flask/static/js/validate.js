@@ -54,13 +54,13 @@ export function find_case_insensitive(token, possible) {
 export function validate_input(argument) {
     argument.error = "";
     // Integral types checking
-    if (argument.type in TYPE_LIMITS) {
+    if (argument.type.name in TYPE_LIMITS) {
         let value = null;
         try {
             value = (argument.value == null) ? null : BigInt(argument.value);
         } catch (e) {}
-        let limits = TYPE_LIMITS[argument.type];
-        let message = (argument.type.startsWith("U")) ? "binary, octal, decimal, or hexadecimal unsigned integer":
+        let limits = TYPE_LIMITS[argument.type.name];
+        let message = (argument.type.name.startsWith("U")) ? "binary, octal, decimal, or hexadecimal unsigned integer":
                       "signed decimal integer";
 
         if (value == null || value < limits[0] || value > limits[1]) {
@@ -69,7 +69,7 @@ export function validate_input(argument) {
         }
     }
     // Floating point types
-    else if (argument.type.startsWith("F") && isNaN(parseFloat(argument.value))) {
+    else if (argument.type.name.startsWith("F") && isNaN(parseFloat(argument.value))) {
         argument.error = "Supply floating point number";
         return false;
     }
@@ -82,7 +82,7 @@ export function validate_input(argument) {
         } else {
             argument.value = valid_arg;
         }
-    } else if (argument.type === "String" && (argument.value === "" || argument.value == null)) {
+    } else if (argument.type.name.indexOf("String") !== -1 && (argument.value === "" || argument.value == null)) {
         argument.error = "Supply general text";
     }
     return true;

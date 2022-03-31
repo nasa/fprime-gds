@@ -23,7 +23,7 @@ ZMQ_TRANSPORT = None if ZMQ_TRANSPORT is None else ZMQ_TRANSPORT.split("|")
 PORT = int(os.environ.get("TTS_PORT", "50050"), 0)
 ADDRESS = os.environ.get("TTS_ADDR", "127.0.0.1")
 
-LOG_DIR = os.environ.get("LOG_DIR", None)
+LOG_DIR = os.environ.get("LOG_DIR", "/tmp/fprime-gds-logs")
 SERVE_LOGS = os.environ.get("SERVE_LOGS", "YES") == "YES"
 UPLOADED_UPLINK_DEST = uplink_dir
 UPLOADS_DEFAULT_DEST = uplink_dir

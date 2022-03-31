@@ -73,14 +73,14 @@ Vue.component("command-argument", {
          */
         inputType() {
             // Unsigned integer
-            if (this.argument.type[0] == 'U') {
+            if (this.argument.type.name[0] == 'U') {
                 // Supports binary, hex, octal, and digital
                 return ["text", "0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F]+|[1-9]\\d*|0", ""];
             }
-            else if (this.argument.type[0] == 'I') {
+            else if (this.argument.type.name[0] == 'I') {
                 return ["number", null, "1"];
             }
-            else if (this.argument.type[0] == 'F') {
+            else if (this.argument.type.name[0] == 'F') {
                 return ["number", null, "any"];
             }
             return ["text", ".*", null];
