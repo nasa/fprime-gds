@@ -54,30 +54,12 @@ class CmdData(sys_data.SysData):
         super().__init__()
         self.id = cmd_temp.get_id()
         self.template = cmd_temp
-        self.arg_vals = cmd_args
 
-        self.args = [deepcopy(typ) for (_, _, typ) in self.template.arguments]
-        self.arg_names = [name for (name, _, _) in self.template.arguments]
+        self.args, errors = self.process_args(cmd_args)
+        self.time = cmd_time if cmd_time else TimeType(TimeBase["TB_DONT_CARE"].value)
 
-        if cmd_time:
-            self.time = cmd_time
-        else:
-            self.time = TimeType(TimeBase["TB_DONT_CARE"].value)
 
-        errors = []
-        for val, typ in zip(self.arg_vals, self.args):
-            try:
-                self.convert_arg_value(val, typ)
-                errors.append("")
-            except Exception as exc:
-                error_message = str(exc)
-                # Patch old versions of fprime-tools to replace a bad error message with the correct one
-                if (
-                    isinstance(exc, TypeError)
-                    and "object of type 'NoneType' has no len()" in error_message
-                ):
-                    error_message = f"String size {len(val)} is greater than {typ.__max_string_len}!"
-                errors.append(error_message)
+
         # If any errors occur, then raise a aggregated error
         if [error for error in errors if error != ""]:
             raise CommandArgumentsException(errors)
@@ -107,7 +89,7 @@ class CmdData(sys_data.SysData):
             list -- a list of value objects that were used in this data object.
         """
 
-        return self.arg_vals
+        return [arg.val for arg in self.args]
 
     def get_args(self):
         """Get the arguments associate with the template of this data object
@@ -159,6 +141,28 @@ class CmdData(sys_data.SysData):
             return f"{time_str},{name},{arg_str}"
         else:
             return f"{time_str}: {name} : {arg_str}"
+
+    def process_args(self, input_values):
+        """ Process input arguments """
+        errors = []
+        args = []
+        for val, arg_tuple in zip(input_values, self.template.arguments):
+            try:
+                _, _, arg_type = arg_tuple
+                arg_value = arg_type()
+                self.convert_arg_value(val, arg_value)
+                args.append(arg_value)
+                errors.append("")
+            except Exception as exc:
+                error_message = str(exc)
+                # Patch old versions of fprime-tools to replace a bad error message with the correct one
+                if (
+                    isinstance(exc, TypeError)
+                    and "object of type 'NoneType' has no len()" in error_message
+                ):
+                    error_message = f"String size {len(val)} is greater than {typ.__max_string_len}!"
+                errors.append(error_message)
+        return args, errors
 
     @staticmethod
     def convert_arg_value(arg_val, arg_type):

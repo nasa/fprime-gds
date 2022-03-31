@@ -14,6 +14,32 @@ Note: JSON types must use only the following data types
 
 @author mstarch
 """
+from inspect import getmembers, isroutine
+from typing import Type
+from fprime.common.models.serialize.type_base import BaseType
+from fprime.common.models.serialize.enum_type import EnumType
+
+
+def jsonify_base_type(input_type: Type[BaseType]) -> dict:
+    """ Turn a base type into a JSONable dictionary
+
+    Convert a BaseType (the type, not an instance) into a jsonable dictionary. BaseTypes are converted by reading the
+    class properties (without __) and creating the object:
+
+    {
+        "name": class name,
+        class properties
+    }
+
+    Args:
+        input_type: input to convert to dictionary
+    Return:
+        json-able dictionary representing the type
+    """
+    members = getmembers(input_type, lambda value: not isroutine(value) and not isinstance(value, property))
+    jsonable_dict = {name: value for name, value in members if not name.startswith("_")}
+    jsonable_dict.update({"name": input_type.__name__})
+    return jsonable_dict
 
 
 def fprime_to_jsonable(obj):
@@ -41,12 +67,9 @@ def fprime_to_jsonable(obj):
                 for arg_spec in item:
                     arg_dict = {
                         "name": arg_spec[0],
-                        "description": arg_spec[1],
-                        "value": arg_spec[2].val,
-                        "type": str(arg_spec[2]),
+                        "description": arg_spec[1] if arg_spec[1] is not None else "",
+                        "type": arg_spec[2],
                     }
-                    if arg_dict["type"] == "Enum":
-                        arg_dict["possible"] = arg_spec[2].keys()
                     args.append(arg_dict)
                 # Fill in our special handling
                 item = args

@@ -125,7 +125,8 @@ class ThreadedTransportClient(TransportClient, ABC):
         connection has been created as it will immediately start reading data. All arguments are ignored.
         """
         super().connect(*_, **__)
-        self.__data_recv_thread.start()
+        if not self.__stop_event.is_set():
+            self.__data_recv_thread.start()
 
     def disconnect(self):
         """Stops and joins to thee recv thread when disconnected
@@ -142,6 +143,16 @@ class ThreadedTransportClient(TransportClient, ABC):
         """ Stop the receive thread without waiting """
         self.__stop_event.set()
 
+    def poll(self):
+        """ Poll the receive and process the result
+
+        Poll the receive and process the results. This will be called by the receive thread, but is separated out for
+        flexibility in case users wish to reduce the number of empty threads in the system.
+        """
+        data = self.recv(self.timeout)
+        if len(data) > 0:
+            self.send_to_all(data)
+
     def recv_thread(self):
         """Loops reading data and dispatching it to registrants
 
@@ -150,9 +161,7 @@ class ThreadedTransportClient(TransportClient, ABC):
         data is only forwarded to registrants if the data is not empty as that indicates a timeout.
         """
         while not self.__stop_event.is_set():
-            data = self.recv(self.timeout)
-            if len(data) > 0:
-                self.send_to_all(data)
+            self.poll()
 
 
 class ThreadedTCPSocketClient(ThreadedTransportClient):

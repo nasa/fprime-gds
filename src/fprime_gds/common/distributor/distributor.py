@@ -13,8 +13,13 @@ descriptor header will be passed on to the registered objects.
 
 @bug No known bugs
 """
+import logging
 from fprime_gds.common.utils import config_manager, data_desc_type
 from fprime_gds.common.handlers import DataHandler
+from fprime_gds.common.decoders.decoder import DecodingException
+
+
+LOGGER = logging.getLogger("distributor")
 
 
 # NOTE decoder function to call is called data_callback(data)
@@ -196,4 +201,7 @@ class Distributor(DataHandler):
             data_desc_key = data_desc_type.DataDescType(data_desc).name
 
             for d in self.__decoders[data_desc_key]:
-                d.data_callback(msg)
+                try:
+                    d.data_callback(msg)
+                except DecodingException as dexc:
+                    LOGGER.warning("Decoding error occurred: %s. Skipping.", dexc)

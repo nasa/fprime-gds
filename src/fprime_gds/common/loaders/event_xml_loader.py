@@ -68,7 +68,7 @@ class EventXmlLoader(XmlLoader):
                 event_desc = event_dict[self.DESC_TAG]
 
             # Parse arguments
-            args = self.get_args_list(event, xml_tree)
+            args = self.get_args_list(event, xml_tree, f"{ event_comp }::{ event_name }")
 
             event_temp = EventTemplate(
                 event_id,
