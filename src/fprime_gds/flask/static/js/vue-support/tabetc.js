@@ -48,7 +48,6 @@ Vue.component("tabbed-etc", {
                     ["Advanced", "Adv"]
                 ],
                 "config": config,
-                "active": _datastore.active,
                 "counts": _validator.counts,
                 "flags": _datastore.flags
             }
@@ -83,6 +82,15 @@ Vue.component("tabbed-etc", {
                     elem.classList.add("d-none");
                 } 
             }
+        },
+        /**
+         * Check if the supplied tab is enabled w.r.t the configuration of the GUI.
+         * @param tab: tab fullname to check against
+         */
+        tabEnabled(tab) {
+            return true;
+            /*tab = tab.toLowerCase();
+            return (tab in this._config.enabledTabs) ? this._config.enabledTabs[tab] : true;*/
         }
     },
     computed: {
@@ -92,8 +100,8 @@ Vue.component("tabbed-etc", {
          */
         orb() {
             let orb = false;
-            for (let i = 0; i < this.active.length; i++) {
-                orb = orb || this.active[i];
+            for (let key in this.flags) {
+                orb = orb || (key.startsWith("active_") && this.flags[key]);
             }
             return orb;
         },

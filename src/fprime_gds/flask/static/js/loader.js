@@ -246,11 +246,14 @@ class Loader {
         let start_time = new Date();
         // Load the endpoint and respond to the response
         _self.load(context.url).then((data) => {
+            let data_items = data.history || data.files || [];
+            let data_errors = data.errors || [];
+
             context.last = (new Date() - start_time)/1000;
-            (data.errors || []).map(error_handler.bind(undefined, context.name));
-            let more_data = ((data.history || []).length >= _settings.miscellaneous.response_object_limit);
-            context.queued = context.queued || more_data; // Queue if we hit the limit
-            callback(data);
+
+            data_errors.map(error_handler.bind(undefined, context.name));
+            context.queued = context.queued || (data_items.length >= _settings.miscellaneous.response_object_limit);
+            callback(data_items, data_errors);
         }).catch((error) => {
             context.last = (new Date() - start_time)/1000;
             error_handler(context.name, error)

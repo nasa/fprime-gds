@@ -22,5 +22,8 @@ export let config = {
         default: 1000
     },
     // Summary counter fields containing object of field: bootstrap class
-    summaryFields: {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"}
+    summaryFields: {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"},
+    // Allow projects to configure what tabs will be used. All tabs default to enabled.
+    // Disable tabs using: <tab lowercase fullname: false> e.g. logs: false" in the mapping below
+    enabledTabs: {}
 };

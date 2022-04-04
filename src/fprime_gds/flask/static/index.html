@@ -100,7 +100,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         </nav>
                     </div>
                     <div v-if="flags.loaded" class="container-fluid fp-flex-repeater">
-                        <!-- NOTE: *must* use v-show, as v-if will perish the component losing state -->
+                        <!-- NOTE: on v-show is used in place of v-if to ensure that state is maintained -->
                         <command-input v-show="currentTab == 'Commanding'"></command-input>
                         <channel-table v-show="currentTab == 'Channels'"></channel-table>
                         <event-list    v-show="currentTab == 'Events'"></event-list>
@@ -345,6 +345,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                          :filter-text="filterText"
                          :initial-views="itemsShown"
                          :compact="compact"
+                         :titrate="true"
                     ></fp-table>
                 </div>
             </template>
@@ -387,14 +388,14 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                         <span class="d-md-none d-lg-inline">Upload</span>
                                     </label>
                                 </div>
-                                <div class="col-md-4 mb-1" v-if="uplinking.running">
+                                <div class="col-md-4 mb-1" v-if="flags.uploading">
                                     <button type="button" class="btn btn-secondary btn-block"
                                     v-on:click="pauseUplink">
                                         <i class="fas fa-pause"></i>
                                         <span class="d-md-none d-lg-inline">Pause</span>
                                     </button>
                                 </div>
-                                <div class="col-md-4 mb-1" v-if="!uplinking.running">
+                                <div class="col-md-4 mb-1" v-if="!flags.uploading">
                                     <button type="button" class="btn btn-secondary btn-block"
                                     v-on:click="unpauseUplink">
                                         <i class="fas fa-play"></i>
