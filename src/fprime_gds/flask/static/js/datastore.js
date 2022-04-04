@@ -14,25 +14,164 @@ import {_performance} from "./performance.js";
 import {timeToDate} from "./vue-support/utils.js";
 
 /**
+ * HistoryHelper: base class used to help process incoming histories into the supplied stores. Processing results from
+ * the back-end was riddled with duplication in order to perform similar actions with minor deltas. This class sets up
+ * the mechanics to handle that process in a more generic way.
+ */
+class HistoryHelper {
+    /**
+     * Constructor to setup the store.
+     */
+    constructor(store, flags, active_key) {
+        this.store = store;
+        this.flags = flags;
+        this.active_key = active_key;
+        this.consumers = [];
+        this.active_timeout = null;
+    }
+
+    /**
+     * Register a consumer object for processing new items.
+     * @param consumer: consumer to be registered
+     */
+    register(consumer) {
+        this.consumers.push(consumer);
+    }
+
+    /**
+     * Deregister a consumer from processing new items.
+     * @param consumer: consumer to be removed
+     */
+    deregister(consumer) {
+        let index = this.consumers.indexOf(consumer);
+        if (index !== -1) {
+            this.consumers.splice(index, 1);
+        }
+    }
+
+    /**
+     * Base update method processes new items by dispatches to any consumers, trapping errors, and continuing.
+     * @param new_items: new items to dispatch
+     */
+    update(new_items) {
+        let _self = this;
+        // Break our when no new items returned
+        if (new_items.length === 0) { return; }
+        new_items.filter((item) => item.time).forEach((item) => {
+            item.datetime = timeToDate(item.time)
+        });
+        this.consumers.forEach((consumer) => {
+            try {
+                consumer.send(new_items);
+            } catch (e) {
+                _validator.updateErrors([e]);
+            }
+        });
+        let timeout = config.dataTimeout * 1000;
+        // Set active items, and register a timeout to turn it off again
+        if (this.flags[this.active_key] && new_items.length > 0) {
+            this.flags[this.active_key] = true;
+            clearTimeout(this.active_timeout);
+            this.active_timeout = setTimeout(() => {_self.flags[this.active_key] = false;}, timeout);
+        }
+    }
+}
+
+/**
+ * List history helper. Handles any histories that are lists of items (e.g. events, commands). Used to store lists that
+ * are updated with deltas that append to the end of the list.
+ */
+class ListHistory extends HistoryHelper {
+    /**
+     * Constructor to setup the store.
+     * @param store: store that is being managed
+     * @param flags: flags storage object
+     * @param active_key: active key to update when something arrives
+     * @param history_limit_key: (optional) key to look-up a limit to the list in settings
+     */
+    constructor(store, flags, active_key, history_limit_key) {
+        super(store, flags, active_key);
+        this.history_limit_key = history_limit_key;
+        this.register(this);
+    }
+
+    /**
+     * Process new items as dispatched from the update method above.
+     * @param new_items: new items being to be process
+     */
+    send(new_items) {
+        this.store.push(...new_items);
+        let limit = _settings.miscellaneous[this.history_limit_key] || -1;
+        if (limit >= 0) {
+            this.store.splice(0, this.store.length - limit);
+        }
+    }
+}
+
+/**
+ * FullListHistory: history for processing lists of items that are loaded as a whole list, rather than deltas to a list.
+ * This is used for logs, uplinking files, and downlinking files. Anywhere where the list can change, but isn't
+ * guaranteed to only grow **and** the list is kept small.
+ */
+class FullListHistory extends ListHistory {
+    /**
+     * Process new items as dispatched from the update method above.
+     * @param new_items: new items being to be process
+     */
+    send(new_items) {
+        this.store.splice(0, this.store.length, ...new_items);
+    }
+}
+
+/**
+ * MappedHistory: processes history items from the GDS that are displayed as a map or key-value paring. This is
+ * predominately for the channels table.
+ */
+class MappedHistory extends HistoryHelper {
+    /**
+     * Constructor to setup the store.
+     * @param store: store that is being managed
+     * @param flags: flags storage object
+     * @param active_key: active key to update when something arrives
+     */
+    constructor(store, flags, active_key) {
+        super(store, flags, active_key);
+        this.register(this);
+    }
+    /**
+     * Update the mapped history with new items. This is done in a single assign call to reduce the impact of calling
+     * individual set calls on each key in the map.
+     * @param new_items: new items to be processed
+     */
+    send(new_items) {
+        // Loop over all dictionaries, and merge to the last reading
+        let updated = {};
+        for (let i = 0; i < new_items.length; i++) {
+            let item = new_items[i];
+            // Check for miss-ordered updates
+            if ((this.store[item.id] || null) === null || item.datetime >= this.store[item.id].datetime) {
+                updated[item.id] = item;
+            }
+        }
+        Object.assign(this.store, updated);
+    }
+}
+
+/**
+ * Wrapper for the dictionaries for a convenient and intuitive access to these types.
+ */
+export let _dictionaries = {};
+
+/**
  * DataStore:
  *
  * Storage class for holding the one copy of the data. This is meant to be a *singleton* that distributes the known data
  * and thus only the single instance should be used and exported from this file.  This will wrap the loader for
  * automating the polling of the data.
- *
- * This will support the following types of data:
- *
- * - Commands
- * - Events
- * - Channels
  */
-export class DataStore {
-
+class DataStore {
     constructor() {
-        this.flags = {loaded: false};
-        // Activity timeout for checking spacecraft health and "the orb" (ours, not Keynes')
-        this.active = [false, false];
-        this.active_timeout = null;
+        this.flags = {loaded: false, uploading: false, active_channels: false, active_events: false};
 
         // Data stores used to store all data supplied to the system
         this.events = [];
@@ -40,59 +179,69 @@ export class DataStore {
         this.channels = {};
         this.commands = {};
         this.logs = [];
-        this.stats = {"Active Clients": {}, "History Sizes": {}}
-
-        // File data stores used for file handling
         this.downfiles = [];
         this.upfiles = [];
-        this.uploading = {"running": false}; // Cannot bind directly to a boolean
 
-        // Consumers
-        this.channel_consumers = [];
-
+        // Listing of endpoints that will be polled in repetition for data.
         this.polling_info = [
             {
-                "endpoint": "events",
-                "handler": this.updateEvents,
+                endpoint: "events",
+                handler: new ListHistory(this.events, this.flags, "active_events", "event_buffer_size"),
             },
             {
-                "endpoint": "commands",
-                "handler": this.updateCommandHistory,
+                endpoint: "commands",
+                handler: new ListHistory(this.command_history, this.flags, undefined, "command_buffer_size"),
             },
             {
-                "endpoint": "channels",
-                "handler": this.updateChannels,
+                endpoint: "channels",
+                handler: new MappedHistory(this.channels, this.flags, "active_channels"),
             },
             {
-                "endpoint": "logdata",
-                "handler": this.updateLogs,
+                endpoint: "logdata",
+                handler: new FullListHistory(this.logs, this.flags),
             },
             {
-                "endpoint": "upfiles",
-                "handler": this.updateUpfiles,
+                endpoint: "upfiles",
+                handler: new FullListHistory(this.upfiles, this.flags, "uploading"),
             },
             {
-                "endpoint": "downfiles",
-                "handler": this.updateDownfiles,
+                endpoint: "downfiles",
+                handler: new FullListHistory(this.downfiles, this.flags),
             },
             {
-                "endpoint": "stats",
-                "handler": this.updateStats,
-            },
+                endpoint: "stats",
+                handler: this.updateStats,
+            }
         ];
         let polling_keys = this.polling_info.map((item) => { return item.endpoint; });
         _settings.setupPollingSettings(polling_keys);
     }
 
+    /**
+     * Function called on startup, once the dictionary data has been loaded. It allows the datastore to massage the data
+     * that has been received into a form that supports this client. Specifically:
+     *
+     * 0. Load the dictionary data into a globally exported store.
+     * 1. this.channels is setup to contain all the dictionary supplied keys. This is done becayse vue needs each key to
+     *    exist before updates to it for reactivity to work.
+     * 2. Command arguments are assigned a value and error property. This allows for arguments to be filled in this
+     *    global store alongside the dictionary data.
+     */
     startup() {
-        let channel_dict = _loader.endpoints["channel-dict"].data;
-        // Setup channels object in preparation for updates
+        // Assign the dictionaries into the global object
+        Object.assign(_dictionaries, {
+            commands: _loader.endpoints["command-dict"].data,
+            events: _loader.endpoints["event-dict"].data,
+            channels: _loader.endpoints["channel-dict"].data
+        });
+        // Setup channels object in preparation for updates. Channel object need to be well formed, even if blank,
+        // because rendering of edit-views is still possible.
         let channels = {};
-        for (let key in channel_dict) {
-            channels[key] = {id: key, template: channel_dict[key], val: null, time: null};
+        for (let key in _dictionaries.channels) {
+            channels[key] = {id: key, time: null, datetime: null, val: null};
         }
-        this.channels = channels; // Forces new channel map into Vue
-        this.commands = _loader.endpoints["command-dict"].data;
+        Object.assign(this.channels, channels); // Forces new channel map into Vue maintaining the original object
+        this.commands = _dictionaries.commands;
 
         // Setup initial commands data (clearing arguments and setting initial values)
         Object.values(_datastore.commands).forEach((command) => command.args.forEach((argument) => {
@@ -106,10 +255,16 @@ export class DataStore {
         });
     }
 
+    /**
+     * (Re)registers the given endpoints polling. This is done after setup and any time that the polling interval
+     * changes. This builds the mechanics to process the data returned from all these polls.
+     * @param endpoint: name of the endpoint to start polling
+     */
     reregisterPoller(endpoint) {
-        let ep_data = this.polling_info.filter((item) => item.endpoint === endpoint)[0] || null;
-        if (ep_data !== null) {
-            let processor = _validator.wrapResponseHandler(ep_data.endpoint, ep_data.handler.bind(this));
+        let handler = ((this.polling_info.filter((item) => item.endpoint === endpoint)[0]) || {}).handler;
+        if (handler && _settings.polling_intervals[endpoint] > -1) {
+            let bound = (handler instanceof HistoryHelper) ? handler.update.bind(handler) : handler.bind(this);
+            let processor = _validator.wrapResponseHandler(endpoint, bound);
             if (endpoint === "events") {
                 let severity_processor = (severity) => {
                     return severity.value.replace("EventSeverity.", "");
@@ -126,105 +281,15 @@ export class DataStore {
         }
     }
 
-    registerActiveHandler(item) {
-        this.actives.push(item);
-        return [false, false];
-    }
-
-
-    updateCommandHistory(data) {
-        this.command_history.push(...data["history"]);
-        if (_settings.miscellaneous.command_buffer_size >= 0) {
-            this.command_history.splice(_settings.miscellaneous.command_buffer_size, this.command_history.length - _settings.miscellaneous.command_buffer_size);
-        }
-    }
-
-    updateChannels(data) {
-        let new_channels = data["history"];
-        // Loop over all dictionaries, and merge to the last reading
-        for (let i = 0; i < new_channels.length; i++) {
-            let channel = new_channels[i];
-            let id = channel.id;
-            // Check for miss-ordered updates
-            if (this.channels[id].time == null || timeToDate(new_channels[i].time) >= timeToDate(this.channels[id].time)) {
-                this.channels[id] = channel;
-            } else {
-                _validator.arbitraryCount("Total (Missed Update)");
-                _validator.arbitraryCount(channel.template.full_name + " (Missed Update)");
-            }
-        }
-        this.channel_consumers.forEach((consumer) =>
-        {
-            try {
-                consumer.sendChannels(new_channels);
-            } catch (e) {
-                _validator.updateErrors(e);
-            }
-        });
-        this.updateActivity(new_channels, 0);
-    }
-
-    updateEvents(data) {
-        let new_events = data["history"];
-        this.events.push(...new_events);
-        // Fix events to a known size
-        if (_settings.miscellaneous.event_buffer_size >= 0) {
-            this.events.splice(0, this.events.length - _settings.miscellaneous.event_buffer_size);
-        }
-        this.updateActivity(new_events, 1);
-    }
-
-    updateStats(statistics) {
+    /**
+     * Function used to update statistics when the statistics endpoint returns. Defers to the _performance object to
+     * handle the statistics processing and archival.
+     * @param statistics: statistics data to be processed
+     * @param errors: errors list to be processed
+     */
+    updateStats(statistics, errors) {
         _performance.updateStats(statistics);
     }
-
-    updateLogs(log_data) {
-        this.logs.splice(0, this.logs.length, ...log_data.logs);
-    }
-
-    updateUpfiles(data) {
-        let files = data["files"];
-        this.upfiles.splice(0, this.upfiles.length, ...files);
-        this.uploading.running = data["running"];
-    }
-
-    updateDownfiles(data) {
-        let files = data["files"];
-        this.downfiles.splice(0, this.downfiles.length, ...files);
-    }
-
-    updateActivity(new_items, index) {
-        let timeout = config.dataTimeout * 1000;
-        // Set active items, and register a timeout to turn it off again
-        if (new_items.length > 0) {
-            let _self = this;
-            this.active.splice(index, 1, true);
-            clearTimeout(this.active_timeout);
-            this.active_timeout = setTimeout(() => _self.active.splice(index, 1, false), timeout);
-        }
-    }
-
-    /**
-     * Register a new channel consumer. Henceforth new channels will be provided directly as a list to the consumer.
-     * @param consumer: channel consumer to register
-     */
-    registerChannelConsumer(consumer) {
-        this.channel_consumers.push(consumer);
-    }
-
-    /**
-     * Deregister the channel consumer passed in. Thus the consumer would henceforth not be provided with new channel
-     * information.
-     * @param consumer: consumer to deregister
-     */
-    deregisterChannelConsumer(consumer) {
-        let index = this.channel_consumers.indexOf(consumer);
-        if (index !== -1) {
-            this.channel_consumers.splice(index, 1);
-        }
-    }
 }
-
-
 // Exports the datastore
 export let _datastore = new DataStore();

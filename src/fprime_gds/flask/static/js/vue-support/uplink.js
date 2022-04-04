@@ -22,7 +22,7 @@ Vue.component("uplink", {
      data: function() {
         return {
             "upfiles": _datastore.upfiles, 
-            "uplinking": _datastore.uploading,
+            "flags": _datastore.flags,
             "selected": [], 
             "destination": "/", 
             "error": null

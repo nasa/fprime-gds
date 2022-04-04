@@ -36,12 +36,4 @@ class EventHistory(HistoryResourceBase):
                 event.template.format_str, tuple([arg.val for arg in event.args])
             ),
         )
-
-        def func(this):
-            return this.display_text
-
-        setattr(event, "get_display_text", types.MethodType(func, event))
-
-        # Pre-trigger errors before JSON serialization
-        _ = event.get_display_text()
         return event

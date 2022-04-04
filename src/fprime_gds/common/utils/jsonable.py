@@ -20,26 +20,6 @@ from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.enum_type import EnumType
 
 
-def jsonify_base_type(input_type: Type[BaseType]) -> dict:
-    """ Turn a base type into a JSONable dictionary
-
-    Convert a BaseType (the type, not an instance) into a jsonable dictionary. BaseTypes are converted by reading the
-    class properties (without __) and creating the object:
-
-    {
-        "name": class name,
-        class properties
-    }
-
-    Args:
-        input_type: input to convert to dictionary
-    Return:
-        json-able dictionary representing the type
-    """
-    members = getmembers(input_type, lambda value: not isroutine(value) and not isinstance(value, property))
-    jsonable_dict = {name: value for name, value in members if not name.startswith("_")}
-    jsonable_dict.update({"name": input_type.__name__})
-    return jsonable_dict
 
 
 def fprime_to_jsonable(obj):

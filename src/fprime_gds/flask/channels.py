@@ -39,13 +39,4 @@ class ChannelHistory(HistoryResourceBase):
                 "display_text",
                 chan.template.get_format_str() % (chan.val_obj.val),
             )
-        # If we added display_text, then add a getter and test it
-        if hasattr(chan, "display_text"):
-
-            def func(this):
-                return this.display_text
-
-            setattr(chan, "get_display_text", types.MethodType(func, chan))
-            # Pre-trigger any errors in the display text getter
-            _ = chan.get_display_text()
         return chan

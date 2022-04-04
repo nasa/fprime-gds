@@ -8,7 +8,7 @@
  * @author mstarch
  */
 import {listExistsAndItemNameNotInList, ScrollHandler, timeToString} from "./utils.js";
-import {_datastore} from "../datastore.js";
+import {_datastore,_dictionaries} from "../datastore.js";
 
 let OPREG = /Opcode (0x[0-9a-fA-F]+)/;
 
@@ -70,10 +70,11 @@ Vue.component("event-list", {
          * @return {[string, *, *, void | string, *]}
          */
         columnify(item) {
+            let template = _dictionaries.events[item.id];
             let display_text = item.display_text;
             // Remap command EVRs to expand opcode for visualization purposes
             let groups = null
-            if (item.template.severity.value === "EventSeverity.COMMAND" && (groups = display_text.match(OPREG)) != null) {
+            if (template.severity.value === "EventSeverity.COMMAND" && (groups = display_text.match(OPREG)) != null) {
                 let component_mnemonic = "UNKNOWN"
                 let id = parseInt(groups[1]);
                 for (let command in this.commands) {
@@ -85,8 +86,8 @@ Vue.component("event-list", {
                 const msg = '<span title="' + groups[0] + '">' + component_mnemonic + '</span>'
                 display_text = display_text.replace(OPREG, msg);
             }
-            return [timeToString(item.time), "0x" + item.id.toString(16), item.template.full_name,
-                item.template.severity.value.replace("EventSeverity.", ""), display_text];
+            return [timeToString(item.time), "0x" + item.id.toString(16), template.full_name,
+                template.severity.value.replace("EventSeverity.", ""), display_text];
         },
         /**
          * Use the row's values and bounds to colorize the row. This function will color red and yellow items using
@@ -95,6 +96,7 @@ Vue.component("event-list", {
          * @return {string}: style-class to use
          */
         style(item) {
+            let template = _dictionaries.events[item.id];
             let severity = {
                 "EventSeverity.FATAL":      "fp-color-fatal",
                 "EventSeverity.WARNING_HI": "fp-color-warn-hi",
@@ -103,8 +105,8 @@ Vue.component("event-list", {
                 "EventSeverity.ACTIVITY_LO": "fp-color-act-lo",
                 "EventSeverity.COMMAND":     "fp-color-command",
                 "EventSeverity.DIAGNOSTIC":  ""
-            }
-            return severity[item.template.severity.value];
+            };
+            return severity[template.severity.value];
         },
         /**
          * Take the given item and converting it to a unique key by merging the id and time together with a prefix
