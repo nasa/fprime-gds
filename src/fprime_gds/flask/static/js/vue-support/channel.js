@@ -125,11 +125,5 @@ Vue.component("channel-table", {
                 || item.time == null
                 || listExistsAndItemNameNotInList(this.itemsShown, item);
         }
-    },
-    // Computed methods
-    computed: {
-        conform() {
-            return Object.values(this.channels);
-        }
     }
 });

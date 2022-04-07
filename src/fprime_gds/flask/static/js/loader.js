@@ -88,7 +88,7 @@ class Loader {
                 "queued": false
             },
             // Data endpoints
-            "commands": {
+            "command_history": {
                 "url": "/commands",
                 "last": null,
                 "running": false,

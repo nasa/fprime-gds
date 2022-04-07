@@ -176,13 +176,23 @@ export class ScrollHandler {
      * Build the scroll handler. It is passed the element to perform the actual scrolling and the data that is being
      * scrolled through. Both **must** be reference types. The scroll handler does not provide the ability to update or
      * change data. It assumes that the element and the data are updated independently.
-     * @param scrollData: data (list) of items to scroll through
+     * @param displayed: displayed data store to be filled with the scrolled output
      * @param display_count: (optional) display count of items to show. Default: 100
      * @param scroll_step: (optional) step size of one unit of scroll. Default: 5
      */
-    constructor(display_count, scroll_step) {
+    constructor(displayed, display_count, scroll_step) {
         this.element = null;
         this.data = null;
+        this.displayed = displayed;
+
+        this.metadata = {
+            offset: 0,
+            count: (display_count || 100),
+            total: 0,
+            status: false,
+            locked: false,
+            updating: false
+        };
 
         this.offset = 0;
         this.count = (display_count || 100);
@@ -195,8 +205,8 @@ export class ScrollHandler {
     }
 
     /**
-     * Bind this scroller to scrolled data. Since the data is a reactive property this function should be called any
-     * time the data is recalculated. It will do it's best to maintain a sensible offset following the following
+     * Bind this scroller to scrolled data. Since the data is a non-reactive property this function should be called any
+     * time the data is changed. It will do it's best to maintain a sensible offset following the following
      * algorithm:
      *
      * 1. If locked, or auto-update set offset to end of list
@@ -205,8 +215,8 @@ export class ScrollHandler {
      *
      * @param scrolled_data: data being scrolled through
      */
-    setData(scrolled_data) {
-        // Force data to exist prefering old data unless it is not set or was empty
+    updateData(scrolled_data) {
+        // Force data to exist preferring old data unless it is not set or was empty
         this.data = this.data || scrolled_data;
         // Handling case when staying
         if (this.updating || this.locked) {
@@ -227,6 +237,14 @@ export class ScrollHandler {
         this.offset = Math.max(0, Math.min(this.offset, this.data.length - this.count));
         // Update data now that old data is no longer useful
         this.data = scrolled_data;
+
+        // When auto-updating, filled, and not displaying the last this.count of items, then auto update the offset
+        if (this.updating && this.filled() && (this.offset + this.count) < this.data.length) {
+            this.offset = this.data.length - this.count;
+            // Force scroll-bar to bottom
+            this.element.scrollTop = this.element.scrollHeight - this.element.clientHeight;
+        }
+        this.update();
     }
 
     /**
@@ -265,23 +283,16 @@ export class ScrollHandler {
     }
 
     /**
-     * Slice the data from offset through offset + count. This returns the viewable subset of data for actual display.
-     */
-    slice() {
-        return this.data.slice(this.offset, this.offset + this.count);
-    }
-
-    /**
      * Returns to the first "page" of the data. Resets the scroll position and index into the data to the top of the
      * supplied list. Turns off updates such that the scrolling does not pull us away from the top of the list.
      */
     first() {
         this.element.scrollTop = 0;
         this.updating = false;
-        if (!this.filled()) {
-            return;
+        if (this.filled()) {
+            this.offset = 0;
         }
-        this.offset = 0;
+        this.update();
     }
 
     /**
@@ -291,10 +302,10 @@ export class ScrollHandler {
     last() {
         this.element.scrollTop = this.element.scrollHeight - this.element.clientHeight;
         this.updating = true;
-        if (!this.filled()) {
-            return;
+        if (this.filled()) {
+            this.offset = this.data.length - this.count;
         }
-        this.offset = this.data.length - this.count;
+        this.update();
     }
 
     /**
@@ -302,34 +313,36 @@ export class ScrollHandler {
      */
     prev() {
         // Do nothing when not full
-        if (!this.filled()) {
-            return;
+        if (this.filled()) {
+            this.updating = false;
+            this.move(-this.step);
         }
-        this.updating = false;
-        this.move(-this.step);
+        this.update();
     }
 
     /**
      * Only when filled, turn off auto-updating and move one step forward. Otherwise do nothing.
      */
     next() {
-        if (!this.filled()) {
-            return;
+        if (this.filled()) {
+            this.updating = false;
+            this.move(this.step);
         }
-        this.updating = false;
-        this.move(this.step);
+        this.update();
     }
 
     /**
      * Update the data elements for handling the automatic updates.
      */
     update() {
-        // When auto-updating, filled, and not displaying the last this.count of items, then auto update the offset
-        if (this.updating && this.filled() && (this.offset + this.count) < this.data.length) {
-            this.offset = this.data.length - this.count;
-            // Force scroll-bar to bottom
-            this.element.scrollTop = this.element.scrollHeight - this.element.clientHeight;
-        }
+        this.metadata.count = this.count;
+        this.metadata.offset = this.offset;
+        this.metadata.total = this.data.length;
+        this.metadata.status = this.filled();
+        this.metadata.locked = this.locked;
+        this.metadata.updating = this.updating;
+        let data_slice = this.data.slice(this.offset, this.offset + this.count);
+        this.displayed.splice(0, this.displayed.length, ...data_slice);
     }
 
     /**
@@ -364,7 +377,7 @@ export class ScrollHandler {
      * Move the offset by the given change. Change is usually +this.step or -this.step. If the change would result in
      * before the beginning or past the end of the data, this will delegate to first/last as appropriate. Otherwise this
      * will move by the change and offset the scrollbar slightly to keep within range.
-     * @param change: number of elements to moce by
+     * @param change: number of elements to move by
      */
     move(change) {
         let new_offset = this.offset + change;

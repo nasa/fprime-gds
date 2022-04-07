@@ -69,7 +69,7 @@ class HistoryHelper {
         });
         let timeout = config.dataTimeout * 1000;
         // Set active items, and register a timeout to turn it off again
-        if (this.flags[this.active_key] && new_items.length > 0) {
+        if (this.active_key in this.flags && new_items.length > 0) {
             this.flags[this.active_key] = true;
             clearTimeout(this.active_timeout);
             this.active_timeout = setTimeout(() => {_self.flags[this.active_key] = false;}, timeout);
@@ -189,7 +189,7 @@ class DataStore {
                 handler: new ListHistory(this.events, this.flags, "active_events", "event_buffer_size"),
             },
             {
-                endpoint: "commands",
+                endpoint: "command_history",
                 handler: new ListHistory(this.command_history, this.flags, undefined, "command_buffer_size"),
             },
             {
@@ -279,6 +279,25 @@ class DataStore {
             let error_fn = _validator.getErrorHandler();
             _loader.registerPoller(endpoint, processor, error_fn, _settings.polling_intervals[endpoint]);
         }
+    }
+
+    /**
+     * Register a consumer of a specific key of data. The key should map to one of the polling endpoints.
+     * @param key: key to be consumed. e.g. "channels" or "events".
+     * @param consumer: consumer defining a send method.
+     */
+    registerConsumer(key, consumer) {
+        this.polling_info.filter((item) => item.endpoint === key)[0].handler.register(consumer);
+    }
+
+    /**
+     * Deregister a consumer of a specific key of data. The key should map to one of the polling endpoints. Must have
+     * been previously registered using "registerConsumer".
+     * @param key: key to be consumed. e.g. "channels" or "events".
+     * @param consumer: consumer defining a send method.
+     */
+    deregisterConsumer(key, consumer) {
+        this.polling_info.filter((item) => item.endpoint === key)[0].handler.deregister(consumer);
     }
 
     /**

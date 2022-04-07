@@ -175,7 +175,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             <template id="command-history-template">
                 <div class="fp-flex-repeater">
                     <fp-table :header-columns="['Command Time', 'Command Id', 'Command Mnemonic', 'Command Args']"
-                              :items="cmdhist"
+                              :items-key="'command_history'"
                               :item-to-columns="columnify"
                               :item-to-unique="keyify"
                               :item-hide="isItemHidden"
@@ -309,7 +309,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <h2>Events</h2>
                     </div>
                     <fp-table :header-columns="['Event Time', 'Event Id', 'Event Name', 'Event Severity', 'Event Description']"
-                        :items="events"
+                        :items-key="'events'"
                         :item-to-columns="columnify"
                         :row-style="style"
                         :item-to-unique="keyify"
@@ -319,7 +319,6 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         :filter-text="filterText"
                         :initial-views="itemsShown"
                         :compact="compact"
-                        :titrate="true"
                     ></fp-table>
                 </div>
             </template>
@@ -335,7 +334,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <h2>Channels</h2>
                     </div>
                     <fp-table :header-columns="['Last Sample Time', 'Channel Id', 'Channel Name', 'Channel Value']"
-                         :items="conform"
+                         :items-key="'channels'"
                          :item-to-columns="columnify"
                          :item-to-unique="keyify"
                          :support-views="true"
@@ -345,7 +344,6 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                          :filter-text="filterText"
                          :initial-views="itemsShown"
                          :compact="compact"
-                         :titrate="true"
                     ></fp-table>
                 </div>
             </template>
@@ -509,25 +507,25 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                 <div class="input-group-prepend">
                                     <span class="input-group-text">Filters:</span>
                                 </div>
-                                <input class="form-control" type="text" v-model="matching" />
+                                <input class="form-control" type="text" v-model="matching" @input="send" />
                             </div>
                         </div>
                         <div class="col-lg-4" v-if="scroller != null">
                             <div class="input-group mb-3">
                                 <div class="input-group-prepend">
                                     <button class="btn btn-secondary" type="button" v-on:click="scroller.first()">First</button>
-                                    <button class="btn btn-secondary" type="button" v-on:click="scroller.prev()" v-bind:class="{ 'disabled': !scrollStatus }">&lt;</button>
-                                    <span class="input-group-text" v-bind:class="{ 'fp-auto-increment': scroller.updating }">
-                                        {{ scroller.offset }} - {{ Math.min(scroller.offset + scroller.count, filteredItems.length)  }}
+                                    <button class="btn btn-secondary" type="button" v-on:click="scroller.prev()" v-bind:class="{ 'disabled': !scrollerData.status }">&lt;</button>
+                                    <span class="input-group-text" v-bind:class="{ 'fp-auto-increment': scrollerData.updating }">
+                                        {{ scrollerData.offset }} - {{ Math.min(scrollerData.offset + scrollerData.count, scrollerData.total)  }}
                                     </span>
                                 </div>
-                                <input type="text" class="form-control" v-model="filteredItems.length" disabled>
+                                <input type="text" class="form-control" v-model="scrollerData.total" disabled>
                                 <div class="input-group-append">
-                                    <button class="btn btn-secondary" type="button" v-on:click="scroller.next()" v-bind:class="{ 'disabled': !scrollStatus }">&gt;</button>
+                                    <button class="btn btn-secondary" type="button" v-on:click="scroller.next()" v-bind:class="{ 'disabled': !scrollerData.status }">&gt;</button>
                                     <button class="btn btn-secondary" type="button" v-on:click="scroller.last()">Last</button>
-                                    <button class="btn btn-secondary" v-bind:class="{ 'btn-warning': scroller.locked }" type="button" v-on:click="scroller.toggleLock()">
-                                        <i class="fas fa-lock-open" v-if="!scroller.locked"></i>
-                                        <i class="fas fa-lock" v-if="scroller.locked"></i>
+                                    <button class="btn btn-secondary" v-bind:class="{ 'btn-warning': scrollerData.locked }" type="button" v-on:click="scroller.toggleLock()">
+                                        <i class="fas fa-lock-open" v-if="!scrollerData.locked"></i>
+                                        <i class="fas fa-lock" v-if="scrollerData.locked"></i>
                                     </button>
                                 </div>
                             </div>
@@ -540,13 +538,13 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                     <tr v-if="!compact">
                                         <th v-if="editing" class="sorttable_nosort">
                                             <input type="checkbox" v-on:input="checkAll" ref="allbox"
-                                                :checked="view.length == items.length">
+                                                :checked="view.length == itemsLength.length">
                                         </th>
                                         <th v-for="column in calculatedHeaderColumns">{{ column }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr :is="displayTemplate" v-for="item in scrolledItems" :item="item"
+                                    <tr :is="displayTemplate" v-for="item in postFiltered" :item="item"
                                         :item-to-columns="itemToColumns"
                                         :row-style="rowStyle"
                                         :key="itemToUnique(item)"
@@ -554,7 +552,6 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                         :in-view="inView(item)"
                                         v-on:row-checked="checkedChild"
                                         :click-action="clickAction"
-                                        :all-items="scrolledItems"
                                         :visible="visibleIndices"
                                     >
                                     </tr>
