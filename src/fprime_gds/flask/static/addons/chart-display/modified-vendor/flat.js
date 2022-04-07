@@ -29,7 +29,7 @@ function flatten(target, opts) {
     opts = opts || {};
     // Default supported F Prime types
     const supportedTypes =
-        ["U8", "U16", "U32", "U64", "I8", "I16", "I32", "I64", "F32", "F64"] ||
+        ["U8Type", "U16Type", "U32Type", "U64Type", "I8Type", "I16Type", "I32Type", "I64Type", "F32Type", "F64Type"] ||
         opts.supportedTypes;
 
     const prefix = opts.prefix || "";
@@ -41,6 +41,13 @@ function flatten(target, opts) {
     function step(object, prev, currentDepth) {
         currentDepth = currentDepth || 1;
 
+        if (object.name.endsWith("String") || ("ENUM_DICT" in object)) {
+            return;
+        }
+        else if ("MEMBER_LIST" in object) {
+                let new_object = Object.fromEntries(Object.values(object.MEMBER_LIST).map((member) => [member[0], member[1]]))
+                object = new_object;
+        }
         Object.keys(object).forEach(function (key) {
             const value = object[key];
             const isarray = opts.safe && Array.isArray(value);

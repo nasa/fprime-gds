@@ -11,7 +11,7 @@ import {
     chart_wrapper_template,
     chart_display_template,
 } from "./addon-templates.js";
-import { _datastore } from "../../js/datastore.js";
+import { _datastore, _dictionaries } from "../../js/datastore.js";
 import { _loader } from "../../js/loader.js";
 import { SiblingSet } from "./sibling.js";
 import { timeToDate } from "../../js/vue-support/utils.js";
@@ -194,7 +194,7 @@ Vue.component("chart-display", {
          * Callback to handle new channels being pushed at this object.
          * @param channels: new set of channels (unfiltered)
          */
-        sendChannels(channels) {
+        send(channels) {
             if (this.selected == null || this.chart == null) {
                 return;
             }
@@ -207,14 +207,14 @@ Vue.component("chart-display", {
 
             // Filter channels down to the graphed channel
             let new_channels = channels.filter((channel) => {
-                return channel.template.full_name === channel_full_name;
+                return _dictionaries["channels"][channel.id].full_name === channel_full_name;
             });
 
             // Get channel value
             function getValue(ch_obj, path_str) {
                 // If serializable path exist parse and return its value
                 if (path_str) {
-                    let keys = "val_obj." + serial_path + ".value";
+                    let keys = "val." + serial_path;
                     return keys
                         .split(".")
                         .reduce((o, k) => (o || {})[k], ch_obj);
