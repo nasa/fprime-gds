@@ -108,6 +108,7 @@ integrated configuration with ground in-the-loop.
     python_requires=">=3.6",
     setup_requires=["setuptools_scm==6.0.1"],
     install_requires=[
+        "Werkzeug==2.0.1",
         "flask==1.1.2",
         "flask_compress==1.11",
         "pyzmq==22.3.0",
