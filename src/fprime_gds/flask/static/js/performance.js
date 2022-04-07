@@ -6,6 +6,7 @@
 
 import {_validator} from "./validate.js";
 import {_datastore} from "./datastore.js";
+import {timeToDate} from "./vue-support/utils.js";
 
 /**
  * Class tracking the responsiveness of the javascript application through set timeout. This class runs setTimeout
@@ -69,6 +70,7 @@ class Performance {
         };
         // Implementation variables
         this.cached_objects = {};
+        this.rt_delay = new Date();
     }
 
     /**
@@ -85,8 +87,9 @@ class Performance {
             "memory used": formatter(mem_data.usedJSHeapSize),
             "memory allocated": formatter(mem_data.totalJSHeapSize),
             "memory limit": formatter(mem_data.jsHeapSizeLimit),
-            "response delay": this.response_checker.responsiveness() + " ms"
-        }
+            "response delay": this.response_checker.responsiveness() + " ms",
+            "realtime delay": (this.rt_delay/1000) + " S"
+        };
         let cached_items = {
             "total": _datastore.events.length + _datastore.command_history.length + Object.keys(_datastore.channels).length,
             "events": _datastore.events.length,
@@ -123,6 +126,12 @@ class Performance {
      */
     removeCachingObject(name) {
         delete this.cached_objects[name];
+    }
+
+    send(new_items) {
+        let now = new Date();
+        let delays = new_items.map((item) => now - (item.datetime || timeToDate(item.time) || now));
+        this.rt_delay = Math.max(...delays);
     }
 }
 export let _performance = new Performance();
