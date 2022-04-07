@@ -86,7 +86,7 @@ Vue.component("event-list", {
                 const msg = '<span title="' + groups[0] + '">' + component_mnemonic + '</span>'
                 display_text = display_text.replace(OPREG, msg);
             }
-            return [timeToString(item.time), "0x" + item.id.toString(16), template.full_name,
+            return [timeToString(item.datetime || item.time), "0x" + item.id.toString(16), template.full_name,
                 template.severity.value.replace("EventSeverity.", ""), display_text];
         },
         /**

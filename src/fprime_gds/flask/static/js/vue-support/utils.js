@@ -97,7 +97,10 @@ export function timeToDate(time) {
  */
 export function timeToString(time) {
     // If we have a workstation time, convert it to calendar time
-    if (time.base.value == 2) {
+    if (time instanceof Date) {
+        return time.toISOString();
+    }
+    else if (time.base.value === 2) {
         let date = timeToDate(time);
         return date.toISOString();
     }
