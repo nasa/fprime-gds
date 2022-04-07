@@ -4,6 +4,8 @@
  * This file contains utility functions used by various parts of the vue-support system. Each item here intended for use
  * elsewhere should be "export"ed as then they can then be imported for use elsewhere.
  */
+import {config} from "../config.js";
+
 /**
  * Preprocessing the matching tokens to make them easier to match match against. It takes the following steps:
  * 1. Ensure all tokens are defined
@@ -96,13 +98,18 @@ export function timeToDate(time) {
  * @return {string} stringified time
  */
 export function timeToString(time) {
+    let date = null;
     // If we have a workstation time, convert it to calendar time
     if (time instanceof Date) {
-        return time.toISOString();
+        date = time;
     }
     else if (time.base.value === 2) {
-        let date = timeToDate(time);
-        return date.toISOString();
+        date = timeToDate(time);
+    }
+    // Convert date
+    if (date) {
+        let dateFn = config.dateToString || ((date) => date.toISOString());
+        return dateFn(date);
     }
     return time.seconds + "." + time.microseconds;
 }
