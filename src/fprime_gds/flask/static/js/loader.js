@@ -246,7 +246,7 @@ class Loader {
         let start_time = new Date();
         // Load the endpoint and respond to the response
         _self.load(context.url).then((data) => {
-            let data_items = data.history || data.files || [];
+            let data_items = data.history || data.files || data.logs || data;
             let data_errors = data.errors || [];
 
             context.last = (new Date() - start_time)/1000;

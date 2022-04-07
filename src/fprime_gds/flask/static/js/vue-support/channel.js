@@ -67,7 +67,7 @@ Vue.component("channel-table", {
             if (item.time == null || item.val == null) {
                 return ["", "0x" + item.id.toString(16), template.full_name, ""];
             }
-            return [timeToString(item.time), "0x" + item.id.toString(16), template.full_name,
+            return [timeToString(item.datetime || item.time), "0x" + item.id.toString(16), template.full_name,
                 (typeof(item.display_text) !== "undefined")? item.display_text : item.val]
         },
         /**

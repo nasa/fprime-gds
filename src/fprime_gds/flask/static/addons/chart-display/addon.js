@@ -138,7 +138,7 @@ Vue.component("chart-display", {
         registerChart() {
             // If there is a chart object destroy it to reset the chart
             this.destroy();
-            _datastore.registerChannelConsumer(this);
+            _datastore.registerConsumer("channels", this);
             let config = generate_chart_config(this.selected);
             config.options.plugins.zoom.zoom.onZoom = this.siblings.syncToAll;
             config.options.plugins.zoom.pan.onPan = this.siblings.syncToAll;
@@ -173,7 +173,7 @@ Vue.component("chart-display", {
                 return;
             }
             _performance.removeCachingObject("Chart " + this.id);
-            _datastore.deregisterChannelConsumer(this);
+            _datastore.deregisterConsumer("channels", this);
             this.chart.data.datasets.forEach((dataset) => {
                 dataset.data = [];
             });
@@ -227,7 +227,7 @@ Vue.component("chart-display", {
             // Convert to chart JS format
             new_channels = new_channels.map((channel) => {
                 return {
-                    x: timeToDate(channel.time),
+                    x: channel.datetime || timeToDate(channel.time),
                     y: getValue(channel, serial_path),
                 };
             });

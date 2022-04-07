@@ -308,7 +308,7 @@ Vue.component("command-item", {
          * @return {string} seconds.microseconds
          */
         calculateCommandTime: function() {
-            return timeToString(this.command.time);
+            return timeToString(this.command.datetime || this.command.time);
         }
     }
 });
@@ -373,7 +373,7 @@ Vue.component("command-history", {
             for (let i = 0; i < item.arg_vals.length; i++) {
                 values.push(item.arg_vals[i]);
             }
-            return [timeToString(item.time), "0x" + item.id.toString(16), item.template.full_name, values.join(" ")];
+            return [timeToString(item.datetime || item.time), "0x" + item.id.toString(16), item.template.full_name, values.join(" ")];
         },
         /**
          * Take the given item and converting it to a unique key by merging the id and time together with a prefix
