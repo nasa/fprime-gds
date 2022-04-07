@@ -243,6 +243,9 @@ class DataStore {
         Object.assign(this.channels, channels); // Forces new channel map into Vue maintaining the original object
         this.commands = _dictionaries.commands;
 
+        _datastore.registerConsumer("channels", _performance);
+        _datastore.registerConsumer("events", _performance);
+
         // Setup initial commands data (clearing arguments and setting initial values)
         Object.values(_datastore.commands).forEach((command) => command.args.forEach((argument) => {
             let def = argument.value || null;
