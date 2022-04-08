@@ -114,7 +114,7 @@ def get_cmd_template_string(
 
     cmd_description = item.get_description()
     if cmd_description:
-        cmd_string += "Description: %s\n" % (cmd_description)
+        cmd_string += f"Description: {(cmd_description)}\n" 
 
     for arg in item.get_args():
         arg_name, arg_description, arg_type = arg
@@ -123,12 +123,8 @@ def get_cmd_template_string(
         # Can't compare against actual module, since EnumType is a serializable
         # type from the dictionary
         if type(arg_type).__name__ == "EnumType":
-            arg_description = "%s | %s " % (str(arg_type.keys()), arg_description)
+            arg_description = f"{str(arg_type.keys())} | {arg_description} "
 
-        cmd_string += "\t{} ({}): {}\n".format(
-            arg_name,
-            type(arg_type).__name__,
-            arg_description,
-        )
+        cmd_string += f"\t{arg_name} ({type(arg_type).__name__}): {arg_description}\n"
 
     return cmd_string
