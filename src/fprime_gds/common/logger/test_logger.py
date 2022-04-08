@@ -104,7 +104,7 @@ class TestLogger:
         date_string = datetime.datetime.fromtimestamp(self.start_time).strftime(
             "%H:%M:%S.%f on %m/%d/%Y"
         )
-        top.append(self.__get_cell("Test began at " + date_string))
+        top.append(self.__get_cell(f"Test began at {date_string}"))
         self.worksheet.append(top)
 
         labels = ["Log Time", "Case ID", "Sender", "Message"]

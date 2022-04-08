@@ -89,8 +89,7 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 self.keepalive.start()
         except (ValueError, TypeError) as exc:
             LOGGER.error(
-                "Failed to start keep-alive thread. %s: %s"
-                % (type(exc).__name__, str(exc))
+                f"Failed to start keep-alive thread. {type(exc).__name__}: {str(exc)}"
             )
 
     def close(self):

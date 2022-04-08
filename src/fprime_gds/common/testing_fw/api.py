@@ -149,7 +149,7 @@ class IntegrationTestAPI(DataHandler):
             ast_msg = f'{ast_msg} succeeded: {msg}'
             self.__log(ast_msg, TestLogger.GREEN)
         else:
-            ast_msg = ast_msg + " failed: " + msg
+            ast_msg = f'{ast_msg} failed: {msg}'
             self.__log(ast_msg, fail_color)
 
         if not expect:
@@ -1027,7 +1027,7 @@ class IntegrationTestAPI(DataHandler):
             return searcher.get_return_value()
 
         if timeout:
-            self.__log(name + f" now awaiting for at most {timeout} s.")
+            self.__log(f"{name} now awaiting for at most {timeout} s.")
             check_repeats = isinstance(history, ChronologicalHistory)
             try:
                 signal.signal(signal.SIGALRM, self.__timeout_sig_handler)
@@ -1252,13 +1252,13 @@ class IntegrationTestAPI(DataHandler):
         name = name + (" expectation" if expect else " assertion")
         pred_msg = predicates.get_descriptive_string(value, predicate)
         if predicate(value):
-            ast_msg = name + f" succeeded: {msg}\nassert " + pred_msg
+            ast_msg = f"{name} succeeded: {msg}\nassert {pred_msg}"
             self.__log(ast_msg, TestLogger.GREEN)
             if not expect:
                 assert True, pred_msg
             return True
         else:
-            ast_msg = name + f" failed: {msg}\nassert " + pred_msg
+            ast_msg = f"{name} failed: {msg}\nassert {pred_msg}"
             if not expect:
                 self.__log(ast_msg, TestLogger.RED)
                 assert False, pred_msg

@@ -54,7 +54,7 @@ class ChXmlLoader(XmlLoader):
         ch_section = self.get_xml_section(self.CH_SECT, xml_tree)
         if ch_section is None:
             raise exceptions.GseControllerParsingException(
-                "Xml dict did not have a %s section" % self.CH_SECT
+                f"Xml dict did not have a {self.CH_SECT} section"
             )
 
         id_dict = dict()

@@ -160,7 +160,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             self.registered = True
             self.name = name
             self.id = process_id
-            print("Registered client " + self.name.decode(DATA_ENCODING))
+            print(f"Registered client {self.name.decode(DATA_ENCODING)}")
 
     #################################################
     # New Routines to process the command messages
@@ -226,7 +226,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
                         + " (Connection reset by peer) occurred on recv()."
                     )
                 else:
-                    print("Socket error " + str(err.errno) + " occurred on recv().")
+                    print(f"Socket error {str(err.errno)} occurred on recv().")
         return msg
 
     def readHeader(self):
@@ -278,7 +278,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             data = tlm_packet_size + self.recv(size)
 
         else:
-            raise RuntimeError("unrecognized client %s" % dst.decode(DATA_ENCODING))
+            raise RuntimeError(f"unrecognized client {dst.decode(DATA_ENCODING)}")
         return data
 
     def processNewPkt(self, header, data):
@@ -470,7 +470,7 @@ class DestObj:
             # print "about to send data to " + self.name
             self.socket.send(msg)
         except OSError as err:
-            print("Socket error " + str(err.errno) + " occurred on send().")
+            print(f"Socket error {str(err.errno)} occurred on send().")
 
     def fileno(self):
         """"""

@@ -154,7 +154,7 @@ class SeqBinaryWriter:
         try:
             sequence += U32Type(crc).serialize()
         except TypeMismatchException as typeErr:
-            print("Exception: %s" % typeErr.getMsg())
+            print(f"Exception: {typeErr.getMsg()}")
             raise
 
         # Write the list of command records here

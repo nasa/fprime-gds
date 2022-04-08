@@ -384,9 +384,7 @@ class XmlLoader(dict_loader.DictLoader):
             return BoolType()
         elif type_name == "string":
             if self.STR_LEN_TAG not in xml_item.attrib:
-                print(
-                    "Trying to parse string type, but found %s field" % self.STR_LEN_TAG
-                )
+                print(f"Trying to parse string type, but found {self.STR_LEN_TAG} field")
                 return None
             return StringType(max_string_len=int(xml_item.get(self.STR_LEN_TAG), 0))
         else:
@@ -407,7 +405,7 @@ class XmlLoader(dict_loader.DictLoader):
 
             # Abandon all hope
             raise exceptions.GseControllerParsingException(
-                "Could not find type %s" % type_name
+                f"Could not find type {type_name}"
             )
 
 
