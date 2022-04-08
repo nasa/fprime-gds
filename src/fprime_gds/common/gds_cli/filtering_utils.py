@@ -31,7 +31,7 @@ class id_predicate(predicates.predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x.id == {}".format(self.id_num)
+        return f"x.id == {self.id_num}"
 
 
 def get_id_predicate(ids: Iterable[int]) -> predicates.predicate:
@@ -79,7 +79,7 @@ class component_predicate(predicates.predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return 'x is in component "{}"'.format(self.comp)
+        return f'x is in component "{self.comp}"'
 
 
 def get_component_predicate(components: Iterable[str]) -> predicates.predicate:
@@ -123,7 +123,7 @@ class contains_search_string(predicates.predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return 'str(x) contains "{}"'.format(self.search_string)
+        return f'str(x) contains "{self.search_string}"'
 
 
 def get_search_predicate(
@@ -219,4 +219,4 @@ class time_to_data_predicate(predicates.predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x = x.get_time(), {}".format(self.time_pred)
+        return f"x = x.get_time(), {self.time_pred}"
