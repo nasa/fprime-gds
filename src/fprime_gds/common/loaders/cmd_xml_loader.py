@@ -46,7 +46,7 @@ class CmdXmlLoader(XmlLoader):
         cmd_section = self.get_xml_section(self.CMD_SECT, xml_tree)
         if cmd_section is None:
             raise exceptions.GseControllerParsingException(
-                "Xml dict did not have a %s section" % self.EVENT_SECT
+                f"Xml dict did not have a {self.EVENT_SECT} section"
             )
 
         id_dict = dict()
@@ -69,6 +69,6 @@ class CmdXmlLoader(XmlLoader):
             cmd_temp = CmdTemplate(cmd_opcode, cmd_mnemonic, cmd_comp, args, cmd_desc)
 
             id_dict[cmd_opcode] = cmd_temp
-            name_dict["{}.{}".format(cmd_comp, cmd_mnemonic)] = cmd_temp
+            name_dict[f"{cmd_comp}.{cmd_mnemonic}"] = cmd_temp
 
         return id_dict, name_dict
