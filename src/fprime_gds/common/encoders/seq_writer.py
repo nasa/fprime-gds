@@ -199,7 +199,7 @@ class SeqAsciiWriter:
         #
         cmd = "{} (0x{:x})".format(mnemonic, int(opcode))
         for arg in args:
-            cmd += ", %s" % arg[2].val
+            cmd += f", {arg[2].val}"
         return cmd
 
     def write(self, seq_cmds_list):
