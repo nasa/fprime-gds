@@ -93,7 +93,7 @@ class IntegrationTestAPI(DataHandler):
             case_name: the name of the test case (str)
             case_id: a short identifier to denote the test case (str or number)
         """
-        msg = "[STARTING CASE] {}".format(case_name)
+        msg = f"[STARTING CASE] {case_name}"
         self.__log(msg, TestLogger.GRAY, TestLogger.BOLD, case_id=case_id)
         self.get_latest_time()  # called in case aggregate histories are cleared by the user
         self.clear_histories()
@@ -146,7 +146,7 @@ class IntegrationTestAPI(DataHandler):
             fail_color = TestLogger.ORANGE
 
         if value:
-            ast_msg = ast_msg + " succeeded: " + msg
+            ast_msg = f'{ast_msg} succeeded: {msg}'
             self.__log(ast_msg, TestLogger.GREEN)
         else:
             ast_msg = ast_msg + " failed: " + msg
@@ -188,7 +188,7 @@ class IntegrationTestAPI(DataHandler):
             self.event_history.clear(e_pred)
             t_pred = predicates.telemetry_predicate(time_pred=time_pred)
             self.telemetry_history.clear(t_pred)
-            msg = "Clearing Test Histories after {}".format(time_stamp)
+            msg = f"Clearing Test Histories after {time_stamp}"
             self.__log(msg, TestLogger.WHITE)
         else:
             self.event_history.clear()
@@ -325,16 +325,14 @@ class IntegrationTestAPI(DataHandler):
             if command in cmd_dict:
                 return cmd_dict[command].get_id()
             else:
-                msg = "The command mnemonic, {}, wasn't in the dictionary".format(
-                    command
-                )
+                msg = f"The command mnemonic, {command}, wasn't in the dictionary"
                 raise KeyError(msg)
         else:
             cmd_dict = self.pipeline.dictionaries.command_id
             if command in cmd_dict:
                 return command
             else:
-                msg = "The command id, {}, wasn't in the dictionary".format(command)
+                msg = f"The command id, {command}, wasn't in the dictionary"
                 raise KeyError(msg)
 
     def send_command(self, command, args=None):
@@ -347,7 +345,7 @@ class IntegrationTestAPI(DataHandler):
         if args is None:
             args = []
 
-        msg = "Sending Command: {} {}".format(command, args)
+        msg = f"Sending Command: {command} {args}"
         self.__log(msg, TestLogger.PURPLE)
         command = self.translate_command_name(command)
         self.pipeline.send_command(command, args)
@@ -487,18 +485,14 @@ class IntegrationTestAPI(DataHandler):
             if channel in ch_dict:
                 return ch_dict[channel].get_id()
             else:
-                msg = "The telemetry mnemonic, {}, wasn't in the dictionary".format(
-                    channel
-                )
+                msg = f"The telemetry mnemonic, {channel}, wasn't in the dictionary"
                 raise KeyError(msg)
         else:
             ch_dict = self.pipeline.dictionaries.channel_id
             if channel in ch_dict:
                 return channel
             else:
-                msg = "The telemetry mnemonic, {}, wasn't in the dictionary".format(
-                    channel
-                )
+                msg = f"The telemetry mnemonic, {channel}, wasn't in the dictionary"
                 raise KeyError(msg)
 
     def get_telemetry_pred(self, channel=None, value=None, time_pred=None):
@@ -714,14 +708,14 @@ class IntegrationTestAPI(DataHandler):
             if event in event_dict:
                 return event_dict[event].get_id()
             else:
-                msg = "The event mnemonic, {}, wasn't in the dictionary".format(event)
+                msg = f"The event mnemonic, {event}, wasn't in the dictionary"
                 raise KeyError(msg)
         else:
             event_dict = self.pipeline.dictionaries.event_id
             if event in event_dict:
                 return event
             else:
-                msg = "The event id, {}, wasn't in the dictionary".format(event)
+                msg = f"The event id, {event}, wasn't in the dictionary"
                 raise KeyError(msg)
 
     def get_event_pred(self, event=None, args=None, severity=None, time_pred=None):
@@ -754,9 +748,7 @@ class IntegrationTestAPI(DataHandler):
 
         if not predicates.is_predicate(severity) and severity is not None:
             if not isinstance(severity, EventSeverity):
-                msg = "Given severity was not a valid Severity Enum Value: {} ({})".format(
-                    severity, type(severity)
-                )
+                msg = f"Given severity was not a valid Severity Enum Value: {severity} ({type(severity)})"
                 raise TypeError(msg)
             severity = predicates.equal_to(severity)
 
@@ -1035,7 +1027,7 @@ class IntegrationTestAPI(DataHandler):
             return searcher.get_return_value()
 
         if timeout:
-            self.__log(name + " now awaiting for at most {} s.".format(timeout))
+            self.__log(name + f" now awaiting for at most {timeout} s.")
             check_repeats = isinstance(history, ChronologicalHistory)
             try:
                 signal.signal(signal.SIGALRM, self.__timeout_sig_handler)
@@ -1050,13 +1042,11 @@ class IntegrationTestAPI(DataHandler):
                             return searcher.get_return_value()
                     time.sleep(0.1)
             except self.TimeoutException:
-                self.__log(
-                    name + " timed out and ended unsuccessfully.", TestLogger.YELLOW
-                )
+                self.__log(f'{name} timed out and ended unsuccessfully.', TestLogger.YELLOW)
             finally:
                 signal.alarm(0)
         else:
-            self.__log(name + " ended unsuccessfully.", TestLogger.YELLOW)
+            self.__log(f'{name} ended unsuccessfully.', TestLogger.YELLOW)
         return searcher.get_return_value()
 
     def find_history_item(self, search_pred, history, start=None, timeout=0):
@@ -1081,9 +1071,7 @@ class IntegrationTestAPI(DataHandler):
                 self.search_pred = search_pred
                 self.repeats = False
                 self.ret_val = None
-                msg = "Beginning an item search for an item that satisfies:\n    {}".format(
-                    self.search_pred
-                )
+                msg = f"Beginning an item search for an item that satisfies:\n    {self.search_pred}"
                 self.log(msg, TestLogger.YELLOW)
 
             def search_current_history(self, items):
@@ -1094,7 +1082,7 @@ class IntegrationTestAPI(DataHandler):
 
             def incremental_search(self, item):
                 if self.search_pred(item):
-                    msg = "History search found the specified item: {}".format(item)
+                    msg = f"History search found the specified item: {item}"
                     self.log(msg, TestLogger.YELLOW)
                     self.ret_val = item
                     return True
@@ -1130,9 +1118,7 @@ class IntegrationTestAPI(DataHandler):
                 self.ret_val = []
                 self.seq_preds = seq_preds.copy()
                 self.repeats = True
-                msg = "Beginning a sequence search of {} items.".format(
-                    len(self.seq_preds)
-                )
+                msg = f"Beginning a sequence search of {len(self.seq_preds)} items."
                 self.log(msg, TestLogger.YELLOW)
 
             def search_current_history(self, items):
@@ -1148,7 +1134,7 @@ class IntegrationTestAPI(DataHandler):
 
             def incremental_search(self, item):
                 if self.seq_preds[0](item):
-                    self.log("Sequence search found the next item: {}".format(item))
+                    self.log(f"Sequence search found the next item: {item}")
                     self.ret_val.append(item)
                     self.seq_preds.pop(0)
                     if len(self.seq_preds) == 0:
@@ -1196,9 +1182,7 @@ class IntegrationTestAPI(DataHandler):
                 self.search_pred = search_pred
                 self.repeats = False
 
-                msg = "Beginning a count search for an amount of items ({}).".format(
-                    self.count_pred
-                )
+                msg = f"Beginning a count search for an amount of items ({self.count_pred})."
                 self.log(msg, TestLogger.YELLOW)
 
             def search_current_history(self, items):
@@ -1208,27 +1192,21 @@ class IntegrationTestAPI(DataHandler):
                 else:
                     for item in items:
                         if search_pred(item):
-                            self.log(
-                                "Count search counted another item: {}".format(item)
-                            )
+                            self.log(f"Count search counted another item: {item}")
                             self.ret_val.append(item)
 
                 if self.count_pred(len(self.ret_val)):
-                    msg = "Count search found a correct amount: {}".format(
-                        len(self.ret_val)
-                    )
+                    msg = f"Count search found a correct amount: {len(self.ret_val)}"
                     self.log(msg, TestLogger.YELLOW)
                     return True
                 return False
 
             def incremental_search(self, item):
                 if self.search_pred(item):
-                    self.log("Count search counted another item: {}".format(item))
+                    self.log(f"Count search counted another item: {item}")
                     self.ret_val.append(item)
                     if self.count_pred(len(self.ret_val)):
-                        msg = "Count search found a correct amount: {}".format(
-                            len(self.ret_val)
-                        )
+                        msg = f"Count search found a correct amount: {len(self.ret_val)}"
                         self.log(msg, TestLogger.YELLOW)
                         return True
                 return False
@@ -1274,13 +1252,13 @@ class IntegrationTestAPI(DataHandler):
         name = name + (" expectation" if expect else " assertion")
         pred_msg = predicates.get_descriptive_string(value, predicate)
         if predicate(value):
-            ast_msg = name + " succeeded: {}\nassert ".format(msg) + pred_msg
+            ast_msg = name + f" succeeded: {msg}\nassert " + pred_msg
             self.__log(ast_msg, TestLogger.GREEN)
             if not expect:
                 assert True, pred_msg
             return True
         else:
-            ast_msg = name + " failed: {}\nassert ".format(msg) + pred_msg
+            ast_msg = name + f" failed: {msg}\nassert " + pred_msg
             if not expect:
                 self.__log(ast_msg, TestLogger.RED)
                 assert False, pred_msg
@@ -1295,13 +1273,10 @@ class IntegrationTestAPI(DataHandler):
             data: object to store
         """
         if self.event_log_filter(data):
-            msg = "Received EVR: {}".format(data.get_str(verbose=True))
+            msg = f"Received EVR: {data.get_str(verbose=True)}"
             self.__log(msg, TestLogger.BLUE, sender="GDS")
         if self.last_evr is not None and data.get_time() < self.last_evr.get_time():
-            msg = "API detected out of order evrs!"
-            msg = msg + "\nReceived First:{}".format(
-                self.last_evr.get_str(verbose=True)
-            )
-            msg = msg + "\nReceived Second:{}".format(data.get_str(verbose=True))
+            msg = "API detected out of order evrs!" + f"\nReceived First:{self.last_evr.get_str(verbose=True)}"
+            msg += f"\nReceived Second:{data.get_str(verbose=True)}"
             self.__log(msg, TestLogger.ORANGE)
         self.last_evr = data
