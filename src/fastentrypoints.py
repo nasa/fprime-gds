@@ -66,7 +66,7 @@ def get_args(cls, dist, header=None):  # noqa: D205,D400
         header = cls.get_header()
     spec = str(dist.as_requirement())
     for type_ in "console", "gui":
-        group = type_ + "_scripts"
+        group = f'{type_}_scripts'
         for name, ep in dist.get_entry_map(group).items():
             # ensure_safe_name
             if re.search(r"[\\/]", name):
