@@ -150,9 +150,9 @@ class ChData(sys_data.SysData):
                 ch_val,
             )
         elif not verbose and csv:
-            return "{},{},{}".format(time_str_nice, ch_name, ch_val)
+            return f"{time_str_nice},{ch_name},{ch_val}"
         else:
-            return "{}: {} = {}".format(time_str_nice, ch_name, ch_val)
+            return f"{time_str_nice}: {ch_name} = {ch_val}"
 
     def get_val_str(self):
 
