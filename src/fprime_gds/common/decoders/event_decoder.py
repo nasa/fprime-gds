@@ -120,7 +120,7 @@ class EventDecoder(decoder.Decoder):
                 arg_obj.deserialize(arg_data, offset)
                 arg_results.append(arg_obj)
             except TypeException as e:
-                print("Event decode exception %s" % (e.getMsg()))
+                print(f"Event decode exception {e.getMsg()}")
                 traceback.print_exc()
                 return None
 
