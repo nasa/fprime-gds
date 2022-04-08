@@ -153,9 +153,9 @@ class CmdData(sys_data.SysData):
                 arg_str,
             )
         elif not verbose and csv:
-            return "{},{},{}".format(time_str, name, arg_str)
+            return f"{time_str},{name},{arg_str}"
         else:
-            return "{}: {} : {}".format(time_str, name, arg_str)
+            return f"{time_str}: {name} : {arg_str}"
 
     @staticmethod
     def convert_arg_value(arg_val, arg_type):
