@@ -80,8 +80,8 @@ class CmdTemplate(data_template.DataTemplate):
         Returns:
             The full name (component.channel) for this event
         """
-        return "{}.{}".format(self.comp_name, self.mnemonic)
-
+        return f"{self.comp_name}.{self.mnemonic}"
+    
     def get_comp_name(self):
         return self.comp_name
 
