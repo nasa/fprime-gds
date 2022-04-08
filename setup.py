@@ -115,6 +115,8 @@ integrated configuration with ground in-the-loop.
         "flask_restful==0.3.8",
         "fprime-tools>=3.0.0",
         "argcomplete==1.12.3",
+        "Jinja2==2.11.3",
+        "Werkzeug==2.0.1",
         "itsdangerous==2.0.1" 
     ],
     extras_require={
