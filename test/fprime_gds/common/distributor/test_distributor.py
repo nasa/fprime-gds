@@ -37,47 +37,20 @@ def test_distributor():
 
     assert (
         test_leftover == leftover_data
-    ), "expected leftover data to be %s, but found %s" % (
-        list(leftover_data),
-        list(test_leftover),
-    )
+    ), f"expected leftover data to be {list(leftover_data)}, but found {list(test_leftover)}"
     assert raw_msgs[0] == (
         header_1 + data_1
-    ), "expected first raw_msg to be %s, but found %s" % (
-        list(header_1 + data_1),
-        list(raw_msgs[0]),
-    )
+    ), f"expected first raw_msg to be {list(header_1 + data_1)}, but found {list(raw_msgs[0])}"
     assert raw_msgs[1] == (
         header_2 + data_2
-    ), "expected second raw_msg to be %s, but found %s" % (
-        list(header_2 + data_2),
-        list(raw_msgs[1]),
-    )
+    ), f"expected second raw_msg to be {list(header_2 + data_2)}, but found {list(raw_msgs[1])}"
 
     (test_len_1, test_desc_1, test_msg_1) = dist.parse_raw_msg_api(raw_msgs[0])
     (test_len_2, test_desc_2, test_msg_2) = dist.parse_raw_msg_api(raw_msgs[1])
 
-    assert test_len_1 == length_1, "expected 1st length to be %d but found %d" % (
-        length_1,
-        test_len_1,
-    )
-    assert test_len_2 == length_2, "expected 2nd length to be %d but found %d" % (
-        length_2,
-        test_len_2,
-    )
-    assert test_desc_1 == desc_1, "expected 1st desc to be %d but found %d" % (
-        desc_1,
-        test_desc_1,
-    )
-    assert test_desc_2 == desc_2, "expected 2nd desc to be %d but found %d" % (
-        desc_2,
-        test_desc_2,
-    )
-    assert test_msg_1 == data_1, "expected 1st msg to be {} but found {}".format(
-        list(data_1),
-        list(test_msg_1),
-    )
-    assert test_msg_2 == data_2, "expected 2nd msg to be {} but found {}".format(
-        list(data_2),
-        list(test_msg_2),
-    )
+    assert test_len_1 == length_1, f"expected 1st length to be {length_1} but found {test_len_1}"
+    assert test_len_2 == length_2, f"expected 2nd length to be {length_2} but found {test_len_2}"
+    assert test_desc_1 == desc_1, f"expected 1st desc to be {desc_1} but found {test_desc_1}"
+    assert test_desc_2 == desc_2, f"expected 2nd desc to be {desc_2} but found {test_desc_2}"
+    assert (test_msg_1 == data_1), f"expected 1st msg to be {list(data_1)} but found {list(test_msg_1)}"
+    assert (test_msg_2 == data_2), f"expected 2nd msg to be {list(data_2)} but found {list(test_msg_2)}"
