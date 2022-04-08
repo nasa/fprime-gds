@@ -44,19 +44,13 @@ def test_ch_encoder():
 
     assert (
         reg_output == reg_expected
-    ), "FAIL: expected regular output to be %s, but found %s" % (
-        list(reg_expected),
-        list(reg_output),
-    )
+    ), f"FAIL: expected regular output to be {list(reg_expected)}, but found {list(reg_output)}"
 
     config_output = enc_config.encode_api(ch_obj)
 
     assert (
         config_output == config_expected
-    ), "FAIL: expected configured output to be %s, but found %s" % (
-        list(config_expected),
-        list(config_output),
-    )
+    ), f"FAIL: expected configured output to be {list(config_expected)}, but found {list(config_output)}"
 
     temp = ChTemplate(102, "test_ch2", "test_comp2", U16Type())
 
@@ -78,16 +72,10 @@ def test_ch_encoder():
 
     assert (
         reg_output == reg_expected
-    ), "FAIL: expected regular output to be %s, but found %s" % (
-        list(reg_expected),
-        list(reg_output),
-    )
+    ), f"FAIL: expected regular output to be {list(reg_expected)}, but found {list(reg_output)}"
 
     config_output = enc_config.encode_api(ch_obj)
 
     assert (
         config_output == config_expected
-    ), "FAIL: expected configured output to be %s, but found %s" % (
-        list(config_expected),
-        list(config_output),
-    )
+    ), f"FAIL: expected configured output to be {list(config_expected)}, but found {list(config_output)}"
