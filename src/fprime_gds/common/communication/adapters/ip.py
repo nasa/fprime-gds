@@ -34,9 +34,7 @@ def check_port(address, port):
         socket_trial = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         socket_trial.bind((address, port))
     except OSError as err:
-        raise ValueError(
-            "Error with address/port of '{}:{}' : {}".format(address, port, err)
-        )
+        raise ValueError(f"Error with address/port of '{address}:{port}' : {err}")
     finally:
         if socket_trial is not None:
             socket_trial.close()
