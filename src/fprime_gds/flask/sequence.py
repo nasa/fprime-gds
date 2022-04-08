@@ -67,7 +67,10 @@ class SequenceCompiler(flask_restful.Resource):
         text = args.get("text", "")
         uplink = args.get("uplink", "false") == "true"
         if key is None or int(key, 0) != 0xFEEDCAFE:
-            flask_restful.abort(403, message="{} is invalid command key. Supply 0xfeedcafe to run command.".format(key))
+            flask_restful.abort(
+                403,
+                message=f"{key} is invalid command key. Supply 0xfeedcafe to run command.",
+            )
         elif not re.match(".*\.seq", name) or Path(name).name != name:
             flask_restful.abort(403, message={"error": "Supply filename with .seq suffix", "type": "error"})
         temp_seq_path = self.tempdir / Path(name).name

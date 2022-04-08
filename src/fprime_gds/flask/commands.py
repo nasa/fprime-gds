@@ -111,9 +111,7 @@ class Command(flask_restful.Resource):
         if key is None or int(key, 0) != 0xFEEDCAFE:
             flask_restful.abort(
                 403,
-                message="{} is invalid command key. Supply 0xfeedcafe to run command.".format(
-                    key
-                ),
+                message=f"{key} is invalid command key. Supply 0xfeedcafe to run command.",
             )
         if arg_list is None:
             arg_list = []
@@ -124,5 +122,5 @@ class Command(flask_restful.Resource):
         except fprime_gds.common.data_types.cmd_data.CommandArgumentsException as exc:
             flask_restful.abort(403, message={"errors": exc.errors})
         except KeyError as key_error:
-            flask_restful.abort(403, message="{} is not a valid command".format(key_error))
+            flask_restful.abort(403, message=f"{key_error} is not a valid command")
         return {"message": "success"}

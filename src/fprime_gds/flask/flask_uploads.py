@@ -187,7 +187,7 @@ def config_for_set(uset, app, defaults=None):
                      settings.
     """
     config = app.config
-    prefix = 'UPLOADED_%s_' % uset.name.upper()
+    prefix = f'UPLOADED_{uset.name.upper()}_'
     using_defaults = False
     if defaults is None:
         defaults = dict(dest=None, url=None)
@@ -208,7 +208,7 @@ def config_for_set(uset, app, defaults=None):
                 using_defaults = True
                 destination = os.path.join(defaults['dest'], uset.name)
             else:
-                raise RuntimeError("no destination for set %s" % uset.name)
+                 raise RuntimeError(f"no destination for set {uset.name}")
 
     if base_url is None and using_defaults and defaults['url']:
         base_url = addslash(defaults['url']) + uset.name + '/'

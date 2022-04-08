@@ -100,16 +100,14 @@ class FileUploads(flask_restful.Resource):
         for key, file in flask.request.files.items():
             try:
                 filename = self.uplink_set.save(file)
-                flask.current_app.logger.info(
-                    "Received file. Saved to: {}".format(filename)
-                )
+                flask.current_app.logger.info(f"Received file. Saved to: {filename}")
                 self.uplinker.enqueue(
                     os.path.join(self.uplink_set.config.destination, filename)
                 )
                 successful.append(key)
             except Exception as exc:
                 flask.current_app.logger.warning(
-                    "Failed to save file {} with error: {}".format(key, exc)
+                    f"Failed to save file {key} with error: {exc}"
                 )
                 failed.append(key)
         return {"successful": successful, "failed": failed}
