@@ -93,9 +93,7 @@ class Dictionaries:
             self._channel_id_dict = channel_loader.get_id_dict(dictionary)
             self._channel_name_dict = channel_loader.get_name_dict(dictionary)
         else:
-            raise Exception(
-                "[ERROR] Dictionary '{}' does not exist.".format(dictionary)
-            )
+            raise Exception(f"[ERROR] Dictionary '{dictionary}' does not exist.")
         # Check for packet specification
         if packet_spec is not None:
             packet_loader = fprime_gds.common.loaders.pkt_xml_loader.PktXmlLoader()
