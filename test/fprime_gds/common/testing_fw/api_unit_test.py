@@ -135,10 +135,8 @@ class APITestCases(unittest.TestCase):
         for i in range(len(expected)):
             assert (
                 expected[i] == actual[i]
-            ), "the {} element of the expected list should be {}, but was {}.".format(
-                i, expected[i], actual[i]
-            )
-
+            ), f"the {i} element of the expected list should be {expected[i]}, but was {actual[i]}."
+    
     def get_counter_sequence(self, length):
         seq = []
         for i in range(0, length):
@@ -155,7 +153,7 @@ class APITestCases(unittest.TestCase):
         return seq
 
     def get_severity_event(self, severity="DIAGNOSTIC"):
-        name = "Severity" + severity
+        name = f"Severity{severity}"
         temp = self.pipeline.dictionaries.event_name[name]
         event = EventData(tuple(), TimeType(), temp)
         return event
@@ -188,9 +186,7 @@ class APITestCases(unittest.TestCase):
         item_count = len(evr_hist)
         assert (
             item_count == length
-        ), "Were the correct number of items in the history? ({},{})".format(
-            item_count, length
-        )
+        ), f"Were the correct number of items in the history? ({item_count},{length})"
 
     def test_find_history_item(self):
         self.fill_history(self.tHistory.data_callback, range(0, 50))
@@ -200,17 +196,13 @@ class APITestCases(unittest.TestCase):
         pred = predicates.equal_to(25)
 
         result = self.api.find_history_item(pred, self.tHistory)
-        assert result == 25, "The search should have returned 25, but found {}".format(
-            result
-        )
+        assert result == 25, f"The search should have returned 25, but found {result}"
         result = self.api.find_history_item(pred, self.tHistory, start=50)
-        assert result == 25, "The search should have returned 25, but found {}".format(
-            result
-        )
+        assert result == 25, f"The search should have returned 25, but found {result}"
         result = self.api.find_history_item(pred, self.tHistory, start=80)
         assert (
             result is None
-        ), "The search should have returned None, but found {}".format(result)
+        ), f"The search should have returned None, but found {result}"
 
     def test_find_history_item_timeout(self):
         pred = predicates.equal_to(25)
@@ -218,15 +210,11 @@ class APITestCases(unittest.TestCase):
         listA = range(0, 50)
         self.fill_history_async(self.tHistory.data_callback, listA, 0.01)
         result = self.api.find_history_item(pred, self.tHistory, timeout=1)
-        assert result == 25, "The search should have returned 25, but found {}".format(
-            result
-        )
+        assert result == 25, f"The search should have returned 25, but found {result}"
 
         pred = predicates.equal_to(49)
         result = self.api.find_history_item(pred, self.tHistory, timeout=1)
-        assert result == 49, "The search should have returned 49, but found {}".format(
-            result
-        )
+        assert result == 49, f"The search should have returned 49, but found {result}"
 
         self.tHistory.clear()
 
@@ -236,7 +224,7 @@ class APITestCases(unittest.TestCase):
         result = self.api.find_history_item(pred, self.tHistory, timeout=1)
         assert (
             result is None
-        ), "The search should have returned None, but found {}".format(result)
+        ), f"The search should have returned None, but found {result}"
 
     def test_find_history_sequence(self):
         sequence = []
@@ -247,33 +235,25 @@ class APITestCases(unittest.TestCase):
         results = self.api.find_history_sequence(sequence, self.tHistory)
         assert len(results) == len(
             sequence
-        ), "The search should have found {}, but returned {}".format(
-            range(30, 40, 2), results
-        )
+        ), f"The search should have found {range(30, 40, 2)}, but returned {results}"
         self.assert_lists_equal(range(30, 40, 2), results)
 
         results = self.api.find_history_sequence(sequence, self.tHistory, start=34)
         assert len(results) != len(
             sequence
-        ), "The search should have returned an incomplete list, but found {}".format(
-            results
-        )
+        ), f"The search should have returned an incomplete list, but found {results}"
 
         self.fill_history(self.tHistory.data_callback, range(0, 50))
         results = self.api.find_history_sequence(sequence, self.tHistory, start=34)
         assert len(results) == len(
             sequence
-        ), "The search should have found {}, but returned {}".format(
-            range(30, 40, 2), results
-        )
+        ), f"The search should have found {range(30, 40, 2)}, but returned {results}"
         self.assert_lists_equal(range(30, 40, 2), results)
 
         results = self.api.find_history_sequence(sequence, self.tHistory, start=90)
         assert len(results) != len(
             sequence
-        ), "The search should have returned an incomplete list, but found {}".format(
-            results
-        )
+        ), f"The search should have returned an incomplete list, but found {results}"
 
     def test_find_history_sequence_timeout(self):
         sequence = []
@@ -300,9 +280,7 @@ class APITestCases(unittest.TestCase):
         )
         assert len(results) != len(
             sequence
-        ), "The search should have returned an incomplete list, but found {}".format(
-            results
-        )
+        ), f"The search should have returned an incomplete list, but found {results}"
 
     def test_find_history_count(self):
         count_pred = predicates.greater_than_or_equal_to(10)
@@ -332,9 +310,7 @@ class APITestCases(unittest.TestCase):
         results = self.api.find_history_count(count_pred, self.tHistory)
         assert (
             len(results) < 10
-        ), "The search should have returned an incomplete list, but found {}".format(
-            results
-        )
+        ), f"The search should have returned an incomplete list, but found {results}"
 
         results = self.api.find_history_count(
             count_pred, self.tHistory, search_pred, timeout=2
@@ -356,9 +332,7 @@ class APITestCases(unittest.TestCase):
         )
         assert (
             len(results) < 10
-        ), "The search should have returned an incomplete list, but found {}".format(
-            results
-        )
+        ), f"The search should have returned an incomplete list, but found {results}"
 
     def test_get_latest_fsw_time(self):
         ts0 = self.api.get_latest_time()
@@ -379,9 +353,7 @@ class APITestCases(unittest.TestCase):
         for i in range(1, 10):
             time.sleep(0.1)
             tsi = self.api.get_latest_time()
-            assert tsi > last, "Iter {}: {} should be greater than {}".format(
-                i, tsi, last
-            )
+            assert tsi > last, f"Iter {i}: {tsi} should be greater than {last}"
             last = tsi
 
         t1.join()
@@ -390,7 +362,7 @@ class APITestCases(unittest.TestCase):
         tsn_1 = self.api.get_latest_time()
         assert (
             tsn_1 > last
-        ), "The final timestamp, {}, should be greater than {}.".format(tsn_1, last)
+        ), f"The final timestamp, {tsn_1}, should be greater than {last}."
 
         time.sleep(0.1)
 
@@ -429,11 +401,11 @@ class APITestCases(unittest.TestCase):
         firstC = channelHistory[iC]
 
         self.api.clear_histories(timeE)
-        msg = "The event history should have been reduced by {} elements".format(iE)
+        msg = f"The event history should have been reduced by {iE} elements"
         assert sizeE - iE == eventHistory.size(), msg
         msg = "The element with the timestamp should be first in the history"
         assert firstE is eventHistory[0], msg
-        msg = "The channel history should have been reduced by {} elements".format(iC)
+        msg = f"The channel history should have been reduced by {iC} elements"
         assert sizeC - iC == channelHistory.size(), msg
         msg = "The first element in the history should be the first with a valid time"
         assert firstC is channelHistory[0], msg
@@ -709,23 +681,19 @@ class APITestCases(unittest.TestCase):
         result = self.api.await_telemetry("Counter", 8)
         assert (
             result is not None
-        ), "Await should have found a correct channel update: {}".format(result)
+        ), f"Await should have found a correct channel update: {result}"
 
         time.sleep(1)
 
         self.fill_history_async(self.pipeline.enqueue_telemetry, seq[10:20], 0.01)
         result = self.api.await_telemetry("Counter", 8)
-        assert result is None, "Await should not have found an update: {}".format(
-            result
-        )
+        assert result is None, f"Await should not have found an update: {result}"
 
         self.api.clear_histories()
 
         self.fill_history_async(self.pipeline.enqueue_telemetry, seq, 0.1)
         result = self.api.await_telemetry("Counter", 15, timeout=1)
-        assert result is None, "Await should not have found an update: {}".format(
-            result
-        )
+        assert result is None, f"Await should not have found an update: {result}"
 
     def test_await_telemetry_sequence(self):
         count_seq = self.get_counter_sequence(20)

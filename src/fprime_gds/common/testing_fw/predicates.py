@@ -63,7 +63,7 @@ def get_descriptive_string(value, pred_function):
         value: the argument of the predicate
         pred_function: a predicate function
     """
-    return "F({}), where F(x) evaluates\n\t {}".format(value, pred_function)
+    return f"F({value}), where F(x) evaluates\n\t {pred_function}"
 
 
 ##########################################################################################
@@ -93,7 +93,7 @@ class less_than(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x < {}".format(self.upper_limit)
+        return f"x < {self.upper_limit}"
 
 
 class greater_than(predicate):
@@ -119,7 +119,7 @@ class greater_than(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x > {}".format(self.lower_limit)
+        return f"x > {self.lower_limit}"
 
 
 class equal_to(predicate):
@@ -145,7 +145,7 @@ class equal_to(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x == {}".format(self.expected)
+        return f"x == {self.expected}"
 
 
 class not_equal_to(predicate):
@@ -171,7 +171,7 @@ class not_equal_to(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x != {}".format(self.expected)
+        return f"x != {self.expected}"
 
 
 class less_than_or_equal_to(predicate):
@@ -197,7 +197,7 @@ class less_than_or_equal_to(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x <= {}".format(self.upper_limit)
+        return f"x <= {self.upper_limit}"
 
 
 class greater_than_or_equal_to(predicate):
@@ -223,7 +223,7 @@ class greater_than_or_equal_to(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x >= {}".format(self.lower_limit)
+        return f"x >= {self.lower_limit}"
 
 
 class within_range(predicate):
@@ -252,7 +252,7 @@ class within_range(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "{} <= x <= {}".format(self.lower_limit, self.upper_limit)
+        return f"{self.lower_limit} <= x <= {self.upper_limit}"
 
 
 ##########################################################################################
@@ -282,7 +282,7 @@ class is_a_member_of(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x \u2208 {}".format(self.set)
+        return f"x ∈ {self.set}"
 
 
 class is_not_a_member_of(predicate):
@@ -309,7 +309,7 @@ class is_not_a_member_of(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "x \u2209 {}".format(self.set)
+        return f"x ∉ {self.set}"
 
 
 ##########################################################################################
@@ -351,7 +351,7 @@ class invert(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "\u02DC({}).".format(self.pred)
+        return f"˜({self.pred})."
 
 
 class satisfies_all(predicate):
@@ -380,7 +380,7 @@ class satisfies_all(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "\u2200 P \u2208 A : P(x) is True, when A is {}".format(self.p_list)
+        return f"∀ P ∈ A : P(x) is True, when A is {self.p_list}"
 
 
 class satisfies_any(predicate):
@@ -409,7 +409,7 @@ class satisfies_any(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "\u2203 P \u2208 A : P(x) is True, when A is {}".format(self.p_list)
+        return f"∃ P ∈ A : P(x) is True, when A is {self.p_list}"
 
 
 ##########################################################################################
@@ -454,9 +454,7 @@ class args_predicate(predicate):
         """
         Returns a string outlining the evaluation done by the predicate.
         """
-        return "True IFF \u2200 pi \u2208 P and xi \u2208 x; pi(xi) is True. Where P is {}".format(
-            self.arg_spec
-        )
+        return f"True IFF ∀ pi ∈ P and xi ∈ x; pi(xi) is True. Where P is {self.arg_spec}"
 
 
 class event_predicate(predicate):
@@ -516,13 +514,13 @@ class event_predicate(predicate):
         """
         msg = "True IFF: x is an EventData object"
         if not isinstance(self.id_pred, always_true):
-            msg += " and x's id satisfies ({})".format(self.id_pred)
+            msg += f" and x's id satisfies ({self.id_pred})"
         if not isinstance(self.args_pred, always_true):
-            msg += " and x's args satisfy ({})".format(self.args_pred)
+            msg += f" and x's args satisfy ({self.args_pred})"
         if not isinstance(self.severity_pred, always_true):
-            msg += " and x's severity satisfies ({})".format(self.severity_pred)
+            msg += f" and x's severity satisfies ({self.severity_pred})"
         if not isinstance(self.time_pred, always_true):
-            msg += " and x's time satisfies ({})".format(self.time_pred)
+            msg += f" and x's time satisfies ({self.time_pred})"
         return msg
 
 
@@ -573,9 +571,9 @@ class telemetry_predicate(predicate):
         """
         msg = "True IFF: x is a ChData object"
         if not isinstance(self.id_pred, always_true):
-            msg += " and x's id satisfies ({})".format(self.id_pred)
+            msg += f" and x's id satisfies ({self.id_pred})"
         if not isinstance(self.value_pred, always_true):
-            msg += " and x's value satisfies ({})".format(self.value_pred)
+            msg += f" and x's value satisfies ({self.value_pred})"
         if not isinstance(self.time_pred, always_true):
-            msg += " and x's time satisfies ({})".format(self.time_pred)
+            msg += f" and x's time satisfies ({self.time_pred})"
         return msg
