@@ -79,16 +79,14 @@ def add_search_arguments(parser: argparse.ArgumentParser, command_name: str):
         "--list",
         dest="is_printing_list",
         action="store_true",
-        help="list all possible %s types the current F Prime instance could produce, based on the %s dictionary, sorted by %s type ID"
-        % (command_name[:-1], command_name, command_name[:-1]),
+        help=f"list all possible {command_name[:-1]} types the current F Prime instance could produce, based on the {command_name} dictionary, sorted by {command_name[:-1]} type ID",
     )
     parser.add_argument(
         "-i",
         "--ids",
         nargs="+",
         type=int,
-        help='only show %s matching the given type ID(s) "ID"; can provide multiple IDs to show all given types'
-        % (command_name),
+        help=f'only show {command_name} matching the given type ID(s) "ID"; can provide multiple IDs to show all given types',
         metavar="ID",
     )
     parser.add_argument(
@@ -96,24 +94,21 @@ def add_search_arguments(parser: argparse.ArgumentParser, command_name: str):
         "--components",
         nargs="+",
         type=str,
-        help='only show %s from the given component name "COMP"; can provide multiple components to show %s from all components given'
-        % (command_name, command_name),
+        help=f'only show {command_name} from the given component name "COMP"; can provide multiple components to show {command_name} from all components given',
         metavar="COMP",
     )
     parser.add_argument(
         "-s",
         "--search",
         type=str,
-        help='only show %s whose name or output string exactly matches or contains the entire given string "STRING"'
-        % (command_name),
+        help=f'only show {command_name} whose name or output string exactly matches or contains the entire given string "STRING"',
         metavar="STRING",
     )
     parser.add_argument(
         "-j",
         "--json",
         action="store_true",
-        help="return the JSON response of the API call, with %s filtered based on other flags provided"
-        % (command_name),
+        help=f"return the JSON response of the API call, with {command_name} filtered based on other flags provided",
     )
 
 

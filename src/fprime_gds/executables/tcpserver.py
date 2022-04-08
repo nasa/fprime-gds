@@ -108,7 +108,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             GUI_ids.remove(self.id)
         LOCK.release()
 
-        print("Closed %s connection." % self.name.decode(DATA_ENCODING))
+        print(f"Closed {self.name.decode(DATA_ENCODING)} connection.")
         self.registered = False
         self.request.close()
 
@@ -484,8 +484,8 @@ def main(argv=None):
     program_license = "Copyright 2015 user_name (California Institute of Technology)                                            \
                 ALL RIGHTS RESERVED. U.S. Government Sponsorship acknowledged."
     program_version = "v0.1"
-    program_build_date = "%s" % __updated__
-    program_version_string = "%prog {} ({})".format(program_version, program_build_date)
+    program_build_date = f"{__updated__}"
+    program_version_string = f"%prog {program_version} ({program_build_date})"
     program_longdesc = (
         """"""  # optional - give further explanation about what the program does
     )
@@ -530,7 +530,7 @@ def main(argv=None):
         SERVER = server
         LOCK = server.lock_obj
 
-        print("TCP Socket Server listening on host addr {}, port {}".format(HOST, PORT))
+        print(f"TCP Socket Server listening on host addr {HOST}, port {PORT}")
         # Start a thread with the server -- that thread will then start one
         # more thread for each request
         server_thread = threading.Thread(target=server.serve_forever)
@@ -556,7 +556,7 @@ def main(argv=None):
 
     except Exception as e:
         indent = len(program_name) * " "
-        sys.stderr.write(program_name + ": " + repr(e) + "\n")
+        sys.stderr.write(f'{program_name}: {repr(e)}' + "\n")
         sys.stderr.write(indent + "  for help use --help\n")
         return 2
 

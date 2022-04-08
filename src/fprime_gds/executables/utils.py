@@ -23,9 +23,7 @@ class ProcessNotStableException(Exception):
     def __init__(self, name, code, lifespan):
         """ Constructor to help with messages"""
         super().__init__(
-            "{} stopped with code {} sooner than {} seconds".format(
-                name, code, lifespan
-            )
+            f"{name} stopped with code {code} sooner than {lifespan} seconds"
         )
 
 
@@ -91,17 +89,15 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
     :return: child process should it be needed.
     """
     # Write out run information for the calling user
-    print("[INFO] Running Application: {}".format(arguments[0]))
+    print(f"[INFO] Running Application: {arguments[0]}")
     # Attempt to open a log file
     file_handler = None
     try:
         if logfile is not None:
-            print("[INFO] Log File: {}".format(logfile))
+            print(f"[INFO] Log File: {logfile}")
             file_handler = open(logfile, "wb", 0)
     except OSError as exc:
-        raise AppWrapperException(
-            "Failed to open: {} with error {}.".format(logfile, str(exc))
-        )
+        raise AppWrapperException(f"Failed to open: {logfile} with error {str(exc)}.")
     # Spawn the process. Uses pexpect, as this will force the process to output data immediately, rather than buffering
     # the output. That way the log file is fully up-to-date.
     try:
@@ -120,5 +116,5 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
         return child
     except Exception as exc:
         raise AppWrapperException(
-            "Failed to run application: {}. Error: {}".format(" ".join(arguments), exc)
+            f'Failed to run application: {" ".join(arguments)}. Error: {exc}'
         )

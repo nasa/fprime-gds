@@ -92,7 +92,7 @@ class ParserBase(abc.ABC):
             for parser_base in parser_classes:
                 args = parser_base.handle_arguments(args, **kwargs)
         except ValueError as ver:
-            print("[ERROR] Failed to parse arguments: {}".format(ver), file=sys.stderr)
+            print(f"[ERROR] Failed to parse arguments: {ver}", file=sys.stderr)
             sys.exit(-1)
         return args, parser
 
@@ -109,7 +109,7 @@ class ParserBase(abc.ABC):
         """
         for dirpath, dirs, files in os.walk(deploy):
             for check in files if is_file else dirs:
-                if re.match("^" + str(token) + "$", check):
+                if re.match(f"^{str(token)}$", check):
                     return os.path.join(dirpath, check)
         return None
 
@@ -153,7 +153,7 @@ class ImportParser(ParserBase):
                 globals()[module] = importlib.import_module(module)
             except ImportError as ime:
                 print(
-                    "[WARNING] Failed to import '{}' with error {}".format(module, ime),
+                    f"[WARNING] Failed to import '{module}' with error {ime}",
                     file=sys.stderr,
                 )
         return args
@@ -195,14 +195,12 @@ class CommParser(ParserBase):
                 getattr(adapter, "get_arguments", None)
             ):
                 print(
-                    "[WARNING] '{}' does not have 'get_arguments' method, skipping.".format(
-                        adapter_name
-                    ),
+                    f"[WARNING] '{adapter_name}' does not have 'get_arguments' method, skipping.",
                     file=sys.stderr,
                 )
                 continue
             comm_parser = argparse.ArgumentParser(
-                description="'{}' parser".format(adapter_name), add_help=False
+                description=f"'{adapter_name}' parser", add_help=False
             )
             # Add arguments for the parser
             for argument in adapter.get_arguments().keys():
@@ -455,16 +453,14 @@ class GdsParser(ParserBase):
         args = copy.copy(args)
         # Find dictionary setting via "dictionary" argument or the "deploy" argument
         if args.dictionary is not None and not os.path.exists(args.dictionary):
-            raise ValueError(
-                "Dictionary file {} does not exist".format(args.dictionary)
-            )
+            raise ValueError(f"Dictionary file {args.dictionary} does not exist")
 
         # Handle configuration arguments
         config = fprime_gds.common.utils.config_manager.ConfigManager()
         if args.config is not None and os.path.isfile(args.config):
             config.set_configs(args.config)
         elif args.config is not None:
-            raise ValueError("Configuration file {} not found".format(args.config))
+            raise ValueError(f"Configuration file {args.config} not found")
         args.config = config
         return args
 
@@ -528,11 +524,9 @@ class BinaryDeployment(ParserBase):
             return args
         args = copy.copy(args)
         if args.app is not None and not os.path.isfile(args.app):
-            raise ValueError("F prime binary '{}' does not exist".format(args.app))
+            raise ValueError(f"F prime binary '{args.app}' does not exist")
         if args.root_dir is not None and not os.path.isdir(args.root_dir):
             raise ValueError(
-                "F prime artifacts root directory '{}' does not exist".format(
-                    args.root_dir
-                )
+                f"F prime artifacts root directory '{args.root_dir}' does not exist"
             )
         return args
