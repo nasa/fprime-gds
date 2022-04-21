@@ -36,16 +36,17 @@ from fprime_gds.common.data_types import sys_data
 class CmdData(sys_data.SysData):
     """The CmdData class stores a specific command"""
 
-    def __init__(self, cmd_args, cmd_temp, cmd_time=None):
+    def __init__(self, cmd_args, cmd_temp, cmd_desc=None, cmd_time=None):
         """
         Constructor.
 
         Args:
-            cmd_args: The arguments for the event. Should match the types of the
+            cmd_args: The arguments for the command. Should match the types of the
                       arguments in the cmd_temp object. Should be a tuple.
             cmd_temp: Command Template instance for this command (this provides
                       the opcode and argument types are stored)
-            cmd_time: The time the event should occur. This is for sequences.
+            cmd_desc: command descriptor: Absolute/Relative. For sequences
+            cmd_time: The time the command should occur. This is for sequences.
                       Should be a TimeType object with time base=TB_DONT_CARE
 
         Returns:
@@ -57,8 +58,7 @@ class CmdData(sys_data.SysData):
 
         self.args, errors = self.process_args(cmd_args)
         self.time = cmd_time if cmd_time else TimeType(TimeBase["TB_DONT_CARE"].value)
-
-
+        self.descriptor = cmd_desc
 
         # If any errors occur, then raise a aggregated error
         if [error for error in errors if error != ""]:
@@ -72,6 +72,14 @@ class CmdData(sys_data.SysData):
         """
 
         return self.template
+
+    def get_time(self):
+        """ Return time """
+        return self.time
+
+    def get_descriptor(self):
+        """ Return the descriptor """
+        return self.descriptor
 
     def get_id(self):
         """Get the ID associate with the template of this data object
@@ -187,7 +195,7 @@ class CmdData(sys_data.SysData):
             arg_type,
             (I64Type, U64Type, I32Type, U32Type, I16Type, U16Type, I8Type, U8Type),
         ):
-            arg_type.val = int(arg_val, 0)
+            arg_type.val = int(arg_val, 0) if isinstance(arg_val, str) else int(arg_val)
         elif isinstance(arg_type, StringType):
             arg_type.val = arg_val
         # Cannot handle serializable or array argument inputs

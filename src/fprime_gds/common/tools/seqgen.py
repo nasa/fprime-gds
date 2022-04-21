@@ -28,6 +28,8 @@ from fprime_gds.common.data_types import exceptions as gseExceptions
 from fprime_gds.common.encoders.seq_writer import SeqBinaryWriter
 from fprime_gds.common.loaders.cmd_xml_loader import CmdXmlLoader
 from fprime_gds.common.parsers.seq_file_parser import SeqFileParser
+from fprime_gds.common.data_types.cmd_data import CmdData, CommandArgumentsException
+from fprime.common.models.serialize.time_type import TimeBase, TimeType
 
 # from optparse import OptionParser
 
@@ -79,38 +81,13 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
             try:
                 # Make sure that command is in the command dictionary:
                 if mnemonic in cmd_name_dict:
-                    command_temp = copy.deepcopy(cmd_name_dict[mnemonic])
                     # Set the command arguments:
                     try:
-                        command_temp.setArgs(args)
-                    except ArgLengthMismatchException as e:
-                        raise SeqGenException(
-                            "Line %d: %s"
-                            % (
-                                i + 1,
-                                "'"
-                                + mnemonic
-                                + "' argument length mismatch. "
-                                + e.getMsg(),
-                            )
-                        )
-                    except TypeException as e:
-                        raise SeqGenException(
-                            "Line %d: %s"
-                            % (
-                                i + 1,
-                                "'"
-                                + mnemonic
-                                + "' argument type mismatch. "
-                                + e.getMsg(),
-                            )
-                        )
-                    # Set the command time and descriptor:
-                    command_temp.setDescriptor(descriptor)
-                    command_temp.setSeconds(seconds)
-                    command_temp.setUseconds(useconds)
-                    # Append this command to the command list:
-                    command_list.append(command_temp)
+                        cmd_time = TimeType(TimeBase["TB_DONT_CARE"].value, seconds=seconds, useconds=useconds)
+                        cmd_data = CmdData(args, cmd_name_dict[mnemonic], cmd_desc=descriptor, cmd_time=cmd_time)
+                    except CommandArgumentsException as e:
+                        raise SeqGenException(f"Line { i + 1 }: { mnemonic } errored: { ','.join(e.errors) }")
+                    command_list.append(cmd_data)
                 else:
                     raise SeqGenException(
                         "Line %d: %s"
