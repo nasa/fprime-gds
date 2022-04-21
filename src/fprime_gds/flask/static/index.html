@@ -507,7 +507,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                 <div class="input-group-prepend">
                                     <span class="input-group-text">Filters:</span>
                                 </div>
-                                <input class="form-control" type="text" v-model="matching" @input="send" />
+                                <input class="form-control" type="text" v-model="matching" @input="onFilterInput" />
                             </div>
                         </div>
                         <div class="col-lg-4" v-if="scroller != null">
