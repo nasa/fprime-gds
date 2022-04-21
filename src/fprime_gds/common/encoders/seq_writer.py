@@ -51,25 +51,26 @@ class SeqBinaryWriter:
             """
             # return TimeType(timeBase=2, seconds=cmd_obj.getSeconds(), useconds=cmd_obj.getUseconds()).serialize()
             # TKC - new command time format
+            time = cmd_obj.get_time()
             return (
-                U32Type(cmd_obj.getSeconds()).serialize()
-                + U32Type(cmd_obj.getUseconds()).serialize()
+                U32Type(time.seconds).serialize()
+                + U32Type(time.useconds ).serialize()
             )
 
         def __descriptor(cmd_obj):
             # subtract 1 from the value because enum34 enums start at 1, and this can't be changed
-            return U8Type(cmd_obj.getDescriptor().value - 1).serialize()
+            return U8Type(cmd_obj.get_descriptor().value - 1).serialize()
 
         def __command(cmd_obj):
             self.desc_obj.val = DataDescType["FW_PACKET_COMMAND"].value
-            self.opcode_obj.val = cmd_obj.getOpCode()
+            self.opcode_obj.val = cmd_obj.get_id()
             command = (
                 self.desc_obj.serialize()
             )  # serialize combuffer type enum: FW_PACKET_COMMAND
             command += self.opcode_obj.serialize()  # serialize opcode
             # Command arguments
-            for arg in cmd_obj.getArgs():
-                command += arg[2].serialize()
+            for arg in cmd_obj.get_args():
+                command += arg.serialize()
             return command
 
         def __length(command):
