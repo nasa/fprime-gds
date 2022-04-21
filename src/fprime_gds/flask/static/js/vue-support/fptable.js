@@ -353,10 +353,20 @@ Vue.component("fp-table", {
             fields: Vue.util.extend([], toArrayIfString(this.initialFields)),
             scroller: scroller,
             scrollerData: scroller.metadata,
-            itemsLength: 0
+            itemsLength: 0,
+            _timeoutId: null
         }
     },
     methods: {
+        /**
+         * Function triggered on input to the filters box. This will delay for a 300ms before triggering a single run
+         * of the filtering algorithm. This will allow users to finish typing but will not require them to hit ENTER
+         * to indicate this fact. It balances reactivity against redundant long-running invocations.
+         */
+        onFilterInput() {
+            clearTimeout(this._timeoutId);
+            this._timeoutId = setTimeout(this.send, 300);
+        },
         /**
          * Send function for handling new items. In this case, it just acts as a signal to recompute the displayed items
          * to minimize the impact of the vue's reactivity. In case that itemsKey is not used, this is a no-op.
