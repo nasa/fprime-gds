@@ -24,11 +24,11 @@ class DataLogger(fprime_gds.common.handlers.DataHandler):
 
         self.verbose = verbose
         self.csv = csv
-        self.f_r = open(self.logdir + os.sep + self.recv_file, "wb+")
-        self.f_s = open(self.logdir + os.sep + self.send_file, "wb+")
-        self.f_telem = open(self.logdir + os.sep + self.telem_file, "w+")
-        self.f_event = open(self.logdir + os.sep + self.event_file, "w+")
-        self.f_command = open(self.logdir + os.sep + self.command_file, "w+")
+        self.f_r = open(self.logdir + os.sep + self.recv_file, "ab+")
+        self.f_s = open(self.logdir + os.sep + self.send_file, "ab+")
+        self.f_telem = open(self.logdir + os.sep + self.telem_file, "a+")
+        self.f_event = open(self.logdir + os.sep + self.event_file, "a+")
+        self.f_command = open(self.logdir + os.sep + self.command_file, "a+")
 
     def __del__(self):
         self.f_r.close()
