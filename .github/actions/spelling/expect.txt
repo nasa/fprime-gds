@@ -24,6 +24,7 @@ args
 argtype
 argv
 Arial
+asctime
 asm
 aspx
 atexit
@@ -69,6 +70,7 @@ CFDG
 CFDP
 CFPD
 cgi
+Chainable
 chartjs
 checkbox
 chrono
@@ -126,6 +128,7 @@ deserialize
 deserialized
 deserializing
 dest
+dexc
 DGRAM
 DHTML
 diafile
@@ -183,6 +186,7 @@ entrypoint
 enum
 envvar
 errno
+errored
 etree
 ev
 Evn
@@ -230,6 +234,7 @@ getattr
 getbootstrap
 getcwd
 getitem
+getmembers
 getpid
 getroot
 getsize
@@ -294,6 +299,7 @@ isalnum
 isdir
 isfile
 isinstance
+issubclass
 itcl
 iterables
 iterdir
@@ -324,6 +330,7 @@ kinda
 kwargs
 len
 lestarch
+levelname
 Lezer
 lgtm
 libc
@@ -401,12 +408,14 @@ odo
 oga
 ogg
 OMG
+ooo
 onload
 onreadystatechange
 openpyxl
 OPREG
 optgroup
 optparse
+oring
 osascript
 osexc
 osubgrouping
@@ -459,6 +468,7 @@ pytest
 PYTHONHOME
 PYTHONPATH
 pyw
+pyzmq
 qch
 qhelpgenerator
 QHG
@@ -493,6 +503,7 @@ returncode
 rgb
 rgba
 riverbankcomputing
+RLock
 Roboto
 rollup
 rpaetz
@@ -503,6 +514,7 @@ saba
 scm
 scrollable
 scrollbar
+scroller
 sdd
 searchdata
 SEARCHENGINE
@@ -631,6 +643,7 @@ uplinkvue
 uploader
 upto
 URI
+uri
 url
 usec
 useconds
@@ -641,6 +654,7 @@ utcfromtimestamp
 utcnow
 utf
 utils
+validator
 vals
 valuemin
 valuenow
@@ -654,6 +668,7 @@ vhdl
 viewcode
 VIRTUALENV
 virtualized
+vle
 vname
 VRuntime
 vue
@@ -687,3 +702,6 @@ xy
 yaml
 yml
 zlib
+ZMQ
+Zmq
+zmq
