@@ -29,7 +29,7 @@ class HistoryTestCases(unittest.TestCase):
 
     @staticmethod
     def get_range(length):
-        temp1 = ChTemplate(1, "Test Channel 1", "Chrono_Hist_Tester", I32Type())
+        temp1 = ChTemplate(1, "Test Channel 1", "Chrono_Hist_Tester", I32Type)
         chList = []
         ts0 = TimeType()
         for item in range(length):

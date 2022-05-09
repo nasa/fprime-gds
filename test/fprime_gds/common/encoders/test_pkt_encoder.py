@@ -26,9 +26,9 @@ def test_pkt_encoder():
     enc = PktEncoder()
     enc_config = PktEncoder(config)
 
-    ch_temp_1 = ChTemplate(101, "test_ch", "test_comp", U32Type())
-    ch_temp_2 = ChTemplate(102, "test_ch2", "test_comp2", U8Type())
-    ch_temp_3 = ChTemplate(103, "test_ch3", "test_comp3", U16Type())
+    ch_temp_1 = ChTemplate(101, "test_ch", "test_comp", U32Type)
+    ch_temp_2 = ChTemplate(102, "test_ch2", "test_comp2", U8Type)
+    ch_temp_3 = ChTemplate(103, "test_ch3", "test_comp3", U16Type)
 
     pkt_temp = PktTemplate(64, "test_pkt", [ch_temp_1, ch_temp_2, ch_temp_3])
 
