@@ -81,16 +81,16 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         # Keep alive thread
         try:
             # Setup the tcp and udp adapter and run a thread to service them
-            self.thtcp = threading.Thread(target=self.th_handler, args=(self.tcp,))
+            self.thtcp = threading.Thread(target=self.th_handler, name="TcpCommThread", args=(self.tcp,))
             self.thtcp.daemon = True
             self.thtcp.start()
-            self.thudp = threading.Thread(target=self.th_handler, args=(self.udp,))
+            self.thudp = threading.Thread(target=self.th_handler, name="UdpCommThread", args=(self.udp,))
             self.thudp.daemon = True
             self.thudp.start()
             # Start up a keep-alive ping if desired. This will hit the TCP uplink, and die if the connection is down
             if IpAdapter.KEEPALIVE_INTERVAL is not None:
                 self.keepalive = threading.Thread(
-                    target=self.th_alive, args=[float(self.KEEPALIVE_INTERVAL)]
+                    target=self.th_alive, name="KeepCommAliveThread", args=[float(self.KEEPALIVE_INTERVAL)]
                 )
                 self.keepalive.start()
         except (ValueError, TypeError) as exc:

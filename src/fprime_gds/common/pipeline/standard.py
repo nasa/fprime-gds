@@ -148,10 +148,12 @@ class StandardPipeline:
         """
         Disconnect from socket
         """
-        if self.client_socket is not None:
-            self.client_socket.disconnect()
-        if self.files is not None and self.files.uplinker is not None:
-            self.files.uplinker.exit()
+        try:
+            if self.client_socket is not None:
+                self.client_socket.disconnect()
+        finally:
+            if self.files is not None and self.files.uplinker is not None:
+                self.files.uplinker.exit()
 
     def send_command(self, command, args):
         """Sends commands to the encoder and history.

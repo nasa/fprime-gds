@@ -57,10 +57,10 @@ class Downlinker:
 
     def start(self):
         """Starts the downlink pipeline"""
-        self.th_ground = threading.Thread(target=self.sending)
+        self.th_ground = threading.Thread(target=self.sending, name="DownlinkTTSGroundThread")
         self.th_ground.daemon = True
         self.th_ground.start()
-        self.th_data = threading.Thread(target=self.deframing)
+        self.th_data = threading.Thread(target=self.deframing, name="DownLinkDeframingThread")
         self.th_data.daemon = True
         self.th_data.start()
 
@@ -164,7 +164,7 @@ class Uplinker:
 
     def start(self):
         """Starts the uplink pipeline"""
-        self.th_uplink = threading.Thread(target=self.uplink)
+        self.th_uplink = threading.Thread(target=self.uplink, name="UplinkThread")
         self.th_uplink.daemon = True
         self.th_uplink.start()
 

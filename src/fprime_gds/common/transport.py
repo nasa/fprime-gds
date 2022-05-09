@@ -114,9 +114,10 @@ class ThreadedTransportClient(TransportClient, ABC):
             timeout: read timeout supplied to the recv call within the thread. Sets shutdown time.
         """
         super().__init__()
-        self.__data_recv_thread = threading.Thread(target=self.recv_thread)
+        self.__data_recv_thread = threading.Thread(target=self.recv_thread, name="TTSReceiverThread")
         self.__stop_event = threading.Event()
         self.timeout = timeout
+        self.started = False
 
     def connect(self, *_, **__):
         """Starts up the recv thread when connected
@@ -126,6 +127,7 @@ class ThreadedTransportClient(TransportClient, ABC):
         """
         super().connect(*_, **__)
         if not self.__stop_event.is_set():
+            self.started = True
             self.__data_recv_thread.start()
 
     def disconnect(self):
@@ -137,7 +139,8 @@ class ThreadedTransportClient(TransportClient, ABC):
         """
         super().disconnect()
         self.__stop_event.set()
-        self.__data_recv_thread.join()
+        if self.started:
+            self.__data_recv_thread.join()
 
     def stop(self):
         """ Stop the receive thread without waiting """

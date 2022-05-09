@@ -47,7 +47,7 @@ class UplinkQueue:
         self.queue = queue.Queue()
         self.__file_store = []
         self.__exit = threading.Event()
-        self.__thread = threading.Thread(target=self.run, args=())
+        self.__thread = threading.Thread(target=self.run, name="UplinkerThread", args=())
         self.__thread.start()
 
     def enqueue(self, filepath, destination):
