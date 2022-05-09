@@ -469,7 +469,7 @@ class IntegrationTestAPI(DataHandler):
     ######################################################################################
     #   Telemetry Functions
     ######################################################################################
-    def translate_telemetry_name(self, channel):
+    def translate_telemetry_name(self, channel, force_component=True):
         """
         This function will translate the given mnemonic into an ID as defined by the flight
         software dictionary. This call will raise an error if the channel given is not in the
@@ -477,16 +477,20 @@ class IntegrationTestAPI(DataHandler):
 
         Args:
             channel: a channel mnemonic (str) or id (int)
+            force_component: (optional) force the event to match a fully qualified event name when supplying a string
         Returns:
-            the channel ID (int)
+            the channel ID (int) or list of channel ids when force component is False
         """
         if isinstance(channel, str):
             ch_dict = self.pipeline.dictionaries.channel_name
+            matching = [ch_dict[name].get_id() for name in ch_dict.keys() if name.endswith(f".{channel}")] 
             if channel in ch_dict:
                 return ch_dict[channel].get_id()
-            else:
+            elif force_component or not matching:
                 msg = f"The telemetry mnemonic, {channel}, wasn't in the dictionary"
                 raise KeyError(msg)
+            else:
+                return matching
         else:
             ch_dict = self.pipeline.dictionaries.channel_id
             if channel in ch_dict:
@@ -517,8 +521,8 @@ class IntegrationTestAPI(DataHandler):
             return channel
 
         if not predicates.is_predicate(channel) and channel is not None:
-            channel = self.translate_telemetry_name(channel)
-            channel = predicates.equal_to(channel)
+            channel = self.translate_telemetry_name(channel, force_component=False)
+            channel = predicates.is_a_member_of(channel) if isinstance(channel, list) else predicates.equal_to(channel)
 
         if not predicates.is_predicate(value) and value is not None:
             value = predicates.equal_to(value)
@@ -692,7 +696,7 @@ class IntegrationTestAPI(DataHandler):
     ######################################################################################
     #   Event Functions
     ######################################################################################
-    def translate_event_name(self, event):
+    def translate_event_name(self, event, force_component=True):
         """
         This function will translate the given mnemonic into an ID as defined by the
         flight software dictionary. This call will raise an error if the event given is
@@ -700,16 +704,20 @@ class IntegrationTestAPI(DataHandler):
 
         Args:
             event: an event mnemonic (str) or ID (int)
+            force_component: (optional) force the event to match a fully qualified event name when supplying a string
         Returns:
-            the event ID (int)
+            the event ID (int) or list of event ids when force component is False
         """
         if isinstance(event, str):
             event_dict = self.pipeline.dictionaries.event_name
+            matching = [event_dict[name].get_id() for name in event_dict.keys() if name.endswith(f".{event}")] 
             if event in event_dict:
                 return event_dict[event].get_id()
-            else:
+            elif force_component or not matching:
                 msg = f"The event mnemonic, {event}, wasn't in the dictionary"
                 raise KeyError(msg)
+            else:
+                return matching
         else:
             event_dict = self.pipeline.dictionaries.event_id
             if event in event_dict:
@@ -740,8 +748,8 @@ class IntegrationTestAPI(DataHandler):
             return event
 
         if not predicates.is_predicate(event) and event is not None:
-            event = self.translate_event_name(event)
-            event = predicates.equal_to(event)
+            event = self.translate_event_name(event, force_component=False)
+            event = predicates.is_a_member_of(event) if isinstance(event, list) else predicates.equal_to(event)
 
         if not predicates.is_predicate(args) and args is not None:
             args = predicates.args_predicate(args)

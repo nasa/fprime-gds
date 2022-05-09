@@ -69,6 +69,6 @@ class CmdXmlLoader(XmlLoader):
             cmd_temp = CmdTemplate(cmd_opcode, cmd_mnemonic, cmd_comp, args, cmd_desc)
 
             id_dict[cmd_opcode] = cmd_temp
-            name_dict[f"{cmd_comp}.{cmd_mnemonic}"] = cmd_temp
+            name_dict[cmd_temp.get_full_name()] = cmd_temp
 
         return id_dict, name_dict

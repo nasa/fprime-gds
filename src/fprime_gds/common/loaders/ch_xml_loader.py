@@ -120,6 +120,6 @@ class ChXmlLoader(XmlLoader):
             )
 
             id_dict[ch_id] = ch_temp
-            name_dict[ch_name] = ch_temp
+            name_dict[ch_temp.get_full_name()] = ch_temp
 
         return id_dict, name_dict
