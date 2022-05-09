@@ -17,12 +17,6 @@ from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.common.utils.config_manager import ConfigManager
 
-filename = os.path.dirname(__file__)
-gdsName = os.path.join(filename, "../../../../src")
-fprimeName = os.path.join(filename, "../../../../../Fw/Python/src")
-sys.path.insert(0, gdsName)
-sys.path.insert(0, fprimeName)
-
 
 class UTPipeline(StandardPipeline):
     """
@@ -83,10 +77,10 @@ class APITestCases(unittest.TestCase):
     def setUpClass(cls):
         cls.pipeline = UTPipeline()
         config = ConfigManager()
-        path = os.path.join(filename, "./UnitTestDictionary.xml")
-        down_store = os.path.join(filename, "./")
+        path = os.path.join(os.path.dirname(__file__), "./UnitTestDictionary.xml")
+        down_store = os.path.join(os.path.dirname(__file__), "./")
         cls.pipeline.setup(config, path, down_store)
-        log_path = os.path.join(filename, "./logs")
+        log_path = os.path.join(os.path.dirname(__file__), "./logs")
         cls.api = IntegrationTestAPI(cls.pipeline, log_path)
         cls.case_list = []  # TODO find a better way to do this.
         cls.threads = []
@@ -120,7 +114,7 @@ class APITestCases(unittest.TestCase):
             callback(item)
 
     def fill_history_async(self, callback, items, timestep=1.0):
-        t = threading.Thread(target=self.fill_history, args=(callback, items, timestep))
+        t = threading.Thread(target=self.fill_history, name="FillHistoryAsync", args=(callback, items, timestep))
         self.threads.append(t)
         t.start()
         return t
