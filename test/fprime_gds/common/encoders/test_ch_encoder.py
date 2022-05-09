@@ -24,7 +24,7 @@ def test_ch_encoder():
     enc = ChEncoder()
     enc_config = ChEncoder(config)
 
-    temp = ChTemplate(101, "test_ch", "test_comp", U32Type())
+    temp = ChTemplate(101, "test_ch", "test_comp", U32Type)
 
     time_obj = TimeType(2, 0, 1533758629, 123456)
 
@@ -52,7 +52,7 @@ def test_ch_encoder():
         config_output == config_expected
     ), f"FAIL: expected configured output to be {list(config_expected)}, but found {list(config_output)}"
 
-    temp = ChTemplate(102, "test_ch2", "test_comp2", U16Type())
+    temp = ChTemplate(102, "test_ch2", "test_comp2", U16Type)
 
     time_obj = TimeType(2, 0, 1533758628, 123457)
 

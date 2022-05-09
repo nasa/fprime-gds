@@ -33,7 +33,7 @@ def test_distributor():
 
     data = header_1 + data_1 + header_2 + data_2 + leftover_data
 
-    (test_leftover, raw_msgs) = dist.parse_into_raw_msgs_api(data)
+    (test_leftover, raw_msgs) = dist.parse_into_raw_msgs_api(bytearray(data))
 
     assert (
         test_leftover == leftover_data

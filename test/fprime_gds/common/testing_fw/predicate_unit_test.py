@@ -244,10 +244,11 @@ class PredicateTestCases(unittest.TestCase):
         assert pred(8), "The value 8 should have been accepted."
 
     def test_telemetry_predicates(self):
-        temp1 = ChTemplate(1, "Test Channel 1", "Predicate_Tester", I32Type())
-        temp2 = ChTemplate(2, "Test Channel 2", "Predicate_Tester", StringType())
+        test_string_type = StringType.construct_type("TestCh2String")
+        temp1 = ChTemplate(1, "Test Channel 1", "Predicate_Tester", I32Type)
+        temp2 = ChTemplate(2, "Test Channel 2", "Predicate_Tester", test_string_type)
         update1 = ChData(I32Type(20), TimeType(), temp1)
-        update2 = ChData(StringType("apple"), TimeType(), temp2)
+        update2 = ChData(test_string_type("apple"), TimeType(), temp2)
 
         pred = predicates.telemetry_predicate()
         assert pred(
@@ -289,7 +290,8 @@ class PredicateTestCases(unittest.TestCase):
         self.check_str(pred)
 
     def test_event_predicates(self):
-        args1_def = [("name", "string", StringType()), ("age", "int", I32Type())]
+        test_string_type = StringType.construct_type("TestEventString")
+        args1_def = [("name", "string", test_string_type), ("age", "int", I32Type)]
         temp1 = EventTemplate(
             1,
             "Test Msg 1",
@@ -298,11 +300,11 @@ class PredicateTestCases(unittest.TestCase):
             EventSeverity.ACTIVITY_LO,
             "",
         )
-        args1 = (StringType("John"), I32Type(35))
+        args1 = (test_string_type("John"), I32Type(35))
         msg1 = EventData(args1, TimeType(), temp1)
         args2_def = [
-            ("description", "string", StringType()),
-            ("count", "int", I32Type()),
+            ("description", "string", test_string_type),
+            ("count", "int", I32Type),
         ]
         temp2 = EventTemplate(
             2,
@@ -312,7 +314,7 @@ class PredicateTestCases(unittest.TestCase):
             EventSeverity.ACTIVITY_HI,
             "",
         )
-        args2 = (StringType("Dozen"), I32Type(12))
+        args2 = (test_string_type("Dozen"), I32Type(12))
         msg2 = EventData(args2, TimeType(), temp2)
 
         pred = predicates.event_predicate()

@@ -29,7 +29,7 @@ def test_event_encoder():
         101,
         "test_ch",
         "test_comp",
-        [("a1", "a1", U32Type()), ("a2", "a2", U32Type())],
+        [("a1", "a1", U32Type), ("a2", "a2", U32Type)],
         EventSeverity["DIAGNOSTIC"],
         "%d %d",
     )
@@ -64,7 +64,7 @@ def test_event_encoder():
         102,
         "test_ch2",
         "test_comp2",
-        [("a1", "a1", U8Type()), ("a2", "a2", U16Type())],
+        [("a1", "a1", U8Type), ("a2", "a2", U16Type)],
         EventSeverity["DIAGNOSTIC"],
         "%d %d",
     )
