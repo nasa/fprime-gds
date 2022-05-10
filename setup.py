@@ -115,7 +115,7 @@ integrated configuration with ground in-the-loop.
         "pexpect==4.8.0",
         "pytest==6.2.4",
         "flask_restful==0.3.8",
-        "fprime-tools",
+        "fprime-tools @ git+https://github.com/fprime-community/fprime-tools.git@9b8d0d3c58bba77e1da80a89ebe404d2dc570b34",
         "argcomplete==1.12.3",
         "Jinja2==2.11.3",
         "Werkzeug==2.0.1",
