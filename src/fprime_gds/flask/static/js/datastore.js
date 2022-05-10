@@ -222,7 +222,7 @@ class DataStore {
      * that has been received into a form that supports this client. Specifically:
      *
      * 0. Load the dictionary data into a globally exported store.
-     * 1. this.channels is setup to contain all the dictionary supplied keys. This is done becayse vue needs each key to
+     * 1. this.channels is setup to contain all the dictionary supplied keys. This is done because vue needs each key to
      *    exist before updates to it for reactivity to work.
      * 2. Command arguments are assigned a value and error property. This allows for arguments to be filled in this
      *    global store alongside the dictionary data.

@@ -181,12 +181,15 @@ endcond
 endian
 endif
 endswith
+endtime
 enqueuing
 entrypoint
 enum
 envvar
 errno
 errored
+errorhandler
+errorrs
 etree
 ev
 Evn
@@ -222,12 +225,15 @@ FONTPATH
 FONTSIZE
 fprime
 fptable
+frac
 framerate
 fromtimestamp
 frontend
 fsw
 fsx
+fullname
 func
+functools
 gcc
 gdiplus
 getattr
@@ -290,15 +296,19 @@ ini
 inl
 inlined
 inprogress
+instanceof
 intersphinx
 intlimits
 ints
 ip
+ipc
 ipp
 isalnum
+isclass
 isdir
 isfile
 isinstance
+isroutine
 issubclass
 itcl
 iterables
@@ -369,6 +379,7 @@ metadata
 metavar
 microsoft
 middleware
+millis
 mixin
 mkdir
 MML
@@ -408,9 +419,11 @@ odo
 oga
 ogg
 OMG
-ooo
+onabort
+onerror
 onload
 onreadystatechange
+ooo
 openpyxl
 OPREG
 optgroup
@@ -480,6 +493,8 @@ rackspace
 rae
 rb
 RCE
+RCVHWM
+RCVTIMEO
 RDWR
 readlines
 README
@@ -487,6 +502,7 @@ readonly
 readthedocs
 realtime
 recommonmark
+recuring
 recv
 recvd
 recvfrom
@@ -495,6 +511,7 @@ refactor
 regex
 relpath
 removeit
+replayer
 reqclass
 reqparse
 rerendered
@@ -527,6 +544,7 @@ serialutil
 setattr
 setblocking
 setname
+setsockopt
 setuptools
 showinitializer
 shutil
@@ -538,6 +556,7 @@ SIGTERM
 sizeb
 SMAP
 Smath
+SNDHWM
 socketserver
 sorttable
 sphinxcontrib
@@ -547,6 +566,7 @@ sss
 Ssymbols
 stackoverflow
 startswith
+starttime
 startuml
 staticmethod
 stderr
@@ -594,9 +614,11 @@ thudp
 timebase
 timedelta
 timescales
+timespan
 timestep
 timestring
 timetype
+timeval
 timezone
 tinyseqgen
 TKC
@@ -617,8 +639,8 @@ ttl
 tts
 twbs
 txz
-typedef'ed
 typedef
+typedef'ed
 typehints
 typeof
 tzinfo
@@ -654,6 +676,7 @@ utcfromtimestamp
 utcnow
 utf
 utils
+uuid
 validator
 vals
 valuemin
@@ -679,6 +702,7 @@ webified
 webkit
 webp
 webpack
+webpage
 webserver
 website
 werkzeug
@@ -701,6 +725,7 @@ xml
 xy
 yaml
 yml
+zeromq
 zlib
 ZMQ
 Zmq

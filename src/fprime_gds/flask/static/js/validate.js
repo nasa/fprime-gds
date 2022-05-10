@@ -211,7 +211,7 @@ class LoadValidator {
      * @param field: field to count as it is incoming
      * @param follow_on: function to process the data after counting
      * @param transformer: function to transform the value of a field. Default: item -> item
-     * @param initials: initial value key-value maping for field counter. Default: {}
+     * @param initials: initial value key-value mapping for field counter. Default: {}
      */
     wrapFieldCounter(field, follow_on, transformer, initials) {
         let _self = this;
