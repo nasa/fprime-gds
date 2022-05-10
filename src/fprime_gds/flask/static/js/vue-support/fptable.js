@@ -205,7 +205,7 @@ Vue.component("fp-table", {
         /**
          * itemsKey:
          *
-         * Key into the global datastore for sourcing items. This can be used as a replacement to specifying items so
+         * Key into the global datastore for acquiring items. This can be used as a replacement to specifying items so
          * as to filter the items down before making these items reactive. This will hopefully side-step the expensive
          * Vue mechanics called on large lists.
          */

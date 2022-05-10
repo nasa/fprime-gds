@@ -22,9 +22,8 @@ function preprocess_matchings(matching_tokens) {
 
     let oring = false;
     let processed = [[]];
-    // Loop through all of the tokens, spliting them itn
     for (let i = 0; i < matching_tokens_arr.length; i++) {
-        // If token is -or- we eill be oring next time
+        // If token is -or- we will be oring next time
         if (matching_tokens_arr[i] === "-or-") {
             oring = true;
         }

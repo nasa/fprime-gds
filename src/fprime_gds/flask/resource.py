@@ -62,7 +62,7 @@ class HistoryResourceBase(Resource):
         self.history = history
 
     def process(self, item):
-        """Base history objecy processing function (does nothing)"""
+        """Base history object processing function (does nothing)"""
         return item
 
     def get(self):
