@@ -11,16 +11,16 @@ import os
 import sys
 
 
-def configure_py_log(directory=None, filename=sys.argv[0], mode="w", mirror_to_stdout=False):
+def configure_py_log(directory=None, filename=sys.argv[0], mirror_to_stdout=False):
     """
     Configure the python logging. If logdir is supplied, our logs will go in that directory as a log file. Otherwise,
     logs will go to the CLI.
 
+    :param directory: directory logs are written into
     :param filename: logging filename
-    :param logdir: directory to log file into
     :param mode: of file to write
+    :param mirror_to_stdout: mirror the log output to standard our
     """
-    logger = logging.getLogger()
     handlers = [logging.StreamHandler(sys.stdout)] if directory is None or mirror_to_stdout else []
     if directory is not None:
         log_file = os.path.join(directory, os.path.basename(filename))

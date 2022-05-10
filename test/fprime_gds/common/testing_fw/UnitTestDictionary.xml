@@ -45,11 +45,14 @@
     </event>
     <event component="apiTester" name="SeverityFATAL" id="0x9" severity="FATAL" format_string="Unit Test EVR with FATAL Severity">
     </event>
+    <event component="apiTester2" name="SeverityFATAL" id="0xA" severity="FATAL" format_string="Unit Test EVR with FATAL Severity">
+    </event>
   </events>
   <channels>
     <channel component="apiTester" name="CommandCounter" id="1" description="Counts number of commands sent by the unit test" type="U32"/>
     <channel component="apiTester" name="Oscillator" id="2" description="Oscillates over time" type="I32"/>
     <channel component="apiTester" name="Counter" id="3" description="Counts over time" type="U32"/>
+    <channel component="apiTester2" name="Counter" id="4" description="Counts over time" type="U32"/>
   </channels>
   <parameters>
   </parameters>

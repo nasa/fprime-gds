@@ -7,7 +7,7 @@
  *
  * @author mstarch
  */
-import {listExistsAndItemNameNotInList, ScrollHandler, timeToString} from "./utils.js";
+import {listExistsAndItemNameNotInList, timeToString} from "./utils.js";
 import {_datastore,_dictionaries} from "../datastore.js";
 
 let OPREG = /Opcode (0x[0-9a-fA-F]+)/;

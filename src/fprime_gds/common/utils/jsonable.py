@@ -14,12 +14,6 @@ Note: JSON types must use only the following data types
 
 @author mstarch
 """
-from inspect import getmembers, isroutine
-from typing import Type
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.enum_type import EnumType
-
-
 
 
 def fprime_to_jsonable(obj):

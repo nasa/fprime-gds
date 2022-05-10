@@ -10,7 +10,6 @@
 #                  }
 ####
 import copy
-import types
 
 from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
 from fprime_gds.common.utils.string_util import format_string_template

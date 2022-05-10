@@ -367,7 +367,6 @@ export class ScrollHandler {
         let user_scrolled = this.userScrolled(e);
         // Only when the user scrolls should we change the view
         if (this.filled() && user_scrolled) {
-            let updating = false;
             let elmH = this.element.scrollHeight;
             let elmT = this.element.scrollTop;
             let elmC = this.element.clientHeight;
