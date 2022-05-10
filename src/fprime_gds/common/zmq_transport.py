@@ -203,7 +203,7 @@ class ZmqGround(GroundHandler):
     frames/deframes packets heading to that layer.
 
     Since there is likely only one communications client to the FSW users should call make_server() after construction
-    to ensure that it binds to resources for the network. This is not forced in case of multipl FSW connections.
+    to ensure that it binds to resources for the network. This is not forced in case of multiple FSW connections.
     """
 
     def __init__(self, transport_url):
