@@ -13,7 +13,7 @@ import time
 import threading
 
 from fprime_gds.common.history.history import History
-from fprime_gds.common.data_types.ch_data import ChData
+
 
 class RamHistory(History):
     """

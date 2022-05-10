@@ -13,15 +13,10 @@ helper functions
 
 @bug No known bugs
 """
-
 import os
-from copy import deepcopy
-
 from lxml import etree
 
 from fprime.common.models.serialize.array_type import ArrayType
-
-# Custom type modules
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.enum_type import EnumType
 from fprime.common.models.serialize.numerical_types import (

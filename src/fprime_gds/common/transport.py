@@ -7,8 +7,7 @@ ThreadedTCPSocketClient used to send data through the threaded tcp server.
 
 @author lestarch
 """
-import abc
-from abc import ABC
+from abc import abstractmethod, ABC
 from enum import Enum
 import select
 import socket
@@ -40,7 +39,7 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
     incoming data to various handlers easy.
     """
 
-    @abc.abstractmethod
+    @abstractmethod
     def connect(
         self,
         connection_uri,
@@ -60,11 +59,11 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
             outgoing_routing: routing tag for the outgoing (sent) data
         """
 
-    @abc.abstractmethod
+    @abstractmethod
     def disconnect(self):
         """Disconnects from this client ensuring all resources deallocated"""
 
-    @abc.abstractmethod
+    @abstractmethod
     def send(self, data):
         """Send the supplied data out of this client
 
@@ -76,7 +75,7 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
             data {bytes}: data to send out this client
         """
 
-    @abc.abstractmethod
+    @abstractmethod
     def recv(self, timeout=None):
         """Receive data from the interface and return it
 

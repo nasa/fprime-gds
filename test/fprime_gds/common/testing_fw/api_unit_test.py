@@ -43,11 +43,11 @@ class UTPipeline(StandardPipeline):
         for hist in self.coders.command_subscribers:
             hist.data_callback(cmd_data)
 
-        ev_temp = self.dictionaries.event_name["CommandReceived"]
+        ev_temp = self.dictionaries.event_name["apiTester.CommandReceived"]
         event = EventData((U32Type(cmd_data.get_id()),), self.t0 + time.time(), ev_temp)
         self.enqueue_event(event)
 
-        ev_temp = self.dictionaries.event_name["HistorySizeUpdate"]
+        ev_temp = self.dictionaries.event_name["apiTester.HistorySizeUpdate"]
         evr_size = U32Type(len(self.histories.events.retrieve()))
         cmd_size = U32Type(len(self.histories.commands.retrieve()))
         ch_size = U32Type(len(self.histories.channels.retrieve()))
@@ -55,7 +55,7 @@ class UTPipeline(StandardPipeline):
         self.enqueue_event(event)
 
         self.command_count += 1
-        ch_temp = self.dictionaries.channel_name["CommandCounter"]
+        ch_temp = self.dictionaries.channel_name["apiTester.CommandCounter"]
         update = ChData(U32Type(self.command_count), self.t0 + time.time(), ch_temp)
         self.enqueue_telemetry(update)
 
@@ -134,20 +134,20 @@ class APITestCases(unittest.TestCase):
     def get_counter_sequence(self, length):
         seq = []
         for i in range(0, length):
-            ch_temp = self.pipeline.dictionaries.channel_name["Counter"]
+            ch_temp = self.pipeline.dictionaries.channel_name["apiTester.Counter"]
             seq.append(ChData(U32Type(i), TimeType(), ch_temp))
         return seq
 
     def get_oscillator_sequence(self, length):
         seq = []
         for i in range(0, length):
-            ch_temp = self.pipeline.dictionaries.channel_name["Oscillator"]
+            ch_temp = self.pipeline.dictionaries.channel_name["apiTester.Oscillator"]
             val = int(round(10 * math.sin(math.radians(i))))
             seq.append(ChData(I32Type(val), TimeType(), ch_temp))
         return seq
 
     def get_severity_event(self, severity="DIAGNOSTIC"):
-        name = f"Severity{severity}"
+        name = f"apiTester.Severity{severity}"
         temp = self.pipeline.dictionaries.event_name[name]
         event = EventData(tuple(), TimeType(), temp)
         return event
@@ -643,19 +643,37 @@ class APITestCases(unittest.TestCase):
             assert results1[i] != results2[i], "These sequences should be unique items"
 
     def test_translate_telemetry_name(self):
-        assert self.api.translate_telemetry_name("CommandCounter") == 1
-        assert self.api.translate_telemetry_name("Oscillator") == 2
-        assert self.api.translate_telemetry_name("Counter") == 3
+        assert self.api.translate_telemetry_name("apiTester.CommandCounter") == 1
+        assert self.api.translate_telemetry_name("apiTester.Oscillator") == 2
+        assert self.api.translate_telemetry_name("apiTester.Counter") == 3
         assert self.api.translate_telemetry_name(1) == 1
         assert self.api.translate_telemetry_name(2) == 2
         assert self.api.translate_telemetry_name(3) == 3
         try:
-            self.api.translate_command_name("DOES_NOT_EXIST")
+            self.api.translate_telemetry_name("DOES_NOT_EXIST")
             assert False, "the api should have raised a KeyError"
         except KeyError:
             assert True, "the api raised the correct error"
         try:
-            self.api.translate_command_name(0)
+            self.api.translate_telemetry_name(0)
+            assert False, "the api should have raised a KeyError"
+        except KeyError:
+            assert True, "the api raised the correct error"
+
+    def test_translate_telemetry_name_search(self):
+        assert self.api.translate_telemetry_name("CommandCounter", force_component=False) == [1]
+        assert self.api.translate_telemetry_name("Oscillator", force_component=False) == [2]
+        assert self.api.translate_telemetry_name("Counter", force_component=False) == [3, 4]
+        assert self.api.translate_telemetry_name(1, force_component=False) == 1
+        assert self.api.translate_telemetry_name(2, force_component=False) == 2
+        assert self.api.translate_telemetry_name(3, force_component=False) == 3
+        try:
+            self.api.translate_telemetry_name("DOES_NOT_EXIST", force_component=False)
+            assert False, "the api should have raised a KeyError"
+        except KeyError:
+            assert True, "the api raised the correct error"
+        try:
+            self.api.translate_telemetry_name(0, force_component=False)
             assert False, "the api should have raised a KeyError"
         except KeyError:
             assert True, "the api raised the correct error"
@@ -859,15 +877,15 @@ class APITestCases(unittest.TestCase):
             assert False, "api failed to raise an assertion error"
 
     def test_translate_event_name(self):
-        assert self.api.translate_event_name("CommandReceived") == 1
-        assert self.api.translate_event_name("HistorySizeUpdate") == 2
-        assert self.api.translate_event_name("SeverityCOMMAND") == 3
-        assert self.api.translate_event_name("SeverityACTIVITY_LO") == 4
-        assert self.api.translate_event_name("SeverityACTIVITY_HI") == 5
-        assert self.api.translate_event_name("SeverityWARNING_LO") == 6
-        assert self.api.translate_event_name("SeverityWARNING_HI") == 7
-        assert self.api.translate_event_name("SeverityDIAGNOSTIC") == 8
-        assert self.api.translate_event_name("SeverityFATAL") == 9
+        assert self.api.translate_event_name("apiTester.CommandReceived") == 1
+        assert self.api.translate_event_name("apiTester.HistorySizeUpdate") == 2
+        assert self.api.translate_event_name("apiTester.SeverityCOMMAND") == 3
+        assert self.api.translate_event_name("apiTester.SeverityACTIVITY_LO") == 4
+        assert self.api.translate_event_name("apiTester.SeverityACTIVITY_HI") == 5
+        assert self.api.translate_event_name("apiTester.SeverityWARNING_LO") == 6
+        assert self.api.translate_event_name("apiTester.SeverityWARNING_HI") == 7
+        assert self.api.translate_event_name("apiTester.SeverityDIAGNOSTIC") == 8
+        assert self.api.translate_event_name("apiTester.SeverityFATAL") == 9
         for i in range(1, 10):
             assert self.api.translate_event_name(i) == i
 
@@ -878,6 +896,30 @@ class APITestCases(unittest.TestCase):
             assert True, "the api raised the correct error"
         try:
             self.api.translate_event_name(0)
+            assert False, "the api should have raised a KeyError"
+        except KeyError:
+            assert True, "the api raised the correct error"
+
+    def test_translate_event_name_search(self):
+        assert self.api.translate_event_name("CommandReceived", force_component=False) == [1]
+        assert self.api.translate_event_name("HistorySizeUpdate", force_component=False) == [2]
+        assert self.api.translate_event_name("SeverityCOMMAND", force_component=False) == [3]
+        assert self.api.translate_event_name("SeverityACTIVITY_LO", force_component=False) == [4]
+        assert self.api.translate_event_name("SeverityACTIVITY_HI", force_component=False) == [5]
+        assert self.api.translate_event_name("SeverityWARNING_LO", force_component=False) == [6]
+        assert self.api.translate_event_name("SeverityWARNING_HI", force_component=False) == [7]
+        assert self.api.translate_event_name("SeverityDIAGNOSTIC", force_component=False) == [8]
+        assert self.api.translate_event_name("SeverityFATAL", force_component=False) == [9, 10]
+        for i in range(1, 11):
+            assert self.api.translate_event_name(i, force_component=False) == i
+
+        try:
+            self.api.translate_event_name("DOES_NOT_EXIST", force_component=False)
+            assert False, "the api should have raised a KeyError"
+        except KeyError:
+            assert True, "the api raised the correct error"
+        try:
+            self.api.translate_event_name(0, force_component=False)
             assert False, "the api should have raised a KeyError"
         except KeyError:
             assert True, "the api raised the correct error"

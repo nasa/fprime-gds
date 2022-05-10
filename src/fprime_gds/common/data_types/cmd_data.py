@@ -9,9 +9,6 @@ argument values.
 
 @bug No known bugs
 """
-
-from copy import deepcopy
-
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.enum_type import EnumType

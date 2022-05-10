@@ -86,7 +86,6 @@ Vue.component("channel-table", {
         calculateRowStyle() {
             let template = _dictionaries.channels[item.id];
             let value = this.channel.value;
-            let channel = this.channel;
             let bounds = [
                 {"class": "fp-color-fatal", "bounds": [template.low_red, value <= template.high_red]},
                 {

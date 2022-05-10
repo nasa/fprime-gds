@@ -10,8 +10,6 @@
 #                  }
 ####
 import copy
-import types
-import time
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase

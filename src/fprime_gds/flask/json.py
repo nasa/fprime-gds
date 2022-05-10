@@ -5,7 +5,7 @@
 ####
 from abc import ABCMeta
 from enum import Enum
-from inspect import getmembers, isroutine, isclass
+from inspect import getmembers, isroutine
 from typing import Type
 
 from fprime.common.models.serialize.type_base import BaseType
