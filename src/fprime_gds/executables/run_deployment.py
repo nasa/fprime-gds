@@ -49,7 +49,7 @@ def find_app(root: Path) -> Path:
             files.append(child)
 
     if len(files) == 0:
-        print(f"[ERROR] binary location {bin_dir} does not exist")
+        print(f"[ERROR] App not found in {bin_dir}")
         sys.exit(-1)
 
     if len(files) > 1:
