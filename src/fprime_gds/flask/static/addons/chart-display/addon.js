@@ -253,18 +253,5 @@ Vue.component("chart-display", {
                 this.$nextTick().then(() => {this.registerChart()});
             }
         }
-    },
-    /**
-     * Watch for new selection of channel and re-register the chart
-     */
-    /**watch: {
-        selected: function () {
-            if (this.selected !== this.oldSelected) {
-                this.oldSelected = this.selected;
-                this.registerChart();
-                let data = {"id": this.id, "selected": this.selected};
-                this.$emit("select-update", data);
-            }
-        },
-    },*/
+    }
 });

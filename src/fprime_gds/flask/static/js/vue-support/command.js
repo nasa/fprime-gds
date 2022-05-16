@@ -6,7 +6,7 @@
 // Setup component for select
 import "../../third-party/js/vue-select.js"
 import {listExistsAndItemNameNotInList, timeToString} from "./utils.js";
-import {_datastore} from "../datastore.js";
+import {_datastore, _dictionaries} from "../datastore.js";
 import {_loader} from "../loader.js";
 import {find_case_insensitive, validate_input} from "../validate.js"
 
@@ -370,10 +370,11 @@ Vue.component("command-history", {
          */
         columnify(item) {
             let values = [];
-            for (let i = 0; i < item.arg_vals.length; i++) {
-                values.push(item.arg_vals[i]);
+            for (let i = 0; i < item.args.length; i++) {
+                values.push(item.args[i]);
             }
-            return [timeToString(item.datetime || item.time), "0x" + item.id.toString(16), item.template.full_name, values.join(" ")];
+            let template = _dictionaries.commands_by_id[item.id];
+            return [timeToString(item.datetime || item.time), "0x" + item.id.toString(16), template.full_name, values.join(" ")];
         },
         /**
          * Take the given item and converting it to a unique key by merging the id and time together with a prefix
@@ -401,10 +402,11 @@ Vue.component("command-history", {
         */
         clickAction(item) {
             let cmd = item;
-            cmd.full_name = item.template.full_name;
+            let template = _dictionaries.commands_by_id[item.id];
+            cmd.full_name = template.full_name;
             // Can only set command if it is a child of a command input
             if (this.$parent.selectCmd) {
-                this.$parent.selectCmd(cmd.full_name, cmd.arg_vals, arg => arg);
+                this.$parent.selectCmd(cmd.full_name, cmd.args, arg => arg);
             }
         }
     }

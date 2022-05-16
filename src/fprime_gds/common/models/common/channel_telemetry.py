@@ -81,8 +81,6 @@ class Channel:
         :param offset: offset in data to deserialize from
         :return: value from deserialized channel
         """
-        # type_base.showBytes(ser_data[offset:])
-        #
         try:
             self.__ch_type.deserialize(ser_data, offset)
             val = self.__ch_type.val

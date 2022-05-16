@@ -159,14 +159,7 @@ class CmdData(sys_data.SysData):
                 args.append(arg_value)
                 errors.append("")
             except Exception as exc:
-                error_message = str(exc)
-                # Patch old versions of fprime-tools to replace a bad error message with the correct one
-                if (
-                    isinstance(exc, TypeError)
-                    and "object of type 'NoneType' has no len()" in error_message
-                ):
-                    error_message = f"String size {len(val)} is greater than {typ.__max_string_len}!"
-                errors.append(error_message)
+                errors.append(str(exc))
         return args, errors
 
     @staticmethod

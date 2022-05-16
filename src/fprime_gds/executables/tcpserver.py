@@ -506,7 +506,7 @@ def main(argv=None):
             action="store",
             type="int",
             help="Set threaded tcp socket server port [default: %default]",
-            default=50007,
+            default=50050,
         )
         parser.add_option(
             "-i",

@@ -129,6 +129,7 @@ def setup_pipelined_components(
         )
         pipeline.connect(connection_uri)
         __PIPELINE = pipeline
+    assert __PIPELINE is not None, "Main thread did not setup pipeline appropriately"
     return __PIPELINE
 
 

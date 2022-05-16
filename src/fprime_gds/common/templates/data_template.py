@@ -10,9 +10,6 @@ event or the channel FR_CycleTime.
 
 @bug No known bugs
 """
-import fprime_gds.common.utils.jsonable
-
-
 class DataTemplate:
     """Base class for all data template classes"""
 
@@ -32,9 +29,3 @@ class DataTemplate:
 
     def get_name(self):
         raise NotImplementedError
-
-    def to_jsonable(self):
-        """
-        Converts to a JSONable object (primitives, anon-objects, lists)
-        """
-        return fprime_gds.common.utils.jsonable.fprime_to_jsonable(self)

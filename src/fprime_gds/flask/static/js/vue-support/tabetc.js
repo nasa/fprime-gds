@@ -89,8 +89,6 @@ Vue.component("tabbed-etc", {
          */
         tabEnabled(tab) {
             return true;
-            /*tab = tab.toLowerCase();
-            return (tab in this._config.enabledTabs) ? this._config.enabledTabs[tab] : true;*/
         }
     },
     computed: {

@@ -10,6 +10,7 @@ below.
 """
 import datetime
 import os.path
+from pathlib import Path
 from typing import Type
 import fprime.common.models.serialize.time_type
 import fprime_gds.common.data_types.cmd_data
@@ -61,6 +62,7 @@ class StandardPipeline:
         :param logging_prefix: logging prefix. Defaults to not logging at all.
         :param packet_spec: location of packetized telemetry XML specification.
         """
+        assert dictionary is not None and Path(dictionary).is_file(), f"Dictionary {dictionary} does not exist"
         # Loads the distributor and client socket
         self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
         self.client_socket = self.__transport_type()
