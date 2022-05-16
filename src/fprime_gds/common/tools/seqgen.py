@@ -130,7 +130,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
     # Write to the output file:
     writer = SeqBinaryWriter(timebase=timebase)
     if not outputFile:
-        outputFile = os.path.splitext(inputFile)[0] + ".bin"
+        outputFile = f'{os.path.splitext(inputFile)[0]}.bin'
     try:
         writer.open(outputFile)
     except:
@@ -191,7 +191,7 @@ def main():
         try:
             timebase = int(opts.timebase, 0)
         except ValueError:
-            print("Could not parse time base %s" % opts.timebase)
+            print(f"Could not parse time base {opts.timebase}")
             return 1
 
     inputfile = opts.sequence

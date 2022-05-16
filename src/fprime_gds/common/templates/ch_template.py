@@ -93,7 +93,7 @@ class ChTemplate(data_template.DataTemplate):
         Returns:
             The full name (component.channel) for this channel
         """
-        return "{}.{}".format(self.comp_name, self.name)
+        return f"{self.comp_name}.{self.name}"
 
     def get_id(self):
         return self.id

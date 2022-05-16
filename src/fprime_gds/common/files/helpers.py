@@ -147,9 +147,7 @@ class TransmitFile:
         self.__start = datetime.datetime.utcnow()
         if self.__log_dir is not None:
             self.__log_handler = logging.FileHandler(
-                os.path.join(
-                    self.__log_dir, "{}.log".format(os.path.basename(filepath))
-                ),
+                os.path.join(self.__log_dir, f"{os.path.basename(filepath)}.log"),
                 "a",
             )
 

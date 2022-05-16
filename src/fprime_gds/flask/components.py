@@ -39,9 +39,7 @@ def setup_pipelined_components(
         pipeline = fprime_gds.common.pipeline.standard.StandardPipeline()
         pipeline.setup(config, dictionary, down_store, logging_prefix=log_dir)
         logger.info(
-            "Connecting to GDS at: {}:{} from pid: {}".format(
-                tts_address, tts_port, os.getpid()
-            )
+            f"Connecting to GDS at: {tts_address}:{tts_port} from pid: {os.getpid()}"
         )
         pipeline.connect(tts_address, tts_port)
         __PIPELINE = pipeline

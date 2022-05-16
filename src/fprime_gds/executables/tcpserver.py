@@ -108,7 +108,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             GUI_ids.remove(self.id)
         LOCK.release()
 
-        print("Closed %s connection." % self.name.decode(DATA_ENCODING))
+        print(f"Closed {self.name.decode(DATA_ENCODING)} connection.")
         self.registered = False
         self.request.close()
 
@@ -160,7 +160,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             self.registered = True
             self.name = name
             self.id = process_id
-            print("Registered client " + self.name.decode(DATA_ENCODING))
+            print(f"Registered client {self.name.decode(DATA_ENCODING)}")
 
     #################################################
     # New Routines to process the command messages
@@ -226,7 +226,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
                         + " (Connection reset by peer) occurred on recv()."
                     )
                 else:
-                    print("Socket error " + str(err.errno) + " occurred on recv().")
+                    print(f"Socket error {str(err.errno)} occurred on recv().")
         return msg
 
     def readHeader(self):
@@ -278,7 +278,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             data = tlm_packet_size + self.recv(size)
 
         else:
-            raise RuntimeError("unrecognized client %s" % dst.decode(DATA_ENCODING))
+            raise RuntimeError(f"unrecognized client {dst.decode(DATA_ENCODING)}")
         return data
 
     def processNewPkt(self, header, data):
@@ -470,7 +470,7 @@ class DestObj:
             # print "about to send data to " + self.name
             self.socket.send(msg)
         except OSError as err:
-            print("Socket error " + str(err.errno) + " occurred on send().")
+            print(f"Socket error {str(err.errno)} occurred on send().")
 
     def fileno(self):
         """"""
@@ -484,8 +484,8 @@ def main(argv=None):
     program_license = "Copyright 2015 user_name (California Institute of Technology)                                            \
                 ALL RIGHTS RESERVED. U.S. Government Sponsorship acknowledged."
     program_version = "v0.1"
-    program_build_date = "%s" % __updated__
-    program_version_string = "%prog {} ({})".format(program_version, program_build_date)
+    program_build_date = f"{__updated__}"
+    program_version_string = f"%prog {program_version} ({program_build_date})"
     program_longdesc = (
         """"""  # optional - give further explanation about what the program does
     )
@@ -530,7 +530,7 @@ def main(argv=None):
         SERVER = server
         LOCK = server.lock_obj
 
-        print("TCP Socket Server listening on host addr {}, port {}".format(HOST, PORT))
+        print(f"TCP Socket Server listening on host addr {HOST}, port {PORT}")
         # Start a thread with the server -- that thread will then start one
         # more thread for each request
         server_thread = threading.Thread(target=server.serve_forever)
@@ -556,7 +556,7 @@ def main(argv=None):
 
     except Exception as e:
         indent = len(program_name) * " "
-        sys.stderr.write(program_name + ": " + repr(e) + "\n")
+        sys.stderr.write(f'{program_name}: {repr(e)}' + "\n")
         sys.stderr.write(indent + "  for help use --help\n")
         return 2
 

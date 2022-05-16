@@ -79,7 +79,7 @@ class TestLogger:
         date_string = datetime.datetime.fromtimestamp(self.start_time).strftime(
             "%Y-%m-%dT%H:%M:%S"
         )
-        self.filename = os.path.join(output_path, "TestLog_{}.xlsx".format(date_string))
+        self.filename = os.path.join(output_path, f"TestLog_{date_string}.xlsx")
         self.workbook = Workbook(write_only=True)
         self.worksheet = self.workbook.create_sheet()
         self.ws_saved = False
@@ -104,7 +104,7 @@ class TestLogger:
         date_string = datetime.datetime.fromtimestamp(self.start_time).strftime(
             "%H:%M:%S.%f on %m/%d/%Y"
         )
-        top.append(self.__get_cell("Test began at " + date_string))
+        top.append(self.__get_cell(f"Test began at {date_string}"))
         self.worksheet.append(top)
 
         labels = ["Log Time", "Case ID", "Sender", "Message"]
@@ -142,17 +142,13 @@ class TestLogger:
         strings = [timestring, self.case_id, sender, message]
         self.lock.acquire()
         try:
-            print("{} [{}] {}".format(timestring, sender, message))
+            print(f"{timestring} [{sender}] {message}")
             if not self.ws_saved:
                 row = self.__get_ws_row(strings, color, style)
                 self.worksheet.append(row)
         except WorkbookAlreadySaved:
             self.ws_saved = True
-            print(
-                "{} [{}] {}".format(
-                    timestring, "TestLogger", "Workbook has already been saved."
-                )
-            )
+            print(f"{timestring} [TestLogger] Workbook has already been saved.")
         finally:
             self.lock.release()
 

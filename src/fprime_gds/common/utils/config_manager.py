@@ -40,11 +40,7 @@ class ConfigBadTypeException(Exception):
             config_name (string): Name of the config containing the bad type
             type_str (string): Bad type string that caused the error
         """
-        print(
-            "Invalid type string {} read in configuration {}".format(
-                type_str, config_name
-            )
-        )
+        print(f"Invalid type string {type_str} read in configuration {config_name}")
 
 
 class ConfigManager(configparser.ConfigParser):

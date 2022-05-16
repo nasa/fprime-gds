@@ -34,9 +34,7 @@ def check_port(address, port):
         socket_trial = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         socket_trial.bind((address, port))
     except OSError as err:
-        raise ValueError(
-            "Error with address/port of '{}:{}' : {}".format(address, port, err)
-        )
+        raise ValueError(f"Error with address/port of '{address}:{port}' : {err}")
     finally:
         if socket_trial is not None:
             socket_trial.close()
@@ -91,8 +89,7 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 self.keepalive.start()
         except (ValueError, TypeError) as exc:
             LOGGER.error(
-                "Failed to start keep-alive thread. %s: %s"
-                % (type(exc).__name__, str(exc))
+                f"Failed to start keep-alive thread. {type(exc).__name__}: {str(exc)}"
             )
 
     def close(self):

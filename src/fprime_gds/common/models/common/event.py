@@ -87,7 +87,7 @@ class Event:
                 arg_obj.deserialize(ser_data, offset)
                 vals.append(arg_obj.val)
             except TypeException as e:
-                print("Event deserialize exception %s" % (e.getMsg()))
+                print(f"Event deserialize exception {e.getMsg()}")
                 traceback.print_exc()
                 vals.append("ERR")
             offset = offset + arg_obj.getSize()

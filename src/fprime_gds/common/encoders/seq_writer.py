@@ -154,7 +154,7 @@ class SeqBinaryWriter:
         try:
             sequence += U32Type(crc).serialize()
         except TypeMismatchException as typeErr:
-            print("Exception: %s" % typeErr.getMsg())
+            print(f"Exception: {typeErr.getMsg()}")
             raise
 
         # Write the list of command records here
@@ -199,7 +199,7 @@ class SeqAsciiWriter:
         #
         cmd = "{} (0x{:x})".format(mnemonic, int(opcode))
         for arg in args:
-            cmd += ", %s" % arg[2].val
+            cmd += f", {arg[2].val}"
         return cmd
 
     def write(self, seq_cmds_list):

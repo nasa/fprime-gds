@@ -68,7 +68,7 @@ class EventPyLoader(python_loader.PythonLoader):
                 id_dict[event_dict[self.ID_FIELD]] = event_temp
                 name_dict[event_dict[self.NAME_FIELD]] = event_temp
             except TypeMismatchException as error:
-                print("Type mismatch: %s" % error.getMsg())
+                print(f"Type mismatch: {error.getMsg()}")
                 raise error
 
         return id_dict, name_dict

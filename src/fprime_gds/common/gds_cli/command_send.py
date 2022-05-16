@@ -163,7 +163,7 @@ class CommandSendCommand(QueryHistoryCommand):
                 pipeline.dictionaries, command_name
             )
             if close_matches:
-                cls._log("Similar known commands: {}".format(close_matches))
+                cls._log(f"Similar known commands: {close_matches}")
         except NotInitializedException:
             temp = CommandSendCommand.get_command_template(
                 pipeline.dictionaries, command_name
@@ -174,7 +174,7 @@ class CommandSendCommand(QueryHistoryCommand):
             )
             cls._log(cls.get_command_help_message(pipeline.dictionaries, command_name))
         except CommandArgumentsException as err:
-            cls._log("Invalid arguments given; %s" % (str(err)))
+            cls._log(f"Invalid arguments given; {str(err)}")
             cls._log(cls.get_command_help_message(pipeline.dictionaries, command_name))
 
         # ======================================================================

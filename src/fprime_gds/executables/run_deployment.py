@@ -31,9 +31,7 @@ def get_artifacts_root() -> Path:
         sys.exit(-1)
     assert "install_dest" in ini_settings, "install_dest not in settings.ini"
     print(
-        "[INFO] Autodetected artifacts root '{}' from deployment settings.ini file.".format(
-            ini_settings["install_dest"]
-        )
+        f"""[INFO] Autodetected artifacts root '{ini_settings["install_dest"]}' from deployment settings.ini file."""
     )
     return ini_settings["install_dest"]
 
@@ -42,7 +40,7 @@ def find_app(root: Path) -> Path:
     bin_dir = root / "bin"
 
     if not bin_dir.exists():
-        print("[ERROR] binary location {} does not exist".format(bin_dir))
+        print(f"[ERROR] binary location {bin_dir} does not exist")
         sys.exit(-1)
 
     files = []
@@ -51,14 +49,12 @@ def find_app(root: Path) -> Path:
             files.append(child)
 
     if len(files) == 0:
-        print("[ERROR] No app found in binary location {}".format(bin_dir))
+        print(f"[ERROR] App not found in {bin_dir}")
         sys.exit(-1)
 
     if len(files) > 1:
         print(
-            "[ERROR] Multiple app candidates in binary location {}. Specify app manually with --app.".format(
-                bin_dir
-            )
+            f"[ERROR] Multiple app candidates in binary location {bin_dir}. Specify app manually with --app."
         )
         sys.exit(-1)
 
@@ -69,7 +65,7 @@ def find_dict(root: Path) -> Path:
     dict_dir = root / "dict"
 
     if not dict_dir.exists():
-        print("[ERROR] dictionary location {} does not exist".format(dict_dir))
+        print(f"[ERROR] dictionary location {dict_dir} does not exist")
         sys.exit(-1)
 
     files = []
@@ -78,16 +74,12 @@ def find_dict(root: Path) -> Path:
             files.append(child)
 
     if len(files) == 0:
-        print(
-            "[ERROR] No xml dictionary found in dictionary location {}".format(dict_dir)
-        )
+        print(f"[ERROR] No xml dictionary found in dictionary location {dict_dir}")
         sys.exit(-1)
 
     if len(files) > 1:
         print(
-            "[ERROR] Multiple xml dictionaries found in dictionary location {}. Specify dictionary manually with --dictionary.".format(
-                dict_dir
-            )
+            f"[ERROR] Multiple xml dictionaries found in dictionary location {dict_dir}. Specify dictionary manually with --dictionary."
         )
         sys.exit(-1)
 
@@ -141,7 +133,7 @@ def parse_args():
             raise ValueError("Must supply --config when using 'wx' GUI.")
     # On ValueError print error, help and exit
     except ValueError as vexc:
-        print("[ERROR] {}".format(str(vexc)), file=sys.stderr, end="\n\n")
+        print(f"[ERROR] {str(vexc)}", file=sys.stderr, end="\n\n")
         parser.print_help(sys.stderr)
         sys.exit(-1)
     return args
@@ -160,25 +152,21 @@ def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5):
     """
     if name is None:
         name = str(cmd)
-    print(
-        "[INFO] Ensuring {} is stable for at least {} seconds".format(name, launch_time)
-    )
+    print(f"[INFO] Ensuring {name} is stable for at least {launch_time} seconds")
     try:
         return fprime_gds.executables.utils.run_wrapped_application(
             cmd, logfile, env, launch_time
         )
     except fprime_gds.executables.utils.AppWrapperException as awe:
-        print("[ERROR] {}.".format(str(awe)), file=sys.stderr)
+        print(f"[ERROR] {str(awe)}.", file=sys.stderr)
         try:
             if logfile is not None:
                 with open(logfile) as file_handle:
                     for line in file_handle.readlines():
-                        print("    [LOG] {}".format(line.strip()), file=sys.stderr)
+                        print(f"    [LOG] {line.strip()}", file=sys.stderr)
         except Exception:
             pass
-        raise fprime_gds.executables.utils.AppWrapperException(
-            "Failed to run {}".format(name)
-        )
+        raise fprime_gds.executables.utils.AppWrapperException(f"Failed to run {name}")
 
 
 def launch_tts(tts_port, tts_addr, logs, **_):
@@ -231,9 +219,7 @@ def launch_wx(port, dictionary, connect_address, log_dir, config, **_):
         gse_args.extend(["--dictionary", dictionary])
     else:
         print(
-            "[ERROR] Dictionary invalid, must be XML or PY dicts: {}".format(
-                dictionary
-            ),
+            f"[ERROR] Dictionary invalid, must be XML or PY dicts: {dictionary}",
             file=sys.stderr,
         )
     # For macOS, add in the wx wrapper
@@ -299,10 +285,10 @@ def launch_app(app, port, address, logs, **_):
     :return: process
     """
     app_name = os.path.basename(app)
-    logfile = os.path.join(logs, "{}.log".format(app_name))
+    logfile = os.path.join(logs, f"{app_name}.log")
     app_cmd = [os.path.abspath(app), "-p", str(port), "-a", address]
     return launch_process(
-        app_cmd, name="{} Application".format(app_name), logfile=logfile, launch_time=1
+        app_cmd, name=f"{app_name} Application", logfile=logfile, launch_time=1
     )
 
 
@@ -337,8 +323,7 @@ def launch_comm(comm_adapter, tts_port, connect_address, logs, **all_args):
         app_cmd.append(str(all_args[destination]))
     return launch_process(
         app_cmd,
-        name="{} Application".format("comm[{}]".format(all_args["adapter"])),
-        launch_time=1,
+        app_cmd, name=f'comm[{all_args["adapter"]}] Application', launch_time=1
     )
 
 
@@ -368,7 +353,7 @@ def main():
     # elif gui == "none":
     #    print("[WARNING] No GUI specified, running headless", file=sys.stderr)
     else:
-        raise Exception("Invalid GUI specified: {}".format(settings["gui"]))
+        raise Exception(f'Invalid GUI specified: {settings["gui"]}')
     # Launch launchers and wait for the last app to finish
     try:
         procs = []
@@ -380,7 +365,7 @@ def main():
         print("[INFO] CTRL-C received. Exiting.")
     except Exception as exc:
         print(
-            "[INFO] Shutting down F prime due to error. {}".format(str(exc)),
+            f"[INFO] Shutting down F prime due to error. {str(exc)}",
             file=sys.stderr,
         )
         return 1

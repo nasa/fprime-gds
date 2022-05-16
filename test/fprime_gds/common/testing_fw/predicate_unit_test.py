@@ -28,7 +28,7 @@ class PredicateTestCases(unittest.TestCase):
         try:
             pred.__str__()
             print(pred)
-            assert True, "predicate provides string summary: {}".format(str(pred))
+            assert True, f"predicate provides string summary: {str(pred)}"
         except NotImplementedError:
             assert False, "invoking str(pred) was not supported"
 
@@ -212,41 +212,33 @@ class PredicateTestCases(unittest.TestCase):
     def test_args_predicates():
         a_list = ["a", "p", "p", "l", "e"]
         pred = predicates.args_predicate(["a", "p", "p", "l", "e"])
-        assert pred(a_list), "The list {} should have been accepted".format(a_list)
+        assert pred(a_list), f"The list {a_list} should have been accepted"
         a_list[4] = "r"
-        assert not pred(a_list), "The list {} should not have been accepted".format(
-            a_list
-        )
+        assert not pred(a_list), f"The list {a_list} should not have been accepted"
         a_list = ["a", "p", "p", "l"]
-        assert not pred(a_list), "The list {} should not have been accepted".format(
-            a_list
-        )
+        assert not pred(a_list), f"The list {a_list} should not have been accepted"
 
         a_list = ["a", "p", "p", "l", "e"]
         pred = predicates.args_predicate(["a", "p", "p", "l", None])
-        assert pred(a_list), "The list {} should have been accepted".format(a_list)
+        assert pred(a_list), f"The list {a_list} should have been accepted"
         a_list[4] = 7
-        assert pred(a_list), "The list {} should have been accepted".format(a_list)
+        assert pred(a_list), f"The list {a_list} should have been accepted"
         a_list[4] = "r"
-        assert pred(a_list), "The list {} should have been accepted".format(a_list)
+        assert pred(a_list), f"The list {a_list} should have been accepted"
 
         l_pred = predicates.within_range(0, 10)
         pred = predicates.args_predicate([l_pred, 2, 3, 4, 5, 6])
 
         n_list = [1, 2, 3, 4, 5, 6]
-        assert pred(n_list), "The list {} should have been accepted".format(n_list)
+        assert pred(n_list), f"The list {n_list} should have been accepted"
 
         for i in range(0, 10):
             n_list[0] = i
-            assert pred(n_list), "The list {} should have been accepted".format(n_list)
+            assert pred(n_list), f"The list {n_list} should have been accepted"
         n_list[0] = -5
-        assert not pred(n_list), "The list {} should not have been accepted".format(
-            n_list
-        )
+        assert not pred(n_list), f"The list {n_list} should not have been accepted"
         n_list[0] = 15
-        assert not pred(n_list), "The list {} should not have been accepted".format(
-            n_list
-        )
+        assert not pred(n_list), f"The list {n_list} should not have been accepted"
 
         pred = predicates.args_predicate(8)
         assert pred(8), "The value 8 should have been accepted."

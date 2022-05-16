@@ -90,9 +90,7 @@ class FileEncoder(encoder.Encoder):
         elif data.packetType == FilePacketType.END:
             out_data += struct.pack(">I", data.hashValue)
         elif data.packetType != FilePacketType.CANCEL:
-            raise Exception(
-                "Invalid packet type found while encoding: {}".format(data.packetType)
-            )
+            raise Exception(f"Invalid packet type found while encoding: {data.packetType}")
         descriptor = U32Type(DataDescType["FW_PACKET_FILE"].value).serialize()
         length_obj = self.config.get_type("msg_len")
         length_obj.val = len(descriptor) + len(out_data)

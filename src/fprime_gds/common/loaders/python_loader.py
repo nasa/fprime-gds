@@ -121,9 +121,9 @@ class PythonLoader(dict_loader.DictLoader):
             mod_name = mf.split(".")[0]
 
             if use_superpkg:
-                import_name = "{}.{}.{}".format(superpkg, pkg, mod_name)
+                import_name = f"{superpkg}.{pkg}.{mod_name}"
             else:
-                import_name = "{}.{}".format(pkg, mod_name)
+                import_name = f"{pkg}.{mod_name}"
 
             m = importlib.import_module(import_name)
 

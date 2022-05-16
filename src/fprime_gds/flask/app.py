@@ -148,7 +148,7 @@ def construct_app():
 try:
     app, _ = construct_app()
 except Exception as exc:
-    print("[ERROR] {}".format(exc), file=sys.stderr)
+    print(f"[ERROR] {exc}", file=sys.stderr)
     sys.exit(1)
 
 
