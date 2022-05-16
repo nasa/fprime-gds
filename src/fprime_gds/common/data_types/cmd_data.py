@@ -197,7 +197,7 @@ class CmdData(sys_data.SysData):
             )
 
     def __str__(self):
-        arg_str = "".join(f"{name} : {str(typ.val)} |" for name, typ in zip([arg[0] for arg in self.template.get_args()], self.args):
+        arg_str = "".join(f"{name} : {str(typ.val)} |" for name, typ in zip([arg[0] for arg in self.template.get_args()], self.args))
         arg_str = f"w/ args | {arg_str}"
 
         arg_info = f"{self.template.mnemonic} "

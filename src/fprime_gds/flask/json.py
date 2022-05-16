@@ -45,7 +45,7 @@ def jsonify_base_type(input_type: Type[BaseType]) -> dict:
 def getter_based_json(obj):
     """ Converts objects to JSON via get_ methods
 
-    Template functions define a series of get_* mehtods whose return values need to be serialized. This function
+    Template functions define a series of get_* methods whose return values need to be serialized. This function
     handles that data.
 
     Args:
@@ -172,7 +172,7 @@ class GDSJsonEncoder(flask.json.JSONEncoder):
         """
         Override the default JSON encoder to pull out a dictionary for our handled types for encoding with the default
         encoder built into flask. This function must convert the given object into a JSON compatable python object (e.g.
-        using lists, dictionaries, strings, and primative types).
+        using lists, dictionaries, strings, and primitive types).
 
         :param obj: obj to encode
         :return: JSON
