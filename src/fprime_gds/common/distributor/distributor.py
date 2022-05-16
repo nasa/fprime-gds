@@ -103,7 +103,7 @@ class Distributor(DataHandler):
                     # Check leading key size bytes to see if it is the key
                     self.key_obj.deserialize(data_left, 0)
                     if self.key_obj.val != self.key_frame:
-                        del data_left[1]
+                        del data_left[0]
                         continue
                     # Key found break
                     del data_left[: self.key_obj.getSize()]
@@ -193,7 +193,7 @@ class Distributor(DataHandler):
         self.__buf.extend(data)
 
         (leftover_data, raw_msgs) = self.parse_into_raw_msgs_api(self.__buf)
-        assert leftover_data == self.__buf, "Weirdness happened"
+        assert leftover_data == self.__buf, "Leftover data is not equivalent to the remaining data in buffer"
 
         for raw_msg in raw_msgs:
             (length, data_desc, msg) = self.parse_raw_msg_api(raw_msg)

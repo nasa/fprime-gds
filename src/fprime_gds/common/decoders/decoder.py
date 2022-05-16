@@ -52,9 +52,10 @@ class Decoder(
         """
         try:
             decoded = self.decode_api(data)
+        # Items already of DecodingException type should be reraised as-is
         except DecodingException:
             raise
-        # Convert exceptions into known types for passing up the stack
+        # Convert other exceptions into known DecodingException type
         except Exception as exc:
             raise DecodingException(str(exc))
         if decoded is not None:

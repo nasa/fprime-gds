@@ -10,8 +10,6 @@ of the data as well as data such as channel value or argument value.
 
 @bug No known bugs
 """
-
-import fprime_gds.common.utils.jsonable
 from fprime.common.models.serialize import time_type
 from fprime_gds.common.templates import data_template
 
@@ -65,12 +63,6 @@ class SysData:
             An instance of a template class for this instance's data
         """
         return self.template
-
-    def to_jsonable(self):
-        """
-        Converts to a JSONable object (primitives, anon-objects, lists)
-        """
-        return fprime_gds.common.utils.jsonable.fprime_to_jsonable(self)
 
     @staticmethod
     def compare(x, y):

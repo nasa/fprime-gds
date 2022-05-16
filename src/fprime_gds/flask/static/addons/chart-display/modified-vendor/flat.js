@@ -41,8 +41,13 @@ function flatten(target, opts) {
     function step(object, prev, currentDepth) {
         currentDepth = currentDepth || 1;
 
+        // Cannot handle strings and enumerations
         if (object.name.endsWith("String") || ("ENUM_DICT" in object)) {
             return;
+        }
+        else if ("LENGTH" in object) {
+            let new_object = [...Array(object["LENGTH"])].map(() => { return {"name": object["MEMBER_TYPE"].name} });
+            object = new_object;
         }
         else if ("MEMBER_LIST" in object) {
                 let new_object = Object.fromEntries(Object.values(object.MEMBER_LIST).map((member) => [member[0], member[1]]))
