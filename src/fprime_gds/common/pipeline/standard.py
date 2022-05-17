@@ -139,11 +139,19 @@ class StandardPipeline:
         Connect to the middleware layer. This connection needs to identify if the object is a a FSW or GUI client. The
         default connection acts as a GUI client sending to FSW.
 
+        Note: this function provides backwards compatibility with historical versions of this connect method of the form
+        pipeline.connect(host, port). This version explicity supplies a hostname without port, and integer port. No
+        other arguments are excepted. Use is discouraged.
+
         Args:
             connection_uri: URI of the connection to make
             incoming_tag: this pipeline will act as supplied tag (GUI, FSW). Default: GUI
             outgoing_tag: this pipeline will produce data for supplied tag (FSW, GUI). Default: FSW
         """
+        # Backwards compatibility with the old method .connect(host, port)
+        if isinstance(incoming_tag, int) and ":" not in connection_uri and outgoing_tag == RoutingTag.FSW:
+            connection_uri = f"{connection_uri}:{incoming_tag}"
+            incoming_tag = RoutingTag.GUI
         self.client_socket.connect(connection_uri, incoming_tag, outgoing_tag)
 
     def disconnect(self):

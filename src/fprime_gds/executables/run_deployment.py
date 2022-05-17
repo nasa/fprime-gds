@@ -340,7 +340,6 @@ def launch_comm(comm_adapter, tts_port, connect_address, logs, **all_args):
         app_cmd.append(arg[0])
         app_cmd.append(str(all_args[destination]))
     return launch_process(
-        app_cmd,
         app_cmd, name=f'comm[{all_args["adapter"]}] Application', launch_time=1
     )
 
