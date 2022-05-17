@@ -140,7 +140,7 @@ class StandardPipeline:
         default connection acts as a GUI client sending to FSW.
 
         Note: this function provides backwards compatibility with historical versions of this connect method of the form
-        pipeline.connect(host, port). This version explicity supplies a hostname without port, and integer port. No
+        pipeline.connect(host, port). This version explicitly supplies a hostname without port, and integer port. No
         other arguments are excepted. Use is discouraged.
 
         Args:
