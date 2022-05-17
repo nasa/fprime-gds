@@ -29,8 +29,7 @@ function flatten(target, opts) {
     opts = opts || {};
     // Default supported F Prime types
     const supportedTypes =
-        ["U8Type", "U16Type", "U32Type", "U64Type", "I8Type", "I16Type", "I32Type", "I64Type", "F32Type", "F64Type"] ||
-        opts.supportedTypes;
+        ["U8Type", "U16Type", "U32Type", "U64Type", "I8Type", "I16Type", "I32Type", "I64Type", "F32Type", "F64Type"];
 
     const prefix = opts.prefix || "";
     const delimiter = opts.delimiter || ".";
@@ -91,7 +90,7 @@ function flatten(target, opts) {
 
     // Get unique parent of each path
     const output_set = new Set();
-    for (const [key, value] of Object.entries(output)) {
+    for (const [key, _] of Object.entries(output)) {
         output_set.add(key.split(delimiter).slice(0, -1).join(delimiter));
     }
 

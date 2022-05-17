@@ -210,7 +210,7 @@ class SeqFileParser:
                         else:
                             try:
                                 descriptor, seconds, useconds = parseTime(i, line[0])
-                            except:
+                            except Exception:
                                 raise gseExceptions.GseControllerParsingException(
                                     "Line %d: %s"
                                     % (
@@ -224,7 +224,7 @@ class SeqFileParser:
                                 args = line[2:]
                                 try:
                                     args = parseArgs(args)
-                                except:
+                                except Exception:
                                     raise gseExceptions.GseControllerParsingException(
                                         "Line %d: %s"
                                         % (

@@ -639,8 +639,8 @@ ttl
 tts
 twbs
 txz
-typedef
 typedef'ed
+typedef
 typehints
 typeof
 tzinfo
@@ -664,8 +664,8 @@ uplinker
 uplinkvue
 uploader
 upto
-URI
 uri
+URI
 url
 usec
 useconds
@@ -727,6 +727,6 @@ yaml
 yml
 zeromq
 zlib
+zmq
 ZMQ
 Zmq
-zmq
