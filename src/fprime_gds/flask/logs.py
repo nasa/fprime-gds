@@ -19,7 +19,6 @@ class LogList(flask_restful.Resource):
 
     def get(self):
         """Returns a list of log files that are available."""
-        logs = {}
         listing = os.listdir(self.logdir)
         return {"logs": [name for name in listing if name.endswith(".log")]}
 
@@ -42,7 +41,11 @@ class LogFile(flask_restful.Resource):
         Returns the logdir.
         """
         logs = {}
+        # Sanitization of path characters
+        name = name.replace(os.path.sep, "_")
         full_path = os.path.join(self.logdir, name)
+        if not os.path.exists(full_path):
+            return ""
         offset = 0
         with open(full_path) as file_handle:
             file_handle.seek(offset)
