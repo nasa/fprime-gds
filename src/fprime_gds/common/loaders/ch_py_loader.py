@@ -53,8 +53,8 @@ class ChPyLoader(PythonLoader):
         # We do need it sometimes, so if we don't always set it to true, we will need to pass an arg
         module_dicts = self.read_dict(path, use_superpkg=True)
 
-        id_dict = dict()
-        name_dict = dict()
+        id_dict = {}
+        name_dict = {}
 
         for ch_dict in module_dicts:
             # Create a channel template object

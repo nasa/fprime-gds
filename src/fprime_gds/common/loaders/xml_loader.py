@@ -89,9 +89,9 @@ class XmlLoader(dict_loader.DictLoader):
 
         # These dicts hold already parsed enum objects so things don't need
         # to be parsed multiple times
-        self.enums = dict()
-        self.serializable_types = dict()
-        self.array_types = dict()
+        self.enums = {}
+        self.serializable_types = {}
+        self.array_types = {}
 
     @staticmethod
     def get_xml_tree(path):
@@ -220,7 +220,7 @@ class XmlLoader(dict_loader.DictLoader):
             # Check enum name
             if enum.get(self.ENUM_TYPE_TAG) == enum_name:
                 # Go through all possible values of the enum
-                members = dict()
+                members = {}
                 for item in enum:
                     item_name = item.get(self.ENUM_ELEM_NAME_TAG)
                     item_val = int(item.get(self.ENUM_ELEM_VAL_TAG))

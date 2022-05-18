@@ -47,8 +47,8 @@ class CmdPyLoader(python_loader.PythonLoader):
         """
         module_dicts = self.read_dict(path, use_superpkg=True)
 
-        id_dict = dict()
-        name_dict = dict()
+        id_dict = {}
+        name_dict = {}
 
         for cmd_dict in module_dicts:
             # Create a cmd template object

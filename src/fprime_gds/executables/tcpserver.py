@@ -438,7 +438,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     socket id's for writing to destinations.
     """
 
-    dest_obj = dict()
+    dest_obj = {}
     lock_obj = threading.Lock()
 
 
