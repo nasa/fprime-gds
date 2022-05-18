@@ -147,7 +147,7 @@ class Command:
         if not isinstance(arg_type, BaseType):
             raise TypeMismatchException(BaseType, type(arg_type))
 
-        new_arg_list = list()
+        new_arg_list = []
         found = False
         # search for argument
         for (arg, arg_desc, arg_value) in self.__arguments:
@@ -172,7 +172,7 @@ class Command:
             raise ArgLengthMismatchException(len(self.__arguments), len(values))
 
         # Set the new arguments by converting each value to an type:
-        new_arg_list = list()
+        new_arg_list = []
         for value, (arg_name, arg_desc, arg_value) in zip(values, self.__arguments):
             new_value = copy.deepcopy(arg_value)
             new_value.val = value
