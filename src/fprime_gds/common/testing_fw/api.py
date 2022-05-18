@@ -1083,10 +1083,7 @@ class IntegrationTestAPI(DataHandler):
                 self.log(msg, TestLogger.YELLOW)
 
             def search_current_history(self, items):
-                for item in items:
-                    if self.incremental_search(item):
-                        return True
-                return False
+                return any(self.incremental_search(item) for item in items)
 
             def incremental_search(self, item):
                 if self.search_pred(item):
@@ -1135,10 +1132,7 @@ class IntegrationTestAPI(DataHandler):
                     self.log(msg, TestLogger.YELLOW)
                     return True
 
-                for item in items:
-                    if self.incremental_search(item):
-                        return True
-                return False
+                return any(self.incremental_search(item) for item in items)
 
             def incremental_search(self, item):
                 if self.seq_preds[0](item):
