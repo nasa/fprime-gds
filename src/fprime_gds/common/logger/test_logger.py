@@ -84,15 +84,8 @@ class TestLogger:
         self.worksheet = self.workbook.create_sheet()
         self.ws_saved = False
 
-        if time_format is None:
-            self.time_format = self.__time_fmt
-        else:
-            self.time_format = time_format
-
-        if font_name is None:
-            self.font_name = self.__font_name
-        else:
-            self.font_name = font_name
+        self.time_format = self.__time_fmt if time_format is None else time_format
+        self.font_name = self.__font_name if font_name is None else font_name
 
         timestring = datetime.datetime.fromtimestamp(self.start_time).strftime(
             self.time_format
