@@ -300,10 +300,7 @@ class is_not_a_member_of(predicate):
 
         :param item: the object to search for then evaluate
         """
-        for x in self.set:
-            if item == x:
-                return False
-        return True
+        return all(item != x for x in self.set)
 
     def __str__(self):
         """
@@ -371,10 +368,7 @@ class satisfies_all(predicate):
 
         :param item: the object or value to evaluate
         """
-        for pred in self.p_list:
-            if not pred(item):
-                return False
-        return True
+        return all(pred(item) for pred in self.p_list)
 
     def __str__(self):
         """
