@@ -74,9 +74,7 @@ class TCPGround(GroundHandler):
         Opens any needed resources and prepares the system for receiving and sending. This means opening the TCP handler
         and sending out the initial register command to the TcpServer.
         """
-        if not self.tcp.open():
-            return False
-        return True
+        return bool(self.tcp.open())
 
     def close(self):
         """

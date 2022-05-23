@@ -249,8 +249,5 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
             timeout {int}: timeout to wait for the socket to have data before returning b"". Default: 100ms.
         """
         assert self.dest is not None, "Cannot recv data before connect call"
-        chunk = b""
         ready = select.select([self.sock], [], [], timeout)
-        if ready[0]:
-            chunk = self.sock.recv(self.chunk_size)
-        return chunk
+        return self.sock.recv(self.chunk_size) if ready[0] else b""

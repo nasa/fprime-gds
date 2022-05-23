@@ -66,10 +66,7 @@ class ChronologicalHistory(History):
         Returns:
             a list of objects in chronological order
         """
-        if start is None:
-            index = 0
-        else:
-            index = self.__get_index(start, self.objects)
+        index = 0 if start is None else self.__get_index(start, self.objects)
         self.retrieved_cursor = self.size()
         self.new_objects.clear()
         return self.objects[index:]
@@ -181,10 +178,7 @@ class ChronologicalHistory(History):
         Returns:
             the index in the given list that start refers to
         """
-        if start is None:
-            index = len(ordered)
-        else:
-            index = self.__get_index(start, ordered)
+        index = len(ordered) if start is None else self.__get_index(start, ordered)
         del ordered[:index]
         return index
 
