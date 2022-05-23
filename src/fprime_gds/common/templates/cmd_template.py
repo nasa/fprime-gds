@@ -138,7 +138,7 @@ class CmdTemplate(data_template.DataTemplate):
             raise ArgLengthMismatchException(len(self.arguments), len(values))
 
         # set the values of the arguments
-        new_arg_list = list()
+        new_arg_list = []
         for value, (arg_name, arg_desc, arg_value) in zip(values, self.arguments):
             new_value = copy.deepcopy(arg_value)
             new_value.val = value

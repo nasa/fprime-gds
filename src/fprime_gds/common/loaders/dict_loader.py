@@ -40,7 +40,7 @@ class DictLoader:
         Returns:
             An initialized loader object
         """
-        self.saved_dicts = dict()
+        self.saved_dicts = {}
 
     def get_id_dict(self, path):
         """

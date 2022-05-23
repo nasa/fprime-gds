@@ -65,7 +65,7 @@ class ConfigManager(configparser.ConfigParser):
         configparser.ConfigParser.__init__(self)
 
         # Set default properties
-        self.__prop = dict()
+        self.__prop = {}
         self._set_defaults()
         self.file_path = None
 
@@ -152,35 +152,32 @@ class ConfigManager(configparser.ConfigParser):
         ########################## TYPES ###########################
         # These configs give the types of fields in the binary data
 
-        self.__prop["types"] = dict()
-
-        self.__prop["types"]["msg_len"] = "U32"
-        self.__prop["types"]["msg_desc"] = "U32"
-        self.__prop["types"]["ch_id"] = "U32"
-        self.__prop["types"]["event_id"] = "U32"
-        self.__prop["types"]["op_code"] = "U32"
-        self.__prop["types"]["pkt_id"] = "U16"
-        self.__prop["types"]["key_val"] = "U16"
+        self.__prop["types"] = {
+            "msg_len": "U32",
+            "msg_desc": "U32",
+            "ch_id": "U32",
+            "event_id": "U32",
+            "op_code": "U32",
+            "pkt_id": "U16",
+            "key_val": "U16",
+        }
         self._set_section_defaults("types")
 
         ######################### COLORS ###########################
         # Colors are hex codes in BGR format
 
-        self.__prop["colors"] = dict()
-
-        self.__prop["colors"]["warning_lo"] = "0x00BCED"
-        self.__prop["colors"]["warning_hi"] = "0x0073E5"
-        self.__prop["colors"]["fatal"] = "0x0000FF"
-        self.__prop["colors"]["command"] = "0xFF0000"
-        self.__prop["colors"]["red"] = "0x0000FF"
-        self.__prop["colors"]["orange"] = "0x0073E5"
-        self.__prop["colors"]["yellow"] = "0x00BCED"
-
+        self.__prop["colors"] = {
+            "warning_lo": "0x00BCED",
+            "warning_hi": "0x0073E5",
+            "fatal": "0x0000FF",
+            "command": "0xFF0000",
+            "red": "0x0000FF",
+            "orange": "0x0073E5",
+            "yellow": "0x00BCED",
+        }
         self._set_section_defaults("colors")
 
-        self.__prop["framing"] = dict()
-        self.__prop["framing"]["use_key"] = "False"
-        self.__prop["framing"]["key_val"] = "0x0"
+        self.__prop["framing"] = {"use_key": "False", "key_val": "0x0"}
         self._set_section_defaults("framing")
 
     def _set_section_defaults(self, section):

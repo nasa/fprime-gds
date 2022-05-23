@@ -49,8 +49,8 @@ class EventPyLoader(python_loader.PythonLoader):
         """
         module_dicts = self.read_dict(path, use_superpkg=True)
 
-        id_dict = dict()
-        name_dict = dict()
+        id_dict = {}
+        name_dict = {}
 
         for event_dict in module_dicts:
 
