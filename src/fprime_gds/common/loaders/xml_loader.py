@@ -380,7 +380,7 @@ class XmlLoader(dict_loader.DictLoader):
                 print(f"Trying to parse string type, but found {self.STR_LEN_TAG} field")
                 return None
             max_length = int(xml_item.get(self.STR_LEN_TAG, 0))
-            name = f"{ context if context else '' }::{ xml_item.get(self.ARG_NAME_TAG) }String"
+            name = f"{context or ''}::{xml_item.get(self.ARG_NAME_TAG)}String"
             return StringType.construct_type(name, max_length)
         else:
             # First try Serialized types:
