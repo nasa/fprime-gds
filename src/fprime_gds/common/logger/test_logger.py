@@ -184,7 +184,4 @@ class TestLogger:
         return cell
 
     def __get_ws_row(self, strings, color=None, style=None):
-        row = []
-        for string in strings:
-            row.append(self.__get_cell(string, color, style))
-        return row
+        return [self.__get_cell(string, color, style) for string in strings]

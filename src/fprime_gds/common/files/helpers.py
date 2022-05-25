@@ -236,21 +236,19 @@ def file_to_dict(files, uplink=True):
     :param uplink: is the file being uplinked. Default: True
     :return: list of dictionaries
     """
-    current = []
-    for item in files:
-        current.append(
-            {
-                "source": item.source,
-                "destination": item.destination,
-                "size": item.size,
-                "current": item.seek,
-                "state": item.state,
-                "percent": 100
-                if item.size == 0
-                else int(item.seek / item.size * 100.0),
-                "uplink": uplink,
-                "start": item.start,
-                "end": item.end,
-            }
-        )
-    return current
+    return [
+        {
+            "source": item.source,
+            "destination": item.destination,
+            "size": item.size,
+            "current": item.seek,
+            "state": item.state,
+            "percent": 100
+            if item.size == 0
+            else int(item.seek / item.size * 100.0),
+            "uplink": uplink,
+            "start": item.start,
+            "end": item.end,
+        }
+        for item in files
+    ]
