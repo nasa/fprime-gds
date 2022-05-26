@@ -200,7 +200,7 @@ class QueryHistoryCommand(BaseCommand):
                 cls._log(cls._get_item_string(item_, json))
                 # Update time so we catch the next item since the last one
                 if item_:
-                    min_start_time = predicates.greater_than(item.get_time())
+                    min_start_time = predicates.greater_than(item_.get_time())
                     min_start_time = filtering_utils.time_to_data_predicate(
                         min_start_time
                     )
