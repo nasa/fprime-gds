@@ -37,7 +37,7 @@ class DataLogger(fprime_gds.common.handlers.DataHandler):
         self.f_event.close()
 
     def data_callback(self, data, sender=None):
-        if isinstance(data, ChData) or isinstance(data, PktData):
+        if isinstance(data, (ChData, PktData)):
             self.f_telem.write(data.get_str(verbose=self.verbose, csv=self.csv) + "\n")
             self.f_telem.flush()
 
