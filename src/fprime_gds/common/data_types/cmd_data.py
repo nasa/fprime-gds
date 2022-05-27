@@ -54,7 +54,7 @@ class CmdData(sys_data.SysData):
         self.template = cmd_temp
 
         self.args, errors = self.process_args(cmd_args)
-        self.time = cmd_time if cmd_time else TimeType(TimeBase["TB_DONT_CARE"].value)
+        self.time = cmd_time or TimeType(TimeBase["TB_DONT_CARE"].value)
         self.descriptor = cmd_desc
 
         # If any errors occur, then raise a aggregated error
