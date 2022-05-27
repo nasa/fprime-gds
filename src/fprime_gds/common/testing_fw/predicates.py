@@ -355,10 +355,7 @@ class satisfies_all(predicate):
         This predicate can be used like an AND gate of N elements when combining predicates.
         :param pred_list: a list of predicates
         """
-        self.p_list = []
-        for pred in pred_list:
-            if is_predicate(pred):
-                self.p_list.append(pred)
+        self.p_list = [pred for pred in pred_list if is_predicate(pred)]
 
     def __call__(self, item):
         """
@@ -381,10 +378,7 @@ class satisfies_any(predicate):
         This predicate can be used like an OR gate of N elements when combining predicates.
         :param pred_list: a list of predicates
         """
-        self.p_list = []
-        for pred in pred_list:
-            if is_predicate(pred):
-                self.p_list.append(pred)
+        self.p_list = [pred for pred in pred_list if is_predicate(pred)]
 
     def __call__(self, item):
         """
@@ -486,14 +480,14 @@ class event_predicate(predicate):
         """
         if not isinstance(event, EventData):
             return False
-        if self.id_pred(event.get_id()):
-            if self.time_pred(event.get_time()):
-                if self.severity_pred(event.get_severity()):
-                    args = []
-                    for arg in event.get_args():
-                        args.append(arg.val)
-                    if self.args_pred(args):
-                        return True
+        if (
+            self.id_pred(event.get_id())
+            and self.time_pred(event.get_time())
+            and self.severity_pred(event.get_severity())
+        ):
+            args = [arg.val for arg in event.get_args()]
+            if self.args_pred(args):
+                return True
         return False
 
     def __str__(self):

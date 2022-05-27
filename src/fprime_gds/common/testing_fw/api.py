@@ -572,9 +572,7 @@ class IntegrationTestAPI(DataHandler):
         Returns:
             an ordered list of ChData objects that satisfies the sequence
         """
-        seq_preds = []
-        for channel in channels:
-            seq_preds.append(self.get_telemetry_pred(channel))
+        seq_preds = [self.get_telemetry_pred(channel) for channel in channels]
 
         if history is None:
             history = self.get_telemetry_test_history()
@@ -604,9 +602,7 @@ class IntegrationTestAPI(DataHandler):
         if channels is None:
             search = None
         elif isinstance(channels, list):
-            t_preds = []
-            for channel in channels:
-                t_preds.append(self.get_telemetry_pred(channel=channel))
+            t_preds = [self.get_telemetry_pred(channel=channel) for channel in channels]
             search = predicates.satisfies_any(t_preds)
         else:
             search = self.get_telemetry_pred(channel=channels)
@@ -813,9 +809,7 @@ class IntegrationTestAPI(DataHandler):
         Returns:
             an ordered list of EventData objects that satisfies the sequence
         """
-        seq_preds = []
-        for event in events:
-            seq_preds.append(self.get_event_pred(event))
+        seq_preds = [self.get_event_pred(event) for event in events]
 
         if history is None:
             history = self.get_event_test_history()
@@ -845,9 +839,7 @@ class IntegrationTestAPI(DataHandler):
         if events is None:
             search = None
         elif isinstance(events, list):
-            e_preds = []
-            for event in events:
-                e_preds.append(self.get_event_pred(event=event))
+            e_preds = [self.get_event_pred(event=event) for event in events]
             search = predicates.satisfies_any(e_preds)
         else:
             search = self.get_event_pred(event=events)
