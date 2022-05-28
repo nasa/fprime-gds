@@ -95,10 +95,10 @@ class BaseAdapter(abc.ABC):
         :param args: arguments to process
         :return: dictionary of constructor keyword arguments
         """
-        kwargs = {}
-        for value in clazz.get_arguments().values():
-            kwargs[value["dest"]] = getattr(args, value["dest"])
-        return kwargs
+        return {
+            value["dest"]: getattr(args, value["dest"])
+            for value in clazz.get_arguments().values()
+        }
 
     @classmethod
     def construct_adapter(cls, adapter_name, args):
