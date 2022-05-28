@@ -146,7 +146,7 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         available = list(
             map(lambda info: info.device, list_ports.comports(include_links=True))
         )
-        default = "/dev/ttyACM0" if not available else available[-1]
+        default = available[-1] if available else "/dev/ttyACM0"
         return {
             ("--uart-device",): {
                 "dest": "device",
