@@ -87,9 +87,9 @@ class SeqFileParser:
                 # If the string contains a "." assume that it is a float:
                 elif "." in arg:
                     return float(arg)
-                elif arg == "True" or arg == "true" or arg == "TRUE":
+                elif arg in ["True", "true", "TRUE"]:
                     return True
-                elif arg == "False" or arg == "false" or arg == "FALSE":
+                elif arg in ["False", "false", "FALSE"]:
                     return False
                 else:
                     try:
