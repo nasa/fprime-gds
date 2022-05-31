@@ -373,7 +373,7 @@ def main():
     gui = settings.get("gui", "none")
     if gui == "wx":
         launchers.append(launch_wx)
-    elif gui == "html" or gui == "none":
+    elif gui in ["html", "none"]:
         launchers.append(launch_html)
     # elif gui == "none":
     #    print("[WARNING] No GUI specified, running headless", file=sys.stderr)
