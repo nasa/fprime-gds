@@ -170,9 +170,9 @@ class CmdData(sys_data.SysData):
             )
         if isinstance(arg_type, BoolType):
             value = str(arg_val).lower().strip()
-            if value in ("true", "yes"):
+            if value in {"true", "yes"}:
                 av = True
-            elif value in ("false", "no"):
+            elif value in {"false", "no"}:
                 av = False
             else:
                 raise CommandArgumentException("Argument value is not a valid boolean")
