@@ -139,10 +139,9 @@ class TestHistory(History):
         Returns:
             the index in the given list that start refers to
         """
-        if predicates.is_predicate(start):
-            index = 0
-            while index < self.size() and not start(self.objects[index]):
-                index += 1
-            return index
-        else:
+        if not predicates.is_predicate(start):
             return start
+        index = 0
+        while index < self.size() and not start(self.objects[index]):
+            index += 1
+        return index
