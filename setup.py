@@ -106,24 +106,21 @@ integrated configuration with ground in-the-loop.
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     python_requires=">=3.6",
-    setup_requires=["setuptools_scm==6.0.1"],
+    setup_requires=["setuptools_scm"],
     install_requires=[
-        "Werkzeug==2.0.1",
-        "flask==1.1.2",
-        "flask_compress==1.11",
-        "pyzmq==22.3.0",
-        "pexpect==4.8.0",
-        "pytest==6.2.4",
-        "flask_restful==0.3.8",
-        "fprime-tools @ git+https://github.com/fprime-community/fprime-tools.git@2b81916b472b9c8d74760dd8e555dd428bac0dfa",
-        "argcomplete==1.12.3",
-        "Jinja2==2.11.3",
-        "Werkzeug==2.0.1",
-        "itsdangerous==2.0.1" 
+        "flask<2.0.0",
+        "flask_compress",
+        "pyzmq",
+        "pexpect",
+        "pytest",
+        "flask_restful",
+        "fprime-tools @ git+https://github.com/fprime-community/fprime-tools.git", # Devel version until release
+        "argcomplete",
+        "Jinja2",
     ],
     extras_require={
         # I and T API
-        "uart-adapter": "pyserial==3.5",
-        "test-api-xls": "openpyxl==3.0.7",
+        "uart-adapter": "pyserial",
+        "test-api-xls": "openpyxl",
     },
 )
