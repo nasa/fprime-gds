@@ -94,8 +94,7 @@ class TestHistory(History):
         index = self.__get_index(start) if start is not None else self.size()
 
         self.retrieved_cursor -= index
-        if self.retrieved_cursor < 0:
-            self.retrieved_cursor = 0
+        self.retrieved_cursor = max(self.retrieved_cursor, 0)
 
         del self.objects[:index]
 

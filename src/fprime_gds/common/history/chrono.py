@@ -112,8 +112,7 @@ class ChronologicalHistory(History):
             self.new_objects.clear()
 
         self.retrieved_cursor -= index
-        if self.retrieved_cursor < 0:
-            self.retrieved_cursor = 0
+        self.retrieved_cursor = max(self.retrieved_cursor, 0)
 
     def size(self):
         """
