@@ -100,7 +100,7 @@ class FpFramerDeframer(FramerDeframer):
         FpFramerDeframer.set_constants()
 
     @classmethod
-    def set_constants(clazz):
+    def set_constants(cls):
         """
         Setup the constants for the various token sizes. This will ensure that the system can read the tokens properly.
         This can be changed to make the framing more efficient.
