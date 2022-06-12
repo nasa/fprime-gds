@@ -60,27 +60,35 @@ class EventDecoder(decoder.Decoder):
             Parsed version of the event data in the form of a EventData object
             or None if the data is not decodable
         """
-        ptr = 0
+        ptr = 
+        
+        event_list = []
 
-        # Decode event ID here...
-        self.id_obj.deserialize(data, ptr)
-        ptr += self.id_obj.getSize()
-        event_id = self.id_obj.val
+        while (ptr < len(data)):
 
-        # Decode time...
-        event_time = time_type.TimeType()
-        event_time.deserialize(data, ptr)
-        ptr += event_time.getSize()
+            # Decode event ID here...
+            self.id_obj.deserialize(data, ptr)
+            ptr += self.id_obj.getSize()
+            event_id = self.id_obj.val
 
-        if event_id in self.__dict:
-            event_temp = self.__dict[event_id]
+            # Decode time...
+            event_time = time_type.TimeType()
+            event_time.deserialize(data, ptr)
+            ptr += event_time.getSize()
 
-            arg_vals = self.decode_args(data, ptr, event_temp)
+            if event_id in self.__dict:
+                event_temp = self.__dict[event_id]
 
-            return event_data.EventData(arg_vals, event_time, event_temp)
-        else:
-            print("Event decode error: id %d not in dictionary" % event_id)
-            return None
+                (size, arg_vals) = self.decode_args(data, ptr, event_temp)
+
+                event_list.append(event_data.EventData(arg_vals, event_time, event_temp))
+                # add up argument sizes
+                ptr += size
+            else:
+                print("Event decode error: id %d not in dictionary" % event_id)
+                return None
+
+        return event_list
 
     @staticmethod
     def decode_args(arg_data, offset, template):
@@ -121,4 +129,4 @@ class EventDecoder(decoder.Decoder):
 
             offset = offset + arg_obj.getSize()
 
-        return tuple(arg_results)
+        return tuple (offset, tuple(arg_results))
