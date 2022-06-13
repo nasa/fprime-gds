@@ -60,7 +60,7 @@ class EventDecoder(decoder.Decoder):
             Parsed version of the event data in the form of a EventData object
             or None if the data is not decodable
         """
-        ptr = 
+        ptr = 0
         
         event_list = []
 
@@ -129,4 +129,4 @@ class EventDecoder(decoder.Decoder):
 
             offset = offset + arg_obj.getSize()
 
-        return tuple (offset, tuple(arg_results))
+        return [offset, tuple(arg_results)]
