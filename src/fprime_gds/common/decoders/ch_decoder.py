@@ -71,17 +71,16 @@ class ChDecoder(Decoder):
         ch_time.deserialize(data, ptr)
         ptr += ch_time.getSize()
 
-        if ch_id in self.__dict:
-            # Retrieve the template instance for this channel
-            ch_temp = self.__dict[ch_id]
-
-            try:
-                val_obj = self.decode_ch_val(data, ptr, ch_temp)
-            except Exception as exc:
-                raise DecodingException(f"Channel {ch_temp.name} failed to decode: {exc}")
-            return ChData(val_obj, ch_time, ch_temp)
-        else:
+        if ch_id not in self.__dict:
             raise DecodingException(f"Channel {ch_id} not found in dictionary")
+        # Retrieve the template instance for this channel
+        ch_temp = self.__dict[ch_id]
+
+        try:
+            val_obj = self.decode_ch_val(data, ptr, ch_temp)
+        except Exception as exc:
+            raise DecodingException(f"Channel {ch_temp.name} failed to decode: {exc}")
+        return ChData(val_obj, ch_time, ch_temp)
 
     @staticmethod
     def decode_ch_val(val_data, offset, template):

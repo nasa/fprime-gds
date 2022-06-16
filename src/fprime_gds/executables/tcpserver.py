@@ -304,25 +304,24 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
 
         # Process data here...
         head, dst = header.strip(b" ").split(b" ")
-        if head == b"A5A5":  # Packet Header
-            # print "Received Packet: %s %s...\n" % (head,dst)
-            if data == b"":
-                print(" Data is empty, returning.")
-            if b"GUI" in dst:
-                dest_list = GUI_clients
-            elif b"FSW" in dst:
-                dest_list = FSW_clients
-            for dest_elem in dest_list:
-                # print "Locking TCP"
-                LOCK.acquire()
-                if dest_elem in list(SERVER.dest_obj.keys()):
-                    # Send the message here....
-                    # print "Sending TCP msg to ", dest_elem
-
-                    SERVER.dest_obj[dest_elem].put(data)
-                LOCK.release()
-        else:
+        if head != b"A5A5":
             raise RuntimeError("Packet missing A5A5 header")
+        # print "Received Packet: %s %s...\n" % (head,dst)
+        if data == b"":
+            print(" Data is empty, returning.")
+        if b"GUI" in dst:
+            dest_list = GUI_clients
+        elif b"FSW" in dst:
+            dest_list = FSW_clients
+        for dest_elem in dest_list:
+            # print "Locking TCP"
+            LOCK.acquire()
+            if dest_elem in list(SERVER.dest_obj.keys()):
+                # Send the message here....
+                # print "Sending TCP msg to ", dest_elem
+
+                SERVER.dest_obj[dest_elem].put(data)
+            LOCK.release()
 
 
 class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
@@ -410,24 +409,23 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
         dest_list = []
         # Process data here...
         head, dst = header.strip(b" ").split(b" ")
-        if head == b"A5A5":  # Packet Header
-            # print "Received Packet: %s %s...\n" % (head,dst)
-            if data == "":
-                print(" Data is empty, returning.")
-            if b"GUI" in dst:
-                dest_list = GUI_clients
-            else:
-                print("dest? %s" % dst.decode(DATA_ENCODING))
-            for dest_elem in dest_list:
-                LOCK.acquire()
-                if dest_elem in list(SERVER.dest_obj.keys()):
-                    # Send the message here....
-                    # print "Sending UDP msg to ", dest_elem
-
-                    SERVER.dest_obj[dest_elem].put(data)
-                LOCK.release()
-        else:
+        if head != b"A5A5":
             raise RuntimeError("Telemetry missing A5A5 header")
+        # print "Received Packet: %s %s...\n" % (head,dst)
+        if data == "":
+            print(" Data is empty, returning.")
+        if b"GUI" in dst:
+            dest_list = GUI_clients
+        else:
+            print(f"dest? {dst.decode(DATA_ENCODING)}")
+        for dest_elem in dest_list:
+            LOCK.acquire()
+            if dest_elem in list(SERVER.dest_obj.keys()):
+                # Send the message here....
+                # print "Sending UDP msg to ", dest_elem
+
+                SERVER.dest_obj[dest_elem].put(data)
+            LOCK.release()
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
