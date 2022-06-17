@@ -133,14 +133,14 @@ class APITestCases(unittest.TestCase):
     
     def get_counter_sequence(self, length):
         seq = []
-        for i in range(0, length):
+        for i in range(length):
             ch_temp = self.pipeline.dictionaries.channel_name["apiTester.Counter"]
             seq.append(ChData(U32Type(i), TimeType(), ch_temp))
         return seq
 
     def get_oscillator_sequence(self, length):
         seq = []
-        for i in range(0, length):
+        for i in range(length):
             ch_temp = self.pipeline.dictionaries.channel_name["apiTester.Oscillator"]
             val = int(round(10 * math.sin(math.radians(i))))
             seq.append(ChData(I32Type(val), TimeType(), ch_temp))
@@ -154,7 +154,7 @@ class APITestCases(unittest.TestCase):
 
     def get_severity_sequence(self, length, severity="DIAGNOSTIC"):
         seq = []
-        for i in range(0, length):
+        for i in range(length):
             seq.append(self.get_severity_event(severity))
         return seq
 
@@ -183,9 +183,9 @@ class APITestCases(unittest.TestCase):
         ), f"Were the correct number of items in the history? ({item_count},{length})"
 
     def test_find_history_item(self):
-        self.fill_history(self.tHistory.data_callback, range(0, 50))
+        self.fill_history(self.tHistory.data_callback, range(50))
 
-        self.fill_history(self.tHistory.data_callback, range(0, 50))
+        self.fill_history(self.tHistory.data_callback, range(50))
 
         pred = predicates.equal_to(25)
 
@@ -201,7 +201,7 @@ class APITestCases(unittest.TestCase):
     def test_find_history_item_timeout(self):
         pred = predicates.equal_to(25)
 
-        listA = range(0, 50)
+        listA = range(50)
         self.fill_history_async(self.tHistory.data_callback, listA, 0.01)
         result = self.api.find_history_item(pred, self.tHistory, timeout=1)
         assert result == 25, f"The search should have returned 25, but found {result}"
@@ -212,7 +212,7 @@ class APITestCases(unittest.TestCase):
 
         self.tHistory.clear()
 
-        listA = range(0, 50)
+        listA = range(50)
         pred = predicates.equal_to(49)
         self.fill_history_async(self.tHistory.data_callback, listA, 0.1)
         result = self.api.find_history_item(pred, self.tHistory, timeout=1)
@@ -225,7 +225,7 @@ class APITestCases(unittest.TestCase):
         for i in range(30, 40, 2):
             sequence.append(predicates.equal_to(i))
 
-        self.fill_history(self.tHistory.data_callback, range(0, 50))
+        self.fill_history(self.tHistory.data_callback, range(50))
         results = self.api.find_history_sequence(sequence, self.tHistory)
         assert len(results) == len(
             sequence
@@ -237,7 +237,7 @@ class APITestCases(unittest.TestCase):
             sequence
         ), f"The search should have returned an incomplete list, but found {results}"
 
-        self.fill_history(self.tHistory.data_callback, range(0, 50))
+        self.fill_history(self.tHistory.data_callback, range(50))
         results = self.api.find_history_sequence(sequence, self.tHistory, start=34)
         assert len(results) == len(
             sequence
@@ -254,12 +254,12 @@ class APITestCases(unittest.TestCase):
         for i in range(30, 40, 2):
             sequence.append(predicates.equal_to(i))
 
-        self.fill_history_async(self.tHistory.data_callback, range(0, 50), 0.01)
+        self.fill_history_async(self.tHistory.data_callback, range(50), 0.01)
         results = self.api.find_history_sequence(sequence, self.tHistory, timeout=1)
         assert results is not None, "The search should have found a sequence"
         self.assert_lists_equal(range(30, 40, 2), results)
 
-        self.fill_history_async(self.tHistory.data_callback, range(0, 50), 0.01)
+        self.fill_history_async(self.tHistory.data_callback, range(50), 0.01)
         results = self.api.find_history_sequence(
             sequence, self.tHistory, start=34, timeout=1
         )
@@ -280,9 +280,9 @@ class APITestCases(unittest.TestCase):
         count_pred = predicates.greater_than_or_equal_to(10)
         search_pred = predicates.greater_than_or_equal_to(40)
 
-        self.fill_history(self.tHistory.data_callback, range(0, 50))
+        self.fill_history(self.tHistory.data_callback, range(50))
         results = self.api.find_history_count(count_pred, self.tHistory)
-        self.assert_lists_equal(range(0, 50), results)
+        self.assert_lists_equal(range(50), results)
 
         results = self.api.find_history_count(count_pred, self.tHistory, search_pred)
         self.assert_lists_equal(range(40, 50), results)
@@ -299,7 +299,7 @@ class APITestCases(unittest.TestCase):
         count_pred = predicates.greater_than_or_equal_to(10)
         search_pred = predicates.greater_than_or_equal_to(40)
 
-        self.fill_history_async(self.tHistory.data_callback, range(0, 50), 0.01)
+        self.fill_history_async(self.tHistory.data_callback, range(50), 0.01)
 
         results = self.api.find_history_count(count_pred, self.tHistory)
         assert (
@@ -544,7 +544,7 @@ class APITestCases(unittest.TestCase):
         )
         assert len(results2) == 6, "Should have gotten 6 results out of the await"
 
-        for i in range(0, 6):
+        for i in range(6):
             assert results1[i] != results2[i], "These sequences should be unique items"
 
         self.api.clear_histories()
@@ -581,7 +581,7 @@ class APITestCases(unittest.TestCase):
         results2 = self.api.send_and_await_event("apiTester.TEST_CMD_1", events=seq)
         assert len(results2) == 6, "Should have gotten 6 results out of the await"
 
-        for i in range(0, 6):
+        for i in range(6):
             assert results1[i] != results2[i], "These sequences should be unique items"
 
     def test_send_and_assert_telemetry(self):
@@ -606,7 +606,7 @@ class APITestCases(unittest.TestCase):
             "apiTester.TEST_CMD_1", channels=seq, timeout=5
         )
 
-        for i in range(0, 6):
+        for i in range(6):
             assert results1[i] != results2[i], "These sequences should be unique items"
 
         self.api.clear_histories()
@@ -639,7 +639,7 @@ class APITestCases(unittest.TestCase):
             "apiTester.TEST_CMD_1", events=seq, timeout=5
         )
 
-        for i in range(0, 6):
+        for i in range(6):
             assert results1[i] != results2[i], "These sequences should be unique items"
 
     def test_translate_telemetry_name(self):
@@ -689,7 +689,7 @@ class APITestCases(unittest.TestCase):
 
     def test_await_telemetry(self):
         seq = self.get_counter_sequence(20)
-        self.fill_history_async(self.pipeline.enqueue_telemetry, seq[0:10], 0.01)
+        self.fill_history_async(self.pipeline.enqueue_telemetry, seq[:10], 0.01)
         result = self.api.await_telemetry("Counter", 8)
         assert (
             result is not None
@@ -721,7 +721,7 @@ class APITestCases(unittest.TestCase):
         results = self.api.await_telemetry_sequence(search_seq)
 
         assert len(results) == len(search_seq), "lists should have the same length"
-        for i in range(0, len(results)):
+        for i in range(len(results)):
             msg = predicates.get_descriptive_string(results[i], search_seq[i])
             assert search_seq[i](results[i]), msg
 
@@ -776,7 +776,7 @@ class APITestCases(unittest.TestCase):
 
     def test_assert_telemetry(self):
         seq = self.get_counter_sequence(20)
-        self.fill_history_async(self.pipeline.enqueue_telemetry, seq[0:10], 0.01)
+        self.fill_history_async(self.pipeline.enqueue_telemetry, seq[:10], 0.01)
         self.api.assert_telemetry("Counter", 8, timeout=1)
 
         time.sleep(1)

@@ -230,7 +230,7 @@ class PredicateTestCases(unittest.TestCase):
         n_list = [1, 2, 3, 4, 5, 6]
         assert pred(n_list), f"The list {n_list} should have been accepted"
 
-        for i in range(0, 10):
+        for i in range(10):
             n_list[0] = i
             assert pred(n_list), f"The list {n_list} should have been accepted"
         n_list[0] = -5
