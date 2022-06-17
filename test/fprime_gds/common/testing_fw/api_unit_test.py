@@ -221,11 +221,9 @@ class APITestCases(unittest.TestCase):
         ), f"The search should have returned None, but found {result}"
 
     def test_find_history_sequence(self):
-        sequence = []
-        for i in range(30, 40, 2):
-            sequence.append(predicates.equal_to(i))
-
+        sequence = [predicates.equal_to(i) for i in range(30, 40, 2)]
         self.fill_history(self.tHistory.data_callback, range(0, 50))
+        
         results = self.api.find_history_sequence(sequence, self.tHistory)
         assert len(results) == len(
             sequence
@@ -250,11 +248,9 @@ class APITestCases(unittest.TestCase):
         ), f"The search should have returned an incomplete list, but found {results}"
 
     def test_find_history_sequence_timeout(self):
-        sequence = []
-        for i in range(30, 40, 2):
-            sequence.append(predicates.equal_to(i))
-
+        sequence = [predicates.equal_to(i) for i in range(30, 40, 2)]
         self.fill_history_async(self.tHistory.data_callback, range(0, 50), 0.01)
+        
         results = self.api.find_history_sequence(sequence, self.tHistory, timeout=1)
         assert results is not None, "The search should have found a sequence"
         self.assert_lists_equal(range(30, 40, 2), results)

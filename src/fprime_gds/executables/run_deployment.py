@@ -43,12 +43,8 @@ def find_app(root: Path) -> Path:
         print(f"[ERROR] binary location {bin_dir} does not exist")
         sys.exit(-1)
 
-    files = []
-    for child in bin_dir.iterdir():
-        if child.is_file():
-            files.append(child)
-
-    if len(files) == 0:
+    files = [child for child in bin_dir.iterdir() if child.is_file()]
+    if not files:
         print(f"[ERROR] App not found in {bin_dir}")
         sys.exit(-1)
 
@@ -68,12 +64,13 @@ def find_dict(root: Path) -> Path:
         print(f"[ERROR] dictionary location {dict_dir} does not exist")
         sys.exit(-1)
 
-    files = []
-    for child in dict_dir.iterdir():
-        if child.is_file() and child.suffix == ".xml":
-            files.append(child)
+    files = [
+        child
+        for child in dict_dir.iterdir()
+        if child.is_file() and child.suffix == ".xml"
+    ]
 
-    if len(files) == 0:
+    if not files:
         print(f"[ERROR] No xml dictionary found in dictionary location {dict_dir}")
         sys.exit(-1)
 
