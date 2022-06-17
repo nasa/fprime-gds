@@ -190,9 +190,7 @@ class HistoryTestCases(unittest.TestCase):
     def test_history_iterable(self):
         for item in self.get_range(50):
             self.cHistory.data_callback(item)
-        tList = []
-        for item in self.cHistory:
-            tList.append(item)
+        tList = list(self.cHistory)
         self.assert_lists_equal(tList, self.cHistory.retrieve_new())
 
     def test_history_length(self):
