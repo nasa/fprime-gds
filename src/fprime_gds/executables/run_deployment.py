@@ -307,9 +307,7 @@ def main():
         raise Exception(f'Invalid GUI specified: {settings["gui"]}')
     # Launch launchers and wait for the last app to finish
     try:
-        procs = []
-        for launcher in launchers:
-            procs.append(launcher(**settings))
+        procs = [launcher(**settings) for launcher in launchers]
         print("[INFO] F prime is now running. CTRL-C to shutdown all components.")
         procs[-1].wait()
     except KeyboardInterrupt:
