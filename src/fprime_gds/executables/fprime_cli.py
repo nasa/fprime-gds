@@ -11,6 +11,7 @@ import argparse
 from copy import deepcopy
 import os
 import sys
+import platform
 from typing import Callable, List, Union
 
 import argcomplete
@@ -22,6 +23,7 @@ import argcomplete
 # import fprime_gds.common.gds_cli.events as events
 # from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.executables.cli import GdsParser
+from fprime_gds.executables.utils import get_artifacts_root, find_dict
 
 
 def add_connection_arguments(parser: argparse.ArgumentParser):
@@ -402,6 +404,11 @@ def main():
     # Remove function and argument validation args
     del argument_dict["func"]
     del argument_dict["validate"]
+
+    if argument_dict["dictionary"] is None:
+        root = get_artifacts_root() / platform.system()
+        argument_dict["dictionary"] = find_dict(root)
+
     function(**argument_dict)
 
 

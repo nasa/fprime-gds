@@ -387,11 +387,14 @@ class APITestCases(unittest.TestCase):
         timeE = firstE.get_time()
 
         sizeC = channelHistory.size()
-        iC = 0
-        for i in range(0, channelHistory.size()):
-            if channelHistory[i].get_time() >= timeE:
-                iC = i
-                break
+        iC = next(
+            (
+                i
+                for i in range(channelHistory.size())
+                if channelHistory[i].get_time() >= timeE
+            ),
+            0,
+        )
         firstC = channelHistory[iC]
 
         self.api.clear_histories(timeE)

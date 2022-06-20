@@ -70,16 +70,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
     try:
         for i, descriptor, seconds, useconds, mnemonic, args in parsed_seq:
             try:
-                # Make sure that command is in the command dictionary:
-                if mnemonic in cmd_name_dict:
-                    # Set the command arguments:
-                    try:
-                        cmd_time = TimeType(TimeBase["TB_DONT_CARE"].value, seconds=seconds, useconds=useconds)
-                        cmd_data = CmdData(args, cmd_name_dict[mnemonic], cmd_desc=descriptor, cmd_time=cmd_time)
-                    except CommandArgumentsException as e:
-                        raise SeqGenException(f"Line { i + 1 }: { mnemonic } errored: { ','.join(e.errors) }")
-                    command_list.append(cmd_data)
-                else:
+                if mnemonic not in cmd_name_dict:
                     raise SeqGenException(
                         "Line %d: %s"
                         % (
@@ -89,6 +80,13 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
                             + "' does not match any command in the command dictionary.",
                         )
                     )
+                # Set the command arguments:
+                try:
+                    cmd_time = TimeType(TimeBase["TB_DONT_CARE"].value, seconds=seconds, useconds=useconds)
+                    cmd_data = CmdData(args, cmd_name_dict[mnemonic], cmd_desc=descriptor, cmd_time=cmd_time)
+                except CommandArgumentsException as e:
+                    raise SeqGenException(f"Line { i + 1 }: { mnemonic } errored: { ','.join(e.errors) }")
+                command_list.append(cmd_data)
             except SeqGenException as exc:
                 if not cont:
                     raise

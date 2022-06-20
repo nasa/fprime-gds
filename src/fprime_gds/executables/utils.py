@@ -7,6 +7,12 @@ import atexit
 import signal
 import subprocess
 import time
+from pathlib import Path
+from fprime.fbuild.settings import (
+    IniSettings,
+    FprimeLocationUnknownException,
+    FprimeSettingsException,
+)
 
 # Python 2.7 compatibility, adding in missing error type
 try:
@@ -118,3 +124,71 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
         raise AppWrapperException(
             f'Failed to run application: {" ".join(arguments)}. Error: {exc}'
         )
+
+
+def get_artifacts_root() -> Path:
+    try:
+        ini_settings = IniSettings.load(None)
+    except FprimeLocationUnknownException:
+        print(
+            "[ERROR] Not in fprime deployment and no artifacts root provided, unable to find dictionary and/or app"
+        )
+        sys.exit(-1)
+    except FprimeSettingsException as e:
+        print("[ERROR]", e)
+        sys.exit(-1)
+    assert "install_dest" in ini_settings, "install_dest not in settings.ini"
+    print(
+        f"""[INFO] Autodetected artifacts root '{ini_settings["install_dest"]}' from deployment settings.ini file."""
+    )
+    return ini_settings["install_dest"]
+
+
+def find_app(root: Path) -> Path:
+    bin_dir = root / "bin"
+
+    if not bin_dir.exists():
+        print(f"[ERROR] binary location {bin_dir} does not exist")
+        sys.exit(-1)
+
+    files = []
+    for child in bin_dir.iterdir():
+        if child.is_file():
+            files.append(child)
+
+    if len(files) == 0:
+        print(f"[ERROR] App not found in {bin_dir}")
+        sys.exit(-1)
+
+    if len(files) > 1:
+        print(
+            f"[ERROR] Multiple app candidates in binary location {bin_dir}. Specify app manually with --app."
+        )
+        sys.exit(-1)
+
+    return files[0]
+
+
+def find_dict(root: Path) -> Path:
+    dict_dir = root / "dict"
+
+    if not dict_dir.exists():
+        print(f"[ERROR] dictionary location {dict_dir} does not exist")
+        sys.exit(-1)
+
+    files = []
+    for child in dict_dir.iterdir():
+        if child.is_file() and child.suffix == ".xml":
+            files.append(child)
+
+    if len(files) == 0:
+        print(f"[ERROR] No xml dictionary found in dictionary location {dict_dir}")
+        sys.exit(-1)
+
+    if len(files) > 1:
+        print(
+            f"[ERROR] Multiple xml dictionaries found in dictionary location {dict_dir}. Specify dictionary manually with --dictionary."
+        )
+        sys.exit(-1)
+
+    return files[0]
