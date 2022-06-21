@@ -131,7 +131,7 @@ class SeqFileParser:
                     dt = parseTimeString(fmt)
                     if dt:
                         return dt
-                raise BaseException
+                raise Exception("Failed to parse time string")
 
             def parseRelative(timeStr):
                 """
