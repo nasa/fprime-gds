@@ -188,10 +188,7 @@ class CmdData(sys_data.SysData):
             arg_type.val = int(arg_val, 0) if isinstance(arg_val, str) else int(arg_val)
         elif isinstance(arg_type, StringType):
             arg_type.val = arg_val
-        # Cannot handle serializable or array argument inputs
-        elif isinstance(arg_type, (SerializableType, ArrayType)):
-            pass
-        else:
+        elif not isinstance(arg_type, (SerializableType, ArrayType)):
             raise CommandArgumentException(
                 "Argument value could not be converted to type object"
             )
