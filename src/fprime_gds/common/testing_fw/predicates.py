@@ -427,10 +427,7 @@ class args_predicate(predicate):
             actual = [actual]
         if len(actual) != len(self.arg_spec):
             return False
-        for i in range(len(self.arg_spec)):
-            if not self.arg_spec[i](actual[i]):
-                return False
-        return True
+        return all(self.arg_spec[i](actual[i]) for i in range(len(self.arg_spec)))
 
     def __str__(self):
         """
