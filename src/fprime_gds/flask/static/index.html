@@ -106,11 +106,13 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <event-list    v-show="currentTab == 'Events'"></event-list>
                         <uplink        v-show="currentTab == 'Uplink'"></uplink>
                         <downlink      v-show="currentTab == 'Downlink'"></downlink>
-                        <logging       v-show="currentTab == 'Logs'"></logging>
                         <chart-wrapper v-show="currentTab == 'Charts'"></chart-wrapper>
+                        <dictionary    v-show="currentTab == 'Dictionaries'"></dictionary>
+                        <logging       v-show="currentTab == 'Logs'"></logging>
                         <sequencer     v-show="currentTab == 'Sequences'"></sequencer>
                         <dashboard     v-show="currentTab == 'Dashboard'"></dashboard>
                         <advanced-settings v-show="currentTab == 'Advanced'"></advanced-settings>
+                        <dictionary-version></dictionary-version>
                     </div>
                     <div v-if="!flags.loaded" class="container">
                         <div class="align-middle">

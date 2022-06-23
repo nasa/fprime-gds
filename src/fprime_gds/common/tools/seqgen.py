@@ -56,7 +56,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
     # Check the user environment:
     cmd_xml_dict = CmdXmlLoader()
     try:
-        (cmd_id_dict, cmd_name_dict) = cmd_xml_dict.construct_dicts(dictionary)
+        (cmd_id_dict, cmd_name_dict, versions) = cmd_xml_dict.construct_dicts(dictionary)
     except gseExceptions.GseControllerUndefinedFileException:
         raise SeqGenException("Can't open file '" + dictionary + "'. ")
 

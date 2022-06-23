@@ -49,6 +49,7 @@ class ChXmlLoader(XmlLoader):
             respectively and the values are ChTemplate objects
         """
         xml_tree = self.get_xml_tree(path)
+        versions = xml_tree.attrib.get("framework_version", "unknown"), xml_tree.attrib.get("project_version", "unknown")
 
         # Check if xml dict has channels section
         ch_section = self.get_xml_section(self.CH_SECT, xml_tree)
@@ -122,4 +123,4 @@ class ChXmlLoader(XmlLoader):
             id_dict[ch_id] = ch_temp
             name_dict[ch_temp.get_full_name()] = ch_temp
 
-        return id_dict, name_dict
+        return id_dict, name_dict, versions

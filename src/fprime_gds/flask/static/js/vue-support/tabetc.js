@@ -16,7 +16,7 @@ import "./event.js"
 import "./log.js"
 import "./uplink.js"
 import "./dashboard.js"
-import {_datastore} from "../datastore.js";
+import {_datastore, _dictionaries} from "../datastore.js";
 import {_validator} from "../validate.js";
 
 /**
@@ -41,9 +41,10 @@ Vue.component("tabbed-etc", {
                     ["Channels", "Chn"], 
                     ["Uplink", "UpL"], 
                     ["Downlink", "DnL"], 
-                    ["Logs", "Log"],
+                    ["Dictionaries", "Dct"],
                     ["Charts", "Chr"], 
-                    ["Sequences", "Seq"], 
+                    ["Logs", "Log"],
+                    ["Sequences", "Seq"],
                     ["Dashboard", "Dsh"],
                     ["Advanced", "Adv"]
                 ],

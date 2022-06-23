@@ -91,7 +91,7 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.commands.CommandDictionary,
         "/dictionary/commands",
-        resource_class_args=[pipeline.dictionaries.command_name],
+        resource_class_args=[pipeline.dictionaries.command_name, pipeline.dictionaries.project_version, pipeline.dictionaries.framework_version],
     )
     api.add_resource(
         fprime_gds.flask.commands.CommandHistory,
@@ -106,7 +106,7 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.events.EventDictionary,
         "/dictionary/events",
-        resource_class_args=[pipeline.dictionaries.event_id],
+        resource_class_args=[pipeline.dictionaries.event_id, pipeline.dictionaries.project_version, pipeline.dictionaries.framework_version],
     )
     api.add_resource(
         fprime_gds.flask.events.EventHistory,
@@ -116,7 +116,7 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.channels.ChannelDictionary,
         "/dictionary/channels",
-        resource_class_args=[pipeline.dictionaries.channel_id],
+        resource_class_args=[pipeline.dictionaries.channel_id, pipeline.dictionaries.project_version, pipeline.dictionaries.framework_version],
     )
     api.add_resource(
         fprime_gds.flask.channels.ChannelHistory,

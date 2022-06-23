@@ -41,6 +41,7 @@ class DictLoader:
             An initialized loader object
         """
         self.saved_dicts = {}
+        self.versions = ("unknown", "unknown")
 
     def get_id_dict(self, path):
         """
@@ -61,7 +62,7 @@ class DictLoader:
         if path in self.saved_dicts:
             (id_dict, name_dict) = self.saved_dicts[path]
         else:
-            (id_dict, name_dict) = self.construct_dicts(path)
+            (id_dict, name_dict, self.versions) = self.construct_dicts(path)
             self.saved_dicts[path] = (id_dict, name_dict)
 
         return id_dict
@@ -86,10 +87,14 @@ class DictLoader:
         if path in self.saved_dicts:
             (id_dict, name_dict) = self.saved_dicts[path]
         else:
-            (id_dict, name_dict) = self.construct_dicts(path)
+            (id_dict, name_dict, self.versions) = self.construct_dicts(path)
             self.saved_dicts[path] = (id_dict, name_dict)
 
         return name_dict
+
+    def get_versions(self):
+        """ Get version tuple """
+        return self.versions
 
     def construct_dicts(self, path):
         """
@@ -107,4 +112,4 @@ class DictLoader:
             for both should be data_template classes. This base class only
             returns empty dictionaries.
         """
-        return dict(), dict()
+        return dict(), dict(), tuple(("unknown", "unknown"))

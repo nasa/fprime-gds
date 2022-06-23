@@ -43,6 +43,7 @@ class EventXmlLoader(XmlLoader):
             respectively and the values are ChTemplate objects
         """
         xml_tree = self.get_xml_tree(path)
+        versions = xml_tree.attrib.get("framework_version", "unknown"), xml_tree.attrib.get("project_version", "unknown")
 
         # Check if xml dict has events section
         event_section = self.get_xml_section(self.EVENT_SECT, xml_tree)
@@ -83,4 +84,4 @@ class EventXmlLoader(XmlLoader):
             id_dict[event_id] = event_temp
             name_dict[event_temp.get_full_name()] = event_temp
 
-        return id_dict, name_dict
+        return id_dict, name_dict, versions
