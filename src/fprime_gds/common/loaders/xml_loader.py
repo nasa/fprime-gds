@@ -147,11 +147,9 @@ class XmlLoader(dict_loader.DictLoader):
         Returns:
             The xml object of the desired section if found, or None if not
         """
-        for section in xml_root:
-            if section.tag == section_name:
-                return section
-
-        return None
+        return next(
+            (section for section in xml_root if section.tag == section_name), None
+        )
 
     def get_args_list(self, xml_obj, xml_tree, context=None):
         """

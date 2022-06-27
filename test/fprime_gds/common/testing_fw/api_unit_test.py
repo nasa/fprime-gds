@@ -153,10 +153,7 @@ class APITestCases(unittest.TestCase):
         return event
 
     def get_severity_sequence(self, length, severity="DIAGNOSTIC"):
-        seq = []
-        for i in range(length):
-            seq.append(self.get_severity_event(severity))
-        return seq
+        return [self.get_severity_event(severity) for _ in range(length)]
 
     class AssertionFailure(Exception):
         """
@@ -221,9 +218,7 @@ class APITestCases(unittest.TestCase):
         ), f"The search should have returned None, but found {result}"
 
     def test_find_history_sequence(self):
-        sequence = []
-        for i in range(30, 40, 2):
-            sequence.append(predicates.equal_to(i))
+        sequence = [predicates.equal_to(i) for i in range(30, 40, 2)]
 
         self.fill_history(self.tHistory.data_callback, range(50))
         results = self.api.find_history_sequence(sequence, self.tHistory)
@@ -250,9 +245,7 @@ class APITestCases(unittest.TestCase):
         ), f"The search should have returned an incomplete list, but found {results}"
 
     def test_find_history_sequence_timeout(self):
-        sequence = []
-        for i in range(30, 40, 2):
-            sequence.append(predicates.equal_to(i))
+        sequence = [predicates.equal_to(i) for i in range(30, 40, 2)]
 
         self.fill_history_async(self.tHistory.data_callback, range(50), 0.01)
         results = self.api.find_history_sequence(sequence, self.tHistory, timeout=1)
@@ -387,11 +380,14 @@ class APITestCases(unittest.TestCase):
         timeE = firstE.get_time()
 
         sizeC = channelHistory.size()
-        iC = 0
-        for i in range(0, channelHistory.size()):
-            if channelHistory[i].get_time() >= timeE:
-                iC = i
-                break
+        iC = next(
+            (
+                i
+                for i in range(channelHistory.size())
+                if channelHistory[i].get_time() >= timeE
+            ),
+            0,
+        )
         firstC = channelHistory[iC]
 
         self.api.clear_histories(timeE)
