@@ -136,9 +136,7 @@ def lowercase_ext(filename):
 
 
 def addslash(url):
-    if url.endswith("/"):
-        return url
-    return url + "/"
+    return url if url.endswith("/") else f"{url}/"
 
 
 def patch_request_class(app, size=64 * 1024 * 1024):
@@ -448,10 +446,7 @@ class UploadSet(object):
             raise UploadNotAllowed()
 
         if name:
-            if name.endswith("."):
-                basename = name + extension(basename)
-            else:
-                basename = name
+            basename = name + extension(basename) if name.endswith(".") else name
 
         if folder:
             target_folder = os.path.join(self.config.destination, folder)
@@ -464,10 +459,7 @@ class UploadSet(object):
 
         target = os.path.join(target_folder, basename)
         storage.save(target)
-        if folder:
-            return posixpath.join(folder, basename)
-        else:
-            return basename
+        return posixpath.join(folder, basename) if folder else basename
 
     def resolve_conflict(self, target_folder, basename):
         """
@@ -549,7 +541,4 @@ class TestingFileStorage(FileStorage):
         :param dst: The file to save to.
         :param buffer_size: Ignored.
         """
-        if isinstance(dst, string_types):
-            self.saved = dst
-        else:
-            self.saved = dst.name
+        self.saved = dst if isinstance(dst, string_types) else dst.name

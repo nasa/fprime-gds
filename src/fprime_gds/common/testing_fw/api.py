@@ -59,10 +59,7 @@ class IntegrationTestAPI(DataHandler):
         self.latest_time = TimeType()
 
         # Initialize the logger
-        if logpath is not None:
-            self.logger = TestLogger(logpath)
-        else:
-            self.logger = None
+        self.logger = TestLogger(logpath) if logpath is not None else None
 
         # A predicate used as a filter to choose which events to log automatically
         self.event_log_filter = self.get_event_pred()
@@ -189,13 +186,12 @@ class IntegrationTestAPI(DataHandler):
             t_pred = predicates.telemetry_predicate(time_pred=time_pred)
             self.telemetry_history.clear(t_pred)
             msg = f"Clearing Test Histories after {time_stamp}"
-            self.__log(msg, TestLogger.WHITE)
         else:
             self.event_history.clear()
             self.telemetry_history.clear()
             msg = "Clearing Test Histories"
-            self.__log(msg, TestLogger.WHITE)
-
+            
+        self.__log(msg, TestLogger.WHITE)
         self.command_history.clear()
 
     def set_event_log_filter(
