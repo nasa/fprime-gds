@@ -16,13 +16,17 @@ class DictionaryResource(Resource):
     should be flask compatible. Errors with the dictionary are a 500 server error and may not be recovered.
     """
 
-    def __init__(self, dictionary):
+    def __init__(self, dictionary, project_version, framework_version):
         """Constructor used to setup for dictionary
 
         Args:
             dictionary: dictionary to serve when GET is called
+            project_version: project version for the dictionary
+            framework_version: project version for the dictionary
         """
         self.dictionary = dictionary
+        self.project_version = project_version
+        self.framework_version = framework_version
 
     def get(self):
         """HTTP GET method handler for dictionary resource
@@ -30,7 +34,11 @@ class DictionaryResource(Resource):
         Returns:
             dictionary ready for conversion into JSON
         """
-        return self.dictionary
+        return {
+            "dictionary": self.dictionary,
+            "project_version": self.project_version,
+            "framework_version": self.framework_version
+        }
 
 
 class HistoryResourceBase(Resource):
@@ -53,10 +61,10 @@ class HistoryResourceBase(Resource):
         """
         self.parser = RequestParser()
         self.parser.add_argument(
-            "session", required=True, help="Session key for fetching data."
+            "session", required=True, help="Session key for fetching data.", location="args"
         )
         self.parser.add_argument(
-            "limit", required=False, help="Limit to results returned (default 2000)"
+            "limit", required=False, help="Limit to results returned (default 2000)", location="args"
         )
 
         self.history = history

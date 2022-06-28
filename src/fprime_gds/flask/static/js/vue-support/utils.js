@@ -7,6 +7,17 @@
 import {config} from "../config.js";
 
 /**
+ * Make it sentence case where the first letter is capitalized.
+ * @param key: key to capitalize the first letter
+ * @return string
+ */
+export function sentenceCase(key) {
+    if (key.length > 0) {
+        return key[0].toUpperCase() + key.slice(1);
+    }
+    return key;
+}
+/**
  * Preprocessing the matching tokens to make them easier to match match against. It takes the following steps:
  * 1. Ensure all tokens are defined
  * 2. Make all tokens lowercase, for case insensitivity

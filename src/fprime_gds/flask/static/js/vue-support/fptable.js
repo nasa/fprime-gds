@@ -506,7 +506,7 @@ Vue.component("fp-table", {
             if (this.itemsKey != null) {
                 return this.displayed;
             } else if (this.items != null) {
-                return this.scroll(this.items);
+                return this.scroll(this.filter(this.items));
             } else {
                 console.error("items and itemsKey is not defined")
             }

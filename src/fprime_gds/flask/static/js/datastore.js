@@ -230,10 +230,12 @@ class DataStore {
     startup() {
         // Assign the dictionaries into the global object
         Object.assign(_dictionaries, {
-            commands: _loader.endpoints["command-dict"].data,
-            events: _loader.endpoints["event-dict"].data,
-            channels: _loader.endpoints["channel-dict"].data,
-            commands_by_id: Object.fromEntries(Object.values(_loader.endpoints["command-dict"].data).map((value) => [value.id, value]))
+            commands: _loader.endpoints["command-dict"].data.dictionary,
+            events: _loader.endpoints["event-dict"].data.dictionary,
+            channels: _loader.endpoints["channel-dict"].data.dictionary,
+            commands_by_id: Object.fromEntries(Object.values(_loader.endpoints["command-dict"].data.dictionary).map((value) => [value.id, value])),
+            framework_version: _loader.endpoints["command-dict"].data.framework_version,
+            project_version: _loader.endpoints["command-dict"].data.project_version,
         });
         // Setup channels object in preparation for updates. Channel object need to be well formed, even if blank,
         // because rendering of edit-views is still possible.

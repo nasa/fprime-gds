@@ -43,6 +43,7 @@ class Dictionaries:
         self._event_name_dict = None
         self._channel_name_dict = None
         self._packet_dict = None
+        self._versions = None
 
     def load_dictionaries(self, dictionary, packet_spec):
         """
@@ -84,14 +85,17 @@ class Dictionaries:
             event_loader = fprime_gds.common.loaders.event_xml_loader.EventXmlLoader()
             self._event_id_dict = event_loader.get_id_dict(dictionary)
             self._event_name_dict = event_loader.get_name_dict(dictionary)
+            self._versions = event_loader.get_versions()
             # Commands
             command_loader = fprime_gds.common.loaders.cmd_xml_loader.CmdXmlLoader()
             self._command_id_dict = command_loader.get_id_dict(dictionary)
             self._command_name_dict = command_loader.get_name_dict(dictionary)
+            assert self._versions == command_loader.get_versions(), "Version mismatch while loading"
             # Channels
             channel_loader = fprime_gds.common.loaders.ch_xml_loader.ChXmlLoader()
             self._channel_id_dict = channel_loader.get_id_dict(dictionary)
             self._channel_name_dict = channel_loader.get_name_dict(dictionary)
+            assert self._versions == channel_loader.get_versions(), "Version mismatch while loading"
         else:
             raise Exception(f"[ERROR] Dictionary '{dictionary}' does not exist.")
         # Check for packet specification
@@ -132,6 +136,16 @@ class Dictionaries:
     def channel_name(self):
         """Channel dictionary by name"""
         return self._channel_name_dict
+
+    @property
+    def project_version(self):
+        """Project version in dictionary"""
+        return self._versions[1]
+
+    @property
+    def framework_version(self):
+        """Framework version in dictionary"""
+        return self._versions[0]
 
     @property
     def packet(self):

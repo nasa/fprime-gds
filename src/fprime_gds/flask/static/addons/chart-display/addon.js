@@ -12,7 +12,6 @@ import {
     chart_display_template,
 } from "./addon-templates.js";
 import { _datastore, _dictionaries } from "../../js/datastore.js";
-import { _loader } from "../../js/loader.js";
 import { SiblingSet } from "./sibling.js";
 import { timeToDate } from "../../js/vue-support/utils.js";
 import {loadTextFileInputData, saveTextFileViaHref} from "../../js/loader.js";
@@ -96,7 +95,7 @@ Vue.component("chart-display", {
     props: ["id", "siblings", "selected"],
     data: function () {
         const names_list = Object.values(
-            _loader.endpoints["channel-dict"].data
+            _dictionaries.channels
         ).map((value) => {
             return flatten(value.type_obj, {
                 maxDepth: 20,
