@@ -232,7 +232,7 @@ class TcpServerFramerDeframer(FramerDeframer):
         if not no_copy:
             data = copy.copy(data)
         # Shift over to ZZZZ
-        while len(data) > 4 and data[0:4] != b"ZZZZ":
+        while len(data) > 4 and data[:4] != b"ZZZZ":
             data = data[1:]
         # Break out of data when not enough
         if len(data) < 8:

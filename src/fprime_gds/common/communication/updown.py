@@ -185,7 +185,7 @@ class Uplinker:
                 ]:
                     framed = self.framer.frame(packet)
                     # Uplink handles synchronous retries
-                    for retry in range(0, Uplinker.RETRY_COUNT):
+                    for retry in range(Uplinker.RETRY_COUNT):
                         if self.adapter.write(framed):
                             self.loopback.add_loopback_frame(
                                 Uplinker.get_handshake(packet)

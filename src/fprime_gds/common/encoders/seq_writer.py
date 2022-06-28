@@ -79,7 +79,7 @@ class SeqBinaryWriter:
 
         def __print(byteBuffer):
             print("Byte buffer size: %d" % len(byteBuffer))
-            for entry in range(0, len(byteBuffer)):
+            for entry in range(len(byteBuffer)):
                 print(
                     "Byte %d: 0x%02X (%c)"
                     % (
