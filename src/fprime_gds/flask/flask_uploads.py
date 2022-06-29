@@ -191,10 +191,10 @@ def config_for_set(uset, app, defaults=None):
     if defaults is None:
         defaults = dict(dest=None, url=None)
 
-    allow_extns = tuple(config.get(prefix + "ALLOW", ()))
-    deny_extns = tuple(config.get(prefix + "DENY", ()))
-    destination = config.get(prefix + "DEST")
-    base_url = config.get(prefix + "URL")
+    allow_extns = tuple(config.get(f"{prefix}ALLOW", ()))
+    deny_extns = tuple(config.get(f"{prefix}DENY", ()))
+    destination = config.get(f"{prefix}DEST")
+    base_url = config.get(f"{prefix}URL")
 
     if destination is None and uset.default_dest:
         # use the "default_dest" callable
