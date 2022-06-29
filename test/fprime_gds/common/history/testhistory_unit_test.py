@@ -21,10 +21,10 @@ class HistoryTestCases(unittest.TestCase):
         assert len(expected) == len(
             actual
         ), f"the given list should have had the length {len(expected)}, but instead had {len(actual)}"
-        for i in range(len(expected)):
+        for i, item in enumerate(expected):
             assert (
-                expected[i] == actual[i]
-            ), f"the {i} element of the expected list should be {expected[i]}, but was {actual[i]}."
+                item == actual[i]
+            ), f"the {i} element of the expected list should be {item}, but was {actual[i]}."
 
     def test_push_and_retrieve(self):
         tList = []

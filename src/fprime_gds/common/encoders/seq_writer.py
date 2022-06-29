@@ -79,13 +79,13 @@ class SeqBinaryWriter:
 
         def __print(byteBuffer):
             print("Byte buffer size: %d" % len(byteBuffer))
-            for entry in range(len(byteBuffer)):
+            for entry, item in enumerate(byteBuffer):
                 print(
                     "Byte %d: 0x%02X (%c)"
                     % (
                         entry,
-                        struct.unpack("B", byteBuffer[entry])[0],
-                        struct.unpack("B", byteBuffer[entry])[0],
+                        struct.unpack("B", item)[0],
+                        struct.unpack("B", item)[0],
                     )
                 )
 
