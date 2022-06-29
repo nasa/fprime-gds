@@ -108,7 +108,7 @@ def minimal_channel(obj):
     """
     jsonable = {"time": obj.time, "id": obj.id, "val": obj.val_obj.val}
     if hasattr(obj, "display_text"):
-        jsonable.update({"display_text": obj.display_text})
+        jsonable["display_text"] = obj.display_text
     return jsonable
 
 
