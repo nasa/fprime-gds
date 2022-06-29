@@ -42,35 +42,31 @@ def format_string_template(format_str, given_values):
     """
 
     def convert(match_obj, ignore_int):
-        if match_obj.group() is not None:
-            flags, width, precision, length, conversion_type = match_obj.groups()
-            format_template = ""
-            if flags:
-                format_template += f"{flags}"
-            if width:
-                format_template += f"{width}"
-            if precision:
-                format_template += f"{precision}"
+        if match_obj.group() is None:
+            return match_obj
+        flags, width, precision, length, conversion_type = match_obj.groups()
+        format_template = ""
+        if flags:
+            format_template += f"{flags}"
+        if width:
+            format_template += f"{width}"
+        if precision:
+            format_template += f"{precision}"
 
-            if conversion_type:
-                if any(
-                    [
-                        str(conversion_type).lower() == "f",
-                        str(conversion_type).lower() == "x",
-                        str(conversion_type).lower() == "o",
-                        str(conversion_type).lower() == "e",
-                    ]
-                ):
-                    format_template += f"{conversion_type}"
-                elif all([not ignore_int, str(conversion_type).lower() == "d"]):
-                    format_template += f"{conversion_type}"
+        if conversion_type:
+            if any(
+                [
+                    str(conversion_type).lower() == "f",
+                    str(conversion_type).lower() == "x",
+                    str(conversion_type).lower() == "o",
+                    str(conversion_type).lower() == "e",
+                ]
+            ):
+                format_template += f"{conversion_type}"
+            elif all([not ignore_int, str(conversion_type).lower() == "d"]):
+                format_template += f"{conversion_type}"
 
-            if format_template == "":
-                template = "{}"
-            else:
-                template = "{:" + format_template + "}"
-            return template
-        return match_obj
+        return "{}" if format_template == "" else "{:" + format_template + "}"
 
     def convert_include_all(match_obj):
         return convert(match_obj, ignore_int=False)
