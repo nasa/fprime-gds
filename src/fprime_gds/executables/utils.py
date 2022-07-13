@@ -6,6 +6,7 @@ Utility functions to enable the executables package to function seamlessly.
 import atexit
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 from fprime.fbuild.settings import (

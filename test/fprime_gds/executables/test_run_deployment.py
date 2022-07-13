@@ -1,6 +1,5 @@
 import unittest
 from unittest import mock
-from unittest.mock import patch
 
 from fprime_gds.executables import run_deployment
 
