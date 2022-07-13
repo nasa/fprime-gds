@@ -207,7 +207,7 @@ def config_for_set(uset, app, defaults=None):
                 using_defaults = True
                 destination = os.path.join(defaults["dest"], uset.name)
             else:
-                 raise RuntimeError(f"no destination for set {uset.name}")
+                raise RuntimeError(f"no destination for set {uset.name}")
 
     if base_url is None and using_defaults and defaults["url"]:
         base_url = addslash(defaults["url"]) + uset.name + "/"
