@@ -171,7 +171,7 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         :param args: arguments as dictionary
         """
         ports = map(lambda info: info.device, list_ports.comports(include_links=True))
-        if not args["device"] in ports:
+        if args["device"] not in ports:
             raise ValueError(
                 f"Serial port '{args['device']}' not valid. Available ports: {ports}"
             )
