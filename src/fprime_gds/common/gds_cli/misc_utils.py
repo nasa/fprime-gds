@@ -83,11 +83,9 @@ def get_item_string(item: SysData, as_json: bool = False) -> str:
     if not item:
         return ""
 
-    if as_json:
-        return get_item_json_string(item)
     # NOTE: "get_str" isn't on the base sys_data class, but is on all the query
     # items we care about so far (i.e. EventData, ChannelData, CommandData)
-    return item.get_str(verbose=True)
+    return get_item_json_string(item) if as_json else item.get_str(verbose=True)
 
 
 def get_cmd_template_string(
