@@ -1263,7 +1263,7 @@ class IntegrationTestAPI(DataHandler):
             msg = f"Received EVR: {data.get_str(verbose=True)}"
             self.__log(msg, TestLogger.BLUE, sender="GDS")
         if self.last_evr is not None and data.get_time() < self.last_evr.get_time():
-            msg = "API detected out of order evrs!" + f"\nReceived First:{self.last_evr.get_str(verbose=True)}"
+            msg = f"API detected out of order evrs!\nReceived First:{self.last_evr.get_str(verbose=True)}"
             msg += f"\nReceived Second:{data.get_str(verbose=True)}"
             self.__log(msg, TestLogger.ORANGE)
         self.last_evr = data

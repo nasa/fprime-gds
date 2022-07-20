@@ -168,7 +168,7 @@ class SeqFileParser:
                 dt = parseAbsolute(t)
                 # See if timezone was specified. If not, use UTC
                 if dt.tzinfo is not None:
-                    print("Using timezone %s" % dt.tzinfo.tzname())
+                    print(f"Using timezone {dt.tzinfo.tzname()}")
                     epoch = datetime.fromtimestamp(0, dt.tzinfo)
                 else:
                     print("Using UTC timezone")
