@@ -14,9 +14,9 @@ class TestRunDeployment(unittest.TestCase):
         # Same as the "Testing F´ GDS Installation Via Running HTML GUI" from
         # https://nasa.github.io/fprime/INSTALL.html
         # fprime-gds -g html -r <path to fprime checkout>/Ref/build-artifacts
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            self.create_fake_deployment_structure(tmpdirname)
-            with mock.patch("sys.argv", ["main", "-g", "html", "-r", tmpdirname]):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            self.create_fake_deployment_structure(temporary_directory)
+            with mock.patch("sys.argv", ["main", "-g", "html", "-r", temporary_directory]):
                 run_deployment.get_settings()
 
     def create_fake_deployment_structure(self, temporary_directory):
