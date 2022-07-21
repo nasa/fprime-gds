@@ -607,6 +607,7 @@ tcpserver
 td
 telem
 tempdir
+tempfile
 testcase
 TESTLIST
 textarea

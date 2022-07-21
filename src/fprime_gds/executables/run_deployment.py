@@ -7,6 +7,7 @@ import os
 import sys
 import platform
 import webbrowser
+from pathlib import Path
 
 import fprime_gds.executables.cli
 import fprime_gds.executables.utils
