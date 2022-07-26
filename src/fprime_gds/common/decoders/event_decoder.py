@@ -85,8 +85,7 @@ class EventDecoder(decoder.Decoder):
                 # add up argument sizes
                 ptr += size
             else:
-                print("Event decode error: id %d not in dictionary" % event_id)
-                return None
+                raise DecodingException(f"Event {event_id} not found in dictionary")
 
         return event_list
 
@@ -123,9 +122,7 @@ class EventDecoder(decoder.Decoder):
                 arg_obj.deserialize(arg_data, offset)
                 arg_results.append(arg_obj)
             except TypeException as e:
-                print(f"Event decode exception {e.getMsg()}")
-                traceback.print_exc()
-                return None
+                raise DecodingException(f"Event argument decoding failed {e.getMsg()}")
 
             offset = offset + arg_obj.getSize()
 
