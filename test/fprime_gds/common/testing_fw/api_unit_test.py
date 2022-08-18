@@ -122,9 +122,7 @@ class APITestCases(unittest.TestCase):
     def assert_lists_equal(expected, actual):
         assert len(expected) == len(
             actual
-        ), "the given list should have had the length {}, but instead had {}\nExpected {}\nActual{}".format(
-            len(expected), len(actual), expected, actual
-        )
+        ), f"the given list should have had the length {len(expected)}, but instead had {len(actual)}\nExpected {expected}\nActual{actual}"
         for i, item in enumerate(expected):
             assert (
                 item == actual[i]

@@ -75,9 +75,4 @@ class SysData:
         # Compare by time first
         time_comp = time_type.TimeType.compare(x.time, y.time)
 
-        if time_comp != 0:
-            return time_comp
-
-        # Compare by id second (just let multiple events at the same time with
-        # the same id be counted as equal
-        return time_type.TimeType.compare(x.id, y.id)
+        return time_comp if time_comp != 0 else time_type.TimeType.compare(x.id, y.id)

@@ -171,7 +171,7 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         :param args: arguments as dictionary
         """
         ports = map(lambda info: info.device, list_ports.comports(include_links=True))
-        if not args["device"] in ports:
+        if args["device"] not in ports:
             raise ValueError(
                 f"Serial port '{args['device']}' not valid. Available ports: {ports}"
             )
@@ -182,7 +182,7 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
             raise ValueError(
                 f"""Serial baud rate '{args["baud"]}' not integer. Use one of: {SerialAdapter.BAUDS}"""
             )
-        if not int(baud) in SerialAdapter.BAUDS:
+        if baud not in SerialAdapter.BAUDS:
             raise ValueError(
                 f"Serial baud rate '{baud}' not supported. Use one of: {SerialAdapter.BAUDS}"
             )
