@@ -138,11 +138,11 @@ def get_artifacts_root() -> Path:
     except FprimeSettingsException as e:
         print("[ERROR]", e)
         sys.exit(-1)
-    assert "install_dest" in ini_settings, "install_dest not in settings.ini"
+    assert "install_destination" in ini_settings, "install_destination not in settings.ini"
     print(
-        f"""[INFO] Autodetected artifacts root '{ini_settings["install_dest"]}' from deployment settings.ini file."""
+        f"""[INFO] Autodetected artifacts root '{ini_settings["install_destination"]}' from deployment settings.ini file."""
     )
-    return ini_settings["install_dest"]
+    return ini_settings["install_destination"]
 
 
 def find_app(root: Path) -> Path:
