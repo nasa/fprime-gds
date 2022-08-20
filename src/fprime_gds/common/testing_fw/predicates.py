@@ -535,15 +535,17 @@ class telemetry_predicate(predicate):
         Args:
             telemetry: an instance of ChData (object)
         """
-        if not isinstance(telemetry, ChData):
-            return False
-        if (
-            self.id_pred(telemetry.get_id())
-            and self.value_pred(telemetry.get_val())
-            and self.time_pred(telemetry.get_time())
-        ):
-            return True
-        return False
+        return (
+            bool(
+                (
+                    self.id_pred(telemetry.get_id())
+                    and self.value_pred(telemetry.get_val())
+                    and self.time_pred(telemetry.get_time())
+                )
+            )
+            if isinstance(telemetry, ChData)
+            else False
+        )
 
     def __str__(self):
         """
