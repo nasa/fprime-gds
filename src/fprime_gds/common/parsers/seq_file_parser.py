@@ -201,7 +201,8 @@ class SeqFileParser:
                             descriptor, seconds, useconds = parseTime(i, line[0])
                         except Exception:
                             raise gseExceptions.GseControllerParsingException(
-                                f"Line {i + 1}: Encountered syntax error parsing timestamp")
+                                f"Line {i + 1}: Encountered syntax error parsing timestamp"
+                            )
                         mnemonic = line[1]
                         args = []
                         if length > 2:
