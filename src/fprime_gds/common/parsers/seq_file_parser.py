@@ -66,10 +66,7 @@ class SeqFileParser:
             s = s.replace(",", " ")
             # get the split indices of the modified string:
             indices = [(m.start(), m.end()) for m in re.finditer(r"\S+", s)]
-            toReturn = []
-            for start, end in indices:
-                toReturn.append(string[start:end])
-            return toReturn
+            return [string[start:end] for start, end in indices]
 
         def parseArgs(args):
             """
