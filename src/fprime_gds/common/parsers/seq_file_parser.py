@@ -176,13 +176,7 @@ class SeqFileParser:
                 delta = (dt - epoch).total_seconds()
             else:
                 raise gseExceptions.GseControllerParsingException(
-                    "Line %d: %s"
-                    % (
-                        lineNumber + 1,
-                        "Invalid time descriptor '"
-                        + d
-                        + "' found. Descriptor should either be 'A' for absolute times or 'R' for relative times",
-                    )
+                    f"Line {lineNumber + 1}: Invalid time descriptor {d} found. Descriptor should either be 'A' for absolute times or 'R' for relative times"
                 )
             seconds = int(delta)
             useconds = int((delta - seconds) * 1000000)
