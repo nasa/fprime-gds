@@ -82,23 +82,22 @@ class SeqFileParser:
                 ):
                     return arg[1:-1]
                 # If the string contains a "." assume that it is a float:
-                elif "." in arg:
+                if "." in arg:
                     return float(arg)
-                elif arg in ["True", "true", "TRUE"]:
+                if arg in ["True", "true", "TRUE"]:
                     return True
-                elif arg in ["False", "false", "FALSE"]:
+                if arg in ["False", "false", "FALSE"]:
                     return False
-                else:
+                try:
+                    # See if it translates to an integer:
+                    return int(arg, 0)
+                except ValueError:
                     try:
-                        # See if it translates to an integer:
-                        return int(arg, 0)
+                        # See if it translates to a float:
+                        return float(arg)
                     except ValueError:
-                        try:
-                            # See if it translates to a float:
-                            return float(arg)
-                        except ValueError:
-                            # Otherwise it is an enum type:
-                            return str(arg)
+                        # Otherwise it is an enum type:
+                        return str(arg)
 
             return [map(parseArg, args)]
 
