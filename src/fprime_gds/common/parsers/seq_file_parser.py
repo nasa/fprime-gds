@@ -201,37 +201,23 @@ class SeqFileParser:
                         length = len(line)
                         if length < 2:
                             raise gseExceptions.GseControllerParsingException(
-                                "Line %d: %s"
-                                % (
-                                    i + 1,
-                                    "Each line must contain a minimum of two fields, time and command mnemonic\n",
-                                )
+                                f"Line {i + 1}: Each line must contain a minimum of two fields, time and command mnemonic\n"
                             )
-                        else:
+                        try:
+                            descriptor, seconds, useconds = parseTime(i, line[0])
+                        except Exception:
+                            raise gseExceptions.GseControllerParsingException(
+                                f"Line {i + 1}: Encountered syntax error parsing timestamp")
+                        mnemonic = line[1]
+                        args = []
+                        if length > 2:
+                            args = line[2:]
                             try:
-                                descriptor, seconds, useconds = parseTime(i, line[0])
+                                args = parseArgs(args)
                             except Exception:
                                 raise gseExceptions.GseControllerParsingException(
-                                    "Line %d: %s"
-                                    % (
-                                        i + 1,
-                                        "Encountered syntax error parsing timestamp",
-                                    )
+                                    f"Line {i + 1}: Encountered syntax error parsing arguments"
                                 )
-                            mnemonic = line[1]
-                            args = []
-                            if length > 2:
-                                args = line[2:]
-                                try:
-                                    args = parseArgs(args)
-                                except Exception:
-                                    raise gseExceptions.GseControllerParsingException(
-                                        "Line %d: %s"
-                                        % (
-                                            i + 1,
-                                            "Encountered syntax error parsing arguments",
-                                        )
-                                    )
                         yield i, descriptor, seconds, useconds, mnemonic, args
                 except gseExceptions.GseControllerParsingException as exc:
                     if not cont:
