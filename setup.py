@@ -117,10 +117,10 @@ integrated configuration with ground in-the-loop.
         "fprime-tools>=3.1.1",
         "argcomplete>=1.12.3, <2.0.0",
         "Jinja2>=2.11.3, <3.0.0",
+        "openpyxl>=3.0.10, <4.0.0",
     ],
     extras_require={
         # I and T API
         "uart-adapter": "pyserial",
-        "test-api-xls": "openpyxl",
     },
 )
