@@ -94,6 +94,7 @@ combuffer
 commandsi
 concat
 config
+configs
 configparser
 Consolas
 cpp
@@ -255,6 +256,7 @@ gnumeric
 Golang
 graphviz
 grayscale
+grayscales
 gse
 gtags
 gui
@@ -284,6 +286,7 @@ HTMLHELP
 http
 hxx
 hyperlink
+hyperlinks
 idct
 idl
 ieeetr
@@ -461,6 +464,7 @@ plantuml
 plist
 plugin
 png
+PNGs
 popen
 posixpath
 PREDEF
