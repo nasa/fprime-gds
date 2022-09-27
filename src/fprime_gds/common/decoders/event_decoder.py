@@ -14,8 +14,6 @@ Example data structure:
 
 @bug No known bugs
 """
-import traceback
-
 from fprime.common.models.serialize import time_type
 from fprime.common.models.serialize.type_exceptions import TypeException
 from fprime_gds.common.data_types import event_data
