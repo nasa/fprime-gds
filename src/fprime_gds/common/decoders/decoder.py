@@ -59,7 +59,8 @@ class Decoder(
         except Exception as exc:
             raise DecodingException(str(exc))
         if decoded is not None:
-            self.send_to_all(decoded)
+            for item in decoded:
+                self.send_to_all(item)
             return
         LOGGER.warning("Decoder of type %s produced 'None' decoded object", type(self))
 
