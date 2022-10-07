@@ -536,16 +536,10 @@ class telemetry_predicate(predicate):
             telemetry: an instance of ChData (object)
         """
         return (
-            bool(
-                (
-                    self.id_pred(telemetry.get_id())
-                    and self.value_pred(telemetry.get_val())
-                    and self.time_pred(telemetry.get_time())
-                )
-            )
-            if isinstance(telemetry, ChData)
-            else False
-        )
+            isinstance(telemetry, ChData)
+            and self.id_pred(telemetry.get_id())
+            and self.value_pred(telemetry.get_val())
+            and self.time_pred(telemetry.get_time())
 
     def __str__(self):
         """
