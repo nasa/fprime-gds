@@ -1,4 +1,4 @@
-"""
+"""f
 predicates.py:
 
 This file contains basic predicates as well as event and telemetry predicates used by the
@@ -539,7 +539,7 @@ class telemetry_predicate(predicate):
             isinstance(telemetry, ChData)
             and self.id_pred(telemetry.get_id())
             and self.value_pred(telemetry.get_val())
-            and self.time_pred(telemetry.get_time())
+            and self.time_pred(telemetry.get_time()))
 
     def __str__(self):
         """
