@@ -1,0 +1,4 @@
+name: "CodeQL security and quality"
+
+queries: 
+  - uses: security-and-quality
