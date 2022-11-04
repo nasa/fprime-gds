@@ -353,11 +353,11 @@ class MiddleWareParser(ParserBase):
         # May use ZMQ transportation layer if zmq package is available
         if zmq is not None:
             parser.add_argument(
-                "--no-zmq",
+                "--zmq",
                 dest="zmq",
-                action="store_false",
+                action="store_true",
                 help="Switch to using the ZMQ transportation layer",
-                default=True,
+                default=False,
             )
             parser.add_argument(
                 "--zmq-server",

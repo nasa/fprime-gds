@@ -246,9 +246,9 @@ def launch_comm(comm_adapter, tts_port, connect_address, logs, **all_args):
 
     :return:
     """
-    transport_args = ["--tts-addr", connect_address, "--tts-port", str(tts_port), "--no-zmq"]
+    transport_args = ["--tts-addr", connect_address, "--tts-port", str(tts_port)]
     if tts_port is None:
-        transport_args = ["--zmq-transport", connect_address[0], connect_address[1], "--zmq-server"]
+        transport_args = ["--zmq", "--zmq-transport", connect_address[0], connect_address[1], "--zmq-server"]
     app_cmd = [
         sys.executable,
         "-u",
