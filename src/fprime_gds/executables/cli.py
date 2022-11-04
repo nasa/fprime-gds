@@ -353,11 +353,11 @@ class MiddleWareParser(ParserBase):
         # May use ZMQ transportation layer if zmq package is available
         if zmq is not None:
             parser.add_argument(
-                "--zmq",
+                "--no-zmq",
                 dest="zmq",
-                action="store_true",
+                action="store_false",
                 help="Switch to using the ZMQ transportation layer",
-                default=False,
+                default=True,
             )
             parser.add_argument(
                 "--zmq-server",
@@ -454,6 +454,15 @@ class GdsParser(ParserBase):
             required=False,
             type=str,
             help="Path to dictionary. Overrides automatic dictionary detection.",
+        )
+        parser.add_argument(
+            "--packet-spec",
+            dest="packet_spec",
+            action="store",
+            default=None,
+            required=False,
+            type=str,
+            help="Path to packet specification.",
         )
         parser.add_argument(
             "-c",

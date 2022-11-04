@@ -18,6 +18,7 @@ import fprime_gds.common.loaders.cmd_py_loader
 import fprime_gds.common.loaders.cmd_xml_loader
 import fprime_gds.common.loaders.event_py_loader
 import fprime_gds.common.loaders.event_xml_loader
+import fprime_gds.common.loaders.pkt_xml_loader
 
 
 class Dictionaries:

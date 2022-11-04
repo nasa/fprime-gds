@@ -176,7 +176,7 @@ def find_dict(root: Path) -> Path:
     files = [
         child
         for child in dict_dir.iterdir()
-        if child.is_file() and child.suffix == ".xml"
+        if child.is_file() and child.name.endswith("Dictionary.xml")
     ]
 
     if not files:

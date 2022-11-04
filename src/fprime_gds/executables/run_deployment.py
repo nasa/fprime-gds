@@ -170,13 +170,14 @@ def launch_wx(port, dictionary, connect_address, log_dir, config, **_):
 
 
 def launch_html(
-    tts_port, dictionary, connect_address, logs, gui_addr, gui_port, **extras
+    tts_port, dictionary, packet_spec, connect_address, logs, gui_addr, gui_port, **extras
 ):
     """
     Launch the flask server and a browser pointed at the HTML page.
 
     :param tts_port: port to connect to
     :param dictionary: dictionary to look at
+    :param packet_spec: packet specification
     :param connect_address: address to connect to
     :param logs: directory to place logs
     :param gui_addr: Flask server host IP address
@@ -187,6 +188,7 @@ def launch_html(
     gse_env.update(
         {
             "DICTIONARY": str(dictionary),
+            "PACKET_SPEC": str(packet_spec),
             "FLASK_APP": "fprime_gds.flask.app",
             "LOG_DIR": logs,
             "SERVE_LOGS": "YES",
@@ -244,9 +246,9 @@ def launch_comm(comm_adapter, tts_port, connect_address, logs, **all_args):
 
     :return:
     """
-    transport_args = ["--tts-addr", connect_address, "--tts-port", str(tts_port)]
+    transport_args = ["--tts-addr", connect_address, "--tts-port", str(tts_port), "--no-zmq"]
     if tts_port is None:
-        transport_args = ["--zmq", "--zmq-transport", connect_address[0], connect_address[1], "--zmq-server"]
+        transport_args = ["--zmq-transport", connect_address[0], connect_address[1], "--zmq-server"]
     app_cmd = [
         sys.executable,
         "-u",
@@ -302,8 +304,6 @@ def main():
         launchers.append(launch_wx)
     elif gui in ["html", "none"]:
         launchers.append(launch_html)
-    # elif gui == "none":
-    #    print("[WARNING] No GUI specified, running headless", file=sys.stderr)
     else:
         raise Exception(f'Invalid GUI specified: {settings["gui"]}')
     # Launch launchers and wait for the last app to finish
