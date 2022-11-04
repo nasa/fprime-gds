@@ -96,4 +96,4 @@ class PktDecoder(ChDecoder):
             ptr += val_obj.getSize()
             ch_data_objs.append(ChData(val_obj, pkt_time, ch_temp))
 
-        return PktData(ch_data_objs, pkt_time, pkt_temp)
+        return ch_data_objs

@@ -18,7 +18,7 @@ class PktXmlLoader(XmlLoader):
     """Class to load xml packet dictionaries"""
 
     # Constants for use when parsing the xml
-    PKT_LIST_TAG = "packet_list"  # tag on the root list of packets
+    PKT_LIST_TAG = "packets"  # tag on the root list of packets
     PKT_TAG = "packet"  # tag on each packet object
     CH_TAG = "channel"  # tag on each channel element of the packet
     NAME_FIELD = "name"  # key to retrieve the packet name
