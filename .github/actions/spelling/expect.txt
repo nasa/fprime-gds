@@ -413,6 +413,7 @@ ninjaaron
 nitpicky
 noapp
 noqa
+normpath
 nosort
 Noto
 novalidate

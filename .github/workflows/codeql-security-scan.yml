@@ -1,0 +1,40 @@
+# Semantic code analysis with CodeQL 
+# see https://github.com/github/codeql-action
+name: "CodeQL Security Scan"
+
+on:
+  push:
+    branches: [ master, devel ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ master, devel ]
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+        config-file: ./.github/actions/codeql/security-pack.yml
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:${{matrix.language}}"
