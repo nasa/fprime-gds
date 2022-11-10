@@ -93,7 +93,7 @@ class PktDecoder(ChDecoder):
         ch_data_objs = []
         for ch_temp in ch_temps:
             val_obj = self.decode_ch_val(data, ptr, ch_temp)
-            ptr += val_obj.getSize()
+            ptr += val_obj.getMaxSize()
             ch_data_objs.append(ChData(val_obj, pkt_time, ch_temp))
 
         return ch_data_objs
