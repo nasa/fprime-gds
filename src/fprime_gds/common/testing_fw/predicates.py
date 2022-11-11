@@ -1,4 +1,4 @@
-"""f
+"""
 predicates.py:
 
 This file contains basic predicates as well as event and telemetry predicates used by the
