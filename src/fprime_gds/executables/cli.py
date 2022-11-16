@@ -501,10 +501,11 @@ class GdsParser(ParserBase):
 
         # Handle configuration arguments
         config = fprime_gds.common.utils.config_manager.ConfigManager()
-        if args.config is not None and os.path.isfile(args.config):
-            config.set_configs(args.config)
-        elif args.config is not None:
-            raise ValueError(f"Configuration file {args.config} not found")
+        if args.config is not None:
+            if os.path.isfile(args.config):
+                config.set_configs(args.config)
+            else:
+                raise ValueError(f"Configuration file {args.config} not found")
         args.config = config
         return args
 

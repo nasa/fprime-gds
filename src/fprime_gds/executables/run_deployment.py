@@ -291,10 +291,11 @@ def main():
         launchers.append(launch_comm)
 
     # Add app, if possible
-    if settings.get("app", None) is not None and settings.get("adapter", "") == "ip":
-        launchers.append(launch_app)
-    elif settings.get("app", None) is not None:
-        print("[WARNING] App cannot be auto-launched without IP adapter")
+    if settings.get("app", None) is not None:
+        if settings.get("adapter", "") == "ip":
+            launchers.append(launch_app)
+        else:
+            print("[WARNING] App cannot be auto-launched without IP adapter")
 
     # Launch the desired GUI package
     gui = settings.get("gui", "none")
