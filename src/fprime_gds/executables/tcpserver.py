@@ -122,9 +122,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             self.partial = b""
         if len(commands[-1]):
             self.partial = commands[-1]
-            self.cmdQueue.extend(commands[:-1])
-        else:
-            self.cmdQueue.extend(commands[:-1])
+        self.cmdQueue.extend(commands[:-1])
 
     def processQueue(self):
         for cmd in self.cmdQueue:
