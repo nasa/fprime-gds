@@ -18,11 +18,10 @@ import re
 import sys
 
 import fprime_gds.common.communication.adapters.base
-import fprime_gds.common.communication.checksum
-import fprime_gds.common.logger
-
 # Include basic adapters
 import fprime_gds.common.communication.adapters.ip
+import fprime_gds.common.communication.checksum
+import fprime_gds.common.logger
 import fprime_gds.common.utils.config_manager
 
 try:

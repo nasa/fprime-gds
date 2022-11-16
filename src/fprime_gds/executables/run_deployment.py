@@ -4,8 +4,8 @@
 # Runs a deployment. Starts a GUI, a TCPServer, and the deployment application.
 ####
 import os
-import sys
 import platform
+import sys
 import webbrowser
 from pathlib import Path
 
