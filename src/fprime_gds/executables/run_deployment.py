@@ -89,7 +89,7 @@ def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5):
         try:
             if logfile is not None:
                 with open(logfile) as file_handle:
-                    for line in file_handle.readlines():
+                    for line in file_handle:
                         print(f"    [LOG] {line.strip()}", file=sys.stderr)
         except Exception:
             pass
