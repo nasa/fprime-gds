@@ -221,9 +221,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             except OSError as err:
                 if err.errno == errno.ECONNRESET:
                     print(
-                        "Socket error "
-                        + str(err.errno)
-                        + " (Connection reset by peer) occurred on recv()."
+                        f"Socket error {str(err.errno)} (Connection reset by peer) occurred on recv()."
                     )
                 else:
                     print(f"Socket error {str(err.errno)} occurred on recv().")
@@ -237,11 +235,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
         header = self.recv(5)
 
         if len(header) == 0:
-            print(
-                "Header information is empty, client "
-                + self.name.decode(DATA_ENCODING)
-                + " exiting."
-            )
+            print(f"Header information is empty, client {self.name.decode(DATA_ENCODING)} exiting.")
             return header
         if header == b"List\n":
             return b"List"
