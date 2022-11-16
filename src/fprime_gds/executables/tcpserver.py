@@ -254,9 +254,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
         FSW receives commands of various lengths.
         """
         data = b""
-        if header == b"List":
-            return b""
-        elif header == b"Quit":
+        if header in [b"List", b"Quit"]:
             return b""
         dst = header.split(b" ")[1].strip(b" ")
         if dst == b"FSW":
