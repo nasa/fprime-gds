@@ -456,6 +456,15 @@ class GdsParser(ParserBase):
             help="Path to dictionary. Overrides automatic dictionary detection.",
         )
         parser.add_argument(
+            "--packet-spec",
+            dest="packet_spec",
+            action="store",
+            default=None,
+            required=False,
+            type=str,
+            help="Path to packet specification.",
+        )
+        parser.add_argument(
             "-c",
             "--config",
             dest="config",

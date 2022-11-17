@@ -6,6 +6,7 @@ pipeline and other components are created to interact with Flask.
 """
 import os
 import sys
+from pathlib import Path
 
 import fprime_gds.common.pipeline.standard
 from fprime_gds.common.history.ram import SelfCleaningRamHistory
@@ -87,6 +88,7 @@ def setup_pipelined_components(
     tts_address,
     tts_port,
     zmq_transport,
+    packet_spec: Path
 ):
     """
     Setup the standard pipeline and related components. This is done once, and then the resulting singletons are
@@ -101,6 +103,7 @@ def setup_pipelined_components(
     :param tts_address: address to the middleware layer
     :param tts_port: port of the middleware layer
     :param zmq_transport: set to zmq transport if using ZMQ or None to use TTS
+    :param packet_spec: path to packet specification XML
     :return: F prime pipeline
     """
     global __PIPELINE
@@ -122,7 +125,7 @@ def setup_pipelined_components(
         pipeline.transport_implementation = (
             ZmqClient if zmq_transport is not None else ThreadedTCPSocketClient
         )
-        pipeline.setup(config, dictionary, down_store, logging_prefix=log_dir)
+        pipeline.setup(config, dictionary, down_store, logging_prefix=log_dir, packet_spec=packet_spec)
 
         logger.info(
             f"Connecting to GDS at: { connection_uri } from pid: { os.getpid() }"

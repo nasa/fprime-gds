@@ -117,6 +117,8 @@ class EncodingDecoding:
         :param consumer: consumer of channels
         """
         self.channel_decoder.register(consumer)
+        if self.packet_decoder is not None:
+            self.packet_decoder.register(consumer)
 
     def remove_channel_consumer(self, consumer):
         """

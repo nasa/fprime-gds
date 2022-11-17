@@ -9,7 +9,7 @@
 #
 ####
 import os
-
+from pathlib import Path
 import fprime_gds.common.utils.config_manager
 
 # Select uploads directory and create it
@@ -18,6 +18,14 @@ DOWNLINK_DIR = os.environ.get("DOWN_FILES_DIR", "/tmp/fprime-downlink/")
 
 # Configuration is mostly driven from environment variables
 DICTIONARY = os.environ.get("DICTIONARY", None)
+PACKET_SPEC = os.environ.get("PACKET_SPEC", None)
+
+# Making packet spec optional
+if PACKET_SPEC is None or PACKET_SPEC == "None":
+    PACKET_SPEC = None
+else:
+    PACKET_SPEC = Path(PACKET_SPEC)
+
 ZMQ_TRANSPORT = os.environ.get("ZMQ_TRANSPORT", None)
 ZMQ_TRANSPORT = None if ZMQ_TRANSPORT is None else ZMQ_TRANSPORT.split("|")
 PORT = int(os.environ.get("TTS_PORT", "50050"), 0)

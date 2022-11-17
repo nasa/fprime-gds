@@ -79,6 +79,7 @@ def construct_app():
         app.config["ADDRESS"],
         app.config["PORT"],
         app.config["ZMQ_TRANSPORT"],
+        app.config["PACKET_SPEC"]
     )
 
     # Restful API registration
