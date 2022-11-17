@@ -74,17 +74,16 @@ class EventDecoder(decoder.Decoder):
             event_time.deserialize(data, ptr)
             ptr += event_time.getSize()
 
-            if event_id in self.__dict:
-                event_temp = self.__dict[event_id]
-
-                (size, arg_vals) = self.decode_args(data, ptr, event_temp)
-
-                event_list.append(event_data.EventData(arg_vals, event_time, event_temp))
-                # add up argument sizes
-                ptr += size
-            else:
+            if event_id not in self.__dict:
                 raise DecodingException(f"Event {event_id} not found in dictionary")
 
+            event_temp = self.__dict[event_id]
+            
+            (size, arg_vals) = self.decode_args(data, ptr, event_temp)
+
+            event_list.append(event_data.EventData(arg_vals, event_time, event_temp))
+            # add up argument sizes
+            ptr += size
         return event_list
 
     @staticmethod
