@@ -178,7 +178,7 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             if not header:
                 break
 
-            elif header == b"Quit":
+            if header == b"Quit":
                 LOCK.acquire()
                 print("Quit received!")
                 SERVER.dest_obj[self.name].put(struct.pack(">I", 0xA5A5A5A5))
