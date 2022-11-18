@@ -174,11 +174,10 @@ class FpFramerDeframer(FramerDeframer):
                 ):
                     data = data[total_size:]
                     return deframed, data
-                else:
-                    print(
-                        "[WARNING] Checksum validation failed. Have you correctly set '--comm-checksum-type'",
-                        file=sys.stderr,
-                    )
+                print(
+                    "[WARNING] Checksum validation failed. Have you correctly set '--comm-checksum-type'",
+                    file=sys.stderr,
+                )
                 # Bad checksum, rotate 1 and keep looking for non-garbage
                 data = data[1:]
                 continue

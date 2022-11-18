@@ -84,19 +84,18 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             print("Client exited.")
             return
 
+        # Process the data into the cmdQueue
+        self.getCmds(data)
+
+        # Process the cmdQueue
+        self.processQueue()
+
+        if self.registered:
+            print("Registration complete waiting for message.")
+            self.getNewMsg()
         else:
-            # Process the data into the cmdQueue
-            self.getCmds(data)
-
-            # Process the cmdQueue
-            self.processQueue()
-
-            if self.registered:
-                print("Registration complete waiting for message.")
-                self.getNewMsg()
-            else:
-                print("Unable to register client.")
-                return
+            print("Unable to register client.")
+            return
 
         LOCK.acquire()
         del SERVER.dest_obj[self.name]
@@ -237,13 +236,12 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             return header
         if header == b"List\n":
             return b"List"
-        elif header == b"Quit\n":
+        if header == b"Quit\n":
             return b"Quit"
-        elif header[:-1] == b"A5A5":
+        if header[:-1] == b"A5A5":
             header2 = self.recv(4)
             return header + header2
-        else:
-            return
+        return
 
     def readData(self, header):
         """

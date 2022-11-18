@@ -133,5 +133,4 @@ class FileDownload(flask_restful.Resource):
             return flask.send_from_directory(
                 self.downlinker.directory, os.path.basename(source), as_attachment=True
             )
-        else:
-            return {"files": self.downlinker.current_files()}
+        return {"files": self.downlinker.current_files()}

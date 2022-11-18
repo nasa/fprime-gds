@@ -128,25 +128,12 @@ class ChData(sys_data.SysData):
             ch_val = str(self.val_obj.val)
 
         if verbose and csv:
-            return "%s,%s,%s,%d,%s" % (
-                time_str_nice,
-                raw_time_str,
-                ch_name,
-                self.id,
-                ch_val,
-            )
-        elif verbose and not csv:
-            return "%s: %s (%d) %s %s" % (
-                time_str_nice,
-                ch_name,
-                self.id,
-                raw_time_str,
-                ch_val,
-            )
-        elif not verbose and csv:
+            return f"{time_str_nice},{raw_time_str},{ch_name},{self.id},{ch_val}"
+        if verbose and not csv:
+            return f"{time_str_nice}: {ch_name} ({self.id}) {raw_time_str} {ch_val}"
+        if not verbose and csv:
             return f"{time_str_nice},{ch_name},{ch_val}"
-        else:
-            return f"{time_str_nice}: {ch_name} = {ch_val}"
+        return f"{time_str_nice}: {ch_name} = {ch_val}"
 
     def get_val_str(self):
 
@@ -156,10 +143,9 @@ class ChData(sys_data.SysData):
         fmt_str = self.template.get_format_str()
         if self.val_obj is None:
             return ""
-        elif fmt_str:
+        if fmt_str:
             return fmt_str % (self.val_obj.val)
-        else:
-            return str(self.val_obj.val)
+        return str(self.val_obj.val)
 
     def __str__(self):
         """

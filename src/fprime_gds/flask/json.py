@@ -179,10 +179,10 @@ class GDSJsonEncoder(flask.json.JSONEncoder):
         """
         if type(obj) in self.JSON_ENCODERS:
             return self.JSON_ENCODERS[type(obj)](obj)
-        elif isinstance(obj, DataTemplate):
+        if isinstance(obj, DataTemplate):
             return getter_based_json(obj)
-        elif isinstance(obj, Enum):
+        if isinstance(obj, Enum):
             return enum_json(obj)
-        elif isinstance(obj, ValueType):
+        if isinstance(obj, ValueType):
             return obj.val
         return flask.json.JSONEncoder.default(self, obj)

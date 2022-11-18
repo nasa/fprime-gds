@@ -85,10 +85,9 @@ class ChronologicalHistory(History):
         if repeats:
             self.new_objects.clear()
             return self.objects[index:]
-        else:
-            new = self.new_objects
-            self.new_objects = []
-            return new
+        new = self.new_objects
+        self.new_objects = []
+        return new
 
     def clear(self, start=None):
         """
@@ -197,10 +196,9 @@ class ChronologicalHistory(History):
             while index < len(ordered) and not start(ordered[index]):
                 index += 1
             return index
-        elif isinstance(start, TimeType):
+        if isinstance(start, TimeType):
             index = 0
             while index < len(ordered) and ordered[index].get_time() < start:
                 index += 1
             return index
-        else:
-            return start
+        return start

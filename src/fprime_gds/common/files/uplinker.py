@@ -272,7 +272,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
             self.queue.busy.release()  # Allow the queue to continue
             self.__timeout.stop()
             return
-        elif self.state == FileStates.CANCELED:
+        if self.state == FileStates.CANCELED:
             self.send(CancelPacketData(self.get_next_sequence()))
             self.finish()
             return

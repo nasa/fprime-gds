@@ -73,8 +73,7 @@ class EventData(sys_data.SysData):
         """
         if verbose:
             return "Time,Raw Time,Name,ID,Severity,Args\n"
-        else:
-            return "Time,Name,Severity,Args\n"
+        return "Time,Name,Severity,Args\n"
 
     def get_str(self, time_zone=None, verbose=False, csv=False):
         """
@@ -107,12 +106,11 @@ class EventData(sys_data.SysData):
 
         if verbose and csv:
             return f"{time_str},{raw_time_str},{name},{self.id},{severity},{arg_str}"
-        elif verbose and not csv:
+        if verbose and not csv:
             return f"{time_str}: {name} ({self.id}) {raw_time_str} {severity} : {arg_str}"
-        elif not verbose and csv:
+        if not verbose and csv:
             return f"{time_str},{name},{severity},{arg_str}"
-        else:
-            return f"{time_str}: {name} {severity} : {arg_str}"
+        return f"{time_str}: {name} {severity} : {arg_str}"
 
     def __str__(self):
         """
