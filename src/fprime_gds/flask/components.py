@@ -7,15 +7,12 @@ pipeline and other components are created to interact with Flask.
 import os
 import sys
 from pathlib import Path
+from typing import List
 
-import fprime_gds.common.pipeline.standard
+from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.history.ram import SelfCleaningRamHistory
 
-try:
-    from fprime_gds.common.zmq_transport import ZmqClient
-except ImportError:
-    ZmqClient = None
-from fprime_gds.common.transport import ThreadedTCPSocketClient
+from fprime_gds.executables.cli import StandardPipelineParser
 
 # Module variables, should remain hidden. These are singleton top-level objects used by Flask, and its various
 # blueprints needed to run the system.
@@ -78,32 +75,15 @@ class FlaskEndpointRamHistory(SelfCleaningRamHistory):
             return self.count_values.get(start, self.count)
 
 
-def setup_pipelined_components(
-    debug,
-    logger,
-    config,
-    dictionary,
-    down_store,
-    log_dir,
-    tts_address,
-    tts_port,
-    zmq_transport,
-    packet_spec: Path
-):
+def setup_pipelined_components(debug: bool, pipeline_arguments):
     """
     Setup the standard pipeline and related components. This is done once, and then the resulting singletons are
     returned so that one object is used throughout the system.
 
-    :param debug: used to prevent the construction of the standard pipeline
-    :param logger: logger to use for output
-    :param config: GDS configuration
-    :param dictionary: path to F prime dictionary
-    :param down_store:
-    :param log_dir: log directory to write logs to, and serve logs from
-    :param tts_address: address to the middleware layer
-    :param tts_port: port of the middleware layer
-    :param zmq_transport: set to zmq transport if using ZMQ or None to use TTS
-    :param packet_spec: path to packet specification XML
+    Args:
+        debug: used to prevent the construction of the standard pipeline
+        logger: logger to log to
+        pipeline_arguments: arguments to standard pipeline
     :return: F prime pipeline
     """
     global __PIPELINE
@@ -112,25 +92,9 @@ def setup_pipelined_components(
         and not debug
         or os.environ.get("WERKZEUG_RUN_MAIN") == "true"
     ):
-        if zmq_transport is not None and ZmqClient is None:
-            print("[ERROR] ZMQ transportation is not available.", file=sys.stderr)
-            sys.exit(-1)
-        connection_uri = (
-            zmq_transport
-            if zmq_transport is not None
-            else f"tcp://{ tts_address }:{ tts_port }"
-        )
-        pipeline = fprime_gds.common.pipeline.standard.StandardPipeline()
+        pipeline = StandardPipeline()
         pipeline.histories.implementation = FlaskEndpointRamHistory
-        pipeline.transport_implementation = (
-            ZmqClient if zmq_transport is not None else ThreadedTCPSocketClient
-        )
-        pipeline.setup(config, dictionary, down_store, logging_prefix=log_dir, packet_spec=packet_spec)
-
-        logger.info(
-            f"Connecting to GDS at: { connection_uri } from pid: { os.getpid() }"
-        )
-        pipeline.connect(connection_uri)
+        pipeline = StandardPipelineParser.pipeline_factory(pipeline_arguments, pipeline)
         __PIPELINE = pipeline
     assert __PIPELINE is not None, "Main thread did not setup pipeline appropriately"
     return __PIPELINE
