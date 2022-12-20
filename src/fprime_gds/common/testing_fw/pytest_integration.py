@@ -29,7 +29,7 @@ def pytest_addoption(parser):
 
     Pytest allows users to add options to its parser. These options act very similar to argparse options and thus can be
     reused from the standard GDS command line processing. Note: pytest restricts the use of short flags (-[a-z]) thus we
-    strip those from the standard cli processing. Long options must be supplied when pytesting.
+    strip those from the standard cli processing. Long options must be supplied when testing using pytest.
 
     Args:
         parser: pytest style parser. Use "addoption" to add an option to it.

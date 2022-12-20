@@ -51,7 +51,7 @@ GUIS = ["none", "html"]
 
 
 class ParserBase(ABC):
-    """ Base parser for handling fprime commandlines
+    """ Base parser for handling fprime command lines
 
     Parsers must define several functions. They must define "get_parser", which will produce a parser to parse the
     arguments, and an optional "handle_arguments" function to do any necessary processing of the arguments. Note: when
@@ -551,7 +551,7 @@ class StandardPipelineParser(CompositeParser):
 
     @staticmethod
     def pipeline_factory(args_ns, pipeline=None) -> StandardPipeline:
-        """ A factory of the standard pipline given the handled arguments """
+        """ A factory of the standard pipeline given the handled arguments """
         pipeline_arguments = {
             "config": ConfigManager(),
             "dictionary": args_ns.dictionary,
