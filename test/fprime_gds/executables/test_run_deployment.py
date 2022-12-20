@@ -17,7 +17,7 @@ class TestRunDeployment(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             self.create_fake_deployment_structure(temporary_directory)
             with mock.patch("sys.argv", ["main", "-g", "html", "-r", temporary_directory]):
-                run_deployment.get_settings()
+                run_deployment.parse_args()
 
     def create_fake_deployment_structure(self, temporary_directory):
         system_dir = Path(temporary_directory) / platform.system()
