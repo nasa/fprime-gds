@@ -374,8 +374,7 @@ class UploadSet(object):
                 filename=filename,
                 _external=True,
             )
-        else:
-            return base + filename
+        return base + filename
 
     def path(self, filename, folder=None):
         """

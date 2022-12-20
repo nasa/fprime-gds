@@ -353,53 +353,52 @@ class XmlLoader(dict_loader.DictLoader):
 
         if type_name == "I8":
             return I8Type
-        elif type_name == "I16":
+        if type_name == "I16":
             return I16Type
-        elif type_name == "I32":
+        if type_name == "I32":
             return I32Type
-        elif type_name == "I64":
+        if type_name == "I64":
             return I64Type
-        elif type_name == "U8":
+        if type_name == "U8":
             return U8Type
-        elif type_name == "U16":
+        if type_name == "U16":
             return U16Type
-        elif type_name == "U32":
+        if type_name == "U32":
             return U32Type
-        elif type_name == "U64":
+        if type_name == "U64":
             return U64Type
-        elif type_name == "F32":
+        if type_name == "F32":
             return F32Type
-        elif type_name == "F64":
+        if type_name == "F64":
             return F64Type
-        elif type_name == "bool":
+        if type_name == "bool":
             return BoolType
-        elif type_name == "string":
+        if type_name == "string":
             if self.STR_LEN_TAG not in xml_item.attrib:
                 print(f"Trying to parse string type, but found {self.STR_LEN_TAG} field")
                 return None
             max_length = int(xml_item.get(self.STR_LEN_TAG, 0))
             name = f"{context or ''}::{xml_item.get(self.ARG_NAME_TAG)}String"
             return StringType.construct_type(name, max_length)
-        else:
-            # First try Serialized types:
-            result = self.get_serializable_type(type_name, xml_tree)
-            if result is not None:
-                return result
+        # First try Serialized types:
+        result = self.get_serializable_type(type_name, xml_tree)
+        if result is not None:
+            return result
 
-            # Now try enums:
-            result = self.get_enum_type(type_name, xml_tree)
-            if result is not None:
-                return result
+        # Now try enums:
+        result = self.get_enum_type(type_name, xml_tree)
+        if result is not None:
+            return result
 
-            # Now try arrays:
-            result = self.get_array_type(type_name, xml_tree)
-            if result is not None:
-                return result
+        # Now try arrays:
+        result = self.get_array_type(type_name, xml_tree)
+        if result is not None:
+            return result
 
-            # Abandon all hope
-            raise exceptions.GseControllerParsingException(
-                f"Could not find type {type_name}"
-            )
+        # Abandon all hope
+        raise exceptions.GseControllerParsingException(
+            f"Could not find type {type_name}"
+        )
 
 
 class UnsupportedDictionaryVersionException(Exception):
