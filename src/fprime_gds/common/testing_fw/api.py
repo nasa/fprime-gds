@@ -36,7 +36,6 @@ class IntegrationTestAPI(DataHandler):
             fsw_order: a flag to determine whether the API histories will maintain FSW time order.
         """
         self.pipeline = pipeline
-        self.fsw_ordered = fsw_order
 
         # these are owned by the GDS and will not be modified by the test API.
         self.aggregate_command_history = pipeline.histories.commands

@@ -26,7 +26,6 @@ from typing import Any, Dict, List, Tuple
 
 from fprime_gds.common.communication.adapters.base import BaseAdapter
 from fprime_gds.common.communication.adapters.ip import check_port
-from fprime_gds.common.communication.checksum import CHECKSUM_MAPPING, CHECKSUM_SELECTION
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.transport import ThreadedTCPSocketClient
 from fprime_gds.executables.utils import get_artifacts_root, find_dict, find_app
@@ -199,7 +198,7 @@ class DetectionParser(ParserBase):
         """ Handle the root, detecting it if necessary """
         args.root_directory = (Path(args.root_input) if args.root_input else get_artifacts_root()) / platform.system()
         if not args.root_directory.exists():
-            raise ValueError(f"F prime artifacts root directory '{args.root_input}' does not exist")
+            raise ValueError(f"F prime artifacts root directory '{args.root_directory}' does not exist")
         return args
 
 
@@ -323,10 +322,10 @@ class CommAdapterParser(ParserBase):
                 "help": "Setup the checksum algorithm. [default: %(default)s]",
                 "choices": [
                     item
-                    for item in CHECKSUM_MAPPING.keys()
+                    for item in fprime_gds.common.communication.checksum.CHECKSUM_MAPPING.keys()
                     if item != "default"
                 ],
-                "default": CHECKSUM_SELECTION,
+                "default": fprime_gds.common.communication.checksum.CHECKSUM_SELECTION,
             }
         }
         return {**adapter_arguments, **com_arguments}
