@@ -236,58 +236,6 @@ class CompositeParser(ParserBase):
         return args
 
 
-# class ImportParser(ParserBase):
-#     """
-#     Parser used to import new modules into the F prime namespace. This is how F prime can handle new modules and plugins
-#     by allowing the user to import new Python modules in, which may define new adapters and other items.
-#     """
-#     DESCRIPTION = "Process import arguments allowing for addition of modules"
-#
-#     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-#         """ Return argument list required to run the import parser
-#
-#         Produce the arguments that can be processed by multiple parsers. i.e. argparse, and pytest parsers are the
-#         intended consumers. Returns dictionary of flag tuples (--flag, -f) to keyword arguments to pass to argparse.
-#
-#         Returns:
-#             dictionary of flag tuple to keyword arguments
-#         """
-#         return {
-#             ("--include", ): {
-#                "action": "append",
-#                "default": [],
-#                "help": "Module name in PYTHONPATH to import. Users may specify multiple --include flags.",
-#             }
-#         }
-#
-#     def handle_arguments(self, args, **kwargs):
-#         """
-#         Handle the import arguments by looping through them and importing each. Errors are printed to the console if an
-#         import failed, but no other effect is realized.
-#
-#         :param args: parsed arguments namespace
-#         :return: args as input, has side effect of new imported modules
-#         """
-#         for module in args.include:
-#             try:
-#                 globals()[module] = importlib.import_module(module)
-#             except ImportError as ime:
-#                 print(
-#                     f"[WARNING] Failed to import '{module}' with error {ime}",
-#                     file=sys.stderr,
-#                 )
-#         return args
-#
-#     @staticmethod
-#     def run_first():
-#         """
-#         Runs this parser once first so that other parsers can benefit from the existing imported libraries. If there is
-#         a problem, the help message will be minimal, but should work.
-#         """
-#         args, _ = ImportParser.get_parser().parse_known_args()
-#         ImportParser.handle_arguments(args)
-
-
 class CommAdapterParser(ParserBase):
     """
     Handles parsing of all of the comm-layer arguments. This means selecting a comm adapter, and passing the arguments
