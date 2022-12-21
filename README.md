@@ -24,7 +24,7 @@ output data type included. Command data objects are created in the command panel
 the command encoder registered to that panel. Encoders take a data object and turn it into binary
 data that can be sent to the F´ deployment. The binary data is then passed to the TCP client
 which is registered to the encoder. Finally, the TCP client send the data back to the TCP server and
-the F´ deployment. ![The layout of the GDS](../docs/UsersGuide/media/gds_layout.jpg)
+the F´ deployment. ![The layout of the GDS](https://github.com/nasa/fprime/blob/master/docs/UsersGuide/media/gds_layout.jpg)
 
 All of these objects are created and registered to other objects when the GDS
 is initialized. Thus, all of the structure of the GDS is created in one place,
@@ -44,8 +44,8 @@ commands and registering consumers to the GDS decoders. The Standard Pipeline ca
 The Integration Test API is a tool that provides the ability to write integration-level tests for an
 F´ deployment using the GDS. The tool provides history searches/asserts, command sending, a
 detailed test log, sub-histories and convenient access to GDS data objects. The test API comes with
-separate [documentation](../docs/UsersGuide/dev/testAPI/markdown/contents.md) and its own [user
-guide](../docs/UsersGuide/dev/testAPI/user_guide.md) and is built on top of the Standard Pipeline.
+separate [documentation](https://github.com/nasa/fprime/blob/master/docs/UsersGuide/dev/testAPI/markdown/contents.md) and its own [user
+guide](https://github.com/nasa/fprime/blob/master/docs/UsersGuide/dev/testAPI/user_guide.md) and is built on top of the Standard Pipeline.
 
 ## GDS GUI Usage
 
