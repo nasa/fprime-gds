@@ -42,6 +42,7 @@ class StandardPipeline:
         self.distributor = None
         self.client_socket = None
         self.logger = None
+        self.dictionary_path = None
 
         self.__dictionaries = dictionaries.Dictionaries()
         self.__coders = encoding.EncodingDecoding()
@@ -63,11 +64,12 @@ class StandardPipeline:
         :param packet_spec: location of packetized telemetry XML specification.
         """
         assert dictionary is not None and Path(dictionary).is_file(), f"Dictionary {dictionary} does not exist"
+        self.dictionary_path = Path(dictionary)
         # Loads the distributor and client socket
         self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
         self.client_socket = self.__transport_type()
         # Setup dictionaries encoders and decoders
-        self.dictionaries.load_dictionaries(dictionary, packet_spec)
+        self.dictionaries.load_dictionaries(self.dictionary_path, packet_spec)
         self.coders.setup_coders(
             self.dictionaries, self.distributor, self.client_socket, config
         )

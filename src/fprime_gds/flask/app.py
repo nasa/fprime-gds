@@ -31,6 +31,8 @@ import fprime_gds.flask.sequence
 import fprime_gds.flask.stats
 import fprime_gds.flask.errors
 
+from fprime_gds.executables.cli import ParserBase, StandardPipelineParser
+
 from . import components
 
 
@@ -69,18 +71,9 @@ def construct_app():
     app.json_encoder = fprime_gds.flask.json.GDSJsonEncoder
     app.config["RESTFUL_JSON"] = {"cls": app.json_encoder}
     # Standard pipeline creation
-    pipeline = components.setup_pipelined_components(
-        app.debug,
-        app.logger,
-        app.config["GDS_CONFIG"],
-        app.config["DICTIONARY"],
-        app.config["DOWNLINK_DIR"],
-        app.config["LOG_DIR"],
-        app.config["ADDRESS"],
-        app.config["PORT"],
-        app.config["ZMQ_TRANSPORT"],
-        app.config["PACKET_SPEC"]
-    )
+    input_arguments = app.config["STANDARD_PIPELINE_ARGUMENTS"]
+    args_ns, _ = ParserBase.parse_args([StandardPipelineParser], "n/a", input_arguments, client=True)
+    pipeline = components.setup_pipelined_components(app.debug, args_ns)
 
     # Restful API registration
     api = fprime_gds.flask.errors.setup_error_handling(app)
@@ -144,7 +137,7 @@ def construct_app():
         fprime_gds.flask.sequence.SequenceCompiler,
         "/sequence",
         resource_class_args=[
-            app.config["DICTIONARY"],
+            args_ns.dictionary,
             app.config["UPLOADED_UPLINK_DEST"],
             pipeline.files.uplinker,
             app.config["REMOTE_SEQ_DIRECTORY"],
@@ -167,12 +160,12 @@ def construct_app():
         api.add_resource(
             fprime_gds.flask.logs.LogList,
             "/logdata",
-            resource_class_args=[app.config["LOG_DIR"]],
+            resource_class_args=[args_ns.logs],
         )
         api.add_resource(
             fprime_gds.flask.logs.LogFile,
             "/logdata/<name>",
-            resource_class_args=[app.config["LOG_DIR"]],
+            resource_class_args=[args_ns.logs],
         )
     return app, api
 

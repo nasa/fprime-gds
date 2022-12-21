@@ -84,6 +84,7 @@ integrated configuration with ground in-the-loop.
             "fprime-cli = fprime_gds.executables.fprime_cli:main",
             "fprime-seqgen = fprime_gds.common.tools.seqgen:main",
         ],
+        "pytest11": ["fprime_test_api = fprime_gds.common.testing_fw.pytest_integration"]
     },
     ####
     # Classifiers:

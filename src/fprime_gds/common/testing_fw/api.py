@@ -36,6 +36,7 @@ class IntegrationTestAPI(DataHandler):
             fsw_order: a flag to determine whether the API histories will maintain FSW time order.
         """
         self.pipeline = pipeline
+
         # these are owned by the GDS and will not be modified by the test API.
         self.aggregate_command_history = pipeline.histories.commands
         self.aggregate_telemetry_history = pipeline.histories.channels
@@ -63,10 +64,13 @@ class IntegrationTestAPI(DataHandler):
 
         # A predicate used as a filter to choose which events to log automatically
         self.event_log_filter = self.get_event_pred()
-        self.pipeline.coders.register_event_consumer(self)
 
         # Used by the data_callback method to detect if events have been received out of order.
         self.last_evr = None
+
+    def setup(self):
+        """ Set up the API, assumes pipeline is now setup """
+        self.pipeline.coders.register_event_consumer(self)
 
     def teardown(self):
         """
@@ -328,8 +332,6 @@ class IntegrationTestAPI(DataHandler):
             msg = f"The command id, {command}, wasn't in the dictionary"
         raise KeyError(msg)
 
-
-
     def send_command(self, command, args=None):
         """
         Sends the specified command.
@@ -398,6 +400,33 @@ class IntegrationTestAPI(DataHandler):
         if isinstance(events, list):
             return self.await_event_sequence(events, start=start, timeout=timeout)
         return self.await_event(events, start=start, timeout=timeout)
+
+    def send_and_assert_command(self, command, args=[], max_delay=None, timeout=5, events=None):
+        """
+        This helper will send a command and verify that the command was dispatched and completed
+        within the F' deployment. This helper can retroactively check that the delay between
+        dispatch and completion is less than a maximum allowable delay.
+
+        Args:
+            command: the mnemonic (str) or ID (int) of the command to send
+            args: a list of command arguments.
+            max_delay: the maximum allowable delay between dispatch and completion (int/float)
+            timeout: the number of seconds to wait before terminating the search (int)
+            events: extra event predicates to check between  dispatch and complete
+        Return:
+            returns a list of the EventData objects found by the search
+        """
+        cmd_id = self.translate_command_name(command)
+        dispatch = [self.get_event_pred("cmdDisp.OpCodeDispatched", [cmd_id, None])]
+        complete = [self.get_event_pred("cmdDisp.OpCodeCompleted", [cmd_id])]
+        events = dispatch + (events if events else []) + complete
+        results = self.send_and_assert_event(command, args, events, timeout=timeout)
+        if max_delay is not None:
+            delay = results[1].get_time() - results[0].get_time()
+            msg = f"The delay, {delay}, between the two events should be < {max_delay}"
+            assert delay < max_delay, msg
+        return results
+
 
     ######################################################################################
     #   Command Asserts
