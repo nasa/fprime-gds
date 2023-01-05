@@ -456,7 +456,6 @@ class DictionaryParser(DetectionParser):
 
     def handle_arguments(self, args, **kwargs):
         """ Handle arguments as parsed """
-        args = super().handle_arguments(args, **kwargs)
         # Find dictionary setting via "dictionary" argument or the "deploy" argument
         if args.dictionary is not None and not os.path.exists(args.dictionary):
             raise ValueError(f"Dictionary file {args.dictionary} does not exist")
@@ -616,10 +615,10 @@ class BinaryDeployment(DetectionParser):
         :param args: parsed arguments in namespace
         :return: args namespaces
         """
-        args = super().handle_arguments(args, **kwargs)
         # No app, stop processing now
         if args.noapp:
             return args
+        args = super().handle_arguments(args, **kwargs)
         args.app = Path(args.app) if args.app else Path(find_app(args.root_directory))
         if not args.app.is_file():
             raise ValueError(f"F prime binary '{args.app}' does not exist or is not a file")
