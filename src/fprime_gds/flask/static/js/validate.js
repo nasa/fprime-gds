@@ -68,11 +68,6 @@ export function validate_input(argument) {
             return false;
         }
     }
-    // Floating point types
-    else if (argument.type.name.startsWith("F") && isNaN(parseFloat(argument.value))) {
-        argument.error = "Supply floating point number";
-        return false;
-    }
     // Enumeration types
     else if ("possible" in argument) {
         let valid_arg = find_case_insensitive(argument.value, argument.possible);
@@ -82,8 +77,15 @@ export function validate_input(argument) {
         } else {
             argument.value = valid_arg;
         }
-    } else if (argument.type.name.indexOf("String") !== -1 && (argument.value === "" || argument.value == null)) {
+    }
+    // Check for string values
+    else if (argument.type.name.indexOf("String") !== -1 && (argument.value === "" || argument.value == null)) {
         argument.error = "Supply general text";
+    }
+    // Floating point types
+    else if ((["F32", "F64"].indexOf(argument.type.name) != -1) && isNaN(parseFloat(argument.value))) {
+        argument.error = "Supply floating point number";
+        return false;
     }
     return true;
 }
