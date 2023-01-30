@@ -442,7 +442,7 @@ oring
 osascript
 osexc
 osubgrouping
-osx
+OSX
 outputfile
 packetized
 Paetz
