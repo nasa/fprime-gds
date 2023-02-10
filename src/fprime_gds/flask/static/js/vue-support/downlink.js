@@ -33,14 +33,6 @@ Vue.component("downlink", {
          */
         keyify(item) {
             return "file-" + item.source + item.destination;
-        }
-    },
-    computed: {
-        /**
-         * The elements to be displayed are the list of incoming files set by the REST backend.
-         */
-        elements() {
-            return this.downfiles;
         },
         /**
          * Returns the file item as a list of columns. This allows for filtering.
@@ -49,6 +41,14 @@ Vue.component("downlink", {
          */
         columnify(item) {
             return [item.source, item.destination, item.state];
+        }
+    },
+    computed: {
+        /**
+         * The elements to be displayed are the list of incoming files set by the REST backend.
+         */
+        elements() {
+            return this.downfiles;
         },
     }
 });
