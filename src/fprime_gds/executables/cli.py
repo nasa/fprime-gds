@@ -340,6 +340,8 @@ class LogDeployParser(ParserBase):
                     args.logs, datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
                 )
             )
+            # A dated directory has been set, all log handling must now be direct
+            args.log_directly = True
 
         # Make sure directory exists
         try:
