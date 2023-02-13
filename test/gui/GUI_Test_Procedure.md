@@ -4,7 +4,7 @@ This document is a test suite for the Graphical User Interface (GUI) of the F' G
 
 ## Set up
 
-The below steps ensure that the evironment is set up correctly, with the correct version of the F' GDS installed.
+The below steps ensure that the environment is set up correctly, with the correct version of the F' GDS installed.
 1. Checkout https://github.com/nasa/fprime and https://github.com/fprime-community/fprime-gds at the branch to be tested.
 2. Set up the F' virtual environment
 ```
@@ -95,7 +95,7 @@ R00:00:02 fileDownlink.SendFile "/tmp/gds-test.txt" "/tmp/sequence-test.txt";
 R00:00:03 cmdDisp.CMD_NO_OP_STRING "Test";
 ```
 
-## G9 - Miscellanous 
+## G9 - Miscellaneous 
 | ID | Steps | Expected result|
 | --- | --- | --- |
 | G9.1 | Open the **Dictionaries** tab and verify that the values are displayed properly and the filter is functioning | No anomalies |
