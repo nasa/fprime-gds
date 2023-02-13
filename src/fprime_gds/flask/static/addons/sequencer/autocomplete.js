@@ -16,7 +16,7 @@ const span = /\w*$/;
  */
 function get_args_template(args, index) {
     let suffix = index;
-    return args.slice(index).map((arg) => arg.type).map(
+    return args.slice(index).map((arg) => arg.type.name).map(
         (item) => {
             return  "${" + item + "_" + suffix++ +"}";
         }).join(" ");
@@ -32,8 +32,8 @@ function get_args_template(args, index) {
 function results(command, index) {
     let args = (command || {args: []}).args;
     let options = [];
-    if ((index < args.length) && ("possible" in args[index])) {
-        options = args[index].possible.map((item) => {return {label: item}});
+    if ((index < args.length) && ("ENUM_DICT" in args[index].type)) {
+        options = Object.keys(args[index].type.ENUM_DICT).map((item) => {return {label: item}});
     }
     // Add snippet for remaining args
     let template = get_args_template(args, index);
