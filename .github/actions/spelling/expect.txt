@@ -694,6 +694,7 @@ vals
 valuemin
 valuenow
 Vcs
+venv
 versionchanged
 versioning
 vexc
