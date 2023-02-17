@@ -21,7 +21,7 @@ function command_assignment_helper(desired_command_name, desired_command_args, p
     // Keys should be exact matches
     let command_name = find_case_insensitive(desired_command_name, Object.keys(_datastore.commands));
     if (command_name == null && typeof(partial_command) != "undefined") {
-        // Finally commands that "start with" after the component name "."
+        // Finally, commands that "start with" after the component name "."
         let keys = Object.keys(_datastore.commands).filter(command_name => {
             let tokens = command_name.split(".");
             return tokens[tokens.length - 1].startsWith(partial_command);
@@ -174,8 +174,9 @@ Vue.component("command-input", {
             // Clear arguments
             for (let i = 0; i < this.selected.args.length; i++) {
                 this.selected.args[i].error = "";
-                if ("possible" in this.selected.args[i]) {
-                    this.selected.args[i].value = this.selected.args[i].possible[0];
+                let type = this.selected.args[i].type;
+                if ("ENUM_DICT" in type) {
+                    this.selected.args[i].value = Object.keys(type.ENUM_DICT)[0];
                 } else {
                     this.selected.args[i].value = "";
                 }
