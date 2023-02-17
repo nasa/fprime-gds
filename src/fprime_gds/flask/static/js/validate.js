@@ -52,15 +52,16 @@ export function find_case_insensitive(token, possible) {
  * @return {boolean}: true if valid, false otherwise
  */
 export function validate_input(argument) {
+    let type = argument.type;
     argument.error = "";
     // Integral types checking
-    if (argument.type.name in TYPE_LIMITS) {
+    if (type.name in TYPE_LIMITS) {
         let value = null;
         try {
             value = (argument.value == null) ? null : BigInt(argument.value);
         } catch (e) {}
         let limits = TYPE_LIMITS[argument.type.name];
-        let message = (argument.type.name.startsWith("U")) ? "binary, octal, decimal, or hexadecimal unsigned integer":
+        let message = (type.name.startsWith("U")) ? "binary, octal, decimal, or hexadecimal unsigned integer":
                       "signed decimal integer";
 
         if (value == null || value < limits[0] || value > limits[1]) {
@@ -69,21 +70,21 @@ export function validate_input(argument) {
         }
     }
     // Enumeration types
-    else if ("possible" in argument) {
-        let valid_arg = find_case_insensitive(argument.value, argument.possible);
+    else if ("ENUM_DICT" in type) {
+        let valid_arg = find_case_insensitive(argument.value, Object.keys(type.ENUM_DICT));
         if (valid_arg == null) {
-            argument.error = "Supply one of: " + argument.possible.join(" ");
+            argument.error = "Supply one of: " + Object.keys(type.ENUM_DICT).join(" ");
             return false;
         } else {
             argument.value = valid_arg;
         }
     }
     // Check for string values
-    else if (argument.type.name.indexOf("String") !== -1 && (argument.value === "" || argument.value == null)) {
+    else if (type.name.indexOf("String") !== -1 && (argument.value === "" || argument.value == null)) {
         argument.error = "Supply general text";
     }
     // Floating point types
-    else if ((["F32", "F64"].indexOf(argument.type.name) != -1) && isNaN(parseFloat(argument.value))) {
+    else if ((["F32Type", "F64Type"].indexOf(type.name) != -1) && isNaN(parseFloat(argument.value))) {
         argument.error = "Supply floating point number";
         return false;
     }
