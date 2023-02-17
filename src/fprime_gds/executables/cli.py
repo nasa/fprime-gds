@@ -297,10 +297,6 @@ class LogDeployParser(ParserBase):
     to end up in the proper place.
     """
 
-    # Class variable to store logs on first encounter of the logging call. This helps ensure that the logs all end up in
-    # a consistent directory, opposed to multiple directories across the system.
-    first_log = None
-
     DESCRIPTION = "Process arguments needed to specify a logging"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -340,6 +336,8 @@ class LogDeployParser(ParserBase):
                     args.logs, datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
                 )
             )
+            # A dated directory has been set, all log handling must now be direct
+            args.log_directly = True
 
         # Make sure directory exists
         try:

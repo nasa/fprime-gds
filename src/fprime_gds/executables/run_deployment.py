@@ -86,11 +86,14 @@ def launch_html(parsed_args):
     Return:
         launched process
     """
+    reproduced_arguments = StandardPipelineParser().reproduce_cli_args(parsed_args)
+    if "--log-directly" not in reproduced_arguments:
+        reproduced_arguments += ["--log-directly"]
     flask_env = os.environ.copy()
     flask_env.update(
         {
             "FLASK_APP": "fprime_gds.flask.app",
-            "STANDARD_PIPELINE_ARGUMENTS": "|".join(StandardPipelineParser().reproduce_cli_args(parsed_args)),
+            "STANDARD_PIPELINE_ARGUMENTS": "|".join(reproduced_arguments),
             "SERVE_LOGS": "YES",
         }
     )
