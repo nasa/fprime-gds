@@ -621,3 +621,80 @@ class BinaryDeployment(DetectionParser):
         if not args.app.is_file():
             raise ValueError(f"F prime binary '{args.app}' does not exist or is not a file")
         return args
+
+
+class SearchArgumentsParser(ParserBase):
+    """ Parser for search arguments """
+    DESCRIPTION = "Process arguments relevant to searching/filtering Channels/Events/Commands"
+
+    def __init__(self, command_name: str) -> None:
+        self.command_name = command_name
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """ Return arguments necessary to search through channels/events/commands"""
+        return {
+            ("--list",): {
+                "dest": "is_printing_list",
+                "action": "store_true",
+                "help": f"list all possible {self.command_name[:-1]} types the current F Prime instance could produce, based on the {self.command_name} dictionary, sorted by {self.command_name[:-1]} type ID",
+            },  
+            ("-i", "--ids"): {
+                "dest": "ids",
+                "action": "store",
+                "required": False,
+                "type": int,
+                "help": f"only show {self.command_name} matching the given type ID(s) 'ID'; can provide multiple IDs to show all given types",
+                "metavar": "ID",
+            },
+            ("-c", "--components"): {
+                "dest": "components",
+                "nargs": "+",
+                "required": False,
+                "type": str,
+                "help": f"only show {self.command_name} from the given component name 'COMP'; can provide multiple components to show {self.command_name} from all components given",
+                "metavar": "COMP",
+            },
+            ("-s", "--search"): {
+                "dest": "search",
+                "required": False,
+                "type": str,
+                "help": f'only show {self.command_name} whose name or output string exactly matches or contains the entire given string "STRING"',
+            },
+        }
+
+
+    def handle_arguments(self, args, **kwargs):
+        return args
+
+
+
+class RetrievalArgumentsParser(ParserBase):
+    """ Parser for retrieval arguments """
+    DESCRIPTION = "Process arguments relevant to retrieving Channels/Events"
+
+    def __init__(self, command_name: str) -> None:
+        self.command_name = command_name
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """ Return arguments to retrieve channels/events/commands in specific ways"""
+        return {
+            ("-t", "--timeout"): {
+                "dest": "timeout",
+                "action": "store",
+                "required": False,
+                "type": float,
+                "help": f"wait at most SECONDS seconds for a single new {self.command_name}, then exit (defaults to listening until the user exits via CTRL+C, and logging all {self.command_name})",
+                "metavar": "SECONDS",
+                "default": 0.0,
+            },
+            ("-j", "--json"): {
+                "dest": "json",
+                "action": "store_true",
+                "required": False,
+                "help": f"return the JSON response of the API call, with {self.command_name} filtered based on other flags provided",
+            }, 
+        }
+
+
+    def handle_arguments(self, args, **kwargs):
+        return args
