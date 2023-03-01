@@ -2,6 +2,7 @@
 The implementation code for the command-send GDS CLI commands
 """
 
+import sys
 import difflib
 from typing import Iterable, List
 
@@ -13,6 +14,8 @@ from fprime_gds.common.gds_cli.base_commands import QueryHistoryCommand
 from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.testing_fw import predicates
+from fprime_gds.common.testing_fw.api import IntegrationTestAPI
+from fprime_gds.executables.cli import StandardPipelineParser
 
 
 class CommandSendCommand(QueryHistoryCommand):
@@ -86,6 +89,7 @@ class CommandSendCommand(QueryHistoryCommand):
         :param filter_predicate: Test API predicate used to filter shown
             channels
         """
+
         # NOTE: Trying to create a blank CmdData causes errors, so currently
         # just using templates (i.e. this function does nothing)
         def create_empty_command(cmd_template):
@@ -127,79 +131,68 @@ class CommandSendCommand(QueryHistoryCommand):
         return misc_utils.get_cmd_template_string(item, json)
 
     @classmethod
-    def _execute_command(
-        cls,
-        connection_info: misc_utils.ConnectionInfo,
-        search_info: misc_utils.SearchInfo,
-        command_name: str,
-        arguments: List[str],
-    ):
-        """
-        Handle the command-send arguments to connect to the Test API correctly,
-        then send the command via the Test API.
-
-        For more details on these arguments, see the command-send definition at:
-            Gds/src/fprime_gds/executables/fprime_cli.py
-        """
-        dictionary, ip_address, port = tuple(connection_info)
-        is_printing_list, ids, components, search, json = tuple(search_info)
-
-        search_filter = cls._get_search_filter(ids, components, search, json)
-        if is_printing_list:
-            cls._log(cls._list_all_possible_items(dictionary, search_filter, json))
-            return
-
-        # ======================================================================
-        pipeline, api = test_api_utils.initialize_test_api(
-            dictionary, server_ip=ip_address, server_port=port
-        )
-        # ======================================================================
-
-        try:
-            api.send_command(command_name, arguments)
-        except KeyError:
-            cls._log(f"{command_name} is not a known command")
-            close_matches = CommandSendCommand.get_closest_commands(
-                pipeline.dictionaries, command_name
-            )
-            if close_matches:
-                cls._log(f"Similar known commands: {close_matches}")
-        except NotInitializedException:
-            temp = CommandSendCommand.get_command_template(
-                pipeline.dictionaries, command_name
-            )
-            cls._log(
-                "'%s' requires %d arguments (%d given)"
-                % (command_name, len(temp.get_args()), len(arguments))
-            )
-            cls._log(cls.get_command_help_message(pipeline.dictionaries, command_name))
-        except CommandArgumentsException as err:
-            cls._log(f"Invalid arguments given; {str(err)}")
-            cls._log(cls.get_command_help_message(pipeline.dictionaries, command_name))
-
-        # ======================================================================
-        pipeline.disconnect()
-        api.teardown()
-        # ======================================================================
-
-    @classmethod
-    def handle_arguments(cls, *args, **kwargs):
+    def handle_arguments(cls, args, **kwargs):
         """
         Handle the given input arguments, then execute the command itself
-
-        NOTE: This is currently just a pass-through method
         """
-        connection_info = misc_utils.ConnectionInfo(
-            kwargs["dictionary"], kwargs["ip_address"], kwargs["port"]
-        )
-        search_info = misc_utils.SearchInfo(
-            kwargs["is_printing_list"],
-            kwargs["ids"],
-            kwargs["components"],
-            kwargs["search"],
-            kwargs["json"],
-        )
 
-        cls._execute_command(
-            connection_info, search_info, kwargs["command_name"], kwargs["arguments"]
-        )
+        pipeline_parser = StandardPipelineParser()
+        pipeline = None
+        api = None
+
+        try:
+            # Parse the command line arguments into a client connection
+            args = pipeline_parser.handle_arguments(args, **kwargs, client=True)
+
+            # Build a new pipeline with the parsed and processed arguments
+            pipeline = pipeline_parser.pipeline_factory(args, pipeline)
+
+            search_filter = cls._get_search_filter(
+                args.ids, args.components, args.search, args.json
+            )
+
+            if args.is_printing_list:
+                cls._log(cls._list_all_possible_items(args.dictionary, search_filter, args.json))
+                return
+
+            # Build and set up the integration test api NOT NEEDED?
+            api = IntegrationTestAPI(pipeline, args.logs)
+            api.setup()
+
+            command = args.command_name
+            arguments = [] if args.arguments is None else args.arguments
+            try:
+                api.send_command(command, arguments)
+            except KeyError:
+                cls._log(f"{command} is not a known command")
+                close_matches = CommandSendCommand.get_closest_commands(
+                    pipeline.dictionaries, command
+                )
+                if close_matches:
+                    cls._log(f"Similar known commands: {close_matches}")
+            except NotInitializedException:
+                temp = CommandSendCommand.get_command_template(
+                    pipeline.dictionaries, command
+                )
+                cls._log(
+                    "'%s' requires %d arguments (%d given)"
+                    % (command, len(temp.get_args()), len(arguments))
+                )
+                cls._log(cls.get_command_help_message(pipeline.dictionaries, command))
+
+        # Teardown resources
+        finally:
+            # Attempt to teardown the API to ensure we are clean after the fixture is created
+            try:
+                if api is not None:
+                    api.teardown()
+            except Exception as exc:
+                print(f"[WARNING] Exception in API teardown: {exc}", file=sys.stderr)
+            # Attempt to shut down the pipeline connection
+            try:
+                if pipeline is not None:
+                    pipeline.disconnect()
+            except Exception as exc:
+                print(
+                    f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr
+                )

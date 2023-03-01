@@ -13,6 +13,7 @@ import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
+from fprime_gds.executables.cli import StandardPipelineParser
 
 
 class BaseCommand(abc.ABC):
@@ -29,6 +30,8 @@ class BaseCommand(abc.ABC):
 
         :param log_text: The string to print out
         """
+        if not isinstance(log_text, str):
+            log_text = str(log_text)
         if log_text:
             print(log_text)
             sys.stdout.flush()
@@ -160,76 +163,69 @@ class QueryHistoryCommand(BaseCommand):
         items = cls._get_item_list(project_dictionary, search_filter)
         return cls._get_item_list_string(items, json)
 
-    @classmethod
-    def _execute_query(
-        cls,
-        connection_info: misc_utils.ConnectionInfo,
-        search_info: misc_utils.SearchInfo,
-        timeout: float,
-    ):
-        """
-        Takes in the given arguments and uses them to print out a formatted
-        string of items the user wants to see from the Test API; if the option
-        is present, repeat doing this until the user exits the program.
-
-        For descriptions of these arguments, and more function details, see:
-            Gds/src/fprime_gds/executables/fprime_cli.py
-        """
-        dictionary, ip_address, port = tuple(connection_info)
-        is_printing_list, ids, components, search, json = tuple(search_info)
-
-        search_filter = cls._get_search_filter(ids, components, search, json)
-        if is_printing_list:
-            cls._log(cls._list_all_possible_items(dictionary, search_filter, json))
-            return
-
-        # ======================================================================
-        # Set up Test API
-        pipeline, api = test_api_utils.initialize_test_api(
-            dictionary, server_ip=ip_address, server_port=port
-        )
-        # ======================================================================
-
-        if timeout:
-            item = cls._get_upcoming_item(api, search_filter, "NOW", timeout)
-            cls._log(cls._get_item_string(item, json))
-        else:
-
-            def print_upcoming_item(min_start_time="NOW"):
-                item_ = cls._get_upcoming_item(api, search_filter, min_start_time)
-                cls._log(cls._get_item_string(item_, json))
-                # Update time so we catch the next item since the last one
-                if item_:
-                    min_start_time = predicates.greater_than(item_.get_time())
-                    min_start_time = filtering_utils.time_to_data_predicate(
-                        min_start_time
-                    )
-                return (min_start_time,)
-
-            misc_utils.repeat_until_interrupt(print_upcoming_item, "NOW")
-
-        # ======================================================================
-        # Tear down Test API
-        pipeline.disconnect()
-        api.teardown()
-        # ======================================================================
 
     @classmethod
-    def handle_arguments(cls, *args, **kwargs):
+    def handle_arguments(cls, args, **kwargs):
         """
         Handle the given input arguments, then execute the command itself
-
-        NOTE: This is currently just a pass-through method
         """
-        connection_info = misc_utils.ConnectionInfo(
-            kwargs["dictionary"], kwargs["ip_address"], kwargs["port"]
-        )
-        search_info = misc_utils.SearchInfo(
-            kwargs["is_printing_list"],
-            kwargs["ids"],
-            kwargs["components"],
-            kwargs["search"],
-            kwargs["json"],
-        )
 
-        cls._execute_query(connection_info, search_info, kwargs["timeout"])
+        pipeline_parser = StandardPipelineParser()
+        pipeline = None
+        api = None
+
+        try:
+            # Parse the command line arguments into a client connection
+            args = pipeline_parser.handle_arguments(args, **kwargs, client=True)
+
+            search_filter = cls._get_search_filter(
+                args.ids, args.components, args.search, args.json
+            )
+
+            if args.is_printing_list:
+                cls._log(cls._list_all_possible_items(args.dictionary, search_filter, args.json))
+                return
+
+            # Build a new pipeline with the parsed and processed arguments
+            pipeline = pipeline_parser.pipeline_factory(args)
+
+            # Build and set up the integration test api
+            api = IntegrationTestAPI(pipeline)
+            api.setup()
+
+            if args is None:
+                args = []
+
+            # Timeout <= 0 means we should keep going until interrupted
+            if args.timeout > 0:
+                item = cls._get_upcoming_item(api, search_filter, "NOW", args.timeout)
+                cls._log(cls._get_item_string(item, args.json))
+            else:
+
+                def print_upcoming_item(min_start_time="NOW"):
+                    item_ = cls._get_upcoming_item(api, search_filter, min_start_time)
+                    cls._log(cls._get_item_string(item_, args.json))
+                    # Update time so we catch the next item since the last one
+                    if item_:
+                        min_start_time = predicates.greater_than(item_.get_time())
+                        min_start_time = filtering_utils.time_to_data_predicate(
+                            min_start_time
+                        )
+                    return (min_start_time,)
+
+                misc_utils.repeat_until_interrupt(print_upcoming_item, "NOW")
+
+        # Tear down and discronnect resources
+        finally:
+            try:
+                if api is not None:
+                    api.teardown()
+            except Exception as exc:
+                print(f"[WARNING] Exception in API teardown: {exc}", file=sys.stderr)
+            try:
+                if pipeline is not None:
+                    pipeline.disconnect()
+            except Exception as exc:
+                print(
+                    f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr
+                )

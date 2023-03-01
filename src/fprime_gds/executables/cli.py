@@ -754,7 +754,7 @@ class RetrievalArgumentsParser(ParserBase):
                 "dest": "json",
                 "action": "store_true",
                 "required": False,
-                "help": f"return the JSON response of the API call instead of the {self.command_name[:-1]} string",
+                "help": f"returns response in JSON format",
             },
         }
 

@@ -8,41 +8,9 @@ from typing import Any, Dict, List
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.data_types.sys_data import SysData
-from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.templates.data_template import DataTemplate
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
-from fprime_gds.common.utils.config_manager import ConfigManager
-
-
-def initialize_test_api(
-    app_dictionary_path: str,
-    log_path: str = None,
-    server_ip: str = "127.0.0.1",
-    server_port: int = 50050,
-) -> IntegrationTestAPI:
-    """
-    Initializes an Integration Test API instance for use.
-
-    Note that these MUST be manually disconnected when you're done using them,
-    by calling "pipeline.disconnect()" and "api.teardown()", respectively.
-
-    :param app_dictionary_path: A string path from the current working directory
-        to the "<project name>AppDictionary.xml" file for the project you're
-        using the API with
-    :param log_path: A string path to where files should be logged, or "None" if
-        you only want console output
-    :param server_ip: The IP of the GDS server you want to connect to
-    :param server_port: The port for the Test API on the GDS server
-    """
-    pipeline = StandardPipeline()
-    pipeline.setup(ConfigManager(), app_dictionary_path, "/tmp")
-    pipeline.connect(server_ip, server_port)
-
-    # instantiate Test API (log_path of "None" will disable Test API logging)
-    api = IntegrationTestAPI(pipeline, log_path)
-
-    return pipeline, api
 
 
 def get_upcoming_event(
