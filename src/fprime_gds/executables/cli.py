@@ -17,6 +17,7 @@ import platform
 import sys
 
 import fprime_gds.common.logger
+
 # Required to set the checksum as a module variable
 import fprime_gds.common.communication.checksum
 
@@ -50,22 +51,23 @@ GUIS = ["none", "html"]
 
 
 class ParserBase(ABC):
-    """ Base parser for handling fprime command lines
+    """Base parser for handling fprime command lines
 
     Parsers must define several functions. They must define "get_parser", which will produce a parser to parse the
     arguments, and an optional "handle_arguments" function to do any necessary processing of the arguments. Note: when
     handling arguments.
     """
+
     DESCRIPTION = None
 
     @property
     def description(self):
-        """ Return parser description """
+        """Return parser description"""
         return self.DESCRIPTION if self.DESCRIPTION else "Unknown command line parser"
 
     @abstractmethod
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return argument list handled by this parser
+        """Return argument list handled by this parser
 
         Produce the arguments that can be processed by multiple parsers. i.e. argparse, and pytest parsers are the
         intended consumers. Returns a tuple of dictionary of flag tuples (--flag, -f) to keyword arguments to pass to
@@ -76,7 +78,7 @@ class ParserBase(ABC):
         """
 
     def get_parser(self) -> argparse.ArgumentParser:
-        """ Return an argument parser to parse arguments here-in
+        """Return an argument parser to parse arguments here-in
 
         Produce a parser that will handle the given arguments. These parsers can be combined for a CLI for a tool by
         assembling them as parent processors to a parser for the given tool.
@@ -84,44 +86,58 @@ class ParserBase(ABC):
         Return:
             argparse parser for supplied arguments
         """
-        parser = argparse.ArgumentParser(
-            description=self.description,
-            add_help=False
-        )
+        parser = argparse.ArgumentParser(description=self.description, add_help=True)
         for flags, keywords in self.get_arguments().items():
             parser.add_argument(*flags, **keywords)
         return parser
 
     def reproduce_cli_args(self, args_ns):
-        """ Reproduce the list of arguments needed on the command line """
+        """Reproduce the list of arguments needed on the command line"""
 
         def flag_member(flags, argparse_inputs) -> Tuple[str, str]:
-            """ Get the best CLI flag and namespace member """
-            best_flag = ([flag for flag in flags if flag.startswith("--")] + list(flags))[0]
-            member = argparse_inputs.get("dest", re.sub(r"^-+", "", best_flag).replace("-", "_"))
+            """Get the best CLI flag and namespace member"""
+            best_flag = (
+                [flag for flag in flags if flag.startswith("--")] + list(flags)
+            )[0]
+            member = argparse_inputs.get(
+                "dest", re.sub(r"^-+", "", best_flag).replace("-", "_")
+            )
             return best_flag, member
 
         def cli_arguments(flags, argparse_inputs) -> List[str]:
-            """ Get CLI argument list fro argument entry """
+            """Get CLI argument list fro argument entry"""
             best_flag, member = flag_member(flags, argparse_inputs)
             value = getattr(args_ns, member, None)
 
             action = argparse_inputs.get("action", "store")
-            assert action in ["store", "store_true", "store_false"], f"{action} not supported by reproduce_cli_args"
+            assert action in [
+                "store",
+                "store_true",
+                "store_false",
+            ], f"{action} not supported by reproduce_cli_args"
 
             # Handle arguments
-            if (action == "store_true" and value) or (action == "store_false" and not value):
+            if (action == "store_true" and value) or (
+                action == "store_false" and not value
+            ):
                 return [best_flag]
             elif action != "store" or value is None:
                 return []
-            return [best_flag] + ([str(value)] if not isinstance(value, list) else [str(item) for item in value])
+            return [best_flag] + (
+                [str(value)]
+                if not isinstance(value, list)
+                else [str(item) for item in value]
+            )
 
-        cli_pairs = [cli_arguments(flags, argparse_ins) for flags, argparse_ins in self.get_arguments().items()]
+        cli_pairs = [
+            cli_arguments(flags, argparse_ins)
+            for flags, argparse_ins in self.get_arguments().items()
+        ]
         return list(itertools.chain.from_iterable(cli_pairs))
 
     @abstractmethod
     def handle_arguments(self, args, **kwargs):
-        """ Post-process the parser's arguments
+        """Post-process the parser's arguments
 
         Handle arguments from the given parser. The expectation is that the "args" namespace is taken in, processed, and
         a new namespace object is returned with the processed variants of the arguments.
@@ -133,9 +149,12 @@ class ParserBase(ABC):
 
     @staticmethod
     def parse_args(
-        parser_classes, description="No tool description provided", arguments=None, **kwargs
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        **kwargs,
     ):
-        """ Parse and post-process arguments
+        """Parse and post-process arguments
 
         Create a parser for the given application using the description provided. This will then add all specified
         ParserBase subclasses' get_parser output as parent parses for the created parser. Then all of the handle
@@ -180,10 +199,10 @@ class ParserBase(ABC):
 
 
 class DetectionParser(ParserBase):
-    """ Parser that detects items from a root/directory or deployment """
+    """Parser that detects items from a root/directory or deployment"""
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Arguments needed for root processing """
+        """Arguments needed for root processing"""
         return {
             ("-r", "--root"): {
                 "dest": "root_input",
@@ -195,42 +214,53 @@ class DetectionParser(ParserBase):
         }
 
     def handle_arguments(self, args, **kwargs):
-        """ Handle the root, detecting it if necessary """
-        args.root_directory = (Path(args.root_input) if args.root_input else get_artifacts_root()) / platform.system()
+        """Handle the root, detecting it if necessary"""
+        args.root_directory = (
+            Path(args.root_input) if args.root_input else get_artifacts_root()
+        ) / platform.system()
         if not args.root_directory.exists():
-            raise ValueError(f"F prime artifacts root directory '{args.root_directory}' does not exist")
+            raise ValueError(
+                f"F prime artifacts root directory '{args.root_directory}' does not exist"
+            )
         return args
 
 
 class CompositeParser(ParserBase):
-    """ Composite parser handles parsing as a composition of multiple other parsers """
+    """Composite parser handles parsing as a composition of multiple other parsers"""
 
     def __init__(self, constituents, description=None):
-        """ Construct this parser by instantiating the sub-parsers"""
+        """Construct this parser by instantiating the sub-parsers"""
         self.given = description
         constructed = [constituent() for constituent in constituents]
-        flattened = [item.constituents if isinstance(item, CompositeParser) else [item] for item in constructed]
+        flattened = [
+            item.constituents if isinstance(item, CompositeParser) else [item]
+            for item in constructed
+        ]
         self.constituent_parsers = {*itertools.chain.from_iterable(flattened)}
 
     @property
     def constituents(self):
-        """ Get constituent """
+        """Get constituent"""
         return self.constituent_parsers
 
     @property
     def description(self):
-        """ Return parser description """
-        return self.given if self.given else ",".join(item.description for item in self.constituents)
+        """Return parser description"""
+        return (
+            self.given
+            if self.given
+            else ",".join(item.description for item in self.constituents)
+        )
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Get the argument from all constituents """
+        """Get the argument from all constituents"""
         arguments = {}
         for constituent in self.constituents:
             arguments.update(constituent.get_arguments())
         return arguments
 
     def handle_arguments(self, args, **kwargs):
-        """ Process all constituent arguments """
+        """Process all constituent arguments"""
         for constituent in self.constituents:
             args = constituent.handle_arguments(args, **kwargs)
         return args
@@ -242,16 +272,20 @@ class CommAdapterParser(ParserBase):
     required to setup that comm adapter. In addition, this parser uses the import parser to import modules such that a
     user may import other adapter implementation files.
     """
+
     DESCRIPTION = "Process arguments needed to specify a comm-adapter"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Get arguments for the comm-layer parser """
+        """Get arguments for the comm-layer parser"""
         adapter_definition_dictionaries = BaseAdapter.get_adapters()
         adapter_arguments = {}
         for name, adapter in adapter_definition_dictionaries.items():
             adapter_arguments_callable = getattr(adapter, "get_arguments", None)
             if not callable(adapter_arguments_callable):
-                print(f"[WARNING] '{name}' does not have 'get_arguments' method, skipping.", file=sys.stderr)
+                print(
+                    f"[WARNING] '{name}' does not have 'get_arguments' method, skipping.",
+                    file=sys.stderr,
+                )
                 continue
             adapter_arguments.update(adapter.get_arguments())
         com_arguments = {
@@ -260,7 +294,8 @@ class CommAdapterParser(ParserBase):
                 "action": "store",
                 "type": str,
                 "help": "Adapter for communicating to flight deployment. [default: %(default)s]",
-                "choices": ["none"] + [name for name in adapter_definition_dictionaries.keys()],
+                "choices": ["none"]
+                + [name for name in adapter_definition_dictionaries.keys()],
                 "default": "ip",
             },
             ("--comm-checksum-type",): {
@@ -274,7 +309,7 @@ class CommAdapterParser(ParserBase):
                     if item != "default"
                 ],
                 "default": fprime_gds.common.communication.checksum.CHECKSUM_SELECTION,
-            }
+            },
         }
         return {**adapter_arguments, **com_arguments}
 
@@ -300,7 +335,7 @@ class LogDeployParser(ParserBase):
     DESCRIPTION = "Process arguments needed to specify a logging"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return arguments to parse logging options """
+        """Return arguments to parse logging options"""
         return {
             ("-l", "--logs"): {
                 "dest": "logs",
@@ -318,8 +353,8 @@ class LogDeployParser(ParserBase):
             ("--log-to-stdout",): {
                 "action": "store_true",
                 "default": False,
-                "help": "Log to standard out along with log output files"
-            }
+                "help": "Log to standard out along with log output files",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -346,7 +381,9 @@ class LogDeployParser(ParserBase):
             if osexc.errno != errno.EEXIST:
                 raise
         # Setup the basic python logging
-        fprime_gds.common.logger.configure_py_log(args.logs, mirror_to_stdout=args.log_to_stdout)
+        fprime_gds.common.logger.configure_py_log(
+            args.logs, mirror_to_stdout=args.log_to_stdout
+        )
         return args
 
 
@@ -357,10 +394,11 @@ class MiddleWareParser(ParserBase):
     immediately closes the port after use. There is a minor race-condition between this check and the actual usage,
     however; it should be close enough.
     """
+
     DESCRIPTION = "Process arguments needed to specify a tool using the middleware"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return arguments necessary to run a and connect to the GDS middleware """
+        """Return arguments necessary to run a and connect to the GDS middleware"""
         # May use ZMQ transportation layer if zmq package is available
         zmq_arguments = {}
         if zmq is not None and ZmqClient is not None:
@@ -381,9 +419,12 @@ class MiddleWareParser(ParserBase):
                     "dest": "zmq_transport",
                     "nargs": 2,
                     "help": "Pair of URls used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
-                    "default": ["ipc:///tmp/fprime-server-in", "ipc:///tmp/fprime-server-out"],
-                    "metavar": ("serverInUrl", "serverOutUrl")
-                }
+                    "default": [
+                        "ipc:///tmp/fprime-server-in",
+                        "ipc:///tmp/fprime-server-out",
+                    ],
+                    "metavar": ("serverInUrl", "serverOutUrl"),
+                },
             }
         tts_arguments = {
             ("--tts-port",): {
@@ -399,7 +440,7 @@ class MiddleWareParser(ParserBase):
                 "type": str,
                 "help": "Set the threaded TCP socket server address [default: %(default)s]",
                 "default": "0.0.0.0",
-            }
+            },
         }
         return {**zmq_arguments, **tts_arguments}
 
@@ -413,7 +454,11 @@ class MiddleWareParser(ParserBase):
         """
         is_client = kwargs.get("client", False)
         args.zmq = getattr(args, "zmq", False)
-        tts_connection_address = args.tts_addr.replace("0.0.0.0", "127.0.0.1") if is_client else args.tts_addr
+        tts_connection_address = (
+            args.tts_addr.replace("0.0.0.0", "127.0.0.1")
+            if is_client
+            else args.tts_addr
+        )
 
         args.connection_uri = f"tcp://{tts_connection_address}:{args.tts_port}"
         args.connection_transport = ThreadedTCPSocketClient
@@ -426,10 +471,10 @@ class MiddleWareParser(ParserBase):
 
 
 class DictionaryParser(DetectionParser):
-    """ Parser for deployments """
+    """Parser for deployments"""
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Arguments to handle deployments """
+        """Arguments to handle deployments"""
         return {
             **super().get_arguments(),
             **{
@@ -448,12 +493,12 @@ class DictionaryParser(DetectionParser):
                     "required": False,
                     "type": str,
                     "help": "Path to packet specification.",
-                }
-            }
+                },
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
-        """ Handle arguments as parsed """
+        """Handle arguments as parsed"""
         # Find dictionary setting via "dictionary" argument or the "deploy" argument
         if args.dictionary is not None and not os.path.exists(args.dictionary):
             raise ValueError(f"Dictionary file {args.dictionary} does not exist")
@@ -464,10 +509,10 @@ class DictionaryParser(DetectionParser):
 
 
 class FileHandlingParser(ParserBase):
-    """ Parser for deployments """
+    """Parser for deployments"""
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Arguments to handle deployments """
+        """Arguments to handle deployments"""
         return {
             ("--file-storage-directory",): {
                 "dest": "files_directory",
@@ -480,22 +525,30 @@ class FileHandlingParser(ParserBase):
         }
 
     def handle_arguments(self, args, **kwargs):
-        """ Handle arguments as parsed """
+        """Handle arguments as parsed"""
         os.makedirs(args.files_directory, exist_ok=True)
         return args
 
 
 class StandardPipelineParser(CompositeParser):
-    """ Standard pipeline argument parser: combination of MiddleWare and """
-    CONSTITUENTS = [DictionaryParser, FileHandlingParser, MiddleWareParser, LogDeployParser]
+    """Standard pipeline argument parser: combination of MiddleWare and"""
+
+    CONSTITUENTS = [
+        DictionaryParser,
+        FileHandlingParser,
+        MiddleWareParser,
+        LogDeployParser,
+    ]
 
     def __init__(self):
-        """ Initialization """
-        super().__init__(constituents=self.CONSTITUENTS, description="Standard pipeline setup")
+        """Initialization"""
+        super().__init__(
+            constituents=self.CONSTITUENTS, description="Standard pipeline setup"
+        )
 
     @staticmethod
     def pipeline_factory(args_ns, pipeline=None) -> StandardPipeline:
-        """ A factory of the standard pipeline given the handled arguments """
+        """A factory of the standard pipeline given the handled arguments"""
         pipeline_arguments = {
             "config": ConfigManager(),
             "dictionary": args_ns.dictionary,
@@ -518,12 +571,16 @@ class StandardPipelineParser(CompositeParser):
 
 
 class CommParser(CompositeParser):
-    """ Comm Executable Parser """
+    """Comm Executable Parser"""
+
     CONSTITUENTS = [CommAdapterParser, MiddleWareParser, LogDeployParser]
 
     def __init__(self):
-        """ Initialization """
-        super().__init__(constituents=self.CONSTITUENTS, description="Communications bridge application")
+        """Initialization"""
+        super().__init__(
+            constituents=self.CONSTITUENTS,
+            description="Communications bridge application",
+        )
 
 
 class GdsParser(ParserBase):
@@ -536,10 +593,11 @@ class GdsParser(ParserBase):
 
     Note: deployment can help in setting both dictionary and logs, but isn't strictly required.
     """
+
     DESCRIPTION = "Process arguments needed to specify a tool using the GDS"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return arguments necessary to run a binary deployment via the GDS"""
+        """Return arguments necessary to run a binary deployment via the GDS"""
         return {
             ("-g", "--gui"): {
                 "choices": GUIS,
@@ -563,7 +621,7 @@ class GdsParser(ParserBase):
                 "required": False,
                 "type": str,
                 "help": "Set the GUI server address [default: %(default)s]",
-            }
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -582,10 +640,11 @@ class BinaryDeployment(DetectionParser):
     Parsing subclass used to read the arguments of the binary application. This derives functionality from a comm parser
     and represents the flight-side of the equation.
     """
+
     DESCRIPTION = "Process arguments needed for running F prime binary"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return arguments necessary to run a binary deployment via the GDS"""
+        """Return arguments necessary to run a binary deployment via the GDS"""
         return {
             **super().get_arguments(),
             **{
@@ -602,7 +661,7 @@ class BinaryDeployment(DetectionParser):
                     "type": str,
                     "help": "Path to app to run. Overrides automatic app detection.",
                 },
-            }
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -619,25 +678,30 @@ class BinaryDeployment(DetectionParser):
         args = super().handle_arguments(args, **kwargs)
         args.app = Path(args.app) if args.app else Path(find_app(args.root_directory))
         if not args.app.is_file():
-            raise ValueError(f"F prime binary '{args.app}' does not exist or is not a file")
+            raise ValueError(
+                f"F prime binary '{args.app}' does not exist or is not a file"
+            )
         return args
 
 
 class SearchArgumentsParser(ParserBase):
-    """ Parser for search arguments """
-    DESCRIPTION = "Process arguments relevant to searching/filtering Channels/Events/Commands"
+    """Parser for search arguments"""
+
+    DESCRIPTION = (
+        "Process arguments relevant to searching/filtering Channels/Events/Commands"
+    )
 
     def __init__(self, command_name: str) -> None:
         self.command_name = command_name
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return arguments necessary to search through channels/events/commands"""
+        """Return arguments necessary to search through channels/events/commands"""
         return {
             ("--list",): {
                 "dest": "is_printing_list",
                 "action": "store_true",
                 "help": f"list all possible {self.command_name[:-1]} types the current F Prime instance could produce, based on the {self.command_name} dictionary, sorted by {self.command_name[:-1]} type ID",
-            },  
+            },
             ("-i", "--ids"): {
                 "dest": "ids",
                 "action": "store",
@@ -662,28 +726,27 @@ class SearchArgumentsParser(ParserBase):
             },
         }
 
-
     def handle_arguments(self, args, **kwargs):
         return args
 
 
-
 class RetrievalArgumentsParser(ParserBase):
-    """ Parser for retrieval arguments """
+    """Parser for retrieval arguments"""
+
     DESCRIPTION = "Process arguments relevant to retrieving Channels/Events"
 
     def __init__(self, command_name: str) -> None:
         self.command_name = command_name
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return arguments to retrieve channels/events/commands in specific ways"""
+        """Return arguments to retrieve channels/events/commands in specific ways"""
         return {
             ("-t", "--timeout"): {
                 "dest": "timeout",
                 "action": "store",
                 "required": False,
                 "type": float,
-                "help": f"wait at most SECONDS seconds for a single new {self.command_name}, then exit (defaults to listening until the user exits via CTRL+C, and logging all {self.command_name})",
+                "help": f"wait at most SECONDS seconds for a single new {self.command_name[:-1]}, then exit (defaults to listening until the user exits via CTRL+C, and logging all {self.command_name})",
                 "metavar": "SECONDS",
                 "default": 0.0,
             },
@@ -691,10 +754,9 @@ class RetrievalArgumentsParser(ParserBase):
                 "dest": "json",
                 "action": "store_true",
                 "required": False,
-                "help": f"return the JSON response of the API call, with {self.command_name} filtered based on other flags provided",
-            }, 
+                "help": f"return the JSON response of the API call instead of the {self.command_name[:-1]} string",
+            },
         }
-
 
     def handle_arguments(self, args, **kwargs):
         return args
