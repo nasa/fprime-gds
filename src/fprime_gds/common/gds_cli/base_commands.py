@@ -18,38 +18,16 @@ from fprime_gds.executables.cli import StandardPipelineParser
 
 class BaseCommand(abc.ABC):
     """
-    The base class for implementing a GDS CLI command's functionality, once
-    arguments are parsed and passed into this command.
+    The base class for implementing a GDS CLI channel/event/command-send functionality
+    Subclasses must implement the _get_item_list and handle_command methods
     """
-
-    @classmethod
-    def _log(cls, log_text: str):
-        """
-        Takes the given string and logs it (by default, logs all output to the
-        console). Will ignore empty strings.
-
-        :param log_text: The string to print out
-        """
-        if not isinstance(log_text, str):
-            log_text = str(log_text)
-        if log_text:
-            print(log_text)
-            sys.stdout.flush()
 
     @classmethod
     @abc.abstractmethod
-    def handle_arguments(cls, *args, **kwargs):
+    def handle_arguments(cls, args, **kwargs):
         """
         Do something to handle the input arguments given
         """
-
-
-class QueryHistoryCommand(BaseCommand):
-    """
-    The base class for a set of related GDS CLI commands that need to query and
-    display received data from telemetry channels, F' events, command histories,
-    or similar functionalities with closely-related interfaces.
-    """
 
     @classmethod
     @abc.abstractmethod
@@ -85,35 +63,6 @@ class QueryHistoryCommand(BaseCommand):
         return "\n".join(cls._get_item_string(item, json) for item in items)
 
     @classmethod
-    @abc.abstractmethod
-    def _get_upcoming_item(
-        cls,
-        api: IntegrationTestAPI,
-        filter_predicate: predicates.predicate,
-        min_start_time="NOW",
-        timeout: float = 5.0,
-    ):
-        """
-        Retrieves an F' item that's occurred since the given time and returns
-        its data.
-        """
-
-    @classmethod
-    def _get_item_string(
-        cls,
-        item,
-        json: bool = False,
-    ) -> str:
-        """
-        Takes an F' item and returns a human-readable string of its data.
-
-        :param item: The F' item to convert to a string
-        :param json: Whether to print out each item in JSON format or not
-        :return: A string representation of "item"
-        """
-        return misc_utils.get_item_string(item, json)
-
-    @classmethod
     def _get_search_filter(
         cls,
         ids: Iterable[int],
@@ -144,6 +93,21 @@ class QueryHistoryCommand(BaseCommand):
         )
 
     @classmethod
+    def _get_item_string(
+        cls,
+        item,
+        json: bool = False,
+    ) -> str:
+        """
+        Takes an F' item and returns a human-readable string of its data.
+
+        :param item: The F' item to convert to a string
+        :param json: Whether to print out each item in JSON format or not
+        :return: A string representation of "item"
+        """
+        return misc_utils.get_item_string(item, json)
+    
+    @classmethod
     def _list_all_possible_items(
         cls, dictionary_path: str, search_filter: predicates.predicate, json: bool
     ) -> str:
@@ -163,6 +127,41 @@ class QueryHistoryCommand(BaseCommand):
         items = cls._get_item_list(project_dictionary, search_filter)
         return cls._get_item_list_string(items, json)
 
+    @classmethod
+    def _log(cls, log_text: str):
+        """
+        Takes the given string and logs it (by default, logs all output to the
+        console). Will ignore empty strings.
+
+        :param log_text: The string to print out
+        """
+        if not isinstance(log_text, str):
+            log_text = str(log_text)
+        if log_text:
+            print(log_text)
+            sys.stdout.flush()
+
+
+
+class QueryHistoryCommand(BaseCommand):
+    """
+    The base class for a set of related GDS CLI commands that need to query and
+    display received data from telemetry channels and F' events.
+    """
+
+    @classmethod
+    @abc.abstractmethod
+    def _get_upcoming_item(
+        cls,
+        api: IntegrationTestAPI,
+        filter_predicate: predicates.predicate,
+        min_start_time="NOW",
+        timeout: float = 5.0,
+    ):
+        """
+        Retrieves an F' item that's occurred since the given time and returns
+        its data.
+        """
 
     @classmethod
     def handle_arguments(cls, args, **kwargs):
@@ -192,9 +191,6 @@ class QueryHistoryCommand(BaseCommand):
             # Build and set up the integration test api
             api = IntegrationTestAPI(pipeline)
             api.setup()
-
-            if args is None:
-                args = []
 
             # Timeout <= 0 means we should keep going until interrupted
             if args.timeout > 0:

@@ -10,7 +10,7 @@ import fprime_gds.common.gds_cli.misc_utils as misc_utils
 import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime.common.models.serialize.type_exceptions import NotInitializedException
 from fprime_gds.common.data_types.cmd_data import CommandArgumentsException
-from fprime_gds.common.gds_cli.base_commands import QueryHistoryCommand
+from fprime_gds.common.gds_cli.base_commands import BaseCommand
 from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.testing_fw import predicates
@@ -18,13 +18,13 @@ from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.executables.cli import StandardPipelineParser
 
 
-class CommandSendCommand(QueryHistoryCommand):
+class CommandSendCommand(BaseCommand):
     """
     The implementation for sending a command via the GDS to the spacecraft
     """
 
     @staticmethod
-    def get_closest_commands(
+    def _get_closest_commands(
         project_dictionary: Dictionaries, command_name: str, num: int = 3
     ) -> List[str]:
         """
@@ -42,7 +42,7 @@ class CommandSendCommand(QueryHistoryCommand):
         return closest_matches
 
     @staticmethod
-    def get_command_template(
+    def _get_command_template(
         project_dictionary: Dictionaries, command_name: str
     ) -> CmdTemplate:
         """
@@ -57,7 +57,7 @@ class CommandSendCommand(QueryHistoryCommand):
         return project_dictionary.command_name[command_name]
 
     @staticmethod
-    def get_command_help_message(
+    def _get_command_help_message(
         project_dictionary: Dictionaries, command_name: str
     ) -> str:
         """
@@ -69,7 +69,7 @@ class CommandSendCommand(QueryHistoryCommand):
             help message for
         :return: A help string for the command
         """
-        command_template = CommandSendCommand.get_command_template(
+        command_template = CommandSendCommand._get_command_template(
             project_dictionary, command_name
         )
         return misc_utils.get_cmd_template_string(command_template)
@@ -103,19 +103,6 @@ class CommandSendCommand(QueryHistoryCommand):
         return command_list
 
     @classmethod
-    def _get_upcoming_item(
-        cls,
-        api,
-        filter_predicate,
-        min_start_time="NOW",
-        timeout=5.0,
-    ):
-        """
-        NOTE: Doesn't use _get_upcoming_item; sign that this should not use QueryHistory as a base class,
-        and should refactor when time's available
-        """
-
-    @classmethod
     def _get_item_string(
         cls,
         item: CmdTemplate,
@@ -144,9 +131,6 @@ class CommandSendCommand(QueryHistoryCommand):
             # Parse the command line arguments into a client connection
             args = pipeline_parser.handle_arguments(args, **kwargs, client=True)
 
-            # Build a new pipeline with the parsed and processed arguments
-            pipeline = pipeline_parser.pipeline_factory(args, pipeline)
-
             search_filter = cls._get_search_filter(
                 args.ids, args.components, args.search, args.json
             )
@@ -155,8 +139,11 @@ class CommandSendCommand(QueryHistoryCommand):
                 cls._log(cls._list_all_possible_items(args.dictionary, search_filter, args.json))
                 return
 
-            # Build and set up the integration test api NOT NEEDED?
-            api = IntegrationTestAPI(pipeline, args.logs)
+            # Build a new pipeline with the parsed and processed arguments
+            pipeline = pipeline_parser.pipeline_factory(args)
+
+            # Build and set up the integration test api 
+            api = IntegrationTestAPI(pipeline)
             api.setup()
 
             command = args.command_name
@@ -165,20 +152,20 @@ class CommandSendCommand(QueryHistoryCommand):
                 api.send_command(command, arguments)
             except KeyError:
                 cls._log(f"{command} is not a known command")
-                close_matches = CommandSendCommand.get_closest_commands(
+                close_matches = cls._get_closest_commands(
                     pipeline.dictionaries, command
                 )
                 if close_matches:
                     cls._log(f"Similar known commands: {close_matches}")
             except NotInitializedException:
-                temp = CommandSendCommand.get_command_template(
+                temp = cls._get_command_template(
                     pipeline.dictionaries, command
                 )
                 cls._log(
                     "'%s' requires %d arguments (%d given)"
                     % (command, len(temp.get_args()), len(arguments))
                 )
-                cls._log(cls.get_command_help_message(pipeline.dictionaries, command))
+                cls._log(cls._get_command_help_message(pipeline.dictionaries, command))
 
         # Teardown resources
         finally:
