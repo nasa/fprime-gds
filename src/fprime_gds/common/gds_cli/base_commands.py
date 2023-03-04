@@ -22,12 +22,16 @@ class BaseCommand(abc.ABC):
     Subclasses must implement the _get_item_list and handle_command methods
     """
 
+    ####################################################################
+    #   Abstract Methods
+    ####################################################################
+
     @classmethod
     @abc.abstractmethod
-    def handle_arguments(cls, args, **kwargs):
-        """
-        Do something to handle the input arguments given
-        """
+    def _execute_command(cls, args, api: IntegrationTestAPI):
+        '''
+        Command logic of sending/receiving channels/commands/events
+        '''
 
     @classmethod
     @abc.abstractmethod
@@ -46,6 +50,9 @@ class BaseCommand(abc.ABC):
         :return: An iterable collection of items that passed the filter
         """
 
+    ####################################################################
+    #   Shared Methods
+    ####################################################################
     @classmethod
     def _get_item_list_string(
         cls,
@@ -121,11 +128,57 @@ class BaseCommand(abc.ABC):
         :param json: Whether to print out each item in JSON format or not
         :return: A string describing each item relevant to this command that
             passes the given filter
-        """
+        """        
         project_dictionary = Dictionaries()
         project_dictionary.load_dictionaries(dictionary_path, packet_spec=None)
         items = cls._get_item_list(project_dictionary, search_filter)
         return cls._get_item_list_string(items, json)
+
+    @classmethod
+    def handle_arguments(cls, args, **kwargs):
+        """
+        Entrypoint for the command. Handles parsing the arguments and creating the
+        StandardPipeline and Integration API, then calls the execution of the command logic.
+        Finally, tears down the pipeline and API.
+        """
+        pipeline = None
+        api = None
+        try:
+            # Parsing the arguments
+            pipeline_parser = StandardPipelineParser()
+            args = pipeline_parser.handle_arguments(args, **kwargs, client=True)
+
+            # If the user is just listing all possible items, do that and exit
+            if args.is_printing_list:
+                search_filter = cls._get_search_filter(
+                    args.ids, args.components, args.search, args.json
+                )
+                cls._log(cls._list_all_possible_items(args.dictionary, search_filter, args.json))
+                return
+
+            # Set up StandardPipeline and Integration API
+            pipeline = pipeline_parser.pipeline_factory(args)
+            api = IntegrationTestAPI(pipeline)
+            api.setup()
+
+            # Execute the command logic
+            cls._execute_command(args, api)
+
+        # Tear down resources
+        finally:
+            try:
+                if api is not None:
+                    api.teardown()
+            except Exception as exc:
+                print(f"[WARNING] Exception in API teardown: {exc}", file=sys.stderr)
+            try:
+                if pipeline is not None:
+                    pipeline.disconnect()
+            except Exception as exc:
+                print(
+                    f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr
+                )
+
 
     @classmethod
     def _log(cls, log_text: str):
@@ -159,69 +212,35 @@ class QueryHistoryCommand(BaseCommand):
         timeout: float = 5.0,
     ):
         """
-        Retrieves an F' item that's occurred since the given time and returns
+        Retrieves an F' item that has occurred since the given time and returns
         its data.
         """
 
     @classmethod
-    def handle_arguments(cls, args, **kwargs):
-        """
-        Handle the given input arguments, then execute the command itself
-        """
+    def _execute_command(cls, args, api: IntegrationTestAPI):
+        '''
+        Logic for receiving events/channels given the parsed arguments.
+        This differentiates between the events and channels because their
+        implementation of _get_upcoming_item is different.
+        '''
+        search_filter = cls._get_search_filter(
+            args.ids, args.components, args.search, args.json
+        )
+        # Timeout <= 0 means we should keep going until interrupted
+        if args.timeout > 0:
+            item = cls._get_upcoming_item(api, search_filter, "NOW", args.timeout)
+            cls._log(cls._get_item_string(item, args.json))
+        else:
 
-        pipeline_parser = StandardPipelineParser()
-        pipeline = None
-        api = None
+            def print_upcoming_item(min_start_time="NOW"):
+                item_ = cls._get_upcoming_item(api, search_filter, min_start_time)
+                cls._log(cls._get_item_string(item_, args.json))
+                # Update time so we catch the next item since the last one
+                if item_:
+                    min_start_time = predicates.greater_than(item_.get_time())
+                    min_start_time = filtering_utils.time_to_data_predicate(
+                        min_start_time
+                    )
+                return (min_start_time,)
 
-        try:
-            # Parse the command line arguments into a client connection
-            args = pipeline_parser.handle_arguments(args, **kwargs, client=True)
-
-            search_filter = cls._get_search_filter(
-                args.ids, args.components, args.search, args.json
-            )
-
-            if args.is_printing_list:
-                cls._log(cls._list_all_possible_items(args.dictionary, search_filter, args.json))
-                return
-
-            # Build a new pipeline with the parsed and processed arguments
-            pipeline = pipeline_parser.pipeline_factory(args)
-
-            # Build and set up the integration test api
-            api = IntegrationTestAPI(pipeline)
-            api.setup()
-
-            # Timeout <= 0 means we should keep going until interrupted
-            if args.timeout > 0:
-                item = cls._get_upcoming_item(api, search_filter, "NOW", args.timeout)
-                cls._log(cls._get_item_string(item, args.json))
-            else:
-
-                def print_upcoming_item(min_start_time="NOW"):
-                    item_ = cls._get_upcoming_item(api, search_filter, min_start_time)
-                    cls._log(cls._get_item_string(item_, args.json))
-                    # Update time so we catch the next item since the last one
-                    if item_:
-                        min_start_time = predicates.greater_than(item_.get_time())
-                        min_start_time = filtering_utils.time_to_data_predicate(
-                            min_start_time
-                        )
-                    return (min_start_time,)
-
-                misc_utils.repeat_until_interrupt(print_upcoming_item, "NOW")
-
-        # Tear down and discronnect resources
-        finally:
-            try:
-                if api is not None:
-                    api.teardown()
-            except Exception as exc:
-                print(f"[WARNING] Exception in API teardown: {exc}", file=sys.stderr)
-            try:
-                if pipeline is not None:
-                    pipeline.disconnect()
-            except Exception as exc:
-                print(
-                    f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr
-                )
+            misc_utils.repeat_until_interrupt(print_upcoming_item, "NOW")

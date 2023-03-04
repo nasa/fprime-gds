@@ -2,20 +2,17 @@
 The implementation code for the command-send GDS CLI commands
 """
 
-import sys
 import difflib
 from typing import Iterable, List
 
 import fprime_gds.common.gds_cli.misc_utils as misc_utils
 import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime.common.models.serialize.type_exceptions import NotInitializedException
-from fprime_gds.common.data_types.cmd_data import CommandArgumentsException
 from fprime_gds.common.gds_cli.base_commands import BaseCommand
 from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
-from fprime_gds.executables.cli import StandardPipelineParser
 
 
 class CommandSendCommand(BaseCommand):
@@ -23,6 +20,9 @@ class CommandSendCommand(BaseCommand):
     The implementation for sending a command via the GDS to the spacecraft
     """
 
+    ####################################################################
+    #   Utility functions
+    ####################################################################
     @staticmethod
     def _get_closest_commands(
         project_dictionary: Dictionaries, command_name: str, num: int = 3
@@ -74,6 +74,9 @@ class CommandSendCommand(BaseCommand):
         )
         return misc_utils.get_cmd_template_string(command_template)
 
+    ####################################################################
+    #   Abstract method implementations
+    ####################################################################
     @classmethod
     def _get_item_list(
         cls,
@@ -117,69 +120,29 @@ class CommandSendCommand(BaseCommand):
         """
         return misc_utils.get_cmd_template_string(item, json)
 
+
     @classmethod
-    def handle_arguments(cls, args, **kwargs):
-        """
-        Handle the given input arguments, then execute the command itself
-        """
-
-        pipeline_parser = StandardPipelineParser()
-        pipeline = None
-        api = None
-
+    def _execute_command(cls, args, api: IntegrationTestAPI):
+        '''
+        Logic for sending a command
+        '''
+        command = args.command_name
+        arguments = [] if args.arguments is None else args.arguments
         try:
-            # Parse the command line arguments into a client connection
-            args = pipeline_parser.handle_arguments(args, **kwargs, client=True)
-
-            search_filter = cls._get_search_filter(
-                args.ids, args.components, args.search, args.json
+            api.send_command(command, arguments)
+        except KeyError:
+            cls._log(f"{command} is not a known command")
+            close_matches = cls._get_closest_commands(
+                api.pipeline.dictionaries, command
             )
-
-            if args.is_printing_list:
-                cls._log(cls._list_all_possible_items(args.dictionary, search_filter, args.json))
-                return
-
-            # Build a new pipeline with the parsed and processed arguments
-            pipeline = pipeline_parser.pipeline_factory(args)
-
-            # Build and set up the integration test api 
-            api = IntegrationTestAPI(pipeline)
-            api.setup()
-
-            command = args.command_name
-            arguments = [] if args.arguments is None else args.arguments
-            try:
-                api.send_command(command, arguments)
-            except KeyError:
-                cls._log(f"{command} is not a known command")
-                close_matches = cls._get_closest_commands(
-                    pipeline.dictionaries, command
-                )
-                if close_matches:
-                    cls._log(f"Similar known commands: {close_matches}")
-            except NotInitializedException:
-                temp = cls._get_command_template(
-                    pipeline.dictionaries, command
-                )
-                cls._log(
-                    "'%s' requires %d arguments (%d given)"
-                    % (command, len(temp.get_args()), len(arguments))
-                )
-                cls._log(cls._get_command_help_message(pipeline.dictionaries, command))
-
-        # Teardown resources
-        finally:
-            # Attempt to teardown the API to ensure we are clean after the fixture is created
-            try:
-                if api is not None:
-                    api.teardown()
-            except Exception as exc:
-                print(f"[WARNING] Exception in API teardown: {exc}", file=sys.stderr)
-            # Attempt to shut down the pipeline connection
-            try:
-                if pipeline is not None:
-                    pipeline.disconnect()
-            except Exception as exc:
-                print(
-                    f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr
-                )
+            if close_matches:
+                cls._log(f"Similar known commands: {close_matches}")
+        except NotInitializedException:
+            temp = cls._get_command_template(
+                api.pipeline.dictionaries, command
+            )
+            cls._log(
+                "'%s' requires %d arguments (%d given)"
+                % (command, len(temp.get_args()), len(arguments))
+            )
+            cls._log(cls._get_command_help_message(api.pipeline.dictionaries, command))
