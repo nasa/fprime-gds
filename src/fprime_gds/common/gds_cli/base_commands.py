@@ -29,9 +29,9 @@ class BaseCommand(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def _execute_command(cls, args, api: IntegrationTestAPI):
-        '''
+        """
         Command logic of sending/receiving channels/commands/events
-        '''
+        """
 
     @classmethod
     @abc.abstractmethod
@@ -113,7 +113,7 @@ class BaseCommand(abc.ABC):
         :return: A string representation of "item"
         """
         return misc_utils.get_item_string(item, json)
-    
+
     @classmethod
     def _list_all_possible_items(
         cls, dictionary_path: str, search_filter: predicates.predicate, json: bool
@@ -128,7 +128,7 @@ class BaseCommand(abc.ABC):
         :param json: Whether to print out each item in JSON format or not
         :return: A string describing each item relevant to this command that
             passes the given filter
-        """        
+        """
         project_dictionary = Dictionaries()
         project_dictionary.load_dictionaries(dictionary_path, packet_spec=None)
         items = cls._get_item_list(project_dictionary, search_filter)
@@ -146,14 +146,18 @@ class BaseCommand(abc.ABC):
         try:
             # Parsing the arguments
             pipeline_parser = StandardPipelineParser()
-            args = pipeline_parser.handle_arguments(args, **kwargs, client=True)
+            pipeline_parser.handle_arguments(args, **kwargs, client=True)
 
             # If the user is just listing all possible items, do that and exit
             if args.is_printing_list:
                 search_filter = cls._get_search_filter(
                     args.ids, args.components, args.search, args.json
                 )
-                cls._log(cls._list_all_possible_items(args.dictionary, search_filter, args.json))
+                cls._log(
+                    cls._list_all_possible_items(
+                        args.dictionary, search_filter, args.json
+                    )
+                )
                 return
 
             # Set up StandardPipeline and Integration API
@@ -179,7 +183,6 @@ class BaseCommand(abc.ABC):
                     f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr
                 )
 
-
     @classmethod
     def _log(cls, log_text: str):
         """
@@ -193,7 +196,6 @@ class BaseCommand(abc.ABC):
         if log_text:
             print(log_text)
             sys.stdout.flush()
-
 
 
 class QueryHistoryCommand(BaseCommand):
@@ -218,11 +220,11 @@ class QueryHistoryCommand(BaseCommand):
 
     @classmethod
     def _execute_command(cls, args, api: IntegrationTestAPI):
-        '''
+        """
         Logic for receiving events/channels given the parsed arguments.
         This differentiates between the events and channels because their
         implementation of _get_upcoming_item is different.
-        '''
+        """
         search_filter = cls._get_search_filter(
             args.ids, args.components, args.search, args.json
         )

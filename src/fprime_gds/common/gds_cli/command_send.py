@@ -1,5 +1,5 @@
 """
-The implementation code for the command-send GDS CLI commands
+Handles executing the "command-send" CLI command for the GDS
 """
 
 import difflib
@@ -120,12 +120,11 @@ class CommandSendCommand(BaseCommand):
         """
         return misc_utils.get_cmd_template_string(item, json)
 
-
     @classmethod
     def _execute_command(cls, args, api: IntegrationTestAPI):
-        '''
+        """
         Logic for sending a command
-        '''
+        """
         command = args.command_name
         arguments = [] if args.arguments is None else args.arguments
         try:
@@ -138,9 +137,7 @@ class CommandSendCommand(BaseCommand):
             if close_matches:
                 cls._log(f"Similar known commands: {close_matches}")
         except NotInitializedException:
-            temp = cls._get_command_template(
-                api.pipeline.dictionaries, command
-            )
+            temp = cls._get_command_template(api.pipeline.dictionaries, command)
             cls._log(
                 "'%s' requires %d arguments (%d given)"
                 % (command, len(temp.get_args()), len(arguments))
