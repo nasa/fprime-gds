@@ -11,7 +11,7 @@ import argparse
 from copy import deepcopy
 import os
 import sys
-import platform
+import pkg_resources
 from typing import Callable, List, Union
 
 import argcomplete
@@ -27,7 +27,6 @@ from fprime_gds.executables.cli import (
     SearchArgumentsParser,
     RetrievalArgumentsParser,
 )
-from fprime_gds.executables.utils import get_artifacts_root, find_dict
 
 
 def add_connection_arguments(parser: argparse.ArgumentParser):
@@ -327,7 +326,8 @@ def create_parser():
     parser = argparse.ArgumentParser(
         description="provides utilities for interacting with the F' Ground Data System (GDS)"
     )
-    parser.add_argument("-V", "--version", action="version", version="0.0.2")
+    fprime_gds_version = pkg_resources.get_distribution("fprime-gds").version
+    parser.add_argument("-V", "--version", action="version", version=fprime_gds_version)
 
     # Add subcommands to the parser
     subparser_root = parser.add_subparsers(dest="func")
@@ -361,22 +361,9 @@ def main():
     argcomplete.autocomplete(parser)
     args_ns = parse_args(parser, sys.argv[1:])
 
-    # call the selected function with the args provided
+    # Call the selected command function with the args provided
     function = args_ns.func
-    argument_dict = vars(args_ns)
-    # Remove function and argument validation args
-
-    # Is argument_dict even needed? probs not
-    del argument_dict["func"]
-    del argument_dict["validate"]
-
-    if argument_dict["dictionary"] is None:
-        root = get_artifacts_root() / platform.system()
-        argument_dict["dictionary"] = find_dict(
-            root
-        )  # def not needed, handled by StandardPipeline
-
-    function(args_ns, **argument_dict)
+    function(args_ns)
 
 
 if __name__ == "__main__":
