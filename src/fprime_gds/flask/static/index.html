@@ -221,9 +221,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                 <Label class="control-label font-weight-bold"l>Arguments</Label>
                             </div>
                             <div class="form-row">
-                                <div class="form-group col-md-6" v-for="argument in selected.args">
-                                    <command-argument :argument="argument"></command-argument>
-                                </div>
+                                <command-argument :argument="argument" v-for="argument in selected.args"></command-argument>
                             </div>
                             <div class="form-row">
                                 <div class="form-group col-md-4">
@@ -255,7 +253,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
 
              Input textbox for entering in a command
              -->
-            <template id="command-text-template">
+<!--            <template id="command-text-template">
                 <div class="fp-flex-repeater">
                     <div class="form-row">
                         <div class="form-group col-12">
@@ -264,7 +262,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         </div>
                     </div>
                 </div>
-            </template>
+            </template>-->
             <!--
             Command Item:
 
@@ -284,7 +282,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
 
             Command argument template for displaying a single argument.
             -->
-            <template id="command-argument-template">
+            <!--template id="command-argument-template">
                 <div>
                     <label :for="argument.name" class="control-label font-weight-bold">{{ argument.name }}</label><span v-if="argument.description != null">: {{ argument.description }}</span>
                     <input v-if="!argument.type.ENUM_DICT" :type="inputType[0]" :id="argument.name" class="form-control fprime-input"
@@ -297,7 +295,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     </v-select>
                     <div class="invalid-feedback">{{ argument.error }}</div>
                 </div>
-            </template>
+            </template-->
 
             <!--
             Event Templates:

@@ -250,15 +250,53 @@ class DataStore {
         _datastore.registerConsumer("events", _performance);
 
         // Setup initial commands data (clearing arguments and setting initial values)
-        Object.values(_datastore.commands).forEach((command) => command.args.forEach((argument) => {
-            let def = argument.value || null;
-            argument.error = "";
-            argument.value = (argument.type.ENUM_DICT) ? (Object.keys(argument.type.ENUM_DICT)[0] || def) : def;
-        }));
+        Object.values(_datastore.commands).forEach((command) => command.args.forEach(this.setupCommandArgument.bind(this)));
         this.flags.loaded = true;
         this.polling_info.forEach((item) => {
             this.reregisterPoller(item.endpoint);
         });
+    }
+
+    /**
+     * Set up a command argument by clearing the error, assigning default command values, and expanding complex types
+     * into a structure of commands.
+     * @param argument: argument to set up.
+     */
+    setupCommandArgument(argument) {
+        let def = argument.value || null;
+        argument.error = "";
+        argument.value = def;
+        // Enums are initialized to the first listed item
+        if (argument.type.ENUM_DICT) {
+            argument.value = Object.keys(argument.type.ENUM_DICT)[0];
+        }
+        // Arrays expand to a set length of N pseudo-arguments
+        else if (argument.type.LENGTH) {
+            let array_length = argument.type.LENGTH;
+            let values = Array(array_length).fill(def);
+            argument.value = values.map((value, index) => {
+                let append = "[" + index +"]";
+                return this.setupCommandArgument({
+                    description: (argument.description) ? (argument.description + append) : argument.description,
+                    name: argument.name + append,
+                    type: argument.type.MEMBER_TYPE,
+                });
+            });
+        }
+        // Serializable type
+        else if (argument.type.MEMBER_LIST) {
+            argument.value = argument.type.MEMBER_LIST.map((field_list) => {
+                let name = field_list[0];
+                let type = field_list[1];
+                let description = field_list[3];
+                return this.setupCommandArgument({
+                    description: (description) ? description : argument.description,
+                    name: argument.name + "." + name,
+                    type: type,
+                });
+            });
+        }
+        return argument;
     }
 
     /**

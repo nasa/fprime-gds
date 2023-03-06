@@ -4,7 +4,7 @@
  * Contains the Vue components for displaying the command history, and the command sending form.
  */
 // Setup component for select
-import "../../third-party/js/vue-select.js"
+//import "../../third-party/js/vue-select.js"
 import {listExistsAndItemNameNotInList, timeToString} from "./utils.js";
 import {_datastore, _dictionaries} from "../datastore.js";
 import {_loader} from "../loader.js";
@@ -12,11 +12,48 @@ import {find_case_insensitive, validate_input} from "../validate.js"
 
 
 /**
+ * Assign values to arguments of the type array or serializable.
+ * @param argument: argument to assign to.
+ * @param squashed_argument_value: squash-ified command arguments (JSON format, no "value" field)
+ */
+function command_argument_array_serializable_assignment_helper(argument, squashed_argument_value) {
+    let expected_field_tokens = [];
+    if (argument.type.MEMBER_LIST) {
+        expected_field_tokens = argument.type.MEMBER_LIST.map((item) => item[0]);
+    } else if (argument.type.LENGTH) {
+        expected_field_tokens = Array(argument.type.LENGTH).fill().map((_, i) => i);
+    }
+
+    let errors = [];
+    // Loop through all the field names
+    for (let i = 0; i < expected_field_tokens.length; i++) {
+        let field_name = expected_field_tokens[i];
+        if (field_name in squashed_argument_value) {
+            command_assignment_helper(argument.value[i], squashed_argument_value[field_name]);
+        } else {
+            errors.push(`Missing expected field: {field_name}.`);
+        }
+    }
+    if (errors.length > 0) {
+        argument.error = errors.join(" ");
+    }
+}
+
+function command_argument_assignment_helper(argument, squashed_argument_value) {
+    // Argument is expected to be a serializable type
+    if (argument.type.MEMBER_LIST || argument.type.LENGTH) {
+        command_argument_array_serializable_assignment_helper(argument, squashed_argument_value);
+    } else {
+        argument.value = squashed_argument_value;
+    }
+}
+
+/**
  * This helper will help assign command and values in a safe manner by searching the command store, finding a reference,
  * and then setting the arguments as supplied.
  */
 function command_assignment_helper(desired_command_name, desired_command_args, partial_command) {
-    desired_command_args = (typeof(desired_command_args) == "undefined")? [] : desired_command_args;
+    desired_command_args = (typeof(desired_command_args) == "undefined") ? [] : desired_command_args;
 
     // Keys should be exact matches
     let command_name = find_case_insensitive(desired_command_name, Object.keys(_datastore.commands));
@@ -26,7 +63,7 @@ function command_assignment_helper(desired_command_name, desired_command_args, p
             let tokens = command_name.split(".");
             return tokens[tokens.length - 1].startsWith(partial_command);
         });
-        command_name = (keys.length > 0)? keys[0] : null;
+        command_name = (keys.length > 0) ? keys[0] : null;
     }
     // Command not found, return null
     if (command_name == null) {
@@ -35,107 +72,107 @@ function command_assignment_helper(desired_command_name, desired_command_args, p
     let selected = _datastore.commands[command_name];
     // Set arguments here
     for (let i = 0; i < selected.args.length; i++) {
-        let assign_value = (desired_command_args.length > i)? desired_command_args[i] : "";
+        let assign_value = (desired_command_args.length > i)? desired_command_args[i] : null;
         selected.args[i].value = assign_value;
     }
     return selected;
 }
 
-function parse_with_strings(remaining) {
-    let tokens = [];
-    while (remaining !== "") {
-        let reg = /([, ] *)/;
-        if (remaining.startsWith("\"")) {
-            remaining = remaining.slice(1);
-            reg = /"([, ] *|$)/;
-        }
-        let match = remaining.match(reg);
-        let index = (match !== null) ? match.index : remaining.length;
-        let first = remaining.slice(0, index);
-        tokens.push(first);
-        remaining = remaining.slice(index + ((match !== null) ? match[0].length : remaining.length));
-    }
-    return tokens;
-}
+// function parse_with_strings(remaining) {
+//     let tokens = [];
+//     while (remaining !== "") {
+//         let reg = /([, ] *)/;
+//         if (remaining.startsWith("\"")) {
+//             remaining = remaining.slice(1);
+//             reg = /"([, ] *|$)/;
+//         }
+//         let match = remaining.match(reg);
+//         let index = (match !== null) ? match.index : remaining.length;
+//         let first = remaining.slice(0, index);
+//         tokens.push(first);
+//         remaining = remaining.slice(index + ((match !== null) ? match[0].length : remaining.length));
+//     }
+//     return tokens;
+// }
 
-Vue.component('v-select', VueSelect.VueSelect);
+//Vue.component('v-select', VueSelect.VueSelect);
 /**
  * Command argument component
  */
-Vue.component("command-argument", {
-    props:["argument"],
-    template: "#command-argument-template",
-    computed: {
-        /**
-         * Allows for validation of commands using the HTML-based validation using regex and numbers. Note: numbers here
-         * are treated as text, because we can allow for hex, and octal bases.
-         * @return [HTML input type, validation regex, step (used for numbers only), and validation error message]
-         */
-        inputType() {
-            // Unsigned integer
-            if (this.argument.type.name[0] == 'U') {
-                // Supports binary, hex, octal, and digital
-                return ["text", "0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F]+|[1-9]\\d*|0", ""];
-            }
-            else if (this.argument.type.name[0] == 'I') {
-                return ["number", null, "1"];
-            }
-            else if (this.argument.type.name[0] == 'F') {
-                return ["number", null, "any"];
-            }
-            return ["text", ".*", null];
-        },
-        /**
-         * Unpack errors on arguments, for display in this GUI.
-         */
-        argumentError() {
-            if ("error" in this.argument) {
-                return this.argument.error;
-            }
-            return "NO ERROR!!!";
-        }
-    },
-    methods: {
-        /**
-         * Validate selected element.  This patches the missing validation of text->vue select.  Otherwise it defers to
-         * the normal form validation
-         */
-        validate() {
-            let input_element = this.$el.getElementsByClassName("fprime-input")[0];
-            this.argument.error = "";
-            validate_input(this.argument);
-            // Not all base elements support errors
-            if (typeof(input_element.setCustomValidity) !== "undefined") {
-                input_element.setCustomValidity(this.argument.error);
-            }
-        }
-    }
-});
-/**
- * Component to show the command text and allow textual input.
- */
-Vue.component("command-text", {
-    props:["selected"],
-    template: "#command-text-template",
-    computed: {
-        text: {
-            // Get the expected text from the command and inject it into the box
-            get: function () {
-                let tokens = [this.selected.full_name].concat(Array.from(this.selected.args,
-                    (arg) => {return (arg.type === "String" && arg.value != null) ? '"' + arg.value + '"' : arg.value}));
-                let cli = tokens.filter(val => {return val !== "";}).join(" ");
-                return cli;
-            },
-            // Pull the box and send it into the command setup
-            set: function (inputValue) {
-                let tokens = parse_with_strings(inputValue);
-                let name = tokens[0];
-                let cargs = tokens.splice(1);
-                this.$parent.selectCmd(name, cargs);
-            }
-        }
-    }
-});
+// Vue.component("command-argument", {
+//     props:["argument"],
+//     template: "#command-argument-template",
+//     computed: {
+//         /**
+//          * Allows for validation of commands using the HTML-based validation using regex and numbers. Note: numbers here
+//          * are treated as text, because we can allow for hex, and octal bases.
+//          * @return [HTML input type, validation regex, step (used for numbers only), and validation error message]
+//          */
+//         inputType() {
+//             // Unsigned integer
+//             if (this.argument.type.name[0] == 'U') {
+//                 // Supports binary, hex, octal, and digital
+//                 return ["text", "0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F]+|[1-9]\\d*|0", ""];
+//             }
+//             else if (this.argument.type.name[0] == 'I') {
+//                 return ["number", null, "1"];
+//             }
+//             else if (this.argument.type.name[0] == 'F') {
+//                 return ["number", null, "any"];
+//             }
+//             return ["text", ".*", null];
+//         },
+//         /**
+//          * Unpack errors on arguments, for display in this GUI.
+//          */
+//         argumentError() {
+//             if ("error" in this.argument) {
+//                 return this.argument.error;
+//             }
+//             return "NO ERROR!!!";
+//         }
+//     },
+//     methods: {
+//         /**
+//          * Validate selected element.  This patches the missing validation of text->vue select.  Otherwise it defers to
+//          * the normal form validation
+//          */
+//         validate() {
+//             let input_element = this.$el.getElementsByClassName("fprime-input")[0];
+//             this.argument.error = "";
+//             validate_input(this.argument);
+//             // Not all base elements support errors
+//             if (typeof(input_element.setCustomValidity) !== "undefined") {
+//                 input_element.setCustomValidity(this.argument.error);
+//             }
+//         }
+//     }
+// });
+// /**
+//  * Component to show the command text and allow textual input.
+//  */
+// Vue.component("command-text", {
+//     props:["selected"],
+//     template: "#command-text-template",
+//     computed: {
+//         text: {
+//             // Get the expected text from the command and inject it into the box
+//             get: function () {
+//                 let tokens = [this.selected.full_name].concat(Array.from(this.selected.args,
+//                     (arg) => {return (arg.type === "String" && arg.value != null) ? '"' + arg.value + '"' : arg.value}));
+//                 let cli = tokens.filter(val => {return val !== "";}).join(" ");
+//                 return cli;
+//             },
+//             // Pull the box and send it into the command setup
+//             set: function (inputValue) {
+//                 let tokens = parse_with_strings(inputValue);
+//                 let name = tokens[0];
+//                 let cargs = tokens.splice(1);
+//                 this.$parent.selectCmd(name, cargs);
+//             }
+//         }
+//     }
+// });
 
 
 /**
@@ -205,7 +242,6 @@ Vue.component("command-input", {
             let args = this.selected.args;
             for (let i = 0; i < args.length; i++) {
                 let current_valid = validate_input(args[i]);
-
                 valid = valid && current_valid;
             }
             let form_valid = form.checkValidity();
