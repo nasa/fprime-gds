@@ -85,10 +85,6 @@ def get_dictionary_path(current_args: argparse.Namespace) -> Union[str, None]:
         args.dictionary = None
     args.deploy = os.getcwd()
     args.config = None
-
-    # args = GdsParser.handle_arguments(args, kwargs={})
-    # Run StandardPipelineParser handle_arguments to get the dictionary??
-    # args = StandardPipelineParser.handle_arguments(args, kwargs={})
     return args.dictionary
 
 
