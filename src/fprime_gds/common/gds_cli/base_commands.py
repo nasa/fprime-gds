@@ -9,44 +9,28 @@ from typing import Iterable
 
 import fprime_gds.common.gds_cli.filtering_utils as filtering_utils
 import fprime_gds.common.gds_cli.misc_utils as misc_utils
-import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
+from fprime_gds.executables.cli import StandardPipelineParser
 
 
 class BaseCommand(abc.ABC):
     """
-    The base class for implementing a GDS CLI command's functionality, once
-    arguments are parsed and passed into this command.
+    The base class for implementing a GDS CLI channel/event/command-send functionality
+    Subclasses must implement the _get_item_list and handle_command methods
     """
 
-    @classmethod
-    def _log(cls, log_text: str):
-        """
-        Takes the given string and logs it (by default, logs all output to the
-        console). Will ignore empty strings.
-
-        :param log_text: The string to print out
-        """
-        if log_text:
-            print(log_text)
-            sys.stdout.flush()
+    ####################################################################
+    #   Abstract Methods
+    ####################################################################
 
     @classmethod
     @abc.abstractmethod
-    def handle_arguments(cls, *args, **kwargs):
+    def _execute_command(cls, args, api: IntegrationTestAPI):
         """
-        Do something to handle the input arguments given
+        Command logic of sending/receiving channels/commands/events
         """
-
-
-class QueryHistoryCommand(BaseCommand):
-    """
-    The base class for a set of related GDS CLI commands that need to query and
-    display received data from telemetry channels, F' events, command histories,
-    or similar functionalities with closely-related interfaces.
-    """
 
     @classmethod
     @abc.abstractmethod
@@ -65,6 +49,9 @@ class QueryHistoryCommand(BaseCommand):
         :return: An iterable collection of items that passed the filter
         """
 
+    ####################################################################
+    #   Shared Methods
+    ####################################################################
     @classmethod
     def _get_item_list_string(
         cls,
@@ -80,35 +67,6 @@ class QueryHistoryCommand(BaseCommand):
         :return: A string containing the details of each item
         """
         return "\n".join(cls._get_item_string(item, json) for item in items)
-
-    @classmethod
-    @abc.abstractmethod
-    def _get_upcoming_item(
-        cls,
-        api: IntegrationTestAPI,
-        filter_predicate: predicates.predicate,
-        min_start_time="NOW",
-        timeout: float = 5.0,
-    ):
-        """
-        Retrieves an F' item that's occurred since the given time and returns
-        its data.
-        """
-
-    @classmethod
-    def _get_item_string(
-        cls,
-        item,
-        json: bool = False,
-    ) -> str:
-        """
-        Takes an F' item and returns a human-readable string of its data.
-
-        :param item: The F' item to convert to a string
-        :param json: Whether to print out each item in JSON format or not
-        :return: A string representation of "item"
-        """
-        return misc_utils.get_item_string(item, json)
 
     @classmethod
     def _get_search_filter(
@@ -141,6 +99,21 @@ class QueryHistoryCommand(BaseCommand):
         )
 
     @classmethod
+    def _get_item_string(
+        cls,
+        item,
+        json: bool = False,
+    ) -> str:
+        """
+        Takes an F' item and returns a human-readable string of its data.
+
+        :param item: The F' item to convert to a string
+        :param json: Whether to print out each item in JSON format or not
+        :return: A string representation of "item"
+        """
+        return misc_utils.get_item_string(item, json)
+
+    @classmethod
     def _list_all_possible_items(
         cls, dictionary_path: str, search_filter: predicates.predicate, json: bool
     ) -> str:
@@ -161,43 +134,106 @@ class QueryHistoryCommand(BaseCommand):
         return cls._get_item_list_string(items, json)
 
     @classmethod
-    def _execute_query(
+    def handle_arguments(cls, args, **kwargs):
+        """
+        Entrypoint for the command. Handles parsing the arguments and creating the
+        StandardPipeline and Integration API, then calls the execution of the command logic.
+        Finally, tears down the pipeline and API.
+        """
+        pipeline = None
+        api = None
+        try:
+            # Parsing the arguments
+            pipeline_parser = StandardPipelineParser()
+            pipeline_parser.handle_arguments(args, **kwargs, client=True)
+
+            # If the user is just listing all possible items, do that and exit
+            if args.is_printing_list:
+                search_filter = cls._get_search_filter(
+                    args.ids, args.components, args.search, args.json
+                )
+                cls._log(
+                    cls._list_all_possible_items(
+                        args.dictionary, search_filter, args.json
+                    )
+                )
+                return
+
+            # Set up StandardPipeline and Integration API
+            pipeline = pipeline_parser.pipeline_factory(args)
+            api = IntegrationTestAPI(pipeline)
+            api.setup()
+
+            # Execute the command logic
+            cls._execute_command(args, api)
+
+        # Tear down resources
+        finally:
+            try:
+                if api is not None:
+                    api.teardown()
+            except Exception as exc:
+                print(f"[WARNING] Exception in API teardown: {exc}", file=sys.stderr)
+            try:
+                if pipeline is not None:
+                    pipeline.disconnect()
+            except Exception as exc:
+                print(
+                    f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr
+                )
+
+    @classmethod
+    def _log(cls, log_text: str):
+        """
+        Takes the given string and logs it (by default, logs all output to the
+        console). Will ignore empty strings.
+
+        :param log_text: The string to print out
+        """
+        if log_text:
+            print(log_text)
+            sys.stdout.flush()
+
+
+class QueryHistoryCommand(BaseCommand):
+    """
+    The base class for a set of related GDS CLI commands that need to query and
+    display received data from telemetry channels and F' events.
+    """
+
+    @classmethod
+    @abc.abstractmethod
+    def _get_upcoming_item(
         cls,
-        connection_info: misc_utils.ConnectionInfo,
-        search_info: misc_utils.SearchInfo,
-        timeout: float,
+        api: IntegrationTestAPI,
+        filter_predicate: predicates.predicate,
+        min_start_time="NOW",
+        timeout: float = 5.0,
     ):
         """
-        Takes in the given arguments and uses them to print out a formatted
-        string of items the user wants to see from the Test API; if the option
-        is present, repeat doing this until the user exits the program.
-
-        For descriptions of these arguments, and more function details, see:
-            Gds/src/fprime_gds/executables/fprime_cli.py
+        Retrieves an F' item that has occurred since the given time and returns
+        its data.
         """
-        dictionary, ip_address, port = tuple(connection_info)
-        is_printing_list, ids, components, search, json = tuple(search_info)
 
-        search_filter = cls._get_search_filter(ids, components, search, json)
-        if is_printing_list:
-            cls._log(cls._list_all_possible_items(dictionary, search_filter, json))
-            return
-
-        # ======================================================================
-        # Set up Test API
-        pipeline, api = test_api_utils.initialize_test_api(
-            dictionary, server_ip=ip_address, server_port=port
+    @classmethod
+    def _execute_command(cls, args, api: IntegrationTestAPI):
+        """
+        Logic for receiving events/channels given the parsed arguments.
+        This differentiates between the events and channels because their
+        implementation of _get_upcoming_item is different.
+        """
+        search_filter = cls._get_search_filter(
+            args.ids, args.components, args.search, args.json
         )
-        # ======================================================================
-
-        if timeout:
-            item = cls._get_upcoming_item(api, search_filter, "NOW", timeout)
-            cls._log(cls._get_item_string(item, json))
+        # Timeout <= 0 means we should keep going until interrupted
+        if args.timeout > 0:
+            item = cls._get_upcoming_item(api, search_filter, "NOW", args.timeout)
+            cls._log(cls._get_item_string(item, args.json))
         else:
 
             def print_upcoming_item(min_start_time="NOW"):
                 item_ = cls._get_upcoming_item(api, search_filter, min_start_time)
-                cls._log(cls._get_item_string(item_, json))
+                cls._log(cls._get_item_string(item_, args.json))
                 # Update time so we catch the next item since the last one
                 if item_:
                     min_start_time = predicates.greater_than(item_.get_time())
@@ -207,29 +243,3 @@ class QueryHistoryCommand(BaseCommand):
                 return (min_start_time,)
 
             misc_utils.repeat_until_interrupt(print_upcoming_item, "NOW")
-
-        # ======================================================================
-        # Tear down Test API
-        pipeline.disconnect()
-        api.teardown()
-        # ======================================================================
-
-    @classmethod
-    def handle_arguments(cls, *args, **kwargs):
-        """
-        Handle the given input arguments, then execute the command itself
-
-        NOTE: This is currently just a pass-through method
-        """
-        connection_info = misc_utils.ConnectionInfo(
-            kwargs["dictionary"], kwargs["ip_address"], kwargs["port"]
-        )
-        search_info = misc_utils.SearchInfo(
-            kwargs["is_printing_list"],
-            kwargs["ids"],
-            kwargs["components"],
-            kwargs["search"],
-            kwargs["json"],
-        )
-
-        cls._execute_query(connection_info, search_info, kwargs["timeout"])
