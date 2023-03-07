@@ -9,7 +9,6 @@ from typing import Iterable
 
 import fprime_gds.common.gds_cli.filtering_utils as filtering_utils
 import fprime_gds.common.gds_cli.misc_utils as misc_utils
-import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
@@ -191,8 +190,6 @@ class BaseCommand(abc.ABC):
 
         :param log_text: The string to print out
         """
-        if not isinstance(log_text, str):
-            log_text = str(log_text)
         if log_text:
             print(log_text)
             sys.stdout.flush()
