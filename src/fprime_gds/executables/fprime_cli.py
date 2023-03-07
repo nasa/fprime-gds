@@ -315,7 +315,7 @@ class EventsSubparserInjector(CliSubparserInjectorBase):
         """
         import fprime_gds.common.gds_cli.events as events
 
-        events.EventsCommand().handle_arguments(parsed_args, **kwargs)
+        events.EventsCommand.handle_arguments(parsed_args, **kwargs)
 
 
 def create_parser():
