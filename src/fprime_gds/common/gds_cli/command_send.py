@@ -5,7 +5,6 @@ Handles executing the "command-send" CLI command for the GDS
 import difflib
 from typing import Iterable, List
 
-import fprime_gds.common.gds_cli.misc_utils as misc_utils
 import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime.common.models.serialize.type_exceptions import NotInitializedException
 from fprime_gds.common.gds_cli.base_commands import BaseCommand
@@ -72,7 +71,7 @@ class CommandSendCommand(BaseCommand):
         command_template = CommandSendCommand._get_command_template(
             project_dictionary, command_name
         )
-        return misc_utils.get_cmd_template_string(command_template)
+        return CommandSendCommand._get_item_string(command_template)
 
     ####################################################################
     #   Abstract method implementations
