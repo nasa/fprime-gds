@@ -7,7 +7,6 @@ from copy import deepcopy
 import pytest
 
 import fprime_gds.common.gds_cli.filtering_utils as filtering_utils
-import fprime_gds.common.gds_cli.misc_utils as misc_utils
 import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime_gds.common.data_types.pkt_data import PktData
 from fprime_gds.common.data_types.sys_data import SysData
@@ -16,7 +15,7 @@ from fprime_gds.common.templates.pkt_template import PktTemplate
 from fprime_gds.common.testing_fw import predicates
 
 # ==============================================================================
-# Test misc_utils.repeat_until_interrupt
+# Test test_api_utils.repeat_until_interrupt
 # ==============================================================================
 
 
@@ -38,7 +37,7 @@ def test_repeat_exits_at_counter():
         external_func()
         return counter + 1, exit_num, external_func
 
-    misc_utils.repeat_until_interrupt(increment_with_interrupt, 0, 3, increment_count)
+    test_api_utils.repeat_until_interrupt(increment_with_interrupt, 0, 3, increment_count)
 
     assert count == 3
 
@@ -56,7 +55,7 @@ def test_repeat_with_void_function_valid():
         if count == exit_num:
             raise KeyboardInterrupt
 
-    misc_utils.repeat_until_interrupt(exit_at_value, 5)
+    test_api_utils.repeat_until_interrupt(exit_at_value, 5)
 
     assert count == 5
 
@@ -75,7 +74,7 @@ def test_repeat_with_no_arg_void_function_valid():
         if count == 3:
             raise KeyboardInterrupt
 
-    misc_utils.repeat_until_interrupt(exit_when_3)
+    test_api_utils.repeat_until_interrupt(exit_when_3)
 
     assert count == 3
 
@@ -96,7 +95,7 @@ def test_repeat_with_no_arg_returning_function_invalid():
         return "this should cause an error"
 
     with pytest.raises(TypeError):
-        misc_utils.repeat_until_interrupt(error_before_exit)
+        test_api_utils.repeat_until_interrupt(error_before_exit)
 
 
 @pytest.mark.gds_cli
@@ -115,7 +114,7 @@ def test_repeat_with_function_returning_naked_string_problematic():
         return "this will return 49 arguments, because characters"
 
     with pytest.raises(TypeError):
-        misc_utils.repeat_until_interrupt(error_before_exit)
+        test_api_utils.repeat_until_interrupt(error_before_exit)
 
 
 @pytest.mark.gds_cli
@@ -133,7 +132,7 @@ def test_repeat_with_function_returning_enclosed_string_valid():
             raise KeyboardInterrupt
         return (my_string,)  # this is only 1 argument, since it's in a tuple
 
-    misc_utils.repeat_until_interrupt(error_before_exit, "let's do this")
+    test_api_utils.repeat_until_interrupt(error_before_exit, "let's do this")
 
 
 # ==============================================================================
