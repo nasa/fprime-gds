@@ -75,6 +75,17 @@ class EventData(sys_data.SysData):
             return "Time,Raw Time,Name,ID,Severity,Args\n"
         return "Time,Name,Severity,Args\n"
 
+    def get_display_text(self):
+        """
+        Get the display text for the event. This is the event's format string
+        filled with the event's arguments.
+        """
+        if self.args is None:
+            return ""
+        return format_string_template(
+            self.template.format_str, tuple([arg.val for arg in self.args])
+        )
+
     def get_str(self, time_zone=None, verbose=False, csv=False):
         """
         Convert the event data to a string
@@ -93,24 +104,40 @@ class EventData(sys_data.SysData):
         raw_time_str = str(self.time)
         name = self.template.get_full_name()
         severity = self.template.get_severity()
-        format_str = self.template.get_format_str()
-
-        if self.args is None:
-            arg_str = "EMPTY EVENT OBJ"
-        else:
-            # The arguments are currently serializable objects which cannot be
-            # used to fill in a format string. Convert them to values that can be
-            arg_val_list = [arg_obj.val for arg_obj in self.args]
-
-            arg_str = format_string_template(format_str, tuple(arg_val_list))
+        display_text = self.get_display_text()
 
         if verbose and csv:
-            return f"{time_str},{raw_time_str},{name},{self.id},{severity},{arg_str}"
+            return f"{time_str},{raw_time_str},{name},{self.id},{severity},{display_text}"
         if verbose and not csv:
-            return f"{time_str}: {name} ({self.id}) {raw_time_str} {severity} : {arg_str}"
+            return f"{time_str}: {name} ({self.id}) {raw_time_str} {severity} : {display_text}"
         if not verbose and csv:
-            return f"{time_str},{name},{severity},{arg_str}"
-        return f"{time_str}: {name} {severity} : {arg_str}"
+            return f"{time_str},{name},{severity},{display_text}"
+        return f"{time_str}: {name} {severity} : {display_text}"
+
+
+    def get_dict(self, time_zone=None) -> dict:
+        """
+        Convert the event data to a dictionary
+
+        Returns:
+            Dictionary of the event data containing the following fields:
+                time: (str) Time the event occurred
+                raw_time: (str) Time the event occurred in raw format
+                name: (str) Name of the event
+                id: (int) ID of the event
+                severity: (str) Severity of the event
+                args: (list) List of arguments for the event
+                display_text: (str) Display text for the event
+        """
+        return {
+            "time": self.time.to_readable(time_zone),
+            "raw_time": str(self.time),
+            "name": self.template.get_full_name(),
+            "id": self.id,
+            "severity": str(self.template.get_severity()),
+            "display_text": self.get_display_text(),
+        }
+
 
     def __str__(self):
         """

@@ -35,6 +35,6 @@ class ChannelHistory(HistoryResourceBase):
             setattr(
                 chan,
                 "display_text",
-                chan.template.get_format_str() % (chan.val_obj.val),
+                chan.get_display_text(),
             )
         return chan

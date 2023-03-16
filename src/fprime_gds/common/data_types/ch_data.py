@@ -102,6 +102,26 @@ class ChData(sys_data.SysData):
         """
         return "Time,Raw Time,Name,ID,Value\n" if verbose else "Time,Name,Value\n"
 
+    def get_dict(self, time_zone=None):
+        """
+        Convert the channel data to a dictionary
+
+        Args:
+            time_zone: (tzinfo, default=None) Timezone to print time in. If
+                      time_zone=None, use local time.
+
+        Returns:
+            Dictionary version of the channel data
+        """
+        return {
+            "time": self.time.to_readable(time_zone),
+            "raw_time": str(self.time),
+            "name": self.template.get_full_name(),
+            "id": self.id,
+            "display_text": self.get_display_text(),
+        }
+
+
     def get_str(self, time_zone=None, verbose=False, csv=False):
         """
         Convert the channel data to a string
@@ -119,32 +139,26 @@ class ChData(sys_data.SysData):
         time_str_nice = self.time.to_readable(time_zone)
         raw_time_str = str(self.time)
         ch_name = self.template.get_full_name()
-        fmt_str = self.template.get_format_str()
-        if self.val_obj is None:
-            ch_val = "EMPTY CH OBJ"
-        elif fmt_str:
-            ch_val = format_string_template(fmt_str, (self.val_obj.val,))
-        else:
-            ch_val = str(self.val_obj.val)
+        display_text = self.get_display_text()
 
         if verbose and csv:
-            return f"{time_str_nice},{raw_time_str},{ch_name},{self.id},{ch_val}"
+            return f"{time_str_nice},{raw_time_str},{ch_name},{self.id},{display_text}"
         if verbose and not csv:
-            return f"{time_str_nice}: {ch_name} ({self.id}) {raw_time_str} {ch_val}"
+            return f"{time_str_nice}: {ch_name} ({self.id}) {raw_time_str} {display_text}"
         if not verbose and csv:
-            return f"{time_str_nice},{ch_name},{ch_val}"
-        return f"{time_str_nice}: {ch_name} = {ch_val}"
+            return f"{time_str_nice},{ch_name},{display_text}"
+        return f"{time_str_nice}: {ch_name} = {display_text}"
 
-    def get_val_str(self):
+    def get_display_text(self):
 
         """
-        Convert the value to a string, using the format specifier if provided
+        Convert the channel value to a string, using the format specifier if provided
         """
         fmt_str = self.template.get_format_str()
         if self.val_obj is None:
             return ""
         if fmt_str:
-            return fmt_str % (self.val_obj.val)
+            return format_string_template(fmt_str, (self.val_obj.val,))
         return str(self.val_obj.val)
 
     def __str__(self):

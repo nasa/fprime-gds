@@ -12,7 +12,6 @@
 import copy
 
 from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
-from fprime_gds.common.utils.string_util import format_string_template
 
 
 class EventDictionary(DictionaryResource):
@@ -21,8 +20,8 @@ class EventDictionary(DictionaryResource):
 
 class EventHistory(HistoryResourceBase):
     """
-    Resource supplying the history of events in the system. Includes `get_display_text` postprocessing to add in the
-    getter for the display text.
+    Resource supplying the history of events in the system. Includes postprocessing to add in the
+    for the display_text attribute which Flask will use.
     """
 
     def process(self, event):
@@ -31,8 +30,6 @@ class EventHistory(HistoryResourceBase):
         setattr(
             event,
             "display_text",
-            format_string_template(
-                event.template.format_str, tuple([arg.val for arg in event.args])
-            ),
+            event.get_display_text(),
         )
         return event
