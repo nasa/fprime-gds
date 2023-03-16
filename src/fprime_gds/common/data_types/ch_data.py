@@ -121,7 +121,6 @@ class ChData(sys_data.SysData):
             "display_text": self.get_display_text(),
         }
 
-
     def get_str(self, time_zone=None, verbose=False, csv=False):
         """
         Convert the channel data to a string
@@ -144,13 +143,14 @@ class ChData(sys_data.SysData):
         if verbose and csv:
             return f"{time_str_nice},{raw_time_str},{ch_name},{self.id},{display_text}"
         if verbose and not csv:
-            return f"{time_str_nice}: {ch_name} ({self.id}) {raw_time_str} {display_text}"
+            return (
+                f"{time_str_nice}: {ch_name} ({self.id}) {raw_time_str} {display_text}"
+            )
         if not verbose and csv:
             return f"{time_str_nice},{ch_name},{display_text}"
         return f"{time_str_nice}: {ch_name} = {display_text}"
 
     def get_display_text(self):
-
         """
         Convert the channel value to a string, using the format specifier if provided
         """

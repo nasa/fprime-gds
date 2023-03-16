@@ -107,13 +107,14 @@ class EventData(sys_data.SysData):
         display_text = self.get_display_text()
 
         if verbose and csv:
-            return f"{time_str},{raw_time_str},{name},{self.id},{severity},{display_text}"
+            return (
+                f"{time_str},{raw_time_str},{name},{self.id},{severity},{display_text}"
+            )
         if verbose and not csv:
             return f"{time_str}: {name} ({self.id}) {raw_time_str} {severity} : {display_text}"
         if not verbose and csv:
             return f"{time_str},{name},{severity},{display_text}"
         return f"{time_str}: {name} {severity} : {display_text}"
-
 
     def get_dict(self, time_zone=None) -> dict:
         """
@@ -137,7 +138,6 @@ class EventData(sys_data.SysData):
             "severity": str(self.template.get_severity()),
             "display_text": self.get_display_text(),
         }
-
 
     def __str__(self):
         """
