@@ -170,28 +170,6 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
             </template>
 
             <!--
-            Command History:
-
-            Displays a list of previously-sent commands.
-            -->
-            <template id="command-history-template">
-                <div class="fp-flex-repeater">
-                    <fp-table :header-columns="['Command Time', 'Command Id', 'Command Mnemonic', 'Command Args']"
-                              :items-key="'command_history'"
-                              :item-to-columns="columnify"
-                              :item-to-unique="keyify"
-                              :item-hide="isItemHidden"
-                              :initial-fields="fields"
-                              :filter-text="filterText"
-                              :initial-views="itemsShown"
-                              :compact="compact"
-                              :click-action="clickAction"
-                              :reverse="true"
-                              class="click-able-item"
-                    ></fp-table>
-                </div>
-            </template>
-            <!--
             Command Input:
 
             Displays a list of selectable commands. It also displays the list of arguments available to be sent with the
@@ -249,53 +227,6 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <command-history v-if="!builder"></command-history>
                 </div>
             </template>
-            <!-- Command Text:
-
-             Input textbox for entering in a command
-             -->
-<!--            <template id="command-text-template">
-                <div class="fp-flex-repeater">
-                    <div class="form-row">
-                        <div class="form-group col-12">
-                            <h5>Command String</h5>
-                            <input type="text" name="command-text" class="form-control" v-model.lazy="text" placeholder="Command input string">
-                        </div>
-                    </div>
-                </div>
-            </template>-->
-            <!--
-            Command Item:
-
-            A single command item to send.
-            -->
-            <template id="command-item-template">
-                <a href="#" class="list-group-item list-group-item-action flex-column align-items-start">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h5 class="mb-1">{{calculateCommandTime + " " + command.template.mnemonic }}</h5>
-                        <small>Command Id 0x{{ command.id.toString(16) }}</small>
-                    </div>
-                    <p class="mb-1">Arguments: {{ command.args }}</p>
-                </a>
-            </template>
-            <!--
-            Command Argument:
-
-            Command argument template for displaying a single argument.
-            -->
-            <!--template id="command-argument-template">
-                <div>
-                    <label :for="argument.name" class="control-label font-weight-bold">{{ argument.name }}</label><span v-if="argument.description != null">: {{ argument.description }}</span>
-                    <input v-if="!argument.type.ENUM_DICT" :type="inputType[0]" :id="argument.name" class="form-control fprime-input"
-                           :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validate"
-                           v-model="argument.value"  :class="argument.error == '' ? '' : 'is-invalid'" required>
-                    <v-select v-if="argument.type.ENUM_DICT" :id="argument.name" style="flex: 1 1 auto; background-color: white;"
-                              :clearable="false" :searchable="true" @input="validate"
-                              :filterable="true"  label="full_name" :options="Object.keys(argument.type.ENUM_DICT)"
-                              v-model="argument.value" class="fprime-input" :class="argument.error == '' ? '' : 'is-invalid'" required>
-                    </v-select>
-                    <div class="invalid-feedback">{{ argument.error }}</div>
-                </div>
-            </template-->
 
             <!--
             Event Templates:

@@ -10,7 +10,6 @@ import {config} from "../config.js"
 
 // Child component imports ensures that the Vue components exist before using them
 import "./channel.js"
-import "./command.js"
 import "./downlink.js"
 import "./event.js"
 import "./log.js"

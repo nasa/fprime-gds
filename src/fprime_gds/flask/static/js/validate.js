@@ -127,31 +127,72 @@ export function validate_scalar_input(argument) {
  * Validates an array argument by validating each of the sub arguments of that array.
  * @param argument: array argument to validate
  */
-export function validate_array_or_struct_input(argument) {
+export function validate_array_or_struct_input(argument, root) {
     console.assert(argument.type.LENGTH || argument.type.MEMBER_LIST,
         "Validation of array/struct input not called on array/struct");
-    let valid = true;
-    for (let i = 0; i < argument.value.length; i++) {
-        let current_valid = validate_input(argument); // Do NOT short-circuit out validation by hiding behind a &&
-        valid &&= current_valid;
+    let expected_field_tokens = []
+    if (argument.type.MEMBER_LIST) {
+        expected_field_tokens = argument.type.MEMBER_LIST.map((item) => item[0]);
+    } else if (argument.type.LENGTH) {
+        expected_field_tokens = Array(argument.type.LENGTH).fill().map((_, i) => i);
     }
-    argument.error = "";
+
+    let valid = true;
+    let errors = []
+    for (let i = 0; i < expected_field_tokens.length; i++) {
+        // Do NOT short-circuit out validation by hiding behind a &&
+        if (!(expected_field_tokens[i] in argument.value)) {
+            errors.push(`Missing field: ${expected_field_tokens[i]}.`);
+        } else {
+            let current_valid = validate_input(argument.value[expected_field_tokens[i]], root);
+            valid &&= current_valid;
+            if (!current_valid) {
+                errors.push(`Error in field: ${expected_field_tokens[i]}.`);
+            } else {
+                errors.push("");
+            }
+        }
+    }
+    argument.error = errors.join(" ");
     if (!valid) {
         argument.error = "Sub-argument is invalid.";
     }
     return valid;
 }
 
+function get_input_element(root_element, id) {
+    let elements = root_element.getElementsByClassName('fprime-input');
+    for (let i = 0; i < elements.length; i++) {
+        if (elements[i].id == id) {
+            return elements[i];
+        }
+    }
+    return null;
+}
+
 /**
  * Validate an input argument of any type.
  * @param argument: argument to validate (will be updated with error)
+ * @param root: root element to adjust
  * @return {boolean}: true if valid, false otherwise
  */
-export function validate_input(argument) {
+export function validate_input(argument, root) {
+    let valid = false;
     if (argument.type.MEMBER_LIST || argument.type.LENGTH) {
-        return validate_array_or_struct_input(argument);
+        valid = validate_array_or_struct_input(argument, root);
+    } else {
+        valid = validate_scalar_input(argument);
     }
-    return validate_scalar_input(argument);
+    // Validate HTML element when a root element is supplied
+    if (root) {
+        let input_element = get_input_element(root, argument.name);
+        let error = ((argument.error === "") && (!valid)) ? "Invalid input" : argument.error;
+        if (input_element && typeof(input_element.setCustomValidity) !== "undefined") {
+            input_element.setCustomValidity(error);
+            input_element.reportValidity();
+        }
+    }
+    return valid;
 }
 
 /**

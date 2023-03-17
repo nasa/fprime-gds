@@ -277,24 +277,25 @@ class DataStore {
             argument.value = values.map((value, index) => {
                 let append = "[" + index +"]";
                 return this.setupCommandArgument({
-                    description: (argument.description) ? (argument.description + append) : argument.description,
-                    name: argument.name + append,
-                    type: argument.type.MEMBER_TYPE,
+                    "description": (argument.description) ? (argument.description + append) : argument.description,
+                    "name": argument.name + append,
+                    "type": argument.type.MEMBER_TYPE,
                 });
             });
         }
         // Serializable type
         else if (argument.type.MEMBER_LIST) {
-            argument.value = argument.type.MEMBER_LIST.map((field_list) => {
+            let argument_list = argument.type.MEMBER_LIST.map((field_list) => {
                 let name = field_list[0];
                 let type = field_list[1];
                 let description = field_list[3];
-                return this.setupCommandArgument({
-                    description: (description) ? description : argument.description,
-                    name: argument.name + "." + name,
-                    type: type,
-                });
+                return [name, this.setupCommandArgument({
+                    "description": (description) ? description : argument.description,
+                    "name": argument.name + "." + name,
+                    "type": type,
+                })];
             });
+            argument.value = Object.fromEntries(argument_list);
         }
         return argument;
     }
