@@ -23,13 +23,3 @@ class EventHistory(HistoryResourceBase):
     Resource supplying the history of events in the system. Includes postprocessing to add in the
     for the display_text attribute which Flask will use.
     """
-
-    def process(self, event):
-        """Process item and return one with get_display_text"""
-        event = copy.copy(event)
-        setattr(
-            event,
-            "display_text",
-            event.get_display_text(),
-        )
-        return event

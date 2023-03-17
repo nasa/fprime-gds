@@ -24,17 +24,3 @@ class ChannelHistory(HistoryResourceBase):
     Resource supplying the history of channels in the system. Includes `get_display_text` postprocessing to add in the
     getter for the display text.
     """
-
-    def process(self, chan):
-        """Process the channel to add get_display_text"""
-        chan = copy.copy(chan)
-        # Setup display_text and when needed
-        if isinstance(chan.val_obj, (SerializableType, ArrayType)):
-            setattr(chan, "display_text", chan.val_obj.formatted_val)
-        elif chan.template.get_format_str() is not None:
-            setattr(
-                chan,
-                "display_text",
-                chan.get_display_text(),
-            )
-        return chan

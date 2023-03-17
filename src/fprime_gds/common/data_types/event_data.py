@@ -39,6 +39,9 @@ class EventData(sys_data.SysData):
         self.args = event_args
         self.time = event_time
         self.template = event_temp
+        self.display_text = format_string_template(
+            event_temp.format_str, tuple([arg.val for arg in event_args])
+        )
 
     def get_args(self):
         return self.args
@@ -80,11 +83,7 @@ class EventData(sys_data.SysData):
         Get the display text for the event. This is the event's format string
         filled with the event's arguments.
         """
-        if self.args is None:
-            return ""
-        return format_string_template(
-            self.template.format_str, tuple([arg.val for arg in self.args])
-        )
+        return self.display_text
 
     def get_str(self, time_zone=None, verbose=False, csv=False):
         """
@@ -104,7 +103,7 @@ class EventData(sys_data.SysData):
         raw_time_str = str(self.time)
         name = self.template.get_full_name()
         severity = self.template.get_severity()
-        display_text = self.get_display_text()
+        display_text = self.display_text
 
         if verbose and csv:
             return (
@@ -136,7 +135,7 @@ class EventData(sys_data.SysData):
             "name": self.template.get_full_name(),
             "id": self.id,
             "severity": str(self.template.get_severity()),
-            "display_text": self.get_display_text(),
+            "display_text": self.display_text,
         }
 
     def __str__(self):

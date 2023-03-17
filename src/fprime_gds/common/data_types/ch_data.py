@@ -10,7 +10,8 @@
 from fprime.common.models.serialize import time_type
 from fprime_gds.common.data_types import sys_data
 from fprime_gds.common.utils.string_util import format_string_template
-
+from fprime.common.models.serialize.serializable_type import SerializableType
+from fprime.common.models.serialize.array_type import ArrayType
 
 class ChData(sys_data.SysData):
     """
@@ -37,6 +38,7 @@ class ChData(sys_data.SysData):
         self.time = ch_time
         self.template = ch_temp
         self.pkt = None
+        self.display_text = self._compute_display_text(ch_val_obj, ch_temp)
 
     @staticmethod
     def get_empty_obj(ch_temp):
@@ -50,6 +52,20 @@ class ChData(sys_data.SysData):
             A ChData Object with ch value of None
         """
         return ChData(None, time_type.TimeType(), ch_temp)
+
+    def _compute_display_text(self, val_obj, template):
+        """
+        Returns the display_text for the channel by computing it. This function is defined so as not to clutter __init__()
+        but should not be called elsewhere. Use get_display_text() instead.
+        Does not depend on self state so as not to be dependent on the order of initialization.
+        """
+        temp_val = val_obj.val if not isinstance(val_obj, (SerializableType, ArrayType)) else val_obj.formatted_val
+        fmt_str = template.get_format_str()
+        if temp_val is None:
+            return ""
+        if fmt_str:
+            return format_string_template(fmt_str, (temp_val,))
+        return temp_val
 
     def set_pkt(self, pkt):
         """
@@ -87,6 +103,12 @@ class ChData(sys_data.SysData):
             inherited from TypeBase
         """
         return self.val_obj
+
+    def get_display_text(self):
+        """
+        Convert the channel value to a string, using the format specifier if provided
+        """
+        return self.display_text
 
     @staticmethod
     def get_csv_header(verbose=False):
@@ -149,17 +171,6 @@ class ChData(sys_data.SysData):
         if not verbose and csv:
             return f"{time_str_nice},{ch_name},{display_text}"
         return f"{time_str_nice}: {ch_name} = {display_text}"
-
-    def get_display_text(self):
-        """
-        Convert the channel value to a string, using the format specifier if provided
-        """
-        fmt_str = self.template.get_format_str()
-        if self.val_obj is None:
-            return ""
-        if fmt_str:
-            return format_string_template(fmt_str, (self.val_obj.val,))
-        return str(self.val_obj.val)
 
     def __str__(self):
         """
