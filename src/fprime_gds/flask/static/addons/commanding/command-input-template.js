@@ -26,8 +26,10 @@ export let command_input_template = `
             <div class="form-row" v-if="selected.args.length > 0">
                 <Label class="control-label font-weight-bold"l>Arguments</Label>
             </div>
-            <div class="form-row">
-                <command-argument :argument="argument" v-for="argument in selected.args"></command-argument>
+            <div class="form-row"> 
+                <command-argument :compact="settings.compact_commanding" :argument="argument"
+                    v-for="argument in selected.args">
+                </command-argument>
             </div>
             <div class="form-row">
                 <div class="form-group col-md-4">

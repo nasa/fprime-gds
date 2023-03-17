@@ -19,18 +19,39 @@ export let command_enum_argument_template = `
  * Serializable arguments "flatten" the structure into a list of fields.
  */
 export let command_serializable_argument_template = `
-<div style="display: contents;">
-    <command-argument :argument="pseudo_arg" v-for="pseudo_arg in argument.value"></command-argument>
+<div v-if="compact" style="display: contents;">
+    <command-argument :compact="compact" :argument="pseudo_arg" v-for="pseudo_arg in argument.value">
+    </command-argument>
 </div>
+<fieldset v-else class="form-row fp-subform">
+    <legend> {{ argument.name + " (" + argument.type.name + ")"}}</legend>
+    <div v-if="argument.description != ''" class="form-row"><span class="font-weight-bold">Description:</span>
+        {{ argument.description }}
+    </div>
+    <div class="form-row">
+        <command-argument :compact="compact" :argument="pseudo_arg" v-for="pseudo_arg in argument.value">
+        </command-argument>
+    </div>
+    <div class="form-row fp-error">{{ argument.error }}</div>
+</fieldset>
 `;
 
 /**
  * Array arguments "flatten" the array into a list of fields.
  */
 export let command_array_argument_template = `
-<div style="display: contents;">
-    <command-argument :argument="pseudo_arg" v-for="pseudo_arg in argument.value"></command-argument>
+<div v-if="compact" style="display: contents;">
+    <command-argument :compact="compact" :argument="pseudo_arg" v-for="pseudo_arg in argument.value">
+    </command-argument>
 </div>
+<fieldset v-else class="form-row fp-subform">
+    <legend>{{ argument.name + " (" + argument.type.name + ")"}}</legend>
+    <div class="form-row">
+        <command-argument :compact="compact" :argument="pseudo_arg" v-for="pseudo_arg in argument.value">
+        </command-argument>
+    </div>
+    <div class="form-row fp-error">{{ argument.error }}</div>
+</fieldset>
 `;
 
 /**
@@ -54,13 +75,13 @@ export let command_scalar_argument_template = `
 `;
 
 /**
- * Command arguments have inherently three options: array, serializable, or scalar. Arrays and serializableses are
+ * Command arguments have inherently three options: array, serializable, or scalar. Arrays and serializables are
  * recursive in that they will use this component within their templates.
  */
 export let command_argument_template = `
-<div style="display: contents;">
-    <command-array-argument v-if="argument.type.LENGTH" :argument="argument"></command-array-argument>
-    <command-serializable-argument v-else-if="argument.type.MEMBER_LIST" :argument="argument"></command-serializable-argument>
-    <command-scalar-argument v-else :argument="argument"></command-scalar-argument>
-</div>
+<command-array-argument v-if="argument.type.LENGTH" :argument="argument" :compact="compact">
+</command-array-argument>
+<command-serializable-argument v-else-if="argument.type.MEMBER_LIST" :argument="argument" :compact="compact">
+</command-serializable-argument>
+<command-scalar-argument v-else :argument="argument" :compact="compact"></command-scalar-argument>
 `;

@@ -31,6 +31,7 @@ let TYPE_LIMITS = {
  * @return {null|*}: matching item from possible or null if not found, or multiple inexact matches.
  */
 export function find_case_insensitive(token, possible) {
+    token = (token == null) ? token : token.toString();
     // Exact match
     if (possible.indexOf(token) !== -1) {
         return token;
@@ -147,19 +148,22 @@ export function validate_array_or_struct_input(argument, root) {
             let current_valid = validate_input(argument.value[expected_field_tokens[i]], root);
             valid &&= current_valid;
             if (!current_valid) {
-                errors.push(`Error in field: ${expected_field_tokens[i]}.`);
-            } else {
-                errors.push("");
+                errors.push(`Error in field/index: ${expected_field_tokens[i]}.`);
             }
         }
     }
-    argument.error = errors.join(" ");
     if (!valid) {
-        argument.error = "Sub-argument is invalid.";
+        argument.error = errors.join(" ");
     }
     return valid;
 }
 
+/**
+ * Get the element associated with the input of a given id.
+ * @param root_element: root of search
+ * @param id: id to search for
+ * @returns: element when found, null when not found
+ */
 function get_input_element(root_element, id) {
     let elements = root_element.getElementsByClassName('fprime-input');
     for (let i = 0; i < elements.length; i++) {

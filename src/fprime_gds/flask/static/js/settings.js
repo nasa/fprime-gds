@@ -11,7 +11,8 @@ class Settings {
         this.miscellaneous = {
             event_buffer_size: -1,
             command_buffer_size: -1,
-            response_object_limit: 6000
+            response_object_limit: 6000,
+            compact_commanding: false
          };
          this.polling_intervals = {};
     }

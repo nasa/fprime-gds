@@ -13,6 +13,8 @@ import {
     command_argument_assignment_helper,
     squashify_argument
 } from "../../addons/commanding/arguments.js";
+import {_settings} from "../../js/settings.js";
+import {command_input_template} from "./command-input-template.js";
 
 /**
  * This helper will help assign command and values in a safe manner by searching the command store, finding a reference,
@@ -84,10 +86,11 @@ Vue.component("command-input", {
             "loader": _loader,
             "selected": selected,
             "active": false,
-            "error": ""
+            "error": "",
+            "settings": _settings.miscellaneous
         }
     },
-    template: "#command-input-template",
+    template: command_input_template,
     methods: {
         /**
          * Clear the arguments to the command.

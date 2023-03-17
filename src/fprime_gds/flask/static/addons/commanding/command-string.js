@@ -11,22 +11,6 @@ import {
 } from "./command-string-template.js";
 import {argument_display_string, FILL_NEEDED} from "./arguments.js"
 
-/*function parse_with_strings(remaining) {
-    let tokens = [];
-    while (remaining !== "") {
-        let reg = /([, ] *)/;
-        if (remaining.startsWith("\"")) {
-            remaining = remaining.slice(1);
-            reg = /"([, ] *|$)/;
-        }
-        let match = remaining.match(reg);
-        let index = (match !== null) ? match.index : remaining.length;
-        let first = remaining.slice(0, index);
-        tokens.push(first);
-        remaining = remaining.slice(index + ((match !== null) ? match[0].length : remaining.length));
-    }
-    return tokens;
-}*/
 let STRING_PREPROCESSOR = new RegExp(`(?:"((?:[^"\\\\]|\\.)*)")|([a-zA-Z_][a-zA-Z_0-9.]*)|(${FILL_NEEDED})`, "g");
 
 /**

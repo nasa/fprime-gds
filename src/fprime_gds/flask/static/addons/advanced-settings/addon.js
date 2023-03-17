@@ -14,8 +14,20 @@ Vue.component("advanced-settings", {
         return {
             statistics: _performance.statistics,
             settings: {
-                "Polling_Intervals": _settings.polling_intervals,
-                "Miscellaneous": _settings.miscellaneous
+                "Polling_Intervals": {
+                    description: "Interval (in milliseconds) to poll the datastore for each of the given data types.",
+                    settings: _settings.polling_intervals
+                },
+                "Miscellaneous": {
+                    description: "Miscellaneous settings for GDS UI operations." +
+                        "<small><ul>" +
+                        "<li>event_buffer_size: maximum event records. Default: -1, infinite.</li>" +
+                        "<li>command_buffer_size: maximum command history records. Default: -1, infinite.</li>" +
+                        "<li>response_object_limit: maximum results to load per polling request. Default: 6000</li>" +
+                        '<li>compact_commanding: use compact "flattened" style for commanding complex arguments.</li>' +
+                        "</ul></small>",
+                    settings: _settings.miscellaneous
+                }
             },
             old_polling: {..._settings.polling_intervals},
             errors: _validator.errors

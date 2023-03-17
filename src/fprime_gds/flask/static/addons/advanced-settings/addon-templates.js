@@ -7,11 +7,15 @@ export let advanced_template = `
         <div class="row">
             <div class="col-4" v-for="setting_category in Object.keys(settings)">
                 <h3>{{ setting_category.replace("_", " ") }}</h3>
-                <div class="input-group mb-3" v-for="setting_key in Object.keys(settings[setting_category])">
+                <div v-html="settings[setting_category].description"></div>
+                <div class="input-group mb-3" v-for="setting_key in Object.keys(settings[setting_category].settings)">
                     <div class="input-group-prepend col-6">
                         <span class="input-group-text col-12">{{ setting_key }}</span>
                     </div>
-                    <input class="form-control col-6" v-model="settings[setting_category][setting_key]" />
+                    <input v-if="typeof(settings[setting_category].settings[setting_key]) === 'boolean'"
+                            type="checkbox" v-model="settings[setting_category].settings[setting_key]">
+                    <input v-else class="form-control col-6"
+                        v-model.number="settings[setting_category].settings[setting_key]" type="number"/>
                 </div>
             </div>
         </div>

@@ -255,3 +255,33 @@ table td:last-child {
 .navbar-custom-style-red-oxide {
     background-color: rgba(75, 20, 22, 1) !important; 
 }
+
+.fp-subform {
+    padding: 0.5em;
+    margin: 0.5em;
+}
+
+.fp-subform .form-row {
+    width: 100%;
+}
+
+.fp-subform .fp-error {
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 80%;
+    color: maroon;
+}
+
+fieldset.fp-subform {
+    border: 1px groove #11172f !important;
+    padding: 1em !important;
+    width: 100%;
+}
+
+.fp-subform legend {
+    font-weight: bold !important;
+    text-align: left !important;
+    width:auto;
+    padding:0 10px;
+    border-bottom:none;
+}

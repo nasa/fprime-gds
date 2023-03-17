@@ -12,7 +12,7 @@ import {
     command_array_argument_template,
     command_serializable_argument_template,
     command_scalar_argument_template,
-    command_argument_template
+    command_argument_template,
 } from "./argument-templates.js";
 import {validate_input} from "../../js/validate.js";
 
@@ -52,7 +52,7 @@ function command_argument_array_serializable_assignment_helper(argument, squashe
         if (field_name in squashed_argument_value) {
             command_argument_assignment_helper(argument.value[field_name], squashed_argument_value[field_name]);
         } else {
-            errors.push(`Missing expected field: {field_name}.`);
+            errors.push(`Missing expected field: ${field_name}.`);
         }
     }
     if (errors.length > 0) {
@@ -70,11 +70,16 @@ export function command_argument_assignment_helper(argument, squashed_argument_v
     if (argument.type.MEMBER_LIST || argument.type.LENGTH) {
         command_argument_array_serializable_assignment_helper(argument, squashed_argument_value);
     } else {
-        argument.value =
-            (argument.value == null && squashed_argument_value === FILL_NEEDED) ? null : squashed_argument_value;
+        let is_not_string = typeof(argument.type.MAX_LENGTH) === "undefined";
+        argument.value = (is_not_string && (squashed_argument_value === FILL_NEEDED)) ? null : squashed_argument_value;
     }
 }
 
+/**
+ * Clear arguments recursively by setting each argument (or sub-argument) to null. This protects the structure while
+ * clearing each of the scalar atoms of the arguments.  Enums are reset to the first value in the list.
+ * @param argument: argument to recursively clear.
+ */
 export function clear_argument(argument) {
     argument.error = "";
     if (argument.type.MAX_LENGTH) {
@@ -94,6 +99,11 @@ export function clear_argument(argument) {
     }
 }
 
+/**
+ * Squashes an argument to a simple JSON-compatible argument.
+ * @param argument: argument to be squashed
+ * @returns: squashed value
+ */
 export function squashify_argument(argument) {
     // Base assignment of the value
     let value = argument.value;
@@ -110,6 +120,13 @@ export function squashify_argument(argument) {
     return value;
 }
 
+/**
+ * Convert an argument into a display string. This is used for the string input box and additionally the command
+ * history table. Replaces null (unset) argument values with "" for strings, the first enum member for enums, and an
+ * emptry string for string types. Recursively handles complex types.
+ * @param argument: argument to display
+ * @returns: string to display
+ */
 export function argument_display_string(argument) {
     // Base assignment of the value
     let string = `${(argument.value == null || argument.value === "") ? FILL_NEEDED: argument.value}`;
@@ -129,13 +146,12 @@ export function argument_display_string(argument) {
     return string;
 }
 
-
 /**
  * Basic setup for each argument Vue component. Each is bound to a property called "argument", which is the data store
  * of the component. Each calls the standard "validate anything" validation function.
  */
 let base_argument_component_properties = {
-        props:["argument"],
+        props:["argument", "compact"],
         methods: {
             /**
              * Argument validation function. Will validate the input value and then assign the various error messages
@@ -204,7 +220,7 @@ Vue.component("command-scalar-argument", {
 });
 /**
  * Base component for processing arguments specifically. This component uses recursive templating to handle each of the
- * sub-argument types until everything is resolved as a scalar type
+ * sub-argument types until everything is resolved as a scalar type.
  */
 Vue.component("command-argument", {
     ...base_argument_component_properties,
