@@ -21,7 +21,7 @@ export let FILL_NEEDED = "<FILL-VALUE>";
 /**
  * Gets a list of fields that the argument supports. For arrays, that is 0...n, for serializables it is named fields.
  * Both can be used for iteration
- * @param argument: argument to detect fields. Must degine MEMBER_LIST or LENGTH.
+ * @param argument: argument to detect fields. Must define MEMBER_LIST or LENGTH.
  * @returns list of fields
  */
 function get_argument_fields(argument) {
@@ -31,7 +31,7 @@ function get_argument_fields(argument) {
     } else if (argument.type.LENGTH) {
         expected_field_tokens = Array(argument.type.LENGTH).fill().map((_, i) => i);
     } else {
-        console.assert(false, "Non-array/serializable supplied to array/serializable assigment method");
+        console.assert(false, "Non-array/serializable supplied to array/serializable assignment method");
         return [];
     }
     return expected_field_tokens;
@@ -123,7 +123,7 @@ export function squashify_argument(argument) {
 /**
  * Convert an argument into a display string. This is used for the string input box and additionally the command
  * history table. Replaces null (unset) argument values with "" for strings, the first enum member for enums, and an
- * emptry string for string types. Recursively handles complex types.
+ * empty string for string types. Recursively handles complex types.
  * @param argument: argument to display
  * @returns: string to display
  */

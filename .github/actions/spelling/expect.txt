@@ -292,6 +292,7 @@ idct
 idl
 ieeetr
 ifconfig
+ified
 iframe
 ifun
 IH
@@ -572,6 +573,7 @@ socketserver
 sorttable
 sphinxcontrib
 splitext
+squashify
 src
 sss
 Ssymbols
@@ -614,6 +616,7 @@ td
 telem
 tempdir
 tempfile
+templating
 testcase
 TESTLIST
 textarea
