@@ -59,6 +59,10 @@ class ChData(sys_data.SysData):
         but should not be called elsewhere. Use get_display_text() instead.
         Does not depend on self state so as not to be dependent on the order of initialization.
         """
+        # This can happen when constructing empty objects (e.g. when listing channels)
+        # in which case we just display the description
+        if val_obj is None:
+            return template.ch_desc
         temp_val = val_obj.val if not isinstance(val_obj, (SerializableType, ArrayType)) else val_obj.formatted_val
         fmt_str = template.get_format_str()
         if temp_val is None:
