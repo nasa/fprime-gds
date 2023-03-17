@@ -16,6 +16,120 @@ import {
 } from "./argument-templates.js";
 import {validate_input} from "../../js/validate.js";
 
+export let FILL_NEEDED = "<FILL-VALUE>";
+
+/**
+ * Gets a list of fields that the argument supports. For arrays, that is 0...n, for serializables it is named fields.
+ * Both can be used for iteration
+ * @param argument: argument to detect fields. Must degine MEMBER_LIST or LENGTH.
+ * @returns list of fields
+ */
+function get_argument_fields(argument) {
+    let expected_field_tokens = [];
+    if (argument.type.MEMBER_LIST) {
+        expected_field_tokens = argument.type.MEMBER_LIST.map((item) => item[0]);
+    } else if (argument.type.LENGTH) {
+        expected_field_tokens = Array(argument.type.LENGTH).fill().map((_, i) => i);
+    } else {
+        console.assert(false, "Non-array/serializable supplied to array/serializable assigment method");
+        return [];
+    }
+    return expected_field_tokens;
+}
+
+/**
+ * Assign values to arguments of the type array or serializable. This happens by inspecting the internal array of items
+ * (repeated elements for arrays, field list for serializable) and assigns each of those arrays individually.
+ * @param argument: argument of type array or serializable assign to
+ * @param squashed_argument_value: squash-ified command arguments (JSON format with no "value" field)
+ */
+function command_argument_array_serializable_assignment_helper(argument, squashed_argument_value) {
+    let expected_field_tokens = get_argument_fields(argument);
+    let errors = [];
+    // Loop through all the field names
+    for (let i = 0; i < expected_field_tokens.length; i++) {
+        let field_name = expected_field_tokens[i];
+        if (field_name in squashed_argument_value) {
+            command_argument_assignment_helper(argument.value[field_name], squashed_argument_value[field_name]);
+        } else {
+            errors.push(`Missing expected field: {field_name}.`);
+        }
+    }
+    if (errors.length > 0) {
+        argument.error = errors.join(" ");
+    }
+}
+
+/**
+ * Assign command argument from the given value. This function handles scalars, arrays, and serializables.
+ * @param argument: argument to assign
+ * @param squashed_argument_value: squash-ified command arguments (JSON format with no "value" field)
+ */
+export function command_argument_assignment_helper(argument, squashed_argument_value) {
+    // Argument is expected to be a serializable type
+    if (argument.type.MEMBER_LIST || argument.type.LENGTH) {
+        command_argument_array_serializable_assignment_helper(argument, squashed_argument_value);
+    } else {
+        argument.value =
+            (argument.value == null && squashed_argument_value === FILL_NEEDED) ? null : squashed_argument_value;
+    }
+}
+
+export function clear_argument(argument) {
+    argument.error = "";
+    if (argument.type.MAX_LENGTH) {
+        argument.value = "";
+    }
+    else if (argument.type.ENUM_DICT) {
+        argument.value = Object.keys(argument.type.ENUM_DICT)[0];
+    }
+    else if (argument.type.MEMBER_LIST || argument.type.LENGTH) {
+        let expected_field_tokens = get_argument_fields(argument);
+        for (let i = 0; i < expected_field_tokens.length; i++) {
+            clear_argument(argument.value[expected_field_tokens[i]]);
+        }
+    }
+    else {
+        argument.value = null;
+    }
+}
+
+export function squashify_argument(argument) {
+    // Base assignment of the value
+    let value = argument.value;
+
+    if (argument.type.LENGTH) {
+        value = argument.value.map((argument) => squashify_argument(argument));
+    } else if (argument.type.MEMBER_LIST) {
+        value = {};
+        for (let i = 0; i < argument.type.MEMBER_LIST.length; i++) {
+            let field = argument.type.MEMBER_LIST[i][0];
+            value[field] = squashify_argument(argument.value[field]);
+        }
+    }
+    return value;
+}
+
+export function argument_display_string(argument) {
+    // Base assignment of the value
+    let string = `${(argument.value == null || argument.value === "") ? FILL_NEEDED: argument.value}`;
+
+    if (argument.type.LENGTH) {
+        string = `[${argument.value.map((argument) => argument_display_string(argument)).join(", ")}]`;
+    } else if (argument.type.MEMBER_LIST) {
+        let fields = [];
+        for (let i = 0; i < argument.type.MEMBER_LIST.length; i++) {
+            let field = argument.type.MEMBER_LIST[i][0];
+            fields.push(`${field}: ${argument_display_string(argument.value[field])}`);
+        }
+        string = `{${fields.join(", ")}}`
+    } else if (argument.type.MAX_LENGTH) {
+        string = `"${(argument.value == null) ? "" : argument.value}"`
+    }
+    return string;
+}
+
+
 /**
  * Basic setup for each argument Vue component. Each is bound to a property called "argument", which is the data store
  * of the component. Each calls the standard "validate anything" validation function.
@@ -28,12 +142,7 @@ let base_argument_component_properties = {
              * and flags to the HTML elements where applicable.
              */
             validate() {
-                validate_input(this.argument);
-                let input_element = this.$el.getElementsByClassName("fprime-input")[0] || this.$el;
-                if (typeof(input_element.setCustomValidity) !== "undefined") {
-                    input_element.setCustomValidity(this.argument.error);
-                    input_element.reportValidity();
-                }
+                validate_input(this.argument, this.$el);
             }
         }
 }

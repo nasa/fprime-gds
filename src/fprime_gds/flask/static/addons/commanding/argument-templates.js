@@ -45,7 +45,7 @@ export let command_scalar_argument_template = `
         </label>
         
         <command-enum-argument v-if="argument.type.ENUM_DICT" :argument="argument"></command-enum-argument>
-        <input v-else :type="inputType[0]" :id="argument.name" class="form-control fprime-input"
+        <input v-else :type="inputType[0]" v-bind:id="argument.name" class="form-control fprime-input"
                :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validate"
                v-model="argument.value"  :class="argument.error == '' ? '' : 'is-invalid'" required>
         <div class="invalid-feedback">{{ argument.error }}</div>
