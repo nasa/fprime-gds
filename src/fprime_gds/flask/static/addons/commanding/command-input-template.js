@@ -27,7 +27,7 @@ export let command_input_template = `
                 <Label class="control-label font-weight-bold"l>Arguments</Label>
             </div>
             <div class="form-row"> 
-                <command-argument :compact="settings.compact_commanding" :argument="argument"
+                <command-argument :compact="compact" :argument="argument"
                     v-for="argument in selected.args">
                 </command-argument>
             </div>

@@ -15,8 +15,9 @@ import "./event.js"
 import "./log.js"
 import "./uplink.js"
 import "./dashboard.js"
-import {_datastore, _dictionaries} from "../datastore.js";
+import {_datastore} from "../datastore.js";
 import {_validator} from "../validate.js";
+import {_settings} from "../settings.js";
 
 /**
  * tabbed-ect:
@@ -49,7 +50,8 @@ Vue.component("tabbed-etc", {
                 ],
                 "config": config,
                 "counts": _validator.counts,
-                "flags": _datastore.flags
+                "flags": _datastore.flags,
+                "settings": _settings.miscellaneous
             }
         },
     methods: {

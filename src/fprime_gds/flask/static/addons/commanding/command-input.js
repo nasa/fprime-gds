@@ -72,6 +72,10 @@ Vue.component("command-input", {
         builder: {
             type: Boolean,
             default: false
+        },
+        compact: {
+            type: Boolean,
+            default: false
         }
     },
     created: function() {
@@ -87,7 +91,6 @@ Vue.component("command-input", {
             "selected": selected,
             "active": false,
             "error": "",
-            "settings": _settings.miscellaneous
         }
     },
     template: command_input_template,
