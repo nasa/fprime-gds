@@ -9,8 +9,6 @@
 #                      "start-time": "YYYY-MM-DDTHH:MM:SS.sss" #Start time for event listing
 #                  }
 ####
-import copy
-
 from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
 
 
