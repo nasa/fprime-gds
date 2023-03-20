@@ -154,6 +154,8 @@ export function validate_array_or_struct_input(argument, root) {
     }
     if (!valid) {
         argument.error = errors.join(" ");
+    } else {
+        argument.error = "";
     }
     return valid;
 }
