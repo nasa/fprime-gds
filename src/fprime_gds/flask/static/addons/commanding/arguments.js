@@ -159,6 +159,9 @@ let base_argument_component_properties = {
              */
             validate() {
                 validate_input(this.argument, this.$el);
+                if (this.$parent?.validate) {
+                    this.$nextTick(this.$parent.validate.bind(this.$parent));
+                }
             }
         }
 }
