@@ -128,7 +128,7 @@ export function validate_scalar_input(argument) {
  * Validates an array argument by validating each of the sub arguments of that array.
  * @param argument: array argument to validate
  */
-export function validate_array_or_struct_input(argument, root) {
+export function validate_array_or_struct_input(argument) {
     console.assert(argument.type.LENGTH || argument.type.MEMBER_LIST,
         "Validation of array/struct input not called on array/struct");
     let expected_field_tokens = []
@@ -145,7 +145,7 @@ export function validate_array_or_struct_input(argument, root) {
         if (!(expected_field_tokens[i] in argument.value)) {
             errors.push(`Missing field: ${expected_field_tokens[i]}.`);
         } else {
-            let current_valid = validate_input(argument.value[expected_field_tokens[i]], root);
+            let current_valid = validate_input(argument.value[expected_field_tokens[i]]);
             valid &&= current_valid;
             if (!current_valid) {
                 errors.push(`Error in field/index: ${expected_field_tokens[i]}.`);
@@ -161,42 +161,16 @@ export function validate_array_or_struct_input(argument, root) {
 }
 
 /**
- * Get the element associated with the input of a given id.
- * @param root_element: root of search
- * @param id: id to search for
- * @returns: element when found, null when not found
- */
-function get_input_element(root_element, id) {
-    let elements = root_element.getElementsByClassName('fprime-input');
-    for (let i = 0; i < elements.length; i++) {
-        if (elements[i].id == id) {
-            return elements[i];
-        }
-    }
-    return null;
-}
-
-/**
  * Validate an input argument of any type.
  * @param argument: argument to validate (will be updated with error)
- * @param root: root element to adjust
  * @return {boolean}: true if valid, false otherwise
  */
-export function validate_input(argument, root) {
+export function validate_input(argument) {
     let valid = false;
     if (argument.type.MEMBER_LIST || argument.type.LENGTH) {
-        valid = validate_array_or_struct_input(argument, root);
+        valid = validate_array_or_struct_input(argument);
     } else {
         valid = validate_scalar_input(argument);
-    }
-    // Validate HTML element when a root element is supplied
-    if (root) {
-        let input_element = get_input_element(root, argument.name);
-        let error = ((argument.error === "") && (!valid)) ? "Invalid input" : argument.error;
-        if (input_element && typeof(input_element.setCustomValidity) !== "undefined") {
-            input_element.setCustomValidity(error);
-            input_element.reportValidity();
-        }
     }
     return valid;
 }

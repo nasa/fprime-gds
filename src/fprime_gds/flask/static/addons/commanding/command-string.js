@@ -11,7 +11,7 @@ import {
 } from "./command-string-template.js";
 import {argument_display_string, FILL_NEEDED} from "./arguments.js"
 
-let STRING_PREPROCESSOR = new RegExp(`(?:"((?:[^"\\\\]|\\.)*)")|([a-zA-Z_][a-zA-Z_0-9.]*)|(${FILL_NEEDED})`, "g");
+let STRING_PREPROCESSOR = new RegExp(`(?:"((?:[^\"]|\\\")*)")|([a-zA-Z_][a-zA-Z_0-9.]*)|(${FILL_NEEDED})`, "g");
 
 /**
  * Gets the display string for the given command.
@@ -54,6 +54,7 @@ Vue.component("command-text", {
                     let tokens = JSON.parse(corrected_json_string);
                     let command_name = tokens[0];
                     let command_arguments = tokens.splice(1);
+                    this.error = "";
                     this.$parent.selectCmd(command_name, command_arguments);
                 } catch (e) {
                     // JSON parsing exceptions

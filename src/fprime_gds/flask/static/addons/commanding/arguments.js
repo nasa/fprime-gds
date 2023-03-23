@@ -57,6 +57,8 @@ function command_argument_array_serializable_assignment_helper(argument, squashe
     }
     if (errors.length > 0) {
         argument.error = errors.join(" ");
+    } else {
+        argument.error = "";
     }
 }
 
@@ -141,7 +143,9 @@ export function argument_display_string(argument) {
         }
         string = `{${fields.join(", ")}}`
     } else if (argument.type.MAX_LENGTH) {
-        string = `"${(argument.value == null) ? "" : argument.value}"`
+        let value = (argument.value == null) ? "" : argument.value;
+        value = value.replace(/"/g, '\\\"');
+        string = `"${value}"`
     }
     return string;
 }
@@ -154,14 +158,42 @@ let base_argument_component_properties = {
         props:["argument", "compact"],
         methods: {
             /**
-             * Argument validation function. Will validate the input value and then assign the various error messages
-             * and flags to the HTML elements where applicable.
+             * Trigger on argument input. Should not recurse down, but flow up.
              */
-            validate() {
-                validate_input(this.argument, this.$el);
-                if (this.$parent?.validate) {
-                    this.$nextTick(this.$parent.validate.bind(this.$parent));
+            validateTrigger() {
+                this.validateArgument(false);
+            },
+            /**
+             * Argument validation function. Will validate the input value and then assign the various error messages
+             * and flags to the HTML elements where applicable. Can recurse down through children, or up through parents
+             * but not both at the same time. When not explicitly stated, the validation is assumed to be upward through
+             * parents
+             *
+             * @param recurse_down: recursively validate children moving downward
+             */
+            validateArgument(recurse_down) {
+                recurse_down = !!(recurse_down); // Force recurse_down to be defined as a boolean
+                let valid = validate_input(this.argument);
+                // HTML element validation
+                let input_element = this.$el.getElementsByClassName("fprime-input")[0] || this.$el;
+                if (input_element.setCustomValidity && input_element.reportValidity) {
+                    input_element.setCustomValidity(this.argument.error);
+                    input_element.reportValidity();
                 }
+                // Downward recursion uses children
+                let recursive_listing = (recurse_down) ? this.$children.slice().reverse() : [this.$parent];
+                let valid_recursion = (recursive_listing || []).reduce(
+                    (accumulator, next_element) => {
+                        if (next_element.validateArgument) {
+                            accumulator = next_element.validateArgument(recurse_down) && accumulator;
+                        }
+                        return accumulator;
+                    }, true);
+                // Only downward recursion inherits validity
+                if (recurse_down) {
+                    valid = valid && valid_recursion;
+                }
+                return valid;
             }
         }
 }

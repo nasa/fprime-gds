@@ -105,6 +105,14 @@ Vue.component("command-input", {
             }
         },
         /**
+         * Trigger to start validation on the selection.
+         */
+        validateTrigger() {
+            this.$nextTick(() => {
+                this.validate();
+            });
+        },
+        /**
          * Validate the form inputs using the browser validation method. Additionally, validates the command input and
          * argument select dialogs to ensure that dropdown values are within the allowed list
          */
@@ -124,13 +132,14 @@ Vue.component("command-input", {
                 this.error = "";
             }
             // Validate enumeration types
-            let args = this.selected.args;
-            for (let i = 0; i < args.length; i++) {
-                let current_valid = validate_input(args[i], this.$el);
-                valid = valid && current_valid;
-            }
+            let valid_children = (this.$children || []).slice().reverse().reduce((accumulator, child) => {
+                if (child.validateArgument) {
+                    accumulator = child.validateArgument(true) && accumulator;
+                }
+                return accumulator
+            }, true);
             let form_valid = form.checkValidity();
-            return valid && form_valid;
+            return valid_children && form_valid;
         },
         /**
          * Send a command from this interface. This calls into the loader to send the command, and locks-out until the
@@ -188,7 +197,9 @@ Vue.component("command-input", {
             } else {
                 this.selected = {"full_name": desired_command_name, "args":[], "error": "Invalid command"};
             }
-            this.validate();
+            this.$nextTick(() => {
+                this.validate();
+            });
         }
     },
     computed: {

@@ -9,7 +9,7 @@
  */
 export let command_enum_argument_template = `
 <v-select :id="argument.name" style="flex: 1 1 auto; background-color: white;"
-          :clearable="false" :searchable="true" @input="validate"
+          :clearable="false" :searchable="true" @input="validateTrigger"
           :filterable="true"  label="full_name" :options="Object.keys(argument.type.ENUM_DICT)"
           v-model="argument.value" class="fprime-input" :class="argument.error == '' ? '' : 'is-invalid'" required>
 </v-select>
@@ -67,7 +67,7 @@ export let command_scalar_argument_template = `
         
         <command-enum-argument v-if="argument.type.ENUM_DICT" :argument="argument"></command-enum-argument>
         <input v-else :type="inputType[0]" v-bind:id="argument.name" class="form-control fprime-input"
-               :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validate"
+               :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validateTrigger"
                v-model="argument.value"  :class="argument.error == '' ? '' : 'is-invalid'" required>
         <div class="invalid-feedback">{{ argument.error }}</div>
     </div>

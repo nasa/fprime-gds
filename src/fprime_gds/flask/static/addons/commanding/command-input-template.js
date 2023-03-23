@@ -12,7 +12,7 @@ export let command_input_template = `
                 <div class="form-group col-md-4">
                     <label for="mnemonic" class="control-label font-weight-bold">Mnemonic</label>
                     <v-select id="mnemonic" style="flex: 1 1 auto; background-color: white;" :clearable="false"
-                        :searchable="true" @input="validate" :filterable="true" label="full_name"
+                        :searchable="true" @input="validateTrigger" :filterable="true" label="full_name"
                         :options="commandList" v-model="selected" :class="this.error == '' ? '' : 'is-invalid'"
                         required>
                     </v-select>
