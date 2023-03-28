@@ -60,11 +60,8 @@ export function validate_enum_input(argument) {
     if (valid_arg == null) {
         argument.error = "Supply one of: " + possible.join(" ");
         return false;
-    } else {
-        argument.value = valid_arg;
-        argument.error = "";
-        return true;
     }
+    argument.value = valid_arg;
     argument.error = "";
     return true;
 }
