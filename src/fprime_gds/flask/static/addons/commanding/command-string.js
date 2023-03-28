@@ -33,6 +33,7 @@ Vue.component("command-text", {
     template: command_string_template,
     methods: {
         validate() {
+            this.error = "";
             let input_element = this.$el.getElementsByClassName("fprime-input")[0] || this.$el;
             if (typeof(input_element.setCustomValidity) !== "undefined") {
                 input_element.setCustomValidity(this.error);
@@ -44,6 +45,7 @@ Vue.component("command-text", {
         text: {
             // Get the expected text from the command and inject it into the box
             get: function () {
+                this.error = "";
                 return command_display_string(this.selected);
             },
             // Pull the box and send it into the command setup

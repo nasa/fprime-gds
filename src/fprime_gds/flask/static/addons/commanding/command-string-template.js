@@ -12,7 +12,7 @@ export let command_string_template = `
             <h5>Command String</h5>
             <input type="text" name="command-text" class="form-control fprime-input" v-model.lazy="text"
                 placeholder="Command string of the form: ${COMMAND_FORMAT_SPEC}"
-                :class="this.error == '' ? '' : 'is-invalid'">
+                :class="this.error == '' ? '' : 'is-invalid'" @focus="validate">
             <div class="invalid-feedback">{{ this.error }}</div>
         </div>
     </div>
