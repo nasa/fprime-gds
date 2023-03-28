@@ -164,6 +164,28 @@ table td:last-child {
     width: 100%;
 }
 
+table td {
+    width: 0;
+}
+
+table th:last-child {
+    width: 100%;
+}
+
+table th {
+    width: 0;
+}
+/**
+ * Embedded tables should removing margin on themselves and padding on the parent cell.
+ * Note: since padding is-not functional, this uses the "has" selector and falls back to traditional rendering.
+ */
+table .embedded_table {
+    margin: 0;
+}
+
+table td:has(table.embedded_table) {
+    padding: 0;
+}
 
 /**
  * Dashboard CSS Styles for styling components specific to the Dashboard page
@@ -254,4 +276,34 @@ table td:last-child {
 
 .navbar-custom-style-red-oxide {
     background-color: rgba(75, 20, 22, 1) !important; 
+}
+
+.fp-subform {
+    padding: 0.5em;
+    margin: 0.5em;
+}
+
+.fp-subform .form-row {
+    width: 100%;
+}
+
+.fp-subform .fp-error {
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 80%;
+    color: maroon;
+}
+
+fieldset.fp-subform {
+    border: 1px groove #11172f !important;
+    padding: 1em !important;
+    width: 100%;
+}
+
+.fp-subform legend {
+    font-weight: bold !important;
+    text-align: left !important;
+    width:auto;
+    padding:0 10px;
+    border-bottom:none;
 }

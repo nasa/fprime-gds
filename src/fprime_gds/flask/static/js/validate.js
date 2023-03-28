@@ -31,6 +31,7 @@ let TYPE_LIMITS = {
  * @return {null|*}: matching item from possible or null if not found, or multiple inexact matches.
  */
 export function find_case_insensitive(token, possible) {
+    token = (token == null) ? token : token.toString();
     // Exact match
     if (possible.indexOf(token) !== -1) {
         return token;
@@ -47,48 +48,128 @@ export function find_case_insensitive(token, possible) {
 }
 
 /**
- * Validate an input argument.
- * @param argument: argument to validate (will be updated with error)
- * @return {boolean}: true if valid, false otherwise
+ * Validates a supplied argument of enumeration type. **WARNING:** this will rewrite the enumeration's value to be
+ * properly case-sensitive.
+ * @param argument: argument of enumeration type.
+ * @returns {boolean} false on validation error, true otherwise
  */
-export function validate_input(argument) {
-    let type = argument.type;
+export function validate_enum_input(argument) {
+    console.assert(argument.type.ENUM_DICT, "Validation of enumeration input not called on enumeration");
+    let possible = Object.keys(argument.type.ENUM_DICT);
+    let valid_arg = find_case_insensitive(argument.value, possible);
+    if (valid_arg == null) {
+        argument.error = "Supply one of: " + possible.join(" ");
+        return false;
+    }
+    argument.value = valid_arg;
     argument.error = "";
-    // Integral types checking
-    if (type.name in TYPE_LIMITS) {
+    return true;
+}
+
+/**
+ * Validate any scalar (non-struct, non-array) arguments. Note: in some cases this may correct the value.
+ * @param argument: argument to validate.
+ * @returns {boolean} true if valid, false if not valid
+ */
+export function validate_scalar_input(argument) {
+    console.assert(!argument.MEMBER_LIST, "Validation of scalar called on struct");
+    console.assert(! argument.LENGTH, "Validation of scalar called on array");
+
+    let type_without_type = argument.type.name.replace("Type", "");
+    // Handle enumerations
+    if (argument.type.ENUM_DICT) {
+        return validate_enum_input(argument);
+    }
+    // Integer types
+    else if (type_without_type in TYPE_LIMITS) {
         let value = null;
         try {
             value = (argument.value == null) ? null : BigInt(argument.value);
         } catch (e) {}
-        let limits = TYPE_LIMITS[argument.type.name];
-        let message = (type.name.startsWith("U")) ? "binary, octal, decimal, or hexadecimal unsigned integer":
+        let limits = TYPE_LIMITS[type_without_type];
+        let message = (type_without_type.startsWith("U")) ? "binary, octal, decimal, or hexadecimal unsigned integer":
                       "signed decimal integer";
 
         if (value == null || value < limits[0] || value > limits[1]) {
             argument.error = "Supply " + message + "  between " + limits.join(" and ");
             return false;
         }
-    }
-    // Enumeration types
-    else if ("ENUM_DICT" in type) {
-        let valid_arg = find_case_insensitive(argument.value, Object.keys(type.ENUM_DICT));
-        if (valid_arg == null) {
-            argument.error = "Supply one of: " + Object.keys(type.ENUM_DICT).join(" ");
-            return false;
-        } else {
-            argument.value = valid_arg;
-        }
+        argument.error = "";
+        return true;
     }
     // Check for string values
-    else if (type.name.indexOf("String") !== -1 && (argument.value === "" || argument.value == null)) {
-        argument.error = "Supply general text";
+    else if (argument.type.name.indexOf("String") !== -1) {
+        let max_length = argument.type.MAX_LENGTH;
+        if (argument.value === "" || argument.value == null || argument.value.length > max_length) {
+            argument.error = "Supply general text of less than " +  max_length + " characters";
+            return false;
+        }
+        argument.error = "";
+        return true;
     }
     // Floating point types
-    else if ((["F32Type", "F64Type"].indexOf(type.name) != -1) && isNaN(parseFloat(argument.value))) {
-        argument.error = "Supply floating point number";
-        return false;
+    else if ((["F32Type", "F64Type"].indexOf(argument.type.name) !== -1)) {
+        if (isNaN(parseFloat(argument.value))) {
+            argument.error = "Supply floating point number";
+            return false;
+        }
+        argument.error = "";
+        return true;
     }
+    console.assert(false, "Unknown scalar type: " + argument.type.name);
+    argument.error = "";
     return true;
+}
+
+/**
+ * Validates an array argument by validating each of the sub arguments of that array.
+ * @param argument: array argument to validate
+ */
+export function validate_array_or_struct_input(argument) {
+    console.assert(argument.type.LENGTH || argument.type.MEMBER_LIST,
+        "Validation of array/struct input not called on array/struct");
+    let expected_field_tokens = []
+    if (argument.type.MEMBER_LIST) {
+        expected_field_tokens = argument.type.MEMBER_LIST.map((item) => item[0]);
+    } else if (argument.type.LENGTH) {
+        expected_field_tokens = Array(argument.type.LENGTH).fill().map((_, i) => i);
+    }
+
+    let valid = true;
+    let errors = []
+    for (let i = 0; i < expected_field_tokens.length; i++) {
+        // Do NOT short-circuit out validation by hiding behind a &&
+        if (!(expected_field_tokens[i] in argument.value)) {
+            errors.push(`Missing field: ${expected_field_tokens[i]}.`);
+        } else {
+            let current_valid = validate_input(argument.value[expected_field_tokens[i]]);
+            valid &&= current_valid;
+            if (!current_valid) {
+                errors.push(`Error in field/index: ${expected_field_tokens[i]}.`);
+            }
+        }
+    }
+    if (!valid) {
+        argument.error = errors.join(" ");
+    } else {
+        argument.error = "";
+    }
+    return valid;
+}
+
+/**
+ * Validate an input argument of any type.
+ * @param argument: argument to validate (will be updated with error)
+ * @return {boolean}: true if valid, false otherwise
+ */
+export function validate_input(argument) {
+    let valid = false;
+    if (argument.type.MEMBER_LIST || argument.type.LENGTH) {
+        valid = validate_array_or_struct_input(argument);
+    } else {
+        valid = validate_scalar_input(argument);
+    }
+    return valid;
 }
 
 /**

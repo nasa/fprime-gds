@@ -9,6 +9,7 @@ argument values.
 
 @bug No known bugs
 """
+import json
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.enum_type import EnumType
@@ -156,12 +157,12 @@ class CmdData(sys_data.SysData):
         return args, errors
 
     @staticmethod
-    def convert_arg_value(arg_val, arg_type):
+    def convert_arg_value(arg_val, arg_instance):
         if arg_val is None:
             raise CommandArgumentException(
-                "Argument value could not be converted to type object"
+                "Argument was not set"
             )
-        if isinstance(arg_type, BoolType):
+        if isinstance(arg_instance, BoolType):
             value = str(arg_val).lower().strip()
             if value in {"true", "yes"}:
                 av = True
@@ -169,19 +170,21 @@ class CmdData(sys_data.SysData):
                 av = False
             else:
                 raise CommandArgumentException("Argument value is not a valid boolean")
-            arg_type.val = av
-        elif isinstance(arg_type, EnumType):
-            arg_type.val = arg_val
-        elif isinstance(arg_type, (F64Type, F32Type)):
-            arg_type.val = float(arg_val)
+            arg_instance.val = av
+        elif isinstance(arg_instance, EnumType):
+            arg_instance.val = arg_val
+        elif isinstance(arg_instance, (F64Type, F32Type)):
+            arg_instance.val = float(arg_val)
         elif isinstance(
-            arg_type,
+            arg_instance,
             (I64Type, U64Type, I32Type, U32Type, I16Type, U16Type, I8Type, U8Type),
         ):
-            arg_type.val = int(arg_val, 0) if isinstance(arg_val, str) else int(arg_val)
-        elif isinstance(arg_type, StringType):
-            arg_type.val = arg_val
-        elif not isinstance(arg_type, (SerializableType, ArrayType)):
+            arg_instance.val = int(arg_val, 0) if isinstance(arg_val, str) else int(arg_val)
+        elif isinstance(arg_instance, StringType):
+            arg_instance.val = arg_val
+        elif isinstance(arg_instance, (ArrayType, SerializableType)):
+            arg_instance.val = json.loads(arg_val)
+        else:
             raise CommandArgumentException(
                 "Argument value could not be converted to type object"
             )
