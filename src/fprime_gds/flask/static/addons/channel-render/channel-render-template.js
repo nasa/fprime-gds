@@ -14,11 +14,11 @@
  * When a channel has nothing to display, then the field is kept blank and does not recurse.
  */
 export let channel_render_template = `
-<span v-if="displayText == ''"></span>
-<table v-else-if="type.LENGTH || type.MEMBER_LIST" class="embedded_table table">
+<span v-if="!(type?.LENGTH || type?.MEMBER_LIST)">{{ displayText }}</span>
+<table v-else-if="type?.LENGTH || type?.MEMBER_LIST" class="embedded_table table">
     <thead>
         <tr>
-            <th>
+            <th class="sorttable_nosort">
                 <i v-show="!expanded" class="fas fa-plus" @click="expand"></i>
                 <i v-show="expanded" class="fas fa-minus" @click="collapse"></i>
             </th>
@@ -29,13 +29,12 @@ export let channel_render_template = `
         <tr v-show="expanded" v-for="element_index in childIndices">
             <th>{{element_index}}</th>
             <td>
-                <channel-render :element_type="childType(element_index)" :val="val[element_index]">
+                <channel-render :element_type="childType(element_index)" :val="(val || [])[element_index]">
                 </channel-render>
             </td>
         </tr>
     </tbody>
 </table>
-<span v-else>{{ displayText }}</span>
 `;
 
 /**
