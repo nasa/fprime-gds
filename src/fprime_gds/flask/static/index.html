@@ -206,7 +206,8 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div class="fp-flex-header">
                         <h2>Channels</h2>
                     </div>
-                    <fp-table :header-columns="['Last Sample Time', 'Channel Id', 'Channel Name', 'Channel Value']"
+                    <fp-table :display-template="'channel-row'"
+                         :header-columns="['Last Sample Time', 'Channel Id', 'Channel Name', 'Channel Value']"
                          :items-key="'channels'"
                          :item-to-columns="columnify"
                          :item-to-unique="keyify"
