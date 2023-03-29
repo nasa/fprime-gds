@@ -106,10 +106,7 @@ def minimal_channel(obj):
     Returns:
         JSON compatible python anonymous type (dictionary)
     """
-    jsonable = {"time": obj.time, "id": obj.id, "val": obj.val_obj.val}
-    if hasattr(obj, "display_text"):
-        jsonable["display_text"] = obj.display_text
-    return jsonable
+    return {"time": obj.time, "id": obj.id, "val": obj.val_obj.val, "display_text": obj.display_text}
 
 
 def minimal_command(obj):

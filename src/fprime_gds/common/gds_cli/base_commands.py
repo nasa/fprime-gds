@@ -5,10 +5,11 @@ CLI commands
 
 import abc
 import sys
+import json
 from typing import Iterable
 
 import fprime_gds.common.gds_cli.filtering_utils as filtering_utils
-import fprime_gds.common.gds_cli.misc_utils as misc_utils
+import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
@@ -47,6 +48,21 @@ class BaseCommand(abc.ABC):
             containing the item type definitions
         :param filter_predicate: Test API predicate used to filter shown items
         :return: An iterable collection of items that passed the filter
+        """
+
+    @classmethod
+    @abc.abstractmethod
+    def _get_item_string(
+        cls,
+        item,
+        json: bool = False,
+    ) -> str:
+        """
+        Takes an F' item and returns a human-readable string of its data.
+
+        :param item: The F' item to convert to a string
+        :param json: Whether to print out each item in JSON format or not
+        :return: A string representation of "item"
         """
 
     ####################################################################
@@ -97,21 +113,6 @@ class BaseCommand(abc.ABC):
         return filtering_utils.get_full_filter_predicate(
             ids, components, search, to_str=item_to_string
         )
-
-    @classmethod
-    def _get_item_string(
-        cls,
-        item,
-        json: bool = False,
-    ) -> str:
-        """
-        Takes an F' item and returns a human-readable string of its data.
-
-        :param item: The F' item to convert to a string
-        :param json: Whether to print out each item in JSON format or not
-        :return: A string representation of "item"
-        """
-        return misc_utils.get_item_string(item, json)
 
     @classmethod
     def _list_all_possible_items(
@@ -214,6 +215,26 @@ class QueryHistoryCommand(BaseCommand):
         Retrieves an F' item that has occurred since the given time and returns
         its data.
         """
+    
+
+    @classmethod
+    def _get_item_string(
+        cls,
+        item: "SysData",
+        as_json: bool = False,
+    ) -> str:
+        """
+        Takes an F' item and returns a human-readable string of its data.
+
+        :param item: EventData or ChData
+        :param as_json: Whether to print out each item in JSON format or not
+        :return: A string representation of "item"
+        """
+        if not item:
+            return ""
+        if as_json:
+            return json.dumps(item.get_dict())
+        return item.get_str(verbose=True)
 
     @classmethod
     def _execute_command(cls, args, api: IntegrationTestAPI):
@@ -242,4 +263,4 @@ class QueryHistoryCommand(BaseCommand):
                     )
                 return (min_start_time,)
 
-            misc_utils.repeat_until_interrupt(print_upcoming_item, "NOW")
+            test_api_utils.repeat_until_interrupt(print_upcoming_item, "NOW")

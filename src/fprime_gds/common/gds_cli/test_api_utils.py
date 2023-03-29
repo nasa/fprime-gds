@@ -11,6 +11,7 @@ from fprime_gds.common.data_types.sys_data import SysData
 from fprime_gds.common.templates.data_template import DataTemplate
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
+from typing import Callable
 
 
 def get_upcoming_event(
@@ -104,3 +105,26 @@ def get_item_list(
     event_data_list = list(filter(search_filter, event_data_list))
     event_data_list.sort(key=lambda x: x.get_id())
     return event_data_list
+
+
+def repeat_until_interrupt(func: Callable, *args):
+    """
+    Continues to call the input function with the given arguments until the
+    user interrupts it.
+
+    :param func: The function you want to call repeatedly. If the function
+        returns anything, it MUST return a new, updated tuple of the arguments
+        passed into it in the same order, which will be used as the new
+        arguments in the next iteration. This is done to allow for persistent
+        state between iterations; if needed, create a wrapper for your original
+        function to do this. If the function does NOT return anything, the
+        original input arguments will continue to be used
+    :param args: All keyword arguments you want to pass into "func"
+    """
+    try:
+        while True:
+            new_args = func(*args)  # lgtm [py/call/wrong-arguments]
+            if new_args:
+                args = new_args
+    except KeyboardInterrupt:
+        pass
