@@ -124,9 +124,9 @@ class ParserBase(ABC):
             elif action != "store" or value is None:
                 return []
             return [best_flag] + (
-                [str(value)]
-                if not isinstance(value, list)
-                else [str(item) for item in value]
+                [str(item) for item in value]
+                if isinstance(value, list)
+                else [str(value)]
             )
 
         cli_pairs = [
