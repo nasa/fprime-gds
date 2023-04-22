@@ -48,17 +48,19 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
 
     # Check for files
     if not os.path.isfile(inputFile):
-        raise SeqGenException("Can't open file '" + inputFile + "'. ")
+        raise SeqGenException(f"Can't open file '{inputFile}'. ")
 
     if not os.path.isfile(dictionary):
-        raise SeqGenException("Can't open file '" + dictionary + "'. ")
+        raise SeqGenException(f"Can't open file '{dictionary}'. ")
 
     # Check the user environment:
     cmd_xml_dict = CmdXmlLoader()
     try:
-        (cmd_id_dict, cmd_name_dict, versions) = cmd_xml_dict.construct_dicts(dictionary)
+        (cmd_id_dict, cmd_name_dict, versions) = cmd_xml_dict.construct_dicts(
+            dictionary
+        )
     except gseExceptions.GseControllerUndefinedFileException:
-        raise SeqGenException("Can't open file '" + dictionary + "'. ")
+        raise SeqGenException(f"Can't open file '{dictionary}'. ")
 
     # Parse the input file:
     command_list = []
@@ -72,20 +74,25 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
             try:
                 if mnemonic not in cmd_name_dict:
                     raise SeqGenException(
-                        "Line %d: %s"
-                        % (
-                            i + 1,
-                            "'"
-                            + mnemonic
-                            + "' does not match any command in the command dictionary.",
-                        )
+                        f"Line {i+1}: '{mnemonic}' does not match any command in the command dictionary."
                     )
                 # Set the command arguments:
                 try:
-                    cmd_time = TimeType(TimeBase["TB_DONT_CARE"].value, seconds=seconds, useconds=useconds)
-                    cmd_data = CmdData(args, cmd_name_dict[mnemonic], cmd_desc=descriptor, cmd_time=cmd_time)
+                    cmd_time = TimeType(
+                        TimeBase["TB_DONT_CARE"].value,
+                        seconds=seconds,
+                        useconds=useconds,
+                    )
+                    cmd_data = CmdData(
+                        args,
+                        cmd_name_dict[mnemonic],
+                        cmd_desc=descriptor,
+                        cmd_time=cmd_time,
+                    )
                 except CommandArgumentsException as e:
-                    raise SeqGenException(f"Line { i + 1 }: { mnemonic } errored: { ','.join(e.errors) }")
+                    raise SeqGenException(
+                        f"Line { i + 1 }: { mnemonic } errored: { ','.join(e.errors) }"
+                    )
                 command_list.append(cmd_data)
             except SeqGenException as exc:
                 if not cont:
@@ -99,12 +106,12 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
     # Write to the output file:
     writer = SeqBinaryWriter(timebase=timebase)
     if not outputFile:
-        outputFile = f'{os.path.splitext(inputFile)[0]}.bin'
+        outputFile = f"{os.path.splitext(inputFile)[0]}.bin"
     try:
         writer.open(outputFile)
     except:
         raise SeqGenException(
-            "Encountered problem opening output file '" + outputFile + "'."
+            f"Encountered problem opening output file '{outputFile}'."
         )
 
     writer.write(command_list)
