@@ -67,9 +67,7 @@ class ChData(sys_data.SysData):
         fmt_str = template.get_format_str()
         if temp_val is None:
             return ""
-        if fmt_str:
-            return format_string_template(fmt_str, (temp_val,))
-        return temp_val
+        return format_string_template(fmt_str, (temp_val,)) if fmt_str else temp_val
 
     def set_pkt(self, pkt):
         """

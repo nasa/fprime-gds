@@ -57,8 +57,4 @@ class FileDecoder(decoder.Decoder):
         if packetType == "END":  # Packet Type is END
             hashValue = struct.unpack_from(">I", data, 5)
             return [file_data.EndPacketData(seqID, hashValue),]
-        if packetType == "CANCEL":  # Packet Type is CANCEL
-            # CANCEL Packets have no data
-            return [file_data.CancelPacketData(seqID),]
-        # The data was not determined to be any of the packet types so return none
-        return None
+        return [file_data.CancelPacketData(seqID),] if packetType == "CANCEL" else None
