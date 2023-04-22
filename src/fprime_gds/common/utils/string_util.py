@@ -92,7 +92,7 @@ def format_string_template(format_str, given_values):
         result = formatted_str.format(*values)
         result = result.replace("%%", "%")
         return result
-    except Exception as exc:
+    except Exception:
         msg = "Value and format string do not match. "
         msg += " Will ignore integer flags `d` in string template. "
         msg += f"values: {values}. "
