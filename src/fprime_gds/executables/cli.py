@@ -754,7 +754,7 @@ class RetrievalArgumentsParser(ParserBase):
                 "dest": "json",
                 "action": "store_true",
                 "required": False,
-                "help": f"returns response in JSON format",
+                "help": "returns response in JSON format",
             },
         }
 
