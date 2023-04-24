@@ -13,6 +13,7 @@ from fprime_gds.common.utils.string_util import format_string_template
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.array_type import ArrayType
 
+
 class ChData(sys_data.SysData):
     """
     The ChData class stores a specific channel telemetry reading.
@@ -63,7 +64,11 @@ class ChData(sys_data.SysData):
         # in which case we just display the description
         if val_obj is None:
             return template.ch_desc
-        temp_val = val_obj.val if not isinstance(val_obj, (SerializableType, ArrayType)) else val_obj.formatted_val
+        temp_val = (
+            val_obj.val
+            if not isinstance(val_obj, (SerializableType, ArrayType))
+            else val_obj.formatted_val
+        )
         fmt_str = template.get_format_str()
         if temp_val is None:
             return ""
