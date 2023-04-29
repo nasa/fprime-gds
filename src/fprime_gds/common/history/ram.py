@@ -90,7 +90,7 @@ class RamHistory(History):
             if len(self.retrieved_cursors.values()) > 0:
                 earliest = min(self.retrieved_cursors.values())
             del self.objects[:earliest]
-            for key in self.retrieved_cursors.keys():
+            for key in self.retrieved_cursors:
                 self.retrieved_cursors[key] -= earliest
 
     def sessions(self):

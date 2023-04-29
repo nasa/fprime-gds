@@ -127,7 +127,7 @@ class APITestCases(unittest.TestCase):
             assert (
                 item == actual[i]
             ), f"the {i} element of the expected list should be {item}, but was {actual[i]}."
-    
+
     def get_counter_sequence(self, length):
         seq = []
         for i in range(length):

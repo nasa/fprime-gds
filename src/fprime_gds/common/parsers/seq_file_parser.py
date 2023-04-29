@@ -99,7 +99,7 @@ class SeqFileParser:
                         # Otherwise it is an enum type:
                         return str(arg)
 
-            return [item for item in map(parseArg, args)]
+            return list(map(parseArg, args))
 
         def parseTime(lineNumber, time):
             """

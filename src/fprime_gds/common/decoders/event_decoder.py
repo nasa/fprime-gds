@@ -59,7 +59,7 @@ class EventDecoder(decoder.Decoder):
             or None if the data is not decodable
         """
         ptr = 0
-        
+
         event_list = []
 
         while (ptr < len(data)):
@@ -78,7 +78,7 @@ class EventDecoder(decoder.Decoder):
                 raise DecodingException(f"Event {event_id} not found in dictionary")
 
             event_temp = self.__dict[event_id]
-            
+
             (size, arg_vals) = self.decode_args(data, ptr, event_temp)
 
             event_list.append(event_data.EventData(arg_vals, event_time, event_temp))
