@@ -204,24 +204,34 @@ class DetectionParser(ParserBase):
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Arguments needed for root processing"""
         return {
-            ("-r", "--root"): {
-                "dest": "root_input",
+            ("-d", "--deployment"): {
+                "dest": "deployment",
                 "action": "store",
                 "required": False,
                 "type": str,
-                "help": "Root directory of build artifacts, used to automatically find app and dictionary. [default: install_dest field in settings.ini]",
+                "help": "Deployment installation/build output directory. [default: install_dest field in settings.ini]",
             }
         }
 
     def handle_arguments(self, args, **kwargs):
         """Handle the root, detecting it if necessary"""
-        args.root_directory = (
-            Path(args.root_input) if args.root_input else get_artifacts_root()
-        ) / platform.system()
-        if not args.root_directory.exists():
-            raise ValueError(
-                f"F prime artifacts root directory '{args.root_directory}' does not exist"
-            )
+        if args.deployment:
+            args.deployment = Path(args.deployment)
+            return args
+        detected_toolchain = get_artifacts_root() / platform.system()
+        if not detected_toolchain.exists():
+            raise Exception(f"{detected_toolchain} does not exist. Make sure to build.")
+        likely_deployment = detected_toolchain / Path.cwd().name
+        # Check if the deployment exists
+        if likely_deployment.exists():
+            args.deployment = likely_deployment
+            return args
+        child_directories = [child for child in detected_toolchain.iterdir() if child.is_dir()]
+        if not child_directories:
+            raise Exception(f"No deployments found in {detected_toolchain}. Specify deployment with: --deployment")
+        elif len(child_directories) > 1:
+            raise Exception(f"Multiple deployments found in {detected_toolchain}. Choose using: --deployment")
+        args.deployment = child_directories[0]
         return args
 
 
@@ -504,7 +514,7 @@ class DictionaryParser(DetectionParser):
             raise ValueError(f"Dictionary file {args.dictionary} does not exist")
         elif args.dictionary is None:
             args = super().handle_arguments(args, **kwargs)
-            args.dictionary = find_dict(args.root_directory)
+            args.dictionary = find_dict(args.deployment)
         return args
 
 
@@ -676,7 +686,7 @@ class BinaryDeployment(DetectionParser):
         if args.noapp:
             return args
         args = super().handle_arguments(args, **kwargs)
-        args.app = Path(args.app) if args.app else Path(find_app(args.root_directory))
+        args.app = Path(args.app) if args.app else Path(find_app(args.deployment))
         if not args.app.is_file():
             raise ValueError(
                 f"F prime binary '{args.app}' does not exist or is not a file"
