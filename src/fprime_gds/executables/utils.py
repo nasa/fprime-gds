@@ -132,7 +132,7 @@ def get_artifacts_root() -> Path:
         ini_settings = IniSettings.load(None)
     except FprimeLocationUnknownException:
         print(
-            "[ERROR] Not in fprime deployment and no artifacts root provided, unable to find dictionary and/or app"
+            "[ERROR] Not in fprime project and no deployment path provided, unable to find dictionary and/or app"
         )
         sys.exit(-1)
     except FprimeSettingsException as e:
