@@ -16,11 +16,11 @@ class TestRunDeployment(unittest.TestCase):
         # fprime-gds -g html -r <path to fprime checkout>/Ref/build-artifacts
         with tempfile.TemporaryDirectory() as temporary_directory:
             self.create_fake_deployment_structure(temporary_directory)
-            with mock.patch("sys.argv", ["main", "-g", "html", "-r", temporary_directory]):
+            with mock.patch("sys.argv", ["main", "-g", "html", "-d", str(Path(temporary_directory) / platform.system() / "Test")]):
                 run_deployment.parse_args()
 
     def create_fake_deployment_structure(self, temporary_directory):
-        system_dir = Path(temporary_directory) / platform.system()
+        system_dir = Path(temporary_directory) / platform.system() / "Test"
 
         bin_dir = system_dir / "bin"
         bin_dir.mkdir(parents=True)
