@@ -229,6 +229,10 @@ class DetectionParser(ParserBase):
         child_directories = [child for child in detected_toolchain.iterdir() if child.is_dir()]
         if not child_directories:
             raise Exception(f"No deployments found in {detected_toolchain}. Specify deployment with: --deployment")
+        # Works for the old structure where the bin, lib, and dict directories live immediately under the platform
+        elif len(child_directories) == 3 and set([path.name for path in child_directories]) == {"bin", "lib", "dict"}:
+            args.deployment = detected_toolchain
+            return args
         elif len(child_directories) > 1:
             raise Exception(f"Multiple deployments found in {detected_toolchain}. Choose using: --deployment")
         args.deployment = child_directories[0]
