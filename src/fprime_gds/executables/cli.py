@@ -309,7 +309,7 @@ class CommAdapterParser(ParserBase):
                 "type": str,
                 "help": "Adapter for communicating to flight deployment. [default: %(default)s]",
                 "choices": ["none"]
-                + [name for name in adapter_definition_dictionaries.keys()],
+                + list(adapter_definition_dictionaries),
                 "default": "ip",
             },
             ("--comm-checksum-type",): {
