@@ -79,7 +79,7 @@ class TestFormatString(unittest.TestCase):
         template = "Width trick: %*d"
         values = (5, 10)
         with self.assertRaises(ValueError):
-            actual = format_string_template(template, values)
+            format_string_template(template, values)
 
     def test_format_regular_string(self):
         template = "%s"

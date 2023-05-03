@@ -232,9 +232,7 @@ class QueryHistoryCommand(BaseCommand):
         """
         if not item:
             return ""
-        if as_json:
-            return json.dumps(item.get_dict())
-        return item.get_str(verbose=True)
+        return json.dumps(item.get_dict()) if as_json else item.get_str(verbose=True)
 
     @classmethod
     def _execute_command(cls, args, api: IntegrationTestAPI):

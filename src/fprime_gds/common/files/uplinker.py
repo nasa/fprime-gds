@@ -87,9 +87,7 @@ class UplinkQueue:
         try:
             first = None
             found = self.queue.get_nowait()
-            while found != first:
-                if found.source == source:
-                    break
+            while found != first and found.source != source:
                 if first is None:
                     first = found
             self.queue.put_nowait(found)

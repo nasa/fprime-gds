@@ -109,7 +109,7 @@ class contains_search_string(predicates.predicate):
         :param to_string_func: An optional method for converting the given
             object to a string
         """
-        self.search_string = str(search_string)
+        self.search_string = search_string
         self.to_str = to_string_func
 
     def __call__(self, item):
