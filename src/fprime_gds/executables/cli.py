@@ -15,6 +15,7 @@ import os
 import re
 import platform
 import sys
+import getpass
 
 import fprime_gds.common.logger
 
@@ -527,11 +528,14 @@ class FileHandlingParser(ParserBase):
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Arguments to handle deployments"""
+
+        username = getpass.getuser()
+
         return {
             ("--file-storage-directory",): {
                 "dest": "files_directory",
                 "action": "store",
-                "default": "/tmp/fprime-downlink/",
+                "default": "/tmp/" + username + "/fprime-downlink/",
                 "required": False,
                 "type": str,
                 "help": "File to store uplink and downlink files. Default: %(default)s",
