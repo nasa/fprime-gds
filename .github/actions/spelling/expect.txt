@@ -250,6 +250,7 @@ getmembers
 getpid
 getroot
 getsize
+getuser
 github
 globals
 gmail
