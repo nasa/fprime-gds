@@ -172,17 +172,20 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         """
         ports = map(lambda info: info.device, list_ports.comports(include_links=True))
         if args["device"] not in ports:
+            msg = f"Serial port '{args['device']}' not valid. Available ports: {ports}"
             raise ValueError(
-                f"Serial port '{args['device']}' not valid. Available ports: {ports}"
+                msg
             )
         # Note: baud rate may not *always* work. These are a superset
         try:
             baud = int(args["baud"])
         except ValueError:
+            msg = f"Serial baud rate '{args['baud']}' not integer. Use one of: {SerialAdapter.BAUDS}"
             raise ValueError(
-                f"""Serial baud rate '{args["baud"]}' not integer. Use one of: {SerialAdapter.BAUDS}"""
+                msg
             )
         if baud not in SerialAdapter.BAUDS:
+            msg = f"Serial baud rate '{baud}' not supported. Use one of: {SerialAdapter.BAUDS}"
             raise ValueError(
-                f"Serial baud rate '{baud}' not supported. Use one of: {SerialAdapter.BAUDS}"
+                msg
             )

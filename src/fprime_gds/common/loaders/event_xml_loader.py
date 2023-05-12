@@ -48,8 +48,9 @@ class EventXmlLoader(XmlLoader):
         # Check if xml dict has events section
         event_section = self.get_xml_section(self.EVENT_SECT, xml_tree)
         if event_section is None:
+            msg = f"Xml dict did not have a {self.EVENT_SECT} section"
             raise exceptions.GseControllerParsingException(
-                f"Xml dict did not have a {self.EVENT_SECT} section"
+                msg
             )
 
         id_dict = {}

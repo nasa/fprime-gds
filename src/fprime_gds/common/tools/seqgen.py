@@ -48,10 +48,12 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
 
     # Check for files
     if not os.path.isfile(inputFile):
-        raise SeqGenException(f"Can't open file '{inputFile}'. ")
+        msg = f"Can't open file '{inputFile}'. "
+        raise SeqGenException(msg)
 
     if not os.path.isfile(dictionary):
-        raise SeqGenException(f"Can't open file '{dictionary}'. ")
+        msg = f"Can't open file '{dictionary}'. "
+        raise SeqGenException(msg)
 
     # Check the user environment:
     cmd_xml_dict = CmdXmlLoader()
@@ -60,7 +62,8 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
             dictionary
         )
     except gseExceptions.GseControllerUndefinedFileException:
-        raise SeqGenException(f"Can't open file '{dictionary}'. ")
+        msg = f"Can't open file '{dictionary}'. "
+        raise SeqGenException(msg)
 
     # Parse the input file:
     command_list = []
@@ -73,8 +76,9 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
         for i, descriptor, seconds, useconds, mnemonic, args in parsed_seq:
             try:
                 if mnemonic not in cmd_name_dict:
+                    msg = f"Line {i + 1}: '{mnemonic}' does not match any command in the command dictionary."
                     raise SeqGenException(
-                        f"Line {i+1}: '{mnemonic}' does not match any command in the command dictionary."
+                        msg
                     )
                 # Set the command arguments:
                 try:
@@ -90,8 +94,9 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
                         cmd_time=cmd_time,
                     )
                 except CommandArgumentsException as e:
+                    msg = f"Line {i + 1}: {mnemonic} errored: {','.join(e.errors)}"
                     raise SeqGenException(
-                        f"Line { i + 1 }: { mnemonic } errored: { ','.join(e.errors) }"
+                        msg
                     )
                 command_list.append(cmd_data)
             except SeqGenException as exc:
@@ -110,8 +115,9 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
     try:
         writer.open(outputFile)
     except:
+        msg = f"Encountered problem opening output file '{outputFile}'."
         raise SeqGenException(
-            f"Encountered problem opening output file '{outputFile}'."
+            msg
         )
 
     writer.write(command_list)

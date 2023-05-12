@@ -75,7 +75,8 @@ class EventDecoder(decoder.Decoder):
             ptr += event_time.getSize()
 
             if event_id not in self.__dict:
-                raise DecodingException(f"Event {event_id} not found in dictionary")
+                msg = f"Event {event_id} not found in dictionary"
+                raise DecodingException(msg)
 
             event_temp = self.__dict[event_id]
 
@@ -119,7 +120,8 @@ class EventDecoder(decoder.Decoder):
                 arg_obj.deserialize(arg_data, offset)
                 arg_results.append(arg_obj)
             except TypeException as e:
-                raise DecodingException(f"Event argument decoding failed {e.getMsg()}")
+                msg = f"Event argument decoding failed {e.getMsg()}"
+                raise DecodingException(msg)
 
             offset = offset + arg_obj.getSize()
 

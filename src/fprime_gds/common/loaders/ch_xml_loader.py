@@ -54,8 +54,9 @@ class ChXmlLoader(XmlLoader):
         # Check if xml dict has channels section
         ch_section = self.get_xml_section(self.CH_SECT, xml_tree)
         if ch_section is None:
+            msg = f"Xml dict did not have a {self.CH_SECT} section"
             raise exceptions.GseControllerParsingException(
-                f"Xml dict did not have a {self.CH_SECT} section"
+                msg
             )
 
         id_dict = {}

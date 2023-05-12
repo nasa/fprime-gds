@@ -115,7 +115,8 @@ class FpFramerDeframer(FramerDeframer):
             FpFramerDeframer.TOKEN_TYPE = "B"
             FpFramerDeframer.START_TOKEN = 0xEF
         else:
-            raise ValueError(f"Invalid TOKEN_SIZE of {FpFramerDeframer.TOKEN_SIZE}")
+            msg = f"Invalid TOKEN_SIZE of {FpFramerDeframer.TOKEN_SIZE}"
+            raise ValueError(msg)
         FpFramerDeframer.HEADER_FORMAT = ">" + (FpFramerDeframer.TOKEN_TYPE * 2)
 
     def frame(self, data):

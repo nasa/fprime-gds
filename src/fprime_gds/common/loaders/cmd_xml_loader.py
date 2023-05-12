@@ -46,8 +46,9 @@ class CmdXmlLoader(XmlLoader):
         # Check if xml dict has commands section
         cmd_section = self.get_xml_section(self.CMD_SECT, xml_tree)
         if cmd_section is None:
+            msg = f"Xml dict did not have a {self.EVENT_SECT} section"
             raise exceptions.GseControllerParsingException(
-                f"Xml dict did not have a {self.EVENT_SECT} section"
+                msg
             )
 
         id_dict = {}

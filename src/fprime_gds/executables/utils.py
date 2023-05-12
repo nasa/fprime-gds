@@ -104,7 +104,8 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
             print(f"[INFO] Log File: {logfile}")
             file_handler = open(logfile, "wb", 0)
     except OSError as exc:
-        raise AppWrapperException(f"Failed to open: {logfile} with error {str(exc)}.")
+        msg = f"Failed to open: {logfile} with error {str(exc)}."
+        raise AppWrapperException(msg)
     # Spawn the process. Uses pexpect, as this will force the process to output data immediately, rather than buffering
     # the output. That way the log file is fully up-to-date.
     try:
@@ -122,8 +123,9 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
                 )
         return child
     except Exception as exc:
+        msg = f"Failed to run application: {' '.join(arguments)}. Error: {exc}"
         raise AppWrapperException(
-            f'Failed to run application: {" ".join(arguments)}. Error: {exc}'
+            msg
         )
 
 

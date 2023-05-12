@@ -266,7 +266,8 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             data = tlm_packet_size + self.recv(size)
 
         else:
-            raise RuntimeError(f"unrecognized client {dst.decode(DATA_ENCODING)}")
+            msg = f"unrecognized client {dst.decode(DATA_ENCODING)}"
+            raise RuntimeError(msg)
         return data
 
     def processNewPkt(self, header, data):
