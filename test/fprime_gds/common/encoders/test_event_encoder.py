@@ -6,12 +6,12 @@ Created on Jul 10, 2020
 """
 
 
-from fprime_gds.common.encoders.event_encoder import EventEncoder
-from fprime_gds.common.data_types.event_data import EventData
-from fprime_gds.common.utils.config_manager import ConfigManager
-from fprime_gds.common.templates.event_template import EventTemplate
-from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
+from fprime.common.models.serialize.time_type import TimeType
+from fprime_gds.common.data_types.event_data import EventData
+from fprime_gds.common.encoders.event_encoder import EventEncoder
+from fprime_gds.common.templates.event_template import EventTemplate
+from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.utils.event_severity import EventSeverity
 
 

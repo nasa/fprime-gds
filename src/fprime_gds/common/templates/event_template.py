@@ -12,6 +12,7 @@ or cmdSeq_CS_CmdStarted
 
 from fprime.common.models.serialize import type_base
 from fprime.common.models.serialize.type_exceptions import TypeMismatchException
+
 from fprime_gds.common.utils.event_severity import EventSeverity
 
 from . import data_template

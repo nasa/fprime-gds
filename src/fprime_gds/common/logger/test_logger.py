@@ -22,8 +22,8 @@ import time
 # If openpyxl isn't installed, ignore all functionality in this module
 try:
     from openpyxl import Workbook
-    from openpyxl.styles import PatternFill, Font, Alignment
     from openpyxl.cell import WriteOnlyCell
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils.exceptions import WorkbookAlreadySaved
 
     MODULE_INSTALLED = True

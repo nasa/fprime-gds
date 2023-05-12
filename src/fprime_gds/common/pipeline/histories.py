@@ -7,6 +7,7 @@ to compose in this code.
 @author mstarch
 """
 from typing import Type
+
 from fprime_gds.common.history.history import History
 from fprime_gds.common.history.ram import RamHistory
 

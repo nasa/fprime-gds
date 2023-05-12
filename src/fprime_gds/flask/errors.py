@@ -6,7 +6,7 @@ more stable and less likely to fail on errors that occur.
 @author lestarch
 """
 
-from flask import jsonify, Flask
+from flask import Flask, jsonify
 from flask_restful import Api
 
 

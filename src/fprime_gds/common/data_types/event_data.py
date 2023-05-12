@@ -8,6 +8,7 @@
 """
 
 from fprime.common.models.serialize import time_type
+
 from fprime_gds.common.data_types import sys_data
 from fprime_gds.common.utils.string_util import format_string_template
 

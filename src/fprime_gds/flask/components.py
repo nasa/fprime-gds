@@ -6,9 +6,8 @@ pipeline and other components are created to interact with Flask.
 """
 import os
 
-from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.history.ram import SelfCleaningRamHistory
-
+from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.executables.cli import StandardPipelineParser
 
 # Module variables, should remain hidden. These are singleton top-level objects used by Flask, and its various

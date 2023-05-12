@@ -6,6 +6,7 @@ Tests format_string util
 """
 
 import unittest
+
 from fprime_gds.common.utils.string_util import format_string_template
 
 

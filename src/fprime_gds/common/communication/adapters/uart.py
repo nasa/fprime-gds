@@ -10,11 +10,10 @@ drivers.
 
 import logging
 
-import fprime_gds.common.communication.adapters.base
-
 import serial
 from serial.tools import list_ports
 
+import fprime_gds.common.communication.adapters.base
 
 LOGGER = logging.getLogger("serial_adapter")
 

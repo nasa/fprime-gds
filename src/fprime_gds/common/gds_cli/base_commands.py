@@ -4,8 +4,8 @@ CLI commands
 """
 
 import abc
-import sys
 import json
+import sys
 from typing import Iterable
 
 import fprime_gds.common.gds_cli.filtering_utils as filtering_utils

@@ -45,6 +45,7 @@ import struct
 
 from fprime.common.models.serialize.numerical_types import U32Type
 from fprime.constants import DATA_ENCODING
+
 from fprime_gds.common.data_types.file_data import FilePacketType
 from fprime_gds.common.utils.data_desc_type import DataDescType
 

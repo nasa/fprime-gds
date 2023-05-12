@@ -5,8 +5,9 @@ Handles executing the "command-send" CLI command for the GDS
 import difflib
 from typing import Iterable, List
 
-import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime.common.models.serialize.type_exceptions import NotInitializedException
+
+import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime_gds.common.gds_cli.base_commands import BaseCommand
 from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.common.templates.cmd_template import CmdTemplate

@@ -14,12 +14,13 @@ helper functions
 @bug No known bugs
 """
 import os
-from lxml import etree
 
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.enum_type import EnumType
 from fprime.common.models.serialize.numerical_types import (
+    F32Type,
+    F64Type,
     I8Type,
     I16Type,
     I32Type,
@@ -28,15 +29,15 @@ from fprime.common.models.serialize.numerical_types import (
     U16Type,
     U32Type,
     U64Type,
-    F32Type,
-    F64Type,
 )
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
+from lxml import etree
+
 from fprime_gds.common.data_types import exceptions
 from fprime_gds.version import (
-    MINIMUM_SUPPORTED_FRAMEWORK_VERSION,
     MAXIMUM_SUPPORTED_FRAMEWORK_VERSION,
+    MINIMUM_SUPPORTED_FRAMEWORK_VERSION,
 )
 
 # Custom Python Modules

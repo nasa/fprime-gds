@@ -1,14 +1,15 @@
 ####
 #
 ####
-from pathlib import Path
 import re
 import sys
 from io import StringIO
+from pathlib import Path
+
 import flask_restful
 import flask_restful.reqparse
 
-from fprime_gds.common.tools.seqgen import generateSequence, SeqGenException
+from fprime_gds.common.tools.seqgen import SeqGenException, generateSequence
 
 
 class StdioTheif(object):

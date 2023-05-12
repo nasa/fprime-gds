@@ -7,16 +7,16 @@ across a Tcp and/or UDP network interface.
 
 @author lestarch
 """
-import atexit
 import abc
+import atexit
 import logging
 import queue
 import socket
 import threading
 import time
 
-import fprime_gds.common.logger
 import fprime_gds.common.communication.adapters.base
+import fprime_gds.common.logger
 
 LOGGER = logging.getLogger("ip_adapter")
 

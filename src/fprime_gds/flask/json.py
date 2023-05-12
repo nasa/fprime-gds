@@ -9,14 +9,14 @@ from inspect import getmembers, isroutine
 from typing import Type
 from uuid import UUID
 
-from fprime.common.models.serialize.type_base import BaseType, ValueType
+import flask.json
 from fprime.common.models.serialize.time_type import TimeType
-from fprime_gds.common.data_types.cmd_data import CmdData
+from fprime.common.models.serialize.type_base import BaseType, ValueType
+
 from fprime_gds.common.data_types.ch_data import ChData
+from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.templates.data_template import DataTemplate
-
-import flask.json
 
 
 def jsonify_base_type(input_type: Type[BaseType]) -> dict:

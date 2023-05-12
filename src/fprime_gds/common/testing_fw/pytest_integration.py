@@ -15,11 +15,11 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 @author lestarch
 """
 import sys
+
 import pytest
 
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.executables.cli import StandardPipelineParser
-
 
 SEQUENCE_COUNTER = -1
 

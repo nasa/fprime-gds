@@ -12,7 +12,6 @@ from pathlib import Path
 
 import sphinx_rtd_theme  # pylint: disable=unused-import
 
-
 # importlib.metadata is implemented in Python 3.8
 # Previous versions require the backport, https://pypi.org/project/importlib-metadata/
 try:

@@ -3,7 +3,7 @@ A file containing utilities for interacting with the Integration Test API
 """
 
 import types
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.event_data import EventData
@@ -11,7 +11,6 @@ from fprime_gds.common.data_types.sys_data import SysData
 from fprime_gds.common.templates.data_template import DataTemplate
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
-from typing import Callable
 
 
 def get_upcoming_event(

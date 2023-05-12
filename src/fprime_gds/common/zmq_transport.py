@@ -11,9 +11,9 @@ replace the ThreadedTcpServer for several reasons as described below.
 """
 import logging
 import struct
-import zmq
-
 from typing import Tuple
+
+import zmq
 
 from fprime_gds.common.communication.ground import GroundHandler
 from fprime_gds.common.transport import (
@@ -21,6 +21,7 @@ from fprime_gds.common.transport import (
     ThreadedTransportClient,
     TransportationException,
 )
+
 LOGGER = logging.getLogger("transport")
 
 class ZmqWrapper(object):

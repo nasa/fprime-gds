@@ -7,9 +7,14 @@ import os
 import sys
 import webbrowser
 
-from fprime_gds.executables.cli import StandardPipelineParser, GdsParser, BinaryDeployment, CommParser, ParserBase
-from fprime_gds.executables.utils import run_wrapped_application, AppWrapperException
-
+from fprime_gds.executables.cli import (
+    BinaryDeployment,
+    CommParser,
+    GdsParser,
+    ParserBase,
+    StandardPipelineParser,
+)
+from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
 
 BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
 
