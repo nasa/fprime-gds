@@ -725,6 +725,7 @@ class SearchArgumentsParser(ParserBase):
                 "action": "store",
                 "required": False,
                 "type": int,
+                "nargs":'+',
                 "help": f"only show {self.command_name} matching the given type ID(s) 'ID'; can provide multiple IDs to show all given types",
                 "metavar": "ID",
             },
