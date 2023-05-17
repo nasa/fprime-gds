@@ -9,10 +9,11 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
 from fprime.fbuild.settings import (
-    IniSettings,
     FprimeLocationUnknownException,
     FprimeSettingsException,
+    IniSettings,
 )
 
 # Python 2.7 compatibility, adding in missing error type

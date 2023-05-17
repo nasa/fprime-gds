@@ -7,8 +7,9 @@ Created on August 16, 2019
 import struct
 import zlib
 
-from fprime.common.models.serialize.type_exceptions import TypeMismatchException
 from fprime.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
+from fprime.common.models.serialize.type_exceptions import TypeMismatchException
+
 from fprime_gds.common.utils import config_manager
 from fprime_gds.common.utils.data_desc_type import DataDescType
 

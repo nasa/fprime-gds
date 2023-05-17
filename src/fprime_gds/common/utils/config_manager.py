@@ -18,6 +18,8 @@ import configparser
 
 # Custom type modules
 from fprime.common.models.serialize.numerical_types import (
+    F32Type,
+    F64Type,
     I8Type,
     I16Type,
     I32Type,
@@ -26,8 +28,6 @@ from fprime.common.models.serialize.numerical_types import (
     U16Type,
     U32Type,
     U64Type,
-    F32Type,
-    F64Type,
 )
 
 

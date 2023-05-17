@@ -10,10 +10,13 @@ argument values.
 @bug No known bugs
 """
 import json
+
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.enum_type import EnumType
 from fprime.common.models.serialize.numerical_types import (
+    F32Type,
+    F64Type,
     I8Type,
     I16Type,
     I32Type,
@@ -22,12 +25,11 @@ from fprime.common.models.serialize.numerical_types import (
     U16Type,
     U32Type,
     U64Type,
-    F32Type,
-    F64Type,
 )
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.time_type import TimeBase, TimeType
+
 from fprime_gds.common.data_types import sys_data
 
 

@@ -7,11 +7,11 @@ ThreadedTCPSocketClient used to send data through the threaded tcp server.
 
 @author lestarch
 """
-from abc import abstractmethod, ABC
-from enum import Enum
 import select
 import socket
 import threading
+from abc import ABC, abstractmethod
+from enum import Enum
 
 from fprime_gds.common.handlers import DataHandler, HandlerRegistrar
 

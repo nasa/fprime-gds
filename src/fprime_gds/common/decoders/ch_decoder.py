@@ -17,6 +17,7 @@ Example data that would be sent to a decoder that parses channels:
 @bug No known bugs
 """
 from fprime.common.models.serialize.time_type import TimeType
+
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.decoders.decoder import Decoder, DecodingException
 from fprime_gds.common.utils import config_manager

@@ -11,6 +11,7 @@ import signal
 import time
 
 from fprime.common.models.serialize.time_type import TimeType
+
 from fprime_gds.common.handlers import DataHandler
 from fprime_gds.common.history.chrono import ChronologicalHistory
 from fprime_gds.common.history.test import TestHistory

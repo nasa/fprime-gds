@@ -8,13 +8,13 @@ command with the user-provided arguments on the GDS
 
 import abc
 import argparse
-from copy import deepcopy
 import os
 import sys
-import pkg_resources
+from copy import deepcopy
 from typing import Callable, List, Union
 
 import argcomplete
+import pkg_resources
 
 # NOTE: These modules are now only lazily loaded below as needed, due to slow
 # performance when importing them
@@ -23,9 +23,9 @@ import argcomplete
 # import fprime_gds.common.gds_cli.events as events
 # from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.executables.cli import (
-    StandardPipelineParser,
-    SearchArgumentsParser,
     RetrievalArgumentsParser,
+    SearchArgumentsParser,
+    StandardPipelineParser,
 )
 
 

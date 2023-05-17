@@ -7,8 +7,8 @@ Utility functions to process strings to be used in FPrime GDS
 Note: This function has an identical copy in fprime-gds
 """
 
-import re
 import logging
+import re
 
 LOGGER = logging.getLogger("string_util_logger")
 

@@ -42,11 +42,13 @@ Serialized command format:
 """
 
 
-from . import encoder
 from fprime.common.models.serialize.numerical_types import U32Type
+
 from fprime_gds.common.data_types.cmd_data import CmdData
-from fprime_gds.common.utils.data_desc_type import DataDescType
 from fprime_gds.common.utils import config_manager
+from fprime_gds.common.utils.data_desc_type import DataDescType
+
+from . import encoder
 
 
 class CmdEncoder(encoder.Encoder):

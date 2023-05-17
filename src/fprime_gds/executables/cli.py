@@ -10,32 +10,30 @@ code that they are importing.
 import argparse
 import datetime
 import errno
+import getpass
 import itertools
 import os
-import re
 import platform
+import re
 import sys
-import getpass
-
-import fprime_gds.common.logger
-
-# Required to set the checksum as a module variable
-import fprime_gds.common.communication.checksum
-
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+# Required to set the checksum as a module variable
+import fprime_gds.common.communication.checksum
+import fprime_gds.common.logger
 from fprime_gds.common.communication.adapters.base import BaseAdapter
 from fprime_gds.common.communication.adapters.ip import check_port
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.transport import ThreadedTCPSocketClient
-from fprime_gds.executables.utils import get_artifacts_root, find_dict, find_app
 from fprime_gds.common.utils.config_manager import ConfigManager
+from fprime_gds.executables.utils import find_app, find_dict, get_artifacts_root
 
 # Optional import: ZeroMQ. Requires package: pyzmq
 try:
     import zmq
+
     from fprime_gds.common.zmq_transport import ZmqClient
 except ImportError:
     zmq = None

@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import uuid
+
 import flask
 
 # Try to import Compress, but disable compression if not installed
@@ -17,24 +18,21 @@ try:
 except ImportError:
     Compress = None
 
-from fprime_gds.flask import flask_uploads
-
 import fprime_gds.flask.channels
 
 # Import the Flask API implementations
 import fprime_gds.flask.commands
+import fprime_gds.flask.errors
 import fprime_gds.flask.events
 import fprime_gds.flask.json
 import fprime_gds.flask.logs
-import fprime_gds.flask.updown
 import fprime_gds.flask.sequence
 import fprime_gds.flask.stats
-import fprime_gds.flask.errors
-
+import fprime_gds.flask.updown
 from fprime_gds.executables.cli import ParserBase, StandardPipelineParser
+from fprime_gds.flask import flask_uploads
 
 from . import components
-
 
 # Update logging to avoid redundant messages
 logger = logging.getLogger("werkzeug")

@@ -18,6 +18,7 @@ Example data that would be sent to a decoder that parses events or channels:
 """
 
 from fprime.common.models.serialize.time_type import TimeType
+
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.decoders.ch_decoder import ChDecoder
 from fprime_gds.common.utils import config_manager

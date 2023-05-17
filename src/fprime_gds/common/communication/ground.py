@@ -11,8 +11,9 @@ available to the comm layer, and currently a single implementation used to attac
 import abc
 import logging
 
-from .framing import TcpServerFramerDeframer
 from fprime_gds.common.communication.adapters.ip import TcpHandler
+
+from .framing import TcpServerFramerDeframer
 
 LOGGER = logging.getLogger("gds_sender")
 

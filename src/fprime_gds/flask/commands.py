@@ -21,11 +21,11 @@
 #       a restful interface here. It is done this way to be in-tandem with the events and telemetry
 #       APIs for maintainability.
 ####
-import werkzeug.exceptions
 import flask_restful
 import flask_restful.reqparse
-
 import fprime.common.models.serialize.type_exceptions
+import werkzeug.exceptions
+
 import fprime_gds.common.data_types.cmd_data
 from fprime_gds.flask.resource import DictionaryResource, HistoryResourceBase
 

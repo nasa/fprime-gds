@@ -2,9 +2,10 @@
 
 Statistics package for the GDS to help diagnose performance issues and give greater visibility into the running GDS.
 """
+from typing import Dict
+
 import flask_restful
 
-from typing import Dict
 from fprime_gds.common.history.history import History
 from fprime_gds.common.history.ram import RamHistory
 

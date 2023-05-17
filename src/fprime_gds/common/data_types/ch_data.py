@@ -8,10 +8,11 @@
 """
 
 from fprime.common.models.serialize import time_type
+from fprime.common.models.serialize.array_type import ArrayType
+from fprime.common.models.serialize.serializable_type import SerializableType
+
 from fprime_gds.common.data_types import sys_data
 from fprime_gds.common.utils.string_util import format_string_template
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.array_type import ArrayType
 
 
 class ChData(sys_data.SysData):

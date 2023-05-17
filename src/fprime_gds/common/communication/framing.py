@@ -12,9 +12,10 @@ that implement this pattern. The current list of implementation classes are:
 @author lestarch
 """
 import abc
-import sys
 import copy
 import struct
+import sys
+
 from .checksum import calculate_checksum
 
 

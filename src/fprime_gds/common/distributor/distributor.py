@@ -14,10 +14,10 @@ descriptor header will be passed on to the registered objects.
 @bug No known bugs
 """
 import logging
-from fprime_gds.common.utils import config_manager, data_desc_type
-from fprime_gds.common.handlers import DataHandler
-from fprime_gds.common.decoders.decoder import DecodingException
 
+from fprime_gds.common.decoders.decoder import DecodingException
+from fprime_gds.common.handlers import DataHandler
+from fprime_gds.common.utils import config_manager, data_desc_type
 
 LOGGER = logging.getLogger("distributor")
 

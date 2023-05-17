@@ -9,16 +9,16 @@ Uplink is the reverse, it pulls data in from the ground handler, frames it, and 
 is represented by a single thread, as it is not dealing with multiple streams of data that need to be multiplexed.
 
 """
-import threading
-from queue import Queue, Full, Empty
 import logging
+import threading
+from queue import Empty, Full, Queue
 
 from fprime.common.models.serialize.numerical_types import U32Type
-from fprime_gds.common.utils.data_desc_type import DataDescType
-from fprime_gds.common.communication.adapters.base import BaseAdapter
-from fprime_gds.common.communication.ground import GroundHandler
-from fprime_gds.common.communication.framing import FramerDeframer
 
+from fprime_gds.common.communication.adapters.base import BaseAdapter
+from fprime_gds.common.communication.framing import FramerDeframer
+from fprime_gds.common.communication.ground import GroundHandler
+from fprime_gds.common.utils.data_desc_type import DataDescType
 
 DW_LOGGER = logging.getLogger("downlink")
 UP_LOGGER = logging.getLogger("uplink")

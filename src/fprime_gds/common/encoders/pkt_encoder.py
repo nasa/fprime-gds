@@ -37,9 +37,10 @@ Serialized Packet format:
 @bug No known bugs
 """
 
-from .encoder import Encoder
 from fprime_gds.common.data_types.pkt_data import PktData
 from fprime_gds.common.utils.data_desc_type import DataDescType
+
+from .encoder import Encoder
 
 
 class PktEncoder(Encoder):

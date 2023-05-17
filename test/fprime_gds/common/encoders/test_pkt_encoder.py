@@ -6,14 +6,14 @@ Created on Jul 10, 2020
 """
 
 
-from fprime_gds.common.encoders.pkt_encoder import PktEncoder
+from fprime.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
+from fprime.common.models.serialize.time_type import TimeType
+from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.pkt_data import PktData
-from fprime_gds.common.utils.config_manager import ConfigManager
+from fprime_gds.common.encoders.pkt_encoder import PktEncoder
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.pkt_template import PktTemplate
-from fprime_gds.common.data_types.ch_data import ChData
-from fprime.common.models.serialize.time_type import TimeType
-from fprime.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 
 def test_pkt_encoder():

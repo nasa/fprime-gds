@@ -18,9 +18,8 @@ Note: assuming the module containing the ground adapter has been imported, then 
 
 
 import logging
-import sys
 import signal
-
+import sys
 
 # Required adapters built on standard tools
 try:
@@ -28,12 +27,11 @@ try:
 except ImportError:
     ZmqGround = None
 import fprime_gds.common.communication.adapters.base
+import fprime_gds.common.communication.adapters.ip
 import fprime_gds.common.communication.checksum
 import fprime_gds.common.communication.ground
-import fprime_gds.common.communication.adapters.ip
 import fprime_gds.common.logger
 import fprime_gds.executables.cli
-
 from fprime_gds.common.communication.framing import FpFramerDeframer
 from fprime_gds.common.communication.updown import Downlinker, Uplinker
 
