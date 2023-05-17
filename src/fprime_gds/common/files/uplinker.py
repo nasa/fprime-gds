@@ -227,8 +227,9 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
         """
         # Prevent multiple uplinks at once
         if self.state != FileStates.IDLE:
+            msg = f"Currently uplinking file '{self.active.source}' cannot start uplinking '{file_obj.source}'"
             raise FileUplinkerBusyException(
-                f"Currently uplinking file '{self.active.source}' cannot start uplinking '{file_obj.source}'"
+                msg
             )
         self.state = FileStates.RUNNING
         self.active = file_obj

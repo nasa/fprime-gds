@@ -53,7 +53,8 @@ def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5):
                         print(f"    [LOG] {line.strip()}", file=sys.stderr)
         except Exception:
             pass
-        raise AppWrapperException(f"Failed to run {name}")
+        msg = f"Failed to run {name}"
+        raise AppWrapperException(msg)
 
 
 def launch_tts(parsed_args):

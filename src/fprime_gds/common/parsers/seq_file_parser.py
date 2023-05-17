@@ -171,8 +171,9 @@ class SeqFileParser:
                     epoch = datetime.utcfromtimestamp(0)
                 delta = (dt - epoch).total_seconds()
             else:
+                msg = f"Line {lineNumber + 1}: Invalid time descriptor {d} found. Descriptor should either be 'A' for absolute times or 'R' for relative times"
                 raise gseExceptions.GseControllerParsingException(
-                    f"Line {lineNumber + 1}: Invalid time descriptor {d} found. Descriptor should either be 'A' for absolute times or 'R' for relative times"
+                    msg
                 )
             seconds = int(delta)
             useconds = int((delta - seconds) * 1000000)
@@ -190,14 +191,16 @@ class SeqFileParser:
                         line = splitString(line)
                         length = len(line)
                         if length < 2:
+                            msg = f'Line {i + 1}: Each line must contain a minimum of two fields, time and command mnemonic\n'
                             raise gseExceptions.GseControllerParsingException(
-                                f"Line {i + 1}: Each line must contain a minimum of two fields, time and command mnemonic\n"
+                                msg
                             )
                         try:
                             descriptor, seconds, useconds = parseTime(i, line[0])
                         except Exception:
+                            msg = f'Line {i + 1}: Encountered syntax error parsing timestamp'
                             raise gseExceptions.GseControllerParsingException(
-                                f"Line {i + 1}: Encountered syntax error parsing timestamp"
+                                msg
                             )
                         mnemonic = line[1]
                         args = []
@@ -206,8 +209,9 @@ class SeqFileParser:
                             try:
                                 args = parseArgs(args)
                             except Exception:
+                                msg = f'Line {i + 1}: Encountered syntax error parsing arguments'
                                 raise gseExceptions.GseControllerParsingException(
-                                    f"Line {i + 1}: Encountered syntax error parsing arguments"
+                                    msg
                                 )
                         yield i, descriptor, seconds, useconds, mnemonic, args
                 except gseExceptions.GseControllerParsingException as exc:

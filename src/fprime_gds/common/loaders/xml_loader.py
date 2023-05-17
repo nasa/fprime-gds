@@ -396,8 +396,9 @@ class XmlLoader(dict_loader.DictLoader):
             return result
 
         # Abandon all hope
+        msg = f"Could not find type {type_name}"
         raise exceptions.GseControllerParsingException(
-            f"Could not find type {type_name}"
+            msg
         )
 
 

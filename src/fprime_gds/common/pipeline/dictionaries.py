@@ -98,7 +98,8 @@ class Dictionaries:
             self._channel_name_dict = channel_loader.get_name_dict(dictionary)
             assert self._versions == channel_loader.get_versions(), "Version mismatch while loading"
         else:
-            raise Exception(f"[ERROR] Dictionary '{dictionary}' does not exist.")
+            msg = f"[ERROR] Dictionary '{dictionary}' does not exist."
+            raise Exception(msg)
         # Check for packet specification
         if packet_spec is not None:
             packet_loader = fprime_gds.common.loaders.pkt_xml_loader.PktXmlLoader()

@@ -221,7 +221,8 @@ class DetectionParser(ParserBase):
             return args
         detected_toolchain = get_artifacts_root() / platform.system()
         if not detected_toolchain.exists():
-            raise Exception(f"{detected_toolchain} does not exist. Make sure to build.")
+            msg = f"{detected_toolchain} does not exist. Make sure to build."
+            raise Exception(msg)
         likely_deployment = detected_toolchain / Path.cwd().name
         # Check if the deployment exists
         if likely_deployment.exists():
@@ -229,13 +230,15 @@ class DetectionParser(ParserBase):
             return args
         child_directories = [child for child in detected_toolchain.iterdir() if child.is_dir()]
         if not child_directories:
-            raise Exception(f"No deployments found in {detected_toolchain}. Specify deployment with: --deployment")
+            msg = f"No deployments found in {detected_toolchain}. Specify deployment with: --deployment"
+            raise Exception(msg)
         # Works for the old structure where the bin, lib, and dict directories live immediately under the platform
         elif len(child_directories) == 3 and set([path.name for path in child_directories]) == {"bin", "lib", "dict"}:
             args.deployment = detected_toolchain
             return args
         elif len(child_directories) > 1:
-            raise Exception(f"Multiple deployments found in {detected_toolchain}. Choose using: --deployment")
+            msg = f"Multiple deployments found in {detected_toolchain}. Choose using: --deployment"
+            raise Exception(msg)
         args.deployment = child_directories[0]
         return args
 
@@ -516,7 +519,8 @@ class DictionaryParser(DetectionParser):
         """Handle arguments as parsed"""
         # Find dictionary setting via "dictionary" argument or the "deploy" argument
         if args.dictionary is not None and not os.path.exists(args.dictionary):
-            raise ValueError(f"Dictionary file {args.dictionary} does not exist")
+            msg = f"Dictionary file {args.dictionary} does not exist"
+            raise ValueError(msg)
         elif args.dictionary is None:
             args = super().handle_arguments(args, **kwargs)
             args.dictionary = find_dict(args.deployment)
@@ -696,8 +700,9 @@ class BinaryDeployment(DetectionParser):
         args = super().handle_arguments(args, **kwargs)
         args.app = Path(args.app) if args.app else Path(find_app(args.deployment))
         if not args.app.is_file():
+            msg = f"F prime binary '{args.app}' does not exist or is not a file"
             raise ValueError(
-                f"F prime binary '{args.app}' does not exist or is not a file"
+                msg
             )
         return args
 

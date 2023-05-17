@@ -214,12 +214,14 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
             self.sock.send(b"Register %s\n" % incoming_routing.value)
             super().connect(connection_uri, incoming_routing, outgoing_routing)
         except ValueError as vle:
+            msg = f"Failed to parse connection uri: {connection_uri}. {vle}"
             raise TransportationException(
-                f"Failed to parse connection uri: {connection_uri}. {vle}"
+                msg
             )
         except Exception as exc:
+            msg = f"Failed to connect to transportation layer at: {connection_uri}. {exc}"
             raise TransportationException(
-                f"Failed to connect to transportation layer at: {connection_uri}. {exc}"
+                msg
             )
 
     def disconnect(self):
