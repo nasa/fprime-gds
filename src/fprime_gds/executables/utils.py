@@ -125,9 +125,8 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
         return child
     except Exception as exc:
         msg = f"Failed to run application: {' '.join(arguments)}. Error: {exc}"
-        raise AppWrapperException(
-            msg
-        )
+        raise AppWrapperException(msg)
+
 
 def find_settings(path: Path) -> Path:
     """
@@ -153,7 +152,9 @@ def get_artifacts_root() -> Path:
     except FprimeSettingsException as e:
         print("[ERROR]", e)
         sys.exit(-1)
-    assert "install_destination" in ini_settings, "install_destination not in settings.ini"
+    assert (
+        "install_destination" in ini_settings
+    ), "install_destination not in settings.ini"
     print(
         f"""[INFO] Autodetected artifacts root '{ini_settings["install_destination"]}' from project settings.ini file."""
     )
