@@ -125,14 +125,25 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
         return child
     except Exception as exc:
         msg = f"Failed to run application: {' '.join(arguments)}. Error: {exc}"
-        raise AppWrapperException(
-            msg
-        )
+        raise AppWrapperException(msg)
+
+
+def find_settings(path: Path) -> Path:
+    """
+    Finds the settings file by recursing parent to parent until a matching file is found.
+    """
+    needle = Path("settings.ini")
+    while path != path.parent:
+        if (path / needle).is_file():
+            return path / needle
+        path = path.parent
+    raise FprimeLocationUnknownException()
 
 
 def get_artifacts_root() -> Path:
     try:
-        ini_settings = IniSettings.load(None)
+        ini_file = find_settings(Path.cwd())
+        ini_settings = IniSettings.load(ini_file)
     except FprimeLocationUnknownException:
         print(
             "[ERROR] Not in fprime project and no deployment path provided, unable to find dictionary and/or app"
@@ -141,9 +152,11 @@ def get_artifacts_root() -> Path:
     except FprimeSettingsException as e:
         print("[ERROR]", e)
         sys.exit(-1)
-    assert "install_destination" in ini_settings, "install_destination not in settings.ini"
+    assert (
+        "install_destination" in ini_settings
+    ), "install_destination not in settings.ini"
     print(
-        f"""[INFO] Autodetected artifacts root '{ini_settings["install_destination"]}' from deployment settings.ini file."""
+        f"""[INFO] Autodetected artifacts root '{ini_settings["install_destination"]}' from project settings.ini file."""
     )
     return ini_settings["install_destination"]
 
