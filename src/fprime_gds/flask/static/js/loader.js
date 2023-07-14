@@ -67,7 +67,7 @@ class SaferParser {
             UNQUOTED: 0,
             QUOTED: 1
         };
-        this.FLAG = "-_-";
+        this.FLAG = "-_-您好"; // Extended character usage make collisions less-likely
         this.MAPPINGS = [
             ["-Infinity", this.FLAG + "-inf", -Infinity],
             ["Infinity", this.FLAG + "inf", Infinity],
@@ -86,7 +86,7 @@ class SaferParser {
     parse(rawData) {
         let converted_data = this.convert(rawData);
         try {
-            return JSON.parse(converted_data, this.deconvert);
+            return JSON.parse(converted_data, this.revert.bind(this));
         } catch (e) {
             let message = e.toString();
             const matcher = /line (\d+) column (\d+)/
@@ -128,9 +128,9 @@ class SaferParser {
      * Inverse of convert removing string and replacing back invalid JSON tokens.
      * @param key: JSON key
      * @param value: JSON value search for the converted value.
-     * @return {*}: deconverted value or value
+     * @return {*}: reverted value or value
      */
-    deconvert(key, value) {
+    revert(key, value) {
         for (let i = 0; i < this.MAPPINGS.length; i++) {
             if ((this.MAPPINGS[i][1]) === value) {
                 return this.MAPPINGS[i][2];
