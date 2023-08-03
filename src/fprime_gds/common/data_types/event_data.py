@@ -40,9 +40,14 @@ class EventData(sys_data.SysData):
         self.args = event_args
         self.time = event_time
         self.template = event_temp
-        self.display_text = event_temp.description if event_args is None else format_string_template(
-            event_temp.format_str, tuple([arg.val for arg in event_args])
-        )
+        if event_args is None:
+            self.display_text = event_temp.description
+        elif event_temp.format_str == "":
+            self.display_text = str([arg.val for arg in event_args])
+        else:
+            self.display_text = format_string_template(
+                event_temp.format_str, tuple([arg.val for arg in event_args])
+            )
 
     def get_args(self):
         return self.args
