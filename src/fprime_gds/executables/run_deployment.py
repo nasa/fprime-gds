@@ -19,7 +19,7 @@ from fprime_gds.executables.utils import AppWrapperException, run_wrapped_applic
 
 import fprime_openmct 
 from fprime_openmct.config_server import register_npm_package, install_npm_package, start_npm_package
-from fprime_openmct.src.fprime_openmct.TopAppDictXMLtoOpenMCTJSON import TopologyAppDictionaryJSONifier
+from fprime_openmct.fprime_to_openmct import TopologyAppDictionaryJSONifier
 
 
 BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
@@ -164,7 +164,7 @@ def get_openmct_json(parsed_args):
         Initial States JSON for OpenMCT 
     """
 
-    openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'src/fprime_openmct/javascript')
+    openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'javascript')
 
     top_dict = TopologyAppDictionaryJSONifier(str(parsed_args.dictionary))
     top_dict.writeOpenMCTJSON('FPrimeDeploymentTopologyAppDictionary', openmct_dir)
@@ -178,7 +178,7 @@ def launch_openmct(parsed_args):
     Return:
         launched process
     """
-    openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'src/fprime_openmct/javascript')
+    openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'javascript')
 
 
     pkg = register_npm_package(openmct_dir + "/package.json")
@@ -199,7 +199,7 @@ def poll_telem(parsed_args):
         launched process
     """
     
-    app_cmd = BASE_MODULE_ARGUMENTS + ["fprime_openmct.src.fprime_openmct.fprime_telem_poller"] + OpenMCTTelemetryPollerParser().reproduce_cli_args(parsed_args)
+    app_cmd = BASE_MODULE_ARGUMENTS + ["fprime_openmct.fprime_telem_poller"] + OpenMCTTelemetryPollerParser().reproduce_cli_args(parsed_args)
 
     return launch_process(app_cmd, name='OpenMCT Poller', launch_time=1) 
 
