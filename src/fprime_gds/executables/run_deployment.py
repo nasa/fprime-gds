@@ -19,7 +19,6 @@ from fprime_gds.executables.utils import AppWrapperException, run_wrapped_applic
 
 # Try to Import FPrime-OpenMCT Python Packages
 try: 
-    import fprime_openmct 
     from fprime_openmct.config_server import ServerConfig
     from fprime_openmct.fprime_to_openmct import TopologyAppDictionaryJSONifier
 except:
@@ -166,10 +165,9 @@ def launch_openmct(parsed_args):
     Return:
         launched process
     """
-    openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'javascript')
     openmct_server = ServerConfig()
 
-    app_cmd = openmct_server.launch_openmct_server(openmct_dir)
+    app_cmd = openmct_server.launch_openmct_server()
 
     return app_cmd 
 
@@ -215,10 +213,9 @@ def main():
     if parsed_args.openmct:
 
         # Try Generating the OpenMCT JSON and Initial States
-        openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'javascript')
         top_dict = TopologyAppDictionaryJSONifier(str(parsed_args.dictionary))
-        top_dict.writeOpenMCTJSON('FPrimeDeploymentTopologyAppDictionary', openmct_dir)
-        top_dict.writeInitialStatesJSON('initial_states', openmct_dir)
+        top_dict.writeOpenMCTJSON('FPrimeDeploymentTopologyAppDictionary')
+        top_dict.writeInitialStatesJSON('initial_states')
 
         # Try Launching OpenMCT Server
         launchers.append(launch_openmct)
