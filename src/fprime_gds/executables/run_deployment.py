@@ -17,9 +17,13 @@ from fprime_gds.executables.cli import (
 )
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
 
-import fprime_openmct 
-from fprime_openmct.config_server import register_npm_package, install_npm_package, start_npm_package
-from fprime_openmct.fprime_to_openmct import TopologyAppDictionaryJSONifier
+# Try to Import FPrime-OpenMCT Python Packages
+try: 
+    import fprime_openmct 
+    from fprime_openmct.config_server import ServerConfig
+    from fprime_openmct.fprime_to_openmct import TopologyAppDictionaryJSONifier
+except:
+    pass
 
 
 BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
@@ -154,22 +158,6 @@ def launch_comm(parsed_args):
     app_cmd = BASE_MODULE_ARGUMENTS + ["fprime_gds.executables.comm"] + arguments
     return launch_process(app_cmd, name=f'comm[{parsed_args.adapter}] Application', launch_time=1)
 
-def get_openmct_json(parsed_args):
-    """ Convert F-Prime Topology App Dictionary XML to Python Dictionary
-    
-    Args:
-        parsed_args: parsed argument namespace
-    Return:
-        converted OpenMCT JSON Telemetry Definitions
-        Initial States JSON for OpenMCT 
-    """
-
-    openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'javascript')
-
-    top_dict = TopologyAppDictionaryJSONifier(str(parsed_args.dictionary))
-    top_dict.writeOpenMCTJSON('FPrimeDeploymentTopologyAppDictionary', openmct_dir)
-    top_dict.writeInitialStatesJSON('initial_states', openmct_dir)
-
 def launch_openmct(parsed_args):
     """ Launch OpenMCT Node Server 
     
@@ -179,14 +167,9 @@ def launch_openmct(parsed_args):
         launched process
     """
     openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'javascript')
+    openmct_server = ServerConfig()
 
-
-    pkg = register_npm_package(openmct_dir + "/package.json")
-
-    # Check and install node server if needed
-    install_npm_package(pkg, openmct_dir)
-
-    app_cmd = start_npm_package(pkg, delay=5)
+    app_cmd = openmct_server.launch_openmct_server(openmct_dir)
 
     return app_cmd 
 
@@ -230,8 +213,12 @@ def main():
 
     # Check if OpenMCT is set to be used. If true, generate OpenMCT States and Launch the OpenMCT Server
     if parsed_args.openmct:
+
         # Try Generating the OpenMCT JSON and Initial States
-        get_openmct_json(parsed_args)
+        openmct_dir = fprime_openmct.__file__.replace('__init__.py', 'javascript')
+        top_dict = TopologyAppDictionaryJSONifier(str(parsed_args.dictionary))
+        top_dict.writeOpenMCTJSON('FPrimeDeploymentTopologyAppDictionary', openmct_dir)
+        top_dict.writeInitialStatesJSON('initial_states', openmct_dir)
 
         # Try Launching OpenMCT Server
         launchers.append(launch_openmct)
@@ -243,7 +230,7 @@ def main():
     try:
         procs = [launcher(parsed_args) for launcher in launchers]
         print("[INFO] F prime is now running. CTRL-C to shutdown all components.")
-        procs[-3].wait()
+        procs[-1].wait()
     except KeyboardInterrupt:
         print("[INFO] CTRL-C received. Exiting.")
     except Exception as exc:
