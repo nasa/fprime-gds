@@ -19,10 +19,14 @@ from fprime_gds.executables.utils import AppWrapperException, run_wrapped_applic
 
 # Try to Import FPrime-OpenMCT Python Packages
 try: 
+    import fprime_openmct
+except ImportError:
+    fprime_openmct = None
+
+if fprime_openmct is not None: 
     from fprime_openmct.config_server import ServerConfig
     from fprime_openmct.fprime_to_openmct import TopologyAppDictionaryJSONifier
-except:
-    pass
+
 
 
 BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
@@ -211,6 +215,9 @@ def main():
 
     # Check if OpenMCT is set to be used. If true, generate OpenMCT States and Launch the OpenMCT Server
     if parsed_args.openmct:
+
+        if fprime_openmct is None:
+            raise ImportError('FPrime-OpenMCT Bridge not installed. Please install fprime_openmct with pip.')
 
         # Try Generating the OpenMCT JSON and Initial States
         top_dict = TopologyAppDictionaryJSONifier(str(parsed_args.dictionary))
