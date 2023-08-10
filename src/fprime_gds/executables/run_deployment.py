@@ -184,7 +184,7 @@ def poll_telem(parsed_args):
         launched process
     """
     
-    app_cmd = BASE_MODULE_ARGUMENTS + ["fprime_openmct.fprime_telem_poller"] + OpenMCTTelemetryPollerParser().reproduce_cli_args(parsed_args)
+    app_cmd = BASE_MODULE_ARGUMENTS + ["fprime_openmct.fprime_telem_poller"] + StandardPipelineParser().reproduce_cli_args(parsed_args) + OpenMCTTelemetryPollerParser().reproduce_cli_args(parsed_args)
 
     return launch_process(app_cmd, name='OpenMCT Poller', launch_time=1) 
 
@@ -217,7 +217,7 @@ def main():
     if parsed_args.openmct:
 
         if fprime_openmct is None:
-            raise ImportError('FPrime-OpenMCT Bridge not installed. Please install fprime_openmct with pip.')
+            raise ImportError('FPrime-OpenMCT Bridge not installed. Please install fprime_openmct with pip')
 
         # Try Generating the OpenMCT JSON and Initial States
         top_dict = TopologyAppDictionaryJSONifier(str(parsed_args.dictionary))
