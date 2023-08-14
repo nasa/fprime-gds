@@ -54,17 +54,17 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
     KEEPALIVE_DATA = b"sitting well"
     MAXIMUM_DATA_SIZE = 4096
 
-    def __init__(self, address, port):
+    def __init__(self, address, port, server=True):
         """
         Initialize this adapter by creating a handler for UDP and TCP. A thread for the KEEPALIVE application packets
-        will be created, if the interval is not none.
+        will be created, if the interval is not none. Handlers are servers unless server=False.
         """
         self.address = address
         self.port = port
         self.stop = False
         self.keepalive = None
-        self.tcp = TcpHandler(address, port)
-        self.udp = UdpHandler(address, port)
+        self.tcp = TcpHandler(address, port, server=server)
+        self.udp = UdpHandler(address, port, server=server)
         self.thtcp = None
         self.thudp = None
         self.data_chunks = queue.Queue()
@@ -170,6 +170,14 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 "type": int,
                 "default": 50000,
                 "help": "Port of the IP adapter server. Default: %(default)s",
+            },
+            ("--ip-client",): {
+                # dest is "server" since it is handled in BaseAdapter.construct_adapter and passed with the same
+                # name to the IpAdapter constructor. Default to server=True, meaning IpAdapter is the TCP server
+                "dest": "server",
+                "action": "store_false",
+                "default": True,
+                "help": "Run the IP adapter as the client (connects to FSW running TcpServer)",
             },
         }
 
