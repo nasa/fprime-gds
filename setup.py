@@ -118,9 +118,6 @@ integrated configuration with ground in-the-loop.
         "argcomplete>=1.12.3",
         "Jinja2>=2.11.3",
         "openpyxl>=3.0.10",
+        "pyserial>=3.5"
     ],
-    extras_require={
-        # I and T API
-        "uart-adapter": "pyserial",
-    },
 )
