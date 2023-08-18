@@ -28,7 +28,7 @@ Vue.component("advanced-settings", {
                         response_object_limit: "Limit to the number of objects returned by one POLL request to the backend. " +
                                                 "Lower this value if polling times are longer than polling intervals. Default: 6000.",
                         compact_commanding: "Use the compact form for command arguments. In this form, Array and Serializable type " +
-                                            "inputs are flattened into a sequential set of input boxes without extranious structure.",
+                                            "inputs are flattened into a sequential set of input boxes without extraneous structure.",
                         channels_display_last_received: "When set, any channel received will update the displayed value. Otherwise " +
                                                         "only channels with newer timestamps update the displayed value."
                     },
