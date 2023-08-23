@@ -9,6 +9,10 @@ export let advanced_template = `
                 <h3>{{ setting_category.replace("_", " ") }}</h3>
                 <div v-html="settings[setting_category].description"></div>
                 <div class="input-group mb-3" v-for="setting_key in Object.keys(settings[setting_category].settings)">
+                    <small v-if="(settings[setting_category].descriptions || {})[setting_key]">
+                        <strong>{{ setting_key }}</strong>
+                        {{ settings[setting_category].descriptions[setting_key]}}
+                    </small>
                     <div class="input-group-prepend col-6">
                         <span class="input-group-text col-12">{{ setting_key }}</span>
                     </div>
