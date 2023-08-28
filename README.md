@@ -1,6 +1,6 @@
 # F´ GDS
 
-> **Note:** This README describes GDS internals. Refer to the [user's guide](https://nasa.github.io/fprime/UsersGuide/gds/gds-introduction.html) for instructions on how to use the GDS.
+**Note:** This README describes GDS internals. Refer to the [user's guide](https://nasa.github.io/fprime/UsersGuide/gds/gds-introduction.html) for instructions on how to use the GDS.
 
 Issues should be reported here: [File an issue](https://github.com/nasa/fprime/issues/new/choose)
 
