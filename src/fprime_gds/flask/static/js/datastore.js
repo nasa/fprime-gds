@@ -57,8 +57,9 @@ class HistoryHelper {
         let _self = this;
         // Break our when no new items returned
         if (new_items.length === 0) { return; }
-        new_items.filter((item) => item.time).forEach((item) => {
-            item.datetime = timeToDate(item.time)
+        new_items.filter((item) => item.time).forEach((item, index) => {
+            item.datetime = timeToDate(item.time);
+            item.incremental_id = index + this.store.length;
         });
         this.consumers.forEach((consumer) => {
             try {
