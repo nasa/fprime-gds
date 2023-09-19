@@ -118,6 +118,26 @@ export function squashify_argument(argument) {
             let field = argument.type.MEMBER_LIST[i][0];
             value[field] = squashify_argument(argument.value[field]);
         }
+    } else if (argument.type.name[0] == 'U') {
+        if (argument.value.startsWith("0x")) {
+            // Hexadecimal
+            value = parseInt(argument.value, 16);
+        } else if (argument.value.startsWith("0b")) {
+            // Binary
+            value = parseInt(argument.value.slice(2), 2);
+        } else if (argument.value.startsWith("0o")) {
+            // Octal
+            value = parseInt(argument.value.slice(2), 8);
+        } else {
+            // Decimal
+            value = parseInt(argument.value, 10);
+        }
+    }
+    else if (argument.type.name[0] == 'I') {
+        value = parseInt(argument.value, 10);
+    }
+    else if (argument.type.name[0] == 'F') {
+        value = parseFloat(argument.value);
     }
     return value;
 }
