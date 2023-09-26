@@ -9,10 +9,12 @@
 #
 ####
 import os
+import getpass
 
 # Select uploads directory and create it
-uplink_dir = os.environ.get("UP_FILES_DIR", "/tmp/fprime-uplink/")
-DOWNLINK_DIR = os.environ.get("DOWN_FILES_DIR", "/tmp/fprime-downlink/")
+username = getpass.getuser()
+uplink_dir = os.environ.get("UP_FILES_DIR", "/tmp/" + username + "/fprime-uplink/")
+DOWNLINK_DIR = os.environ.get("DOWN_FILES_DIR", "/tmp/" + username + "/fprime-downlink/")
 
 STANDARD_PIPELINE_ARGUMENTS = os.environ.get("STANDARD_PIPELINE_ARGUMENTS").split("|")
 
