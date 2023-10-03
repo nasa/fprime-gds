@@ -65,9 +65,9 @@ def construct_app():
     if "FP_FLASK_SETTINGS" in os.environ:
         app.config.from_envvar("FP_FLASK_SETTINGS")
 
-    # JSON encoding setting must come before restful
-    app.json_encoder = fprime_gds.flask.json.GDSJsonEncoder
-    app.config["RESTFUL_JSON"] = {"cls": app.json_encoder}
+    # JSON encoding settings
+    app.json.default = fprime_gds.flask.json.default
+    app.config["RESTFUL_JSON"] = {"default": app.json.default}
     # Standard pipeline creation
     input_arguments = app.config["STANDARD_PIPELINE_ARGUMENTS"]
     args_ns, _ = ParserBase.parse_args([StandardPipelineParser], "n/a", input_arguments, client=True)

@@ -152,34 +152,31 @@ def enum_json(obj):
     return enum_dict
 
 
-class GDSJsonEncoder(flask.json.JSONEncoder):
-    """
-    Custom class used to handle GDS object to JSON
-    """
-    JSON_ENCODERS = {
-        ABCMeta: jsonify_base_type,
-        UUID: str,
-        ChData: minimal_channel,
-        EventData: minimal_event,
-        CmdData: minimal_command,
-        TimeType: time_type
-    }
+JSON_ENCODERS = {
+    ABCMeta: jsonify_base_type,
+    UUID: str,
+    ChData: minimal_channel,
+    EventData: minimal_event,
+    CmdData: minimal_command,
+    TimeType: time_type
+}
 
-    def default(self, obj):
-        """
-        Override the default JSON encoder to pull out a dictionary for our handled types for encoding with the default
-        encoder built into flask. This function must convert the given object into a JSON compatable python object (e.g.
-        using lists, dictionaries, strings, and primitive types).
 
-        :param obj: obj to encode
-        :return: JSON
-        """
-        if type(obj) in self.JSON_ENCODERS:
-            return self.JSON_ENCODERS[type(obj)](obj)
-        if isinstance(obj, DataTemplate):
-            return getter_based_json(obj)
-        if isinstance(obj, Enum):
-            return enum_json(obj)
-        if isinstance(obj, ValueType):
-            return obj.val
-        return flask.json.JSONEncoder.default(self, obj)
+def default(obj):
+    """
+    Override the default JSON encoder to pull out a dictionary for our handled types for encoding with the default
+    encoder built into flask. This function must convert the given object into a JSON compatable python object (e.g.
+    using lists, dictionaries, strings, and primitive types).
+
+    :param obj: obj to encode
+    :return: JSON
+    """
+    if type(obj) in JSON_ENCODERS:
+        return JSON_ENCODERS[type(obj)](obj)
+    if isinstance(obj, DataTemplate):
+        return getter_based_json(obj)
+    if isinstance(obj, Enum):
+        return enum_json(obj)
+    if isinstance(obj, ValueType):
+        return obj.val
+    return flask.json.provider.DefaultJSONProvider.default(obj)
