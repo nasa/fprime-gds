@@ -70,7 +70,9 @@ def construct_app():
     app.config["RESTFUL_JSON"] = {"default": app.json.default}
     # Standard pipeline creation
     input_arguments = app.config["STANDARD_PIPELINE_ARGUMENTS"]
-    args_ns, _ = ParserBase.parse_args([StandardPipelineParser], "n/a", input_arguments, client=True)
+    args_ns, _ = ParserBase.parse_args(
+        [StandardPipelineParser], "n/a", input_arguments, client=True
+    )
     pipeline = components.setup_pipelined_components(app.debug, args_ns)
 
     # Restful API registration
@@ -83,7 +85,11 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.commands.CommandDictionary,
         "/dictionary/commands",
-        resource_class_args=[pipeline.dictionaries.command_name, pipeline.dictionaries.project_version, pipeline.dictionaries.framework_version],
+        resource_class_args=[
+            pipeline.dictionaries.command_name,
+            pipeline.dictionaries.project_version,
+            pipeline.dictionaries.framework_version,
+        ],
     )
     api.add_resource(
         fprime_gds.flask.commands.CommandHistory,
@@ -98,7 +104,11 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.events.EventDictionary,
         "/dictionary/events",
-        resource_class_args=[pipeline.dictionaries.event_id, pipeline.dictionaries.project_version, pipeline.dictionaries.framework_version],
+        resource_class_args=[
+            pipeline.dictionaries.event_id,
+            pipeline.dictionaries.project_version,
+            pipeline.dictionaries.framework_version,
+        ],
     )
     api.add_resource(
         fprime_gds.flask.events.EventHistory,
@@ -108,7 +118,11 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.channels.ChannelDictionary,
         "/dictionary/channels",
-        resource_class_args=[pipeline.dictionaries.channel_id, pipeline.dictionaries.project_version, pipeline.dictionaries.framework_version],
+        resource_class_args=[
+            pipeline.dictionaries.channel_id,
+            pipeline.dictionaries.project_version,
+            pipeline.dictionaries.framework_version,
+        ],
     )
     api.add_resource(
         fprime_gds.flask.channels.ChannelHistory,

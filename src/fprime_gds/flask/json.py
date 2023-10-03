@@ -20,7 +20,7 @@ from fprime_gds.common.templates.data_template import DataTemplate
 
 
 def jsonify_base_type(input_type: Type[BaseType]) -> dict:
-    """ Turn a base type into a JSONable dictionary
+    """Turn a base type into a JSONable dictionary
 
     Convert a BaseType (the type, not an instance) into a jsonable dictionary. BaseTypes are converted by reading the
     class properties (without __) and creating the object:
@@ -36,14 +36,17 @@ def jsonify_base_type(input_type: Type[BaseType]) -> dict:
         json-able dictionary representing the type
     """
     assert issubclass(input_type, BaseType), "Failure to properly encode data"
-    members = getmembers(input_type, lambda value: not isroutine(value) and not isinstance(value, property))
+    members = getmembers(
+        input_type,
+        lambda value: not isroutine(value) and not isinstance(value, property),
+    )
     jsonable_dict = {name: value for name, value in members if not name.startswith("_")}
     jsonable_dict.update({"name": input_type.__name__})
     return jsonable_dict
 
 
 def getter_based_json(obj):
-    """ Converts objects to JSON via get_ methods
+    """Converts objects to JSON via get_ methods
 
     Template functions define a series of get_* methods whose return values need to be serialized. This function
     handles that data.
@@ -80,7 +83,7 @@ def getter_based_json(obj):
 
 
 def minimal_event(obj):
-    """ Minimal event encoding: time, id, display_text
+    """Minimal event encoding: time, id, display_text
 
     Events need time, id, display_text. No other information from the event is necessary for the display.  This will
     minimally encode the data for JSON.
@@ -95,7 +98,7 @@ def minimal_event(obj):
 
 
 def minimal_channel(obj):
-    """ Minimal channel serialization: time, id, val, and display_text
+    """Minimal channel serialization: time, id, val, and display_text
 
     Minimally serializes channel values for use with the flask layer. This does away with any unnecessary data by
     serializing only the id, value, and optional display text
@@ -106,11 +109,16 @@ def minimal_channel(obj):
     Returns:
         JSON compatible python anonymous type (dictionary)
     """
-    return {"time": obj.time, "id": obj.id, "val": obj.val_obj.val, "display_text": obj.display_text}
+    return {
+        "time": obj.time,
+        "id": obj.id,
+        "val": obj.val_obj.val,
+        "display_text": obj.display_text,
+    }
 
 
 def minimal_command(obj):
-    """ Minimal command serialization: time, id, and args values
+    """Minimal command serialization: time, id, and args values
 
     Minimally serializes the command values for use with the flask layer. This prevents excess data by keeping the data
     to the minimum instance data for commands including: time, opcode (id), and the value for args.
@@ -125,7 +133,7 @@ def minimal_command(obj):
 
 
 def time_type(obj):
-    """ Time type serialization
+    """Time type serialization
 
     Serializes the time type into a JSON compatible object.
 
@@ -137,15 +145,15 @@ def time_type(obj):
     """
     assert isinstance(obj, TimeType), "Incorrect type for serialization method"
     return {
-            "base": obj.timeBase.value,
-            "context": obj.timeContext,
-            "seconds": obj.seconds,
-            "microseconds": obj.useconds
-        }
+        "base": obj.timeBase.value,
+        "context": obj.timeContext,
+        "seconds": obj.seconds,
+        "microseconds": obj.useconds,
+    }
 
 
 def enum_json(obj):
-    """ Jsonify the python enums! """
+    """Jsonify the python enums!"""
     enum_dict = {"value": str(obj), "values": {}}
     for enum_val in type(obj):
         enum_dict["values"][str(enum_val)] = enum_val.value
@@ -158,7 +166,7 @@ JSON_ENCODERS = {
     ChData: minimal_channel,
     EventData: minimal_event,
     CmdData: minimal_command,
-    TimeType: time_type
+    TimeType: time_type,
 }
 
 
