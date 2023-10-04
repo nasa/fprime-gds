@@ -107,7 +107,13 @@ Vue.component("channel-render", {
          * @returns: display text of item/child item
          */
         displayText() {
-            return this.item?.display_text || this.item?.val || this.val || "";
+            let possibles = [this.item?.display_text, this.item?.val, this.val];
+            for (let i = 0; i < possibles.length; i++) {
+                if (typeof(possibles[i]) !== "undefined" && possibles[i] !== null) {
+                    return possibles[i];
+                }
+            }
+            return "";
         }
 
     }
