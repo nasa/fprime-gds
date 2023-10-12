@@ -118,7 +118,7 @@ export function squashify_argument(argument) {
             let field = argument.type.MEMBER_LIST[i][0];
             value[field] = squashify_argument(argument.value[field]);
         }
-    } else if (argument.type.name[0] == 'U') {
+    } else if (["U64Type", "U32Type", "U16Type", "U8Type"].indexOf(argument.type.name) != -1) {
         if (argument.value.startsWith("0x")) {
             // Hexadecimal
             value = parseInt(argument.value, 16);
@@ -133,10 +133,10 @@ export function squashify_argument(argument) {
             value = parseInt(argument.value, 10);
         }
     }
-    else if (argument.type.name[0] == 'I') {
+    else if (["I64Type", "I32Type", "I16Type", "I8Type"].indexOf(argument.type.name) != -1) {
         value = parseInt(argument.value, 10);
     }
-    else if (argument.type.name[0] == 'F') {
+    else if (["F64Type", "F32Type"].indexOf(argument.type.name) != -1) {
         value = parseFloat(argument.value);
     }
     return value;
