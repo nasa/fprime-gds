@@ -28,6 +28,7 @@ class HistoryHelper {
         this.active_key = active_key;
         this.consumers = [];
         this.active_timeout = null;
+        this.counter = 0;
     }
 
     /**
@@ -57,9 +58,9 @@ class HistoryHelper {
         let _self = this;
         // Break our when no new items returned
         if (new_items.length === 0) { return; }
-        new_items.filter((item) => item.time).forEach((item, index) => {
+        new_items.filter((item) => item.time).forEach((item) => {
             item.datetime = timeToDate(item.time);
-            item.incremental_id = index + this.store.length;
+            item.incremental_id = this.counter++;
         });
         this.consumers.forEach((consumer) => {
             try {
