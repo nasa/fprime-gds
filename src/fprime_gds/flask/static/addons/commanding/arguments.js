@@ -8,6 +8,7 @@
  */
 import "../../third-party/js/vue-select.js"
 import {
+    command_bool_argument_template,
     command_enum_argument_template,
     command_array_argument_template,
     command_serializable_argument_template,
@@ -139,6 +140,15 @@ export function squashify_argument(argument) {
     else if (["F64Type", "F32Type"].indexOf(argument.type.name) != -1) {
         value = parseFloat(argument.value);
     }
+    else if (argument.type.name == "BoolType") {
+        if ((typeof(value) === "string") && (["true", "yes"].indexOf(value.toLowerCase()) !== -1)) {
+            value = true;
+        } else if ((typeof(value) === "string") && (["false", "no"].indexOf(value.toLowerCase()) !== -1)) {
+            value = false;
+        } else {
+            console.assert(typeof(value) !== "boolean", "Cannot process boolean, invalid input type")
+        }
+    }
     return value;
 }
 
@@ -246,6 +256,14 @@ Vue.component("command-enum-argument", {
 });
 
 /**
+ * Special boolean processing component to render as a drop-down.
+ */
+Vue.component("command-bool-argument", {
+    ...base_argument_component_properties,
+    template: command_bool_argument_template,
+});
+
+/**
  * Scalar argument processing. Sets up the input type such that numbers can be input with the correct formatting.
  */
 Vue.component("command-scalar-argument", {
@@ -259,14 +277,14 @@ Vue.component("command-scalar-argument", {
          */
         inputType() {
             // Unsigned integer
-            if (this.argument.type.name[0] == 'U') {
+            if (["U64Type", "U32Type", "U16Type", "U8Type"].indexOf(this.argument.type.name) != -1) {
                 // Supports binary, hex, octal, and digital
                 return ["text", "0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F]+|[1-9]\\d*|0", ""];
             }
-            else if (this.argument.type.name[0] == 'I') {
+            else if (["I64Type", "I32Type", "I16Type", "I8Type"].indexOf(this.argument.type.name) != -1) {
                 return ["number", null, "1"];
             }
-            else if (this.argument.type.name[0] == 'F') {
+            else if (["F64Type", "F32Type"].indexOf(this.argument.type.name) != -1) {
                 return ["number", null, "any"];
             }
             return ["text", ".*", null];
