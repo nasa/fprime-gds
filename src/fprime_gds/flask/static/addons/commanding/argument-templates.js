@@ -16,6 +16,17 @@ export let command_enum_argument_template = `
 `;
 
 /**
+ * Enum argument uses the v-select dropdown to render the various choices while providing search and match capabilities.
+ */
+export let command_bool_argument_template = `
+<v-select :id="argument.name" style="flex: 1 1 auto; background-color: white;"
+          :clearable="false" :searchable="true" @input="validateTrigger"
+          :filterable="true"  label="full_name" :options="['True', 'False']"
+          v-model="argument.value" class="fprime-input" :class="argument.error == '' ? '' : 'is-invalid'" required>
+</v-select>
+`;
+
+/**
  * Serializable arguments "flatten" the structure into a list of fields.
  */
 export let command_serializable_argument_template = `
@@ -64,8 +75,8 @@ export let command_scalar_argument_template = `
         <label :for="argument.name" class="control-label font-weight-bold">
             {{ argument.name + ((argument.description != null) ? ": " + argument.description : "") }}
         </label>
-        
-        <command-enum-argument v-if="argument.type.ENUM_DICT" :argument="argument"></command-enum-argument>
+        <command-bool-argument v-if="argument.type.name == 'BoolType'" :argument="argument"></command-bool-argument>
+        <command-enum-argument v-else-if="argument.type.ENUM_DICT" :argument="argument"></command-enum-argument>
         <input v-else :type="inputType[0]" v-bind:id="argument.name" class="form-control fprime-input"
                :placeholder="argument.name" :pattern="inputType[1]" :step="inputType[2]" v-on:input="validateTrigger"
                v-model="argument.value"  :class="argument.error == '' ? '' : 'is-invalid'" required>

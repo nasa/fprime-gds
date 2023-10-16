@@ -274,6 +274,10 @@ class DataStore {
         if (argument.type.ENUM_DICT) {
             argument.value = Object.keys(argument.type.ENUM_DICT)[0];
         }
+        // Booleans are initialized to True
+        else if (argument.type.name === "BoolType") {
+            argument.value = "True";
+        }
         // Arrays expand to a set length of N pseudo-arguments
         else if (argument.type.LENGTH) {
             let array_length = argument.type.LENGTH;
