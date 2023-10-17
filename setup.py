@@ -108,7 +108,7 @@ integrated configuration with ground in-the-loop.
     python_requires=">=3.7",
     setup_requires=["setuptools_scm"],
     install_requires=[
-        "flask>=2.2.0",
+        "flask>=3.0.0",
         "flask_compress>=1.11",
         "pyzmq>=24.0.1",
         "pexpect>=4.8.0",
@@ -119,6 +119,5 @@ integrated configuration with ground in-the-loop.
         "Jinja2>=2.11.3",
         "openpyxl>=3.0.10",
         "pyserial>=3.5",
-        "Werkzeug>=2.2.0,<3.0.0"
     ],
 )
