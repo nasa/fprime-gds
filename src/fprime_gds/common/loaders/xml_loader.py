@@ -49,6 +49,7 @@ class XmlLoader(dict_loader.DictLoader):
 
     ENUM_SECT = "enums"
     ENUM_TYPE_TAG = "type"
+    ENUM_SERIALIZE_TYPE_TAG = "serialize_type"
     ENUM_ELEM_NAME_TAG = "name"
     ENUM_ELEM_VAL_TAG = "value"
     ENUM_ELEM_DESC_TAG = "description"
@@ -218,6 +219,12 @@ class XmlLoader(dict_loader.DictLoader):
         for enum in enum_section:
             # Check enum name
             if enum.get(self.ENUM_TYPE_TAG) == enum_name:
+                # Get serialize/representation type, if present
+                serialize_type = enum.get(self.ENUM_SERIALIZE_TYPE_TAG)
+
+                if not serialize_type:
+                    serialize_type = "I32"
+
                 # Go through all possible values of the enum
                 members = {}
                 for item in enum:
@@ -225,7 +232,7 @@ class XmlLoader(dict_loader.DictLoader):
                     item_val = int(item.get(self.ENUM_ELEM_VAL_TAG))
                     members[item_name] = item_val
 
-                enum_obj = EnumType.construct_type(enum_name, members)
+                enum_obj = EnumType.construct_type(enum_name, members, rep_type=serialize_type)
 
                 self.enums[enum_name] = enum_obj
                 return enum_obj
