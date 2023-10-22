@@ -19,13 +19,19 @@ Vue.component("advanced-settings", {
                     settings: _settings.polling_intervals
                 },
                 "Miscellaneous": {
-                    description: "Miscellaneous settings for GDS UI operations." +
-                        "<small><ul>" +
-                        "<li>event_buffer_size: maximum event records. Default: -1, infinite.</li>" +
-                        "<li>command_buffer_size: maximum command history records. Default: -1, infinite.</li>" +
-                        "<li>response_object_limit: maximum results to load per polling request. Default: 6000</li>" +
-                        '<li>compact_commanding: use compact "flattened" style for commanding complex arguments.</li>' +
-                        "</ul></small>",
+                    description: "Miscellaneous settings for GDS UI operations.",
+                    descriptions: {
+                        event_buffer_size: "Maximum number of events stored by the GDS. When exceeded, oldest events are dropped " +
+                                            "Lower this value if performance drops on the Events tab. Default: -1, no limit.",
+                        command_buffer_size: "Maximum number of commands stored by the GDS. When exceeded, oldest commands are dropped " +
+                                                "Lower this value if performance drops on the Commanding tab. Default: -1, no limit.",
+                        response_object_limit: "Limit to the number of objects returned by one POLL request to the backend. " +
+                                                "Lower this value if polling times are longer than polling intervals. Default: 6000.",
+                        compact_commanding: "Use the compact form for command arguments. In this form, Array and Serializable type " +
+                                            "inputs are flattened into a sequential set of input boxes without extraneous structure.",
+                        channels_display_last_received: "When set, any channel received will update the displayed value. Otherwise " +
+                                                        "only channels with newer timestamps update the displayed value."
+                    },
                     settings: _settings.miscellaneous
                 }
             },

@@ -12,7 +12,8 @@ class Settings {
             event_buffer_size: -1,
             command_buffer_size: -1,
             response_object_limit: 6000,
-            compact_commanding: false
+            compact_commanding: false,
+            channels_display_last_received: true
          };
          this.polling_intervals = {};
     }

@@ -116,6 +116,11 @@ export function validate_scalar_input(argument) {
         argument.error = "";
         return true;
     }
+    // Boolean type handling
+    else if (argument.type.name === "BoolType") {
+        return (argument.value == null) ? null :
+            ["yes", "no", "true", "false"].indexOf(argument.value.toString().toLowerCase()) >= 0;
+    }
     console.assert(false, "Unknown scalar type: " + argument.type.name);
     argument.error = "";
     return true;

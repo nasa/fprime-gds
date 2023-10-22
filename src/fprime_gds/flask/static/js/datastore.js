@@ -148,8 +148,12 @@ class MappedHistory extends HistoryHelper {
         let updated = {};
         for (let i = 0; i < new_items.length; i++) {
             let item = new_items[i];
-            // Check for miss-ordered updates
-            if ((this.store[item.id] || null) === null || item.datetime >= this.store[item.id].datetime) {
+            // When displaying last received, update the value always
+            if (_settings.miscellaneous.channels_display_last_received) {
+                updated[item.id] = item;
+            }
+            // Otherwise check for a newer timestamp
+            else if ((this.store[item.id] || null) === null || item.datetime >= this.store[item.id].datetime) {
                 updated[item.id] = item;
             }
         }
@@ -269,6 +273,10 @@ class DataStore {
         // Enums are initialized to the first listed item
         if (argument.type.ENUM_DICT) {
             argument.value = Object.keys(argument.type.ENUM_DICT)[0];
+        }
+        // Booleans are initialized to True
+        else if (argument.type.name === "BoolType") {
+            argument.value = "True";
         }
         // Arrays expand to a set length of N pseudo-arguments
         else if (argument.type.LENGTH) {
