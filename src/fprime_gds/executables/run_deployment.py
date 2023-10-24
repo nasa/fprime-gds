@@ -112,10 +112,9 @@ def launch_html(parsed_args):
         str(parsed_args.gui_port),
     ]
     ret = launch_process(gse_args, name="HTML GUI", env=flask_env, launch_time=2)
-    if parsed_args.gui == "html":
-        webbrowser.open(
-            f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/", new=0, autoraise=True
-        )
+    webbrowser.open(
+        f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/", new=0, autoraise=True
+    )
     return ret
 
 
@@ -172,7 +171,8 @@ def main():
             print("[WARNING] App cannot be auto-launched without IP adapter")
 
     # Launch the desired GUI package
-    launchers.append(launch_html)
+    if parsed_args.gui == "html":
+        launchers.append(launch_html)
 
     # Launch launchers and wait for the last app to finish
     try:
