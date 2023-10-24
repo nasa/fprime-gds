@@ -204,13 +204,22 @@ let base_argument_component_properties = {
             validateArgument(recurse_down) {
                 recurse_down = !!(recurse_down); // Force recurse_down to be defined as a boolean
                 let valid = validate_input(this.argument);
-                // HTML element validation
+                // Each scalar argument needs to set custom validity on the HTML input that it owns. However, non-scalar
+                // inputs skip this step less the first scalar child's input box be poisoned with incorrect validity due
+                // to the unbounded recursive nature of getElementsByClassName used to find a fprime-input children.
+                let is_scalar = [...document.getElementsByClassName("fprime-scalar-argument")]
+                    .filter((scalar) => scalar === this.$el || scalar.contains(this.$el)).length > 0;
+
+                // Now grab the singular the nearest input and report validity if and only if this is a scalar. Non-
+                // scalar values are compositions of scalar children and thus validity will be set when the scalar
+                // itself is validated.
                 let input_element = this.$el.getElementsByClassName("fprime-input")[0] || this.$el;
-                if (input_element.setCustomValidity && input_element.reportValidity) {
+                if (is_scalar && input_element.setCustomValidity && input_element.reportValidity) {
                     input_element.setCustomValidity(this.argument.error);
                     input_element.reportValidity();
                 }
-                // Downward recursion uses children
+                // Validation can happen recursively down through the children, or up through the parent in order to
+                // laterally validate complex arguments when a single input scalar filed is adjusted.
                 let recursive_listing = (recurse_down) ? this.$children.slice().reverse() : [this.$parent];
                 let valid_recursion = (recursive_listing || []).reduce(
                     (accumulator, next_element) => {

@@ -70,7 +70,7 @@ export let command_array_argument_template = `
  * enumerations are handled here as they represent a single scalar input.
  */
 export let command_scalar_argument_template = `
-<div style="display: contents;">
+<div style="display: contents;" class="fprime-scalar-argument">
     <div class="form-group col-md-6">
         <label :for="argument.name" class="control-label font-weight-bold">
             {{ argument.name + ((argument.description != null) ? ": " + argument.description : "") }}
