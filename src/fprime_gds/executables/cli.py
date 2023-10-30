@@ -572,7 +572,7 @@ class StandardPipelineParser(CompositeParser):
         pipeline_arguments = {
             "config": ConfigManager(),
             "dictionary": args_ns.dictionary,
-            "down_store": args_ns.files_directory,
+            "file_store": args_ns.files_directory,
             "packet_spec": args_ns.packet_spec,
             "logging_prefix": args_ns.logs,
         }

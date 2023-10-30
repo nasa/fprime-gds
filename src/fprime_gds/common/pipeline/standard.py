@@ -52,7 +52,7 @@ class StandardPipeline:
         self.__transport_type = ThreadedTCPSocketClient
 
     def setup(
-        self, config, dictionary, down_store, logging_prefix=None, packet_spec=None
+        self, config, dictionary, file_store, logging_prefix=None, packet_spec=None
     ):
         """
         Setup the standard pipeline for moving data from the middleware layer through the GDS layers using the standard
@@ -60,7 +60,7 @@ class StandardPipeline:
 
         :param config: config object used when constructing the pipeline.
         :param dictionary: dictionary path. Used to setup loading of dictionaries.
-        :param down_store: downlink storage directory
+        :param file_store: uplink/downlink storage directory
         :param logging_prefix: logging prefix. Defaults to not logging at all.
         :param packet_spec: location of packetized telemetry XML specification.
         """
@@ -76,7 +76,8 @@ class StandardPipeline:
         )
         self.histories.setup_histories(self.coders)
         self.files.setup_file_handling(
-            down_store,
+            # here
+            file_store,
             self.coders.file_encoder,
             self.coders.file_decoder,
             self.distributor,

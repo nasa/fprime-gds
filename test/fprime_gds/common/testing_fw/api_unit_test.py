@@ -77,8 +77,8 @@ class APITestCases(unittest.TestCase):
         cls.pipeline = UTPipeline()
         config = ConfigManager()
         path = os.path.join(os.path.dirname(__file__), "./UnitTestDictionary.xml")
-        down_store = os.path.join(os.path.dirname(__file__), "./")
-        cls.pipeline.setup(config, path, down_store)
+        file_store = os.path.join(os.path.dirname(__file__), "./")
+        cls.pipeline.setup(config, path, file_store)
         log_path = os.path.join(os.path.dirname(__file__), "./logs")
         cls.api = IntegrationTestAPI(cls.pipeline, log_path)
         cls.case_list = []  # TODO find a better way to do this.
