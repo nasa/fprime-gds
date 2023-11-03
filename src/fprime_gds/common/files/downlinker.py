@@ -52,7 +52,6 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
         self.sequence = 0  # Keeps track of what the current sequence ID should be
         self.timer = fprime_gds.common.files.helpers.Timeout()
         self.timer.setup(self.timeout, timeout)
-        os.makedirs(self.__directory, exist_ok=True)
 
     def data_callback(self, data, sender=None):
         """
@@ -96,7 +95,12 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
             size,
             self.__log_dir,
         )
-        self.active.open(TransmitFileState.WRITE)
+        try:
+            self.active.open(TransmitFileState.WRITE)
+        except PermissionError as exc:
+            self.state = FileStates.ERROR
+            LOGGER.warning("Unable to open file for writing. Discarding subsequent downlink packets. " + str(exc))
+            return
         LOGGER.addHandler(self.active.log_handler)
         message = "Received START packet with metadata:\n"
         message += "\tSize: %d\n"
@@ -116,7 +120,10 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
         # Initialize all relevant DATA packet attributes into variables from file_data
         offset = data.offset
         if self.state != FileStates.RUNNING:
-            LOGGER.warning("Received unexpected data packet for offset: %d", offset)
+            # ERROR state means GDS is not ready to receive data packets (permission error)
+            # No need to log this, as it is already logged in handle_start and would only spam logs
+            if self.state != FileStates.ERROR:
+                LOGGER.warning("Received unexpected data packet for offset: %d", offset)
         else:
             if data.seqID != self.sequence:
                 LOGGER.warning(
@@ -156,9 +163,10 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
         """
         # Initialize all relevant END packet attributes into variables from file_data
         # hashValue attribute is not relevant right now, but might be in the future
-        if self.state != FileStates.RUNNING:
-            LOGGER.warning("Received unexpected END packet")
-        else:
+        if self.state == FileStates.ERROR:
+            LOGGER.info("Received END packet for discarded downlink")
+            self.finish()
+        elif self.state == FileStates.RUNNING:
             if data.seqID != self.sequence:
                 LOGGER.warning(
                     "End packet has unexpected sequence id. Expected: %d got %d",
@@ -167,6 +175,8 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
                 )
             LOGGER.info("Received END packet, finishing downlink")
             self.finish()
+        else:
+            LOGGER.warning("Received unexpected END packet")
 
     def timeout(self):
         """Timeout the current downlink"""
