@@ -99,7 +99,10 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
             self.active.open(TransmitFileState.WRITE)
         except PermissionError as exc:
             self.state = FileStates.ERROR
-            LOGGER.warning("Unable to open file for writing. Discarding subsequent downlink packets. " + str(exc))
+            LOGGER.warning(
+                "Unable to open file for writing. Discarding subsequent downlink packets. "
+                + str(exc)
+            )
             return
         LOGGER.addHandler(self.active.log_handler)
         message = "Received START packet with metadata:\n"

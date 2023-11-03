@@ -572,6 +572,7 @@ Smath
 SNDHWM
 socketserver
 sorttable
+spam
 sphinxcontrib
 splitext
 squashify
