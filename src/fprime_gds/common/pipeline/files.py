@@ -28,7 +28,8 @@ class Filing:
         self, down_store, file_encoder, file_decoder, distributor, log_dir
     ):
         """
-        Sets up the file handling (uplink and downlink) from a pair of encoders and decoders
+        Sets up the file handling (uplink and downlink) from a pair of encoders and decoders.
+        Raises a PermissionError if the down_store is not writable.
 
         :param down_store: downlink storage directory
         :param file_encoder: file encoder for uplink
@@ -43,9 +44,9 @@ class Filing:
         file_decoder.register(self.__downlinker)
         distributor.register("FW_PACKET_HAND", self.__uplinker)
         if not os.access(down_store, os.W_OK):
-            print(
-                f"[WARNING] {down_store} is not writable. Downlinker will not be able to save files."
-                " Fix permissions or change storage directory with --file-storage-directory"
+            raise PermissionError(
+                f"{down_store} is not writable. Downlinker not be able to save files. "
+                "Fix permissions or change storage directory with --file-storage-directory."
             )
 
     @property
