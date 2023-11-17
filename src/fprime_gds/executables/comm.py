@@ -21,6 +21,8 @@ import logging
 import signal
 import sys
 
+from pathlib import Path
+
 # Required adapters built on standard tools
 try:
     from fprime_gds.common.zmq_transport import ZmqGround
@@ -85,33 +87,47 @@ def main():
     # instantiation
     framer_class = FpFramerDeframer
     LOGGER.info("Starting uplinker/downlinker connecting to FSW using %s with %s", adapter, framer_class.__name__)
-    downlinker = Downlinker(adapter, ground, framer_class())
-    uplinker = Uplinker(adapter, ground, framer_class(), downlinker)
+    discarded_file_handle = None
+    try:
+        if args.output_unframed_data == "-":
+            discarded_file_handle = sys.stdout.buffer
+        elif args.output_unframed_data is not None:
+            discarded_file_handle_path = (Path(args.logs) / Path(args.output_unframed_data)).resolve()
+            try:
+                discarded_file_handle = open(discarded_file_handle_path, "wb")
+                LOGGER.info("Logging unframed data to %s", discarded_file_handle_path)
+            except OSError:
+                LOGGER.warning("Failed to open %s. Unframed data will be discarded.", discarded_file_handle_path)
+        downlinker = Downlinker(adapter, ground, framer_class(), discarded=discarded_file_handle)
+        uplinker = Uplinker(adapter, ground, framer_class(), downlinker)
 
-    # Open resources for the handlers on either side, this prepares the resources needed for reading/writing data
-    ground.open()
-    adapter.open()
+        # Open resources for the handlers on either side, this prepares the resources needed for reading/writing data
+        ground.open()
+        adapter.open()
 
-    # Finally start the processing of uplink and downlink
-    downlinker.start()
-    uplinker.start()
-    LOGGER.debug("Uplinker and downlinker running")
+        # Finally start the processing of uplink and downlink
+        downlinker.start()
+        uplinker.start()
+        LOGGER.debug("Uplinker and downlinker running")
 
-    # Wait for shutdown event in the form of a KeyboardInterrupt then stop the processing, close resources, and wait for
-    # everything to terminate as expected.
-    def shutdown(*_):
-        """Shutdown function for signals"""
-        uplinker.stop()
-        downlinker.stop()
+        # Wait for shutdown event in the form of a KeyboardInterrupt then stop the processing, close resources, and wait for
+        # everything to terminate as expected.
+        def shutdown(*_):
+            """Shutdown function for signals"""
+            uplinker.stop()
+            downlinker.stop()
+            uplinker.join()
+            downlinker.join()
+            ground.close()
+            adapter.close()
+
+        signal.signal(signal.SIGTERM, shutdown)
+        signal.signal(signal.SIGINT, shutdown)
         uplinker.join()
         downlinker.join()
-        ground.close()
-        adapter.close()
-
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
-    uplinker.join()
-    downlinker.join()
+    finally:
+        if discarded_file_handle is not None and args.output_unframed_data != "-":
+            discarded_file_handle.close()
     return 0
 
 

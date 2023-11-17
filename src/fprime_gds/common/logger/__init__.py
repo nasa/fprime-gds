@@ -10,6 +10,8 @@ import logging
 import os
 import sys
 
+INITIALIZED = False
+
 
 def configure_py_log(directory=None, filename=sys.argv[0], mirror_to_stdout=False):
     """
@@ -21,6 +23,9 @@ def configure_py_log(directory=None, filename=sys.argv[0], mirror_to_stdout=Fals
     :param mode: of file to write
     :param mirror_to_stdout: mirror the log output to standard our
     """
+    global INITIALIZED
+    if INITIALIZED:
+        return
     handlers = [logging.StreamHandler(sys.stdout)] if directory is None or mirror_to_stdout else []
     if directory is not None:
         log_file = os.path.join(directory, os.path.basename(filename))
@@ -33,4 +38,4 @@ def configure_py_log(directory=None, filename=sys.argv[0], mirror_to_stdout=Fals
         logging.getLogger().addHandler(handler)
     logging.getLogger().setLevel(logging.INFO)
     logging.info("Logging system initialized!")
-
+    INITIALIZED = True

@@ -91,7 +91,7 @@ class TCPGround(GroundHandler):
         :return: list deframed packets
         """
         self.data += self.tcp.read()
-        (frames, self.data) = self.deframer.deframe_all(self.data, no_copy=True)
+        (frames, self.data, _) = self.deframer.deframe_all(self.data, no_copy=True)
         return frames
 
     def send_all(self, frames):

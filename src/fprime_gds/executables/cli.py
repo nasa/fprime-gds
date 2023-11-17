@@ -326,6 +326,15 @@ class CommAdapterParser(ParserBase):
                 ],
                 "default": fprime_gds.common.communication.checksum.CHECKSUM_SELECTION,
             },
+            ("--output-unframed-data",): {
+                "dest": "output_unframed_data",
+                "action": "store",
+                "nargs": "?",
+                "help": "Log unframed data to supplied file relative to log directory. Use '-' for standard out.",
+                "default": None,
+                "const": "unframed.log",
+                "required": False
+            }
         }
         return {**adapter_arguments, **com_arguments}
 
