@@ -26,7 +26,11 @@ def configure_py_log(directory=None, filename=sys.argv[0], mirror_to_stdout=Fals
     global INITIALIZED
     if INITIALIZED:
         return
-    handlers = [logging.StreamHandler(sys.stdout)] if directory is None or mirror_to_stdout else []
+    handlers = (
+        [logging.StreamHandler(sys.stdout)]
+        if directory is None or mirror_to_stdout
+        else []
+    )
     if directory is not None:
         log_file = os.path.join(directory, os.path.basename(filename))
         log_file = log_file if log_file.endswith(".log") else f"{log_file}.log"

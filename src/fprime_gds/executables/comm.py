@@ -86,19 +86,30 @@ def main():
     # Set the framing class used and pass it to the uplink and downlink component constructions giving each a separate
     # instantiation
     framer_class = FpFramerDeframer
-    LOGGER.info("Starting uplinker/downlinker connecting to FSW using %s with %s", adapter, framer_class.__name__)
+    LOGGER.info(
+        "Starting uplinker/downlinker connecting to FSW using %s with %s",
+        adapter,
+        framer_class.__name__,
+    )
     discarded_file_handle = None
     try:
         if args.output_unframed_data == "-":
             discarded_file_handle = sys.stdout.buffer
         elif args.output_unframed_data is not None:
-            discarded_file_handle_path = (Path(args.logs) / Path(args.output_unframed_data)).resolve()
+            discarded_file_handle_path = (
+                Path(args.logs) / Path(args.output_unframed_data)
+            ).resolve()
             try:
                 discarded_file_handle = open(discarded_file_handle_path, "wb")
                 LOGGER.info("Logging unframed data to %s", discarded_file_handle_path)
             except OSError:
-                LOGGER.warning("Failed to open %s. Unframed data will be discarded.", discarded_file_handle_path)
-        downlinker = Downlinker(adapter, ground, framer_class(), discarded=discarded_file_handle)
+                LOGGER.warning(
+                    "Failed to open %s. Unframed data will be discarded.",
+                    discarded_file_handle_path,
+                )
+        downlinker = Downlinker(
+            adapter, ground, framer_class(), discarded=discarded_file_handle
+        )
         uplinker = Uplinker(adapter, ground, framer_class(), downlinker)
 
         # Open resources for the handlers on either side, this prepares the resources needed for reading/writing data

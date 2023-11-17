@@ -36,7 +36,11 @@ class Downlinker:
     """
 
     def __init__(
-        self, adapter: BaseAdapter, ground: GroundHandler, deframer: FramerDeframer, discarded=None
+        self,
+        adapter: BaseAdapter,
+        ground: GroundHandler,
+        deframer: FramerDeframer,
+        discarded=None,
     ):
         """Initialize the downlinker
 
@@ -61,10 +65,14 @@ class Downlinker:
 
     def start(self):
         """Starts the downlink pipeline"""
-        self.th_ground = threading.Thread(target=self.sending, name="DownlinkTTSGroundThread")
+        self.th_ground = threading.Thread(
+            target=self.sending, name="DownlinkTTSGroundThread"
+        )
         self.th_ground.daemon = True
         self.th_ground.start()
-        self.th_data = threading.Thread(target=self.deframing, name="DownLinkDeframingThread")
+        self.th_data = threading.Thread(
+            target=self.deframing, name="DownLinkDeframingThread"
+        )
         self.th_data.daemon = True
         self.th_data.start()
 
