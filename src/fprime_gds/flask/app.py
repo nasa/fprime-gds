@@ -133,7 +133,7 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.updown.FileUploads,
         "/upload/files",
-        resource_class_args=[pipeline.files.uplinker, pipeline.file_store],
+        resource_class_args=[pipeline.files.uplinker, pipeline.up_store],
     )
     api.add_resource(
         fprime_gds.flask.updown.FileDownload,
@@ -146,7 +146,7 @@ def construct_app():
         "/sequence",
         resource_class_args=[
             args_ns.dictionary,
-            app.config["UPLOADED_UPLINK_DEST"],
+            pipeline.up_store,
             pipeline.files.uplinker,
             app.config["REMOTE_SEQ_DIRECTORY"],
         ],

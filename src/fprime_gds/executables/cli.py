@@ -535,18 +535,18 @@ class FileHandlingParser(ParserBase):
 
         return {
             ("--file-storage-directory",): {
-                "dest": "files_directory",
+                "dest": "files_storage_directory",
                 "action": "store",
-                "default": "/tmp/" + username + "/fprime-downlink/",
+                "default": "/tmp/" + username,
                 "required": False,
                 "type": str,
-                "help": "File to store uplink and downlink files. Default: %(default)s",
+                "help": "Directory to store uplink and downlink files. Default: %(default)s",
             }
         }
 
     def handle_arguments(self, args, **kwargs):
         """Handle arguments as parsed"""
-        os.makedirs(args.files_directory, exist_ok=True)
+        os.makedirs(args.files_storage_directory, exist_ok=True)
         return args
 
 
@@ -572,7 +572,7 @@ class StandardPipelineParser(CompositeParser):
         pipeline_arguments = {
             "config": ConfigManager(),
             "dictionary": args_ns.dictionary,
-            "file_store": args_ns.files_directory,
+            "file_store": args_ns.files_storage_directory,
             "packet_spec": args_ns.packet_spec,
             "logging_prefix": args_ns.logs,
         }

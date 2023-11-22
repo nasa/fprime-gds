@@ -25,23 +25,23 @@ class Filing:
         self.__downlinker = None
 
     def setup_file_handling(
-        self, file_store, file_encoder, file_decoder, distributor, log_dir
+        self, down_store, file_encoder, file_decoder, distributor, log_dir
     ):
         """
         Sets up the file handling (uplink and downlink) from a pair of encoders and decoders.
         Raises a PermissionError if the down_store is not writable.
 
-        :param file_store: uplink/downlink storage directory
+        :param down_store: downlink storage directory
         :param file_encoder: file encoder for uplink
         :param file_decoder: file decoder for downlink
         :param distributor: data distributor to register handshaking to
         :param log_dir: log directory to output downlink logs
         """
         self.__uplinker = fprime_gds.common.files.uplinker.FileUplinker(
-            file_store, file_encoder # maybe not here after all??
+            file_encoder
         )
         self.__downlinker = fprime_gds.common.files.downlinker.FileDownlinker(
-            file_store, log_dir=log_dir
+            down_store, log_dir=log_dir
         )
         file_decoder.register(self.__downlinker)
         distributor.register("FW_PACKET_HAND", self.__uplinker)

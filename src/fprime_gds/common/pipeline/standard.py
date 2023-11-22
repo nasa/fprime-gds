@@ -44,6 +44,9 @@ class StandardPipeline:
         self.client_socket = None
         self.logger = None
         self.dictionary_path = None
+        self.up_store = None
+        self.down_store = None
+
 
         self.__dictionaries = dictionaries.Dictionaries()
         self.__coders = encoding.EncodingDecoding()
@@ -65,6 +68,9 @@ class StandardPipeline:
         :param packet_spec: location of packetized telemetry XML specification.
         """
         assert dictionary is not None and Path(dictionary).is_file(), f"Dictionary {dictionary} does not exist"
+        # File storage configuration for uplink and downlink
+        self.up_store = Path(file_store) / "fprime-uplink"
+        self.down_store = Path(file_store) / "fprime-downlink"
         self.dictionary_path = Path(dictionary)
         # Loads the distributor and client socket
         self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
@@ -76,8 +82,7 @@ class StandardPipeline:
         )
         self.histories.setup_histories(self.coders)
         self.files.setup_file_handling(
-            # here
-            file_store,
+            self.down_store,
             self.coders.file_encoder,
             self.coders.file_decoder,
             self.distributor,

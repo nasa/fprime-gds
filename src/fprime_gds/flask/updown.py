@@ -54,13 +54,12 @@ class FileUploads(flask_restful.Resource):
     A data model for the current uplinking file set.
     """
 
-    def __init__(self, uplinker, dest_dir): #, uplink_set):
+    def __init__(self, uplinker, dest_dir):
         """
         Constructor: setup the uplinker and argument parsing
         """
         self.uplinker = uplinker
-        self.dest_dir = dest_dir / "fprime-uplink"
-        # self.uplink_set = uplink_set
+        self.dest_dir = dest_dir
         self.parser = flask_restful.reqparse.RequestParser()
         self.parser.add_argument(
             "action", required=True, help="Action to take against files"
