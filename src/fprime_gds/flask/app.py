@@ -75,7 +75,6 @@ def construct_app():
 
     # Restful API registration
     api = fprime_gds.flask.errors.setup_error_handling(app)
-    # File upload configuration, 1 set for everything
 
     # Application routes
     api.add_resource(
