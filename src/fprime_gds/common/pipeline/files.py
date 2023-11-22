@@ -37,9 +37,7 @@ class Filing:
         :param distributor: data distributor to register handshaking to
         :param log_dir: log directory to output downlink logs
         """
-        self.__uplinker = fprime_gds.common.files.uplinker.FileUplinker(
-            file_encoder
-        )
+        self.__uplinker = fprime_gds.common.files.uplinker.FileUplinker(file_encoder)
         self.__downlinker = fprime_gds.common.files.downlinker.FileDownlinker(
             down_store, log_dir=log_dir
         )

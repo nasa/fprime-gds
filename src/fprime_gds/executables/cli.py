@@ -226,12 +226,16 @@ class DetectionParser(ParserBase):
         if likely_deployment.exists():
             args.deployment = likely_deployment
             return args
-        child_directories = [child for child in detected_toolchain.iterdir() if child.is_dir()]
+        child_directories = [
+            child for child in detected_toolchain.iterdir() if child.is_dir()
+        ]
         if not child_directories:
             msg = f"No deployments found in {detected_toolchain}. Specify deployment with: --deployment"
             raise Exception(msg)
         # Works for the old structure where the bin, lib, and dict directories live immediately under the platform
-        elif len(child_directories) == 3 and set([path.name for path in child_directories]) == {"bin", "lib", "dict"}:
+        elif len(child_directories) == 3 and set(
+            [path.name for path in child_directories]
+        ) == {"bin", "lib", "dict"}:
             args.deployment = detected_toolchain
             return args
         elif len(child_directories) > 1:
@@ -310,8 +314,7 @@ class CommAdapterParser(ParserBase):
                 "action": "store",
                 "type": str,
                 "help": "Adapter for communicating to flight deployment. [default: %(default)s]",
-                "choices": ["none"]
-                + list(adapter_definition_dictionaries),
+                "choices": ["none"] + list(adapter_definition_dictionaries),
                 "default": "ip",
             },
             ("--comm-checksum-type",): {
@@ -549,7 +552,7 @@ class FileHandlingParser(ParserBase):
                 "required": False,
                 "type": str,
                 "help": "Directory to save command sequence binaries, on the remote FSW. Default: %(default)s",
-            }
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -707,9 +710,7 @@ class BinaryDeployment(DetectionParser):
         args.app = Path(args.app) if args.app else Path(find_app(args.deployment))
         if not args.app.is_file():
             msg = f"F prime binary '{args.app}' does not exist or is not a file"
-            raise ValueError(
-                msg
-            )
+            raise ValueError(msg)
         return args
 
 
@@ -736,7 +737,7 @@ class SearchArgumentsParser(ParserBase):
                 "action": "store",
                 "required": False,
                 "type": int,
-                "nargs":'+',
+                "nargs": "+",
                 "help": f"only show {self.command_name} matching the given type ID(s) 'ID'; can provide multiple IDs to show all given types",
                 "metavar": "ID",
             },

@@ -47,7 +47,9 @@ class UplinkQueue:
         self.queue = queue.Queue()
         self.__file_store = []
         self.__exit = threading.Event()
-        self.__thread = threading.Thread(target=self.run, name="UplinkerThread", args=())
+        self.__thread = threading.Thread(
+            target=self.run, name="UplinkerThread", args=()
+        )
         self.__thread.start()
 
     def enqueue(self, filepath, destination):
@@ -228,9 +230,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
         # Prevent multiple uplinks at once
         if self.state != FileStates.IDLE:
             msg = f"Currently uplinking file '{self.active.source}' cannot start uplinking '{file_obj.source}'"
-            raise FileUplinkerBusyException(
-                msg
-            )
+            raise FileUplinkerBusyException(msg)
         self.state = FileStates.RUNNING
         self.active = file_obj
         self.active.open(TransmitFileState.READ)

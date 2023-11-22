@@ -104,9 +104,7 @@ class FileUploads(flask_restful.Resource):
             try:
                 filename = self.save(file)
                 flask.current_app.logger.info(f"Received file. Saved to: {filename}")
-                self.uplinker.enqueue(
-                    os.path.join(self.dest_dir, filename)
-                )
+                self.uplinker.enqueue(os.path.join(self.dest_dir, filename))
                 successful.append(key)
             except Exception as exc:
                 flask.current_app.logger.warning(
@@ -131,7 +129,7 @@ class FileUploads(flask_restful.Resource):
         if not dest_dir.exists():
             dest_dir.mkdir(parents=True)
 
-        # resolve conflict may not be needed 
+        # resolve conflict may not be needed
         if (dest_dir / filename).exists():
             filename = self.resolve_conflict(dest_dir, filename)
 

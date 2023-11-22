@@ -47,7 +47,6 @@ class StandardPipeline:
         self.up_store = None
         self.down_store = None
 
-
         self.__dictionaries = dictionaries.Dictionaries()
         self.__coders = encoding.EncodingDecoding()
         self.__histories = histories.Histories()
@@ -67,7 +66,9 @@ class StandardPipeline:
         :param logging_prefix: logging prefix. Defaults to not logging at all.
         :param packet_spec: location of packetized telemetry XML specification.
         """
-        assert dictionary is not None and Path(dictionary).is_file(), f"Dictionary {dictionary} does not exist"
+        assert (
+            dictionary is not None and Path(dictionary).is_file()
+        ), f"Dictionary {dictionary} does not exist"
         # File storage configuration for uplink and downlink
         self.up_store = Path(file_store) / "fprime-uplink"
         self.down_store = Path(file_store) / "fprime-downlink"
@@ -158,7 +159,11 @@ class StandardPipeline:
             outgoing_tag: this pipeline will produce data for supplied tag (FSW, GUI). Default: FSW
         """
         # Backwards compatibility with the old method .connect(host, port)
-        if isinstance(incoming_tag, int) and ":" not in connection_uri and outgoing_tag == RoutingTag.FSW:
+        if (
+            isinstance(incoming_tag, int)
+            and ":" not in connection_uri
+            and outgoing_tag == RoutingTag.FSW
+        ):
             connection_uri = f"{connection_uri}:{incoming_tag}"
             incoming_tag = RoutingTag.GUI
         self.client_socket.connect(connection_uri, incoming_tag, outgoing_tag)
