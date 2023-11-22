@@ -148,7 +148,7 @@ def construct_app():
             args_ns.dictionary,
             pipeline.up_store,
             pipeline.files.uplinker,
-            app.config["REMOTE_SEQ_DIRECTORY"],
+            args_ns.remote_sequence_directory,
         ],
     )
     api.add_resource(

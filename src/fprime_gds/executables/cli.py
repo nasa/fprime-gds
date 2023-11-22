@@ -541,6 +541,14 @@ class FileHandlingParser(ParserBase):
                 "required": False,
                 "type": str,
                 "help": "Directory to store uplink and downlink files. Default: %(default)s",
+            },
+            ("--remote-sequence-directory",): {
+                "dest": "remote_sequence_directory",
+                "action": "store",
+                "default": "/seq",
+                "required": False,
+                "type": str,
+                "help": "Directory to save command sequence binaries, on the remote FSW. Default: %(default)s",
             }
         }
 
