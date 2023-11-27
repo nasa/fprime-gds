@@ -33,7 +33,7 @@ let template = `
             <pre><code>{{ text }}</code></pre>
         </div>
     </div>
-    <span>{{ error }}</span>
+    <div class="alert alert-danger" role="alert" v-if="error">{{ error }}</div>
 </div>
 `;
 
