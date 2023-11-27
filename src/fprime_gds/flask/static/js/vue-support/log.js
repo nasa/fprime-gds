@@ -21,9 +21,11 @@ let template = `
         <div class="my-3">
             <v-select id="logselect"
                     :clearable="true" :searchable="true"
-                    :filterable="true"  :options="options"
+                    :filterable="true"  :options="logs"
                     v-model="selected">
             </v-select>
+            <input name="scroll" type="checkbox" v-model="scroll" />
+            <label for="scroll">Scroll Log Output</label>
         </div>
     </div>
     <div class="fp-scroll-container">
@@ -31,6 +33,7 @@ let template = `
             <pre><code>{{ text }}</code></pre>
         </div>
     </div>
+    <div class="alert alert-danger" role="alert" v-if="error">{{ error }}</div>
 </div>
 `;
 
@@ -40,18 +43,9 @@ Vue.component('v-select', VueSelect.VueSelect);
 
 Vue.component("logging", {
     template: template,
-    data() {return {"selected": "", "logs": _datastore.logs, text: ""}},
+    data() {return {"selected": "", "logs": _datastore.logs, text: "", "scroll": true, "error": ""}},
     mounted() {
         setInterval(this.update, 1000); // Grab log updates once a second
-    },
-    computed:{
-        /**
-         * Computes the appropriate log files available.
-         * @return {string[]}
-         */
-        options: function () {
-            return this.logs;
-        }
     },
     methods: {
         /**
@@ -65,8 +59,22 @@ Vue.component("logging", {
             _loader.load("/logdata/" + this.selected, "GET").then(
                 (result) => {
                     _self.text = result[_self.selected];
-                    this.$el.scrollTop = this.$el.scrollHeight
-                }).catch((result) => {_self.text = "[ERROR] "+ result});
+                    // Update on next-tick so that the updated content has been drawn already
+                    _self.$nextTick(() => {
+                        let panes = _self.$el.getElementsByClassName("fp-scrollable");
+                        if (panes && _self.scroll)
+                        {
+                            panes[0].scrollTop = panes[0].scrollHeight;
+                        }
+                    });
+                    _self.error = "";
+                }).catch((result) => {
+                    if (result === "") {
+                        _self.error = "[ERROR] Failed to update log content.";
+                    } else {
+                        _self.error = "[ERROR] " + result + ".";
+                    }
+                });
         }
     }
 });

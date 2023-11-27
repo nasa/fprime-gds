@@ -36,16 +36,23 @@ class Downlinker:
     """
 
     def __init__(
-        self, adapter: BaseAdapter, ground: GroundHandler, deframer: FramerDeframer
+        self,
+        adapter: BaseAdapter,
+        ground: GroundHandler,
+        deframer: FramerDeframer,
+        discarded=None,
     ):
         """Initialize the downlinker
 
-        Constructs a new downlinker object used to run the downlink and deframing operation.
+        Constructs a new downlinker object used to run the downlink and deframing operation. This downlinker will log
+        discarded (unframed) data when discarded is a writable data object. When discarded is None the discarded data is
+        dropped.
 
         Args:
             adapter: adapter used to read raw data from the hardware connection
             ground: handles the ground side connection
             deframer: deframer used to deframe data from the communication format
+            discarded: file to write discarded data to. None to drop the data.
         """
         self.running = True
         self.th_ground = None
@@ -54,13 +61,18 @@ class Downlinker:
         self.ground = ground
         self.deframer = deframer
         self.outgoing = Queue()
+        self.discarded = discarded
 
     def start(self):
         """Starts the downlink pipeline"""
-        self.th_ground = threading.Thread(target=self.sending, name="DownlinkTTSGroundThread")
+        self.th_ground = threading.Thread(
+            target=self.sending, name="DownlinkTTSGroundThread"
+        )
         self.th_ground.daemon = True
         self.th_ground.start()
-        self.th_data = threading.Thread(target=self.deframing, name="DownLinkDeframingThread")
+        self.th_data = threading.Thread(
+            target=self.deframing, name="DownLinkDeframingThread"
+        )
         self.th_data.daemon = True
         self.th_data.start()
 
@@ -74,12 +86,20 @@ class Downlinker:
         while self.running:
             # Blocks until data is available, but may still return b"" if timeout
             pool += self.adapter.read()
-            frames, pool = self.deframer.deframe_all(pool, no_copy=True)
+            frames, pool, discarded_data = self.deframer.deframe_all(pool, no_copy=True)
             try:
                 for frame in frames:
                     self.outgoing.put_nowait(frame)
             except Full:
                 DW_LOGGER.warning("GDS ground queue full, dropping frame")
+            try:
+                if self.discarded is not None:
+                    self.discarded.write(discarded_data)
+                    self.discarded.flush()
+            # Failure to write discarded data should never stop the GDS. Log it and move on.
+            except Exception as exc:
+                DW_LOGGER.warning("Cannot write discarded data %s", exc)
+                self.discarded = None  # Give up on logging further data
 
     def sending(self):
         """Outgoing stage of downlink
@@ -107,6 +127,7 @@ class Downlinker:
         for thread in [self.th_data, self.th_ground]:
             if thread is not None:
                 thread.join()
+        self.discarded = None
 
     def add_loopback_frame(self, frame):
         """Adds a frame to loopback to ground
