@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Open an Issue with F´
+    url: https://github.com/nasa/fprime/issues/new/choose
+    about: Issues about this repository are centrally managed in the core F´ repository
+  - name: F´ Community Discussions
+    url: https://github.com/nasa/fprime/discussions
+    about: Questions should be asked in the F´ Discussions
