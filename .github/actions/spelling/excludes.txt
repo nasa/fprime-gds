@@ -43,3 +43,5 @@ ignore$
 \.xlsx$
 \.xsd$
 \.ico$
+pyproject.toml
+setup.py
