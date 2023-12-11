@@ -109,7 +109,7 @@ Vue.component("event-list", {
          * @return {string} unique key
          */
         keyify(item) {
-            return "evt-" + item.id + "-" + item.time.seconds + "-"+ item.time.microseconds;
+            return "evt-" + item.id + "-" + item.time.seconds + "-"+ item.time.microseconds + "-" + item.incremental_id;
         },
         /**
          * A function to clear events out of the data store. This is to reset the events entirely.

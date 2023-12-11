@@ -40,13 +40,13 @@ class FramerDeframer(abc.ABC):
         """
         Deframes the incoming data from the specified format. Produces exactly one packet, and leftover bytes. Users
         wanting all packets to be deframed should call "deframe_all". If no full packet is available, this method
-        returns None. Expects incoming raw bytes to deframe, and returns a deframed packet or None, and the leftover
-        bytes that were unused. Will search and discard data up until a start token is found. Note: data will be
-        consumed up to the first start token found.
+        returns None. Expects incoming raw bytes to deframe, and returns a deframed packet or None, the leftover
+        bytes that were unused, and any bytes discarded from the existing data stream. Will search and discard data up
+        until a start token is found. Note: data will be consumed up to the first start token found.
 
         :param data: framed data bytes
         :param no_copy: (optional) will prevent extra copy if True, but "data" input will be destroyed.
-        :return: (packet as array of bytes or None, leftover bytes)
+        :return: (packet as array of bytes or None, leftover bytes, any discarded data)
         """
 
     def deframe_all(self, data, no_copy):
@@ -56,16 +56,18 @@ class FramerDeframer(abc.ABC):
 
         :param data: framed data bytes
         :param no_copy: (optional) will prevent extra copy if True, but "data" input will be destroyed.
-        :return:
+        :return: list of packets, remaining data, discarded/unframed/garbage data
         """
         packets = []
         if not no_copy:
             data = copy.copy(data)
+        discarded_aggregate = b""
         while True:
             # Deframe and return only on None
-            (packet, data) = self.deframe(data, no_copy=True)
+            (packet, data, discarded) = self.deframe(data, no_copy=True)
+            discarded_aggregate += discarded
             if packet is None:
-                return packets, data
+                return packets, data, discarded_aggregate
             packets.append(packet)
 
 
@@ -147,6 +149,7 @@ class FpFramerDeframer(FramerDeframer):
         :param no_copy: (optional) will prevent extra copy if True, but "data" input will be destroyed.
         :return: (packet as array of bytes or None, leftover bytes)
         """
+        discarded = b""
         if not no_copy:
             data = copy.copy(data)
         # Continue until there is not enough data for the header, or until a packet is found (return)
@@ -163,6 +166,7 @@ class FpFramerDeframer(FramerDeframer):
                 start != FpFramerDeframer.START_TOKEN
                 or data_size >= FpFramerDeframer.MAXIMUM_DATA_SIZE
             ):
+                discarded += data[0:1]
                 data = data[1:]
                 continue
             # If the pool is large enough to read the whole frame, then read it
@@ -175,17 +179,18 @@ class FpFramerDeframer(FramerDeframer):
                     data[: data_size + FpFramerDeframer.HEADER_SIZE]
                 ):
                     data = data[total_size:]
-                    return deframed, data
+                    return deframed, data, discarded
                 print(
                     "[WARNING] Checksum validation failed. Have you correctly set '--comm-checksum-type'",
                     file=sys.stderr,
                 )
                 # Bad checksum, rotate 1 and keep looking for non-garbage
+                discarded += data[0:1]
                 data = data[1:]
                 continue
             # Case of not enough data for a full packet, return hoping for more later
-            return None, data
-        return None, data
+            return None, data, discarded
+        return None, data, discarded
 
 
 class TcpServerFramerDeframer(FramerDeframer):
@@ -237,11 +242,11 @@ class TcpServerFramerDeframer(FramerDeframer):
             data = data[1:]
         # Break out of data when not enough
         if len(data) < 8:
-            return None, data
+            return None, data, b""
         # Read the length and break if not enough data
         (data_len,) = struct.unpack_from(">I", data, 4)
         if len(data) < data_len + 8:
-            return None, data
+            return None, data, b""
         packet = data[8 : data_len + 8]
         data = data[data_len + 8 :]
-        return packet, data
+        return packet, data, b""

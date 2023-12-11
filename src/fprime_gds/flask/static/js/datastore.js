@@ -28,6 +28,7 @@ class HistoryHelper {
         this.active_key = active_key;
         this.consumers = [];
         this.active_timeout = null;
+        this.counter = 0;
     }
 
     /**
@@ -58,7 +59,8 @@ class HistoryHelper {
         // Break our when no new items returned
         if (new_items.length === 0) { return; }
         new_items.filter((item) => item.time).forEach((item) => {
-            item.datetime = timeToDate(item.time)
+            item.datetime = timeToDate(item.time);
+            item.incremental_id = this.counter++;
         });
         this.consumers.forEach((consumer) => {
             try {
@@ -119,7 +121,18 @@ class FullListHistory extends ListHistory {
      * @param new_items: new items being to be process
      */
     send(new_items) {
-        this.store.splice(0, this.store.length, ...new_items);
+        // When the lists are not the same, update the stored list otherwise keep the list to prevent unnecessary bound
+        // data re-rendering.
+        if (this.store.length !== new_items.length) {
+            this.store.splice(0, this.store.length, ...new_items);
+            return;
+        }
+        for (let i = 0; i < Math.min(this.store.length, new_items.length); i++) {
+            if (this.store[i] !== new_items[i]) {
+                this.store.splice(0, this.store.length, ...new_items);
+                return;
+            }
+        }
     }
 }
 

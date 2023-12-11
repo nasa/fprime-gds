@@ -77,6 +77,7 @@ class FileStates(enum.Enum):
     RUNNING = 1
     CANCELED = 2
     END_WAIT = 3  # Waiting for the handshake for CANCEL or END packet
+    ERROR = 4
 
 
 class CFDPChecksum:
