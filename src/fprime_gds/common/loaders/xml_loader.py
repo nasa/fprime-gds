@@ -232,7 +232,7 @@ class XmlLoader(dict_loader.DictLoader):
                     item_val = int(item.get(self.ENUM_ELEM_VAL_TAG))
                     members[item_name] = item_val
 
-                enum_obj = EnumType.construct_type(enum_name, members, rep_type=serialize_type)
+                enum_obj = EnumType.construct_type(enum_name, members, serialize_type)
 
                 self.enums[enum_name] = enum_obj
                 return enum_obj
