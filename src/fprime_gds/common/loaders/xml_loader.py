@@ -220,10 +220,7 @@ class XmlLoader(dict_loader.DictLoader):
             # Check enum name
             if enum.get(self.ENUM_TYPE_TAG) == enum_name:
                 # Get serialize/representation type, if present
-                serialize_type = enum.get(self.ENUM_SERIALIZE_TYPE_TAG)
-
-                if not serialize_type:
-                    serialize_type = "I32"
+                serialize_type = enum.get(self.ENUM_SERIALIZE_TYPE_TAG, "I32")
 
                 # Go through all possible values of the enum
                 members = {}
