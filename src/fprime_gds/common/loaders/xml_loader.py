@@ -117,23 +117,6 @@ class XmlLoader(dict_loader.DictLoader):
             # Parse xml and get element tree object we can retrieve data from
             element_tree = etree.parse(fd, parser=xml_parser)
         root = element_tree.getroot()
-
-        # Check version of the XML before continuing. Versions weren't published before 1.5.4.  Only check major minor
-        # and point versions to allow for development versions to be allowed.
-        dict_version_string = root.attrib.get("framework_version", "1.5.4")
-        digits = []
-        # Process through the tokens of the version until we hit something that is not an int
-        for token in dict_version_string.split("."):
-            try:
-                digits.append(int(token))
-            except ValueError:
-                break
-        dict_version = tuple(digits)
-        if (
-            dict_version < MINIMUM_SUPPORTED_FRAMEWORK_VERSION
-            or dict_version > MAXIMUM_SUPPORTED_FRAMEWORK_VERSION
-        ):
-            raise UnsupportedDictionaryVersionException(dict_version)
         return root
 
     @staticmethod
@@ -400,23 +383,4 @@ class XmlLoader(dict_loader.DictLoader):
         msg = f"Could not find type {type_name}"
         raise exceptions.GseControllerParsingException(
             msg
-        )
-
-
-class UnsupportedDictionaryVersionException(Exception):
-    """Dictionary is of unsupported version"""
-
-    def __init__(self, version):
-        """Create a dictionary of a specific version"""
-
-        def pretty(version_tuple):
-            """Pretty print version"""
-            return ".".join([str(item) for item in version_tuple])
-
-        super().__init__(
-            "Dictionary version {} is not in supported range: {}-{}. Please upgrade fprime-gds.".format(
-                pretty(version),
-                pretty(MINIMUM_SUPPORTED_FRAMEWORK_VERSION),
-                pretty(MAXIMUM_SUPPORTED_FRAMEWORK_VERSION),
-            )
         )
