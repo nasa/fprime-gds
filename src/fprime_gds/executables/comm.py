@@ -64,7 +64,7 @@ def main():
     )
     fprime_gds.common.communication.checksum = args.checksum_type
     if args.comm_adapter == "none":
-        print("[ERROR] Comm adapter set to 'none'. Nothing to do but exit.")
+        print("[ERROR] Comm adapter set to 'none'. Nothing to do but exit.", file=sys.stderr)
         sys.exit(-1)
 
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
