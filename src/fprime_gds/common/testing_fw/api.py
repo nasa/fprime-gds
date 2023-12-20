@@ -402,7 +402,7 @@ class IntegrationTestAPI(DataHandler):
             return self.await_event_sequence(events, start=start, timeout=timeout)
         return self.await_event(events, start=start, timeout=timeout)
 
-    def send_and_assert_command(self, command, args=[], max_delay=None, timeout=5, events=None):
+    def send_and_assert_command(self, command, args=[], max_delay=None, timeout=5, events=None, commander="cmdDisp"):
         """
         This helper will send a command and verify that the command was dispatched and completed
         within the F' deployment. This helper can retroactively check that the delay between
@@ -414,12 +414,13 @@ class IntegrationTestAPI(DataHandler):
             max_delay: the maximum allowable delay between dispatch and completion (int/float)
             timeout: the number of seconds to wait before terminating the search (int)
             events: extra event predicates to check between  dispatch and complete
+            commander: the command dispatching component. Defaults to cmdDisp
         Return:
             returns a list of the EventData objects found by the search
         """
         cmd_id = self.translate_command_name(command)
-        dispatch = [self.get_event_pred("cmdDisp.OpCodeDispatched", [cmd_id, None])]
-        complete = [self.get_event_pred("cmdDisp.OpCodeCompleted", [cmd_id])]
+        dispatch = [self.get_event_pred(f"{commander}.OpCodeDispatched", [cmd_id, None])]
+        complete = [self.get_event_pred(f"{commander}.OpCodeCompleted", [cmd_id])]
         events = dispatch + (events if events else []) + complete
         results = self.send_and_assert_event(command, args, events, timeout=timeout)
         if max_delay is not None:
