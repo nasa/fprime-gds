@@ -72,6 +72,13 @@ class StandardPipeline:
         # File storage configuration for uplink and downlink
         self.up_store = Path(file_store) / "fprime-uplink"
         self.down_store = Path(file_store) / "fprime-downlink"
+        try:
+            self.down_store.mkdir(parents=True, exist_ok=True)
+            self.up_store.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise PermissionError(
+                f"{file_store} is not writable. Fix permissions or change storage directory with --file-storage-directory."
+            )
         self.dictionary_path = Path(dictionary)
         # Loads the distributor and client socket
         self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
