@@ -44,6 +44,8 @@ class StandardPipeline:
         self.client_socket = None
         self.logger = None
         self.dictionary_path = None
+        self.up_store = None
+        self.down_store = None
 
         self.__dictionaries = dictionaries.Dictionaries()
         self.__coders = encoding.EncodingDecoding()
@@ -52,7 +54,7 @@ class StandardPipeline:
         self.__transport_type = ThreadedTCPSocketClient
 
     def setup(
-        self, config, dictionary, down_store, logging_prefix=None, packet_spec=None
+        self, config, dictionary, file_store, logging_prefix=None, packet_spec=None
     ):
         """
         Setup the standard pipeline for moving data from the middleware layer through the GDS layers using the standard
@@ -60,11 +62,23 @@ class StandardPipeline:
 
         :param config: config object used when constructing the pipeline.
         :param dictionary: dictionary path. Used to setup loading of dictionaries.
-        :param down_store: downlink storage directory
+        :param file_store: uplink/downlink storage directory
         :param logging_prefix: logging prefix. Defaults to not logging at all.
         :param packet_spec: location of packetized telemetry XML specification.
         """
-        assert dictionary is not None and Path(dictionary).is_file(), f"Dictionary {dictionary} does not exist"
+        assert (
+            dictionary is not None and Path(dictionary).is_file()
+        ), f"Dictionary {dictionary} does not exist"
+        # File storage configuration for uplink and downlink
+        self.up_store = Path(file_store) / "fprime-uplink"
+        self.down_store = Path(file_store) / "fprime-downlink"
+        try:
+            self.down_store.mkdir(parents=True, exist_ok=True)
+            self.up_store.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise PermissionError(
+                f"{file_store} is not writable. Fix permissions or change storage directory with --file-storage-directory."
+            )
         self.dictionary_path = Path(dictionary)
         # Loads the distributor and client socket
         self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
@@ -76,7 +90,7 @@ class StandardPipeline:
         )
         self.histories.setup_histories(self.coders)
         self.files.setup_file_handling(
-            down_store,
+            self.down_store,
             self.coders.file_encoder,
             self.coders.file_decoder,
             self.distributor,
@@ -152,7 +166,11 @@ class StandardPipeline:
             outgoing_tag: this pipeline will produce data for supplied tag (FSW, GUI). Default: FSW
         """
         # Backwards compatibility with the old method .connect(host, port)
-        if isinstance(incoming_tag, int) and ":" not in connection_uri and outgoing_tag == RoutingTag.FSW:
+        if (
+            isinstance(incoming_tag, int)
+            and ":" not in connection_uri
+            and outgoing_tag == RoutingTag.FSW
+        ):
             connection_uri = f"{connection_uri}:{incoming_tag}"
             incoming_tag = RoutingTag.GUI
         self.client_socket.connect(connection_uri, incoming_tag, outgoing_tag)

@@ -30,7 +30,6 @@ import fprime_gds.flask.sequence
 import fprime_gds.flask.stats
 import fprime_gds.flask.updown
 from fprime_gds.executables.cli import ParserBase, StandardPipelineParser
-from fprime_gds.flask import flask_uploads
 
 from . import components
 
@@ -49,8 +48,7 @@ def construct_app():
     2. Setup JSON encoding for Flask and flask_restful to handle F prime types natively
     3. Setup standard pipeline used throughout the system
     4. Create Restful API for registering flask items
-    5. Setup flask_uploads settings
-    6. Register all restful endpoints
+    5. Register all restful endpoints
 
     :return: setup app
     """
@@ -77,9 +75,6 @@ def construct_app():
 
     # Restful API registration
     api = fprime_gds.flask.errors.setup_error_handling(app)
-    # File upload configuration, 1 set for everything
-    uplink_set = flask_uploads.UploadSet("uplink", flask_uploads.ALL)
-    flask_uploads.configure_uploads(app, [uplink_set])
 
     # Application routes
     api.add_resource(
@@ -137,7 +132,7 @@ def construct_app():
     api.add_resource(
         fprime_gds.flask.updown.FileUploads,
         "/upload/files",
-        resource_class_args=[pipeline.files.uplinker, uplink_set],
+        resource_class_args=[pipeline.files.uplinker, pipeline.up_store],
     )
     api.add_resource(
         fprime_gds.flask.updown.FileDownload,
@@ -150,9 +145,9 @@ def construct_app():
         "/sequence",
         resource_class_args=[
             args_ns.dictionary,
-            app.config["UPLOADED_UPLINK_DEST"],
+            pipeline.up_store,
             pipeline.files.uplinker,
-            app.config["REMOTE_SEQ_DIRECTORY"],
+            args_ns.remote_sequence_directory,
         ],
     )
     api.add_resource(
