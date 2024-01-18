@@ -557,7 +557,12 @@ class FileHandlingParser(ParserBase):
 
     def handle_arguments(self, args, **kwargs):
         """Handle arguments as parsed"""
-        os.makedirs(args.files_storage_directory, exist_ok=True)
+        try:
+            Path(args.files_storage_directory).mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise PermissionError(
+                f"{args.files_storage_directory} is not writable. Fix permissions or change storage directory with --file-storage-directory."
+            )
         return args
 
 

@@ -125,9 +125,12 @@ class FileUploads(flask_restful.Resource):
         filename = Path(secure_filename(file_storage.filename)).name
         dest_dir = Path(self.dest_dir)
 
-        # not necessary
-        if not dest_dir.exists():
-            dest_dir.mkdir(parents=True)
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise PermissionError(
+                f"{dest_dir} is not writable. Fix permissions or change storage directory with --file-storage-directory."
+            )
 
         # resolve conflict may not be needed
         if (dest_dir / filename).exists():
