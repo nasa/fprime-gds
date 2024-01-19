@@ -102,7 +102,8 @@ Vue.component("command-history", {
             cmd.full_name = template.full_name;
             // Can only set command if it is a child of a command input
             if (this.$parent.selectCmd) {
-                this.$parent.selectCmd(cmd.full_name, cmd.args);
+                // command-input expects an array of strings as arguments
+                this.$parent.selectCmd(cmd.full_name, cmd.args.map(el => el.toString ? el.toString() : el));
             }
         }
     }
