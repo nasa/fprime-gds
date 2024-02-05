@@ -261,7 +261,11 @@ class XmlLoader(dict_loader.DictLoader):
                     type_obj = self.parse_type(memb_type_name, memb, xml_obj)
                     # memb_size is not None for member array
                     if(memb_size is not None):
-                        type_obj = ArrayType.construct_type("Array_"+type_name, type_obj, int(memb_size), fmt_str)
+                        type_obj = ArrayType.construct_type(
+                            f"Array_{type_obj.__name__}_{memb_size}",
+                            type_obj,
+                            int(memb_size),
+                            fmt_str)
 
                     members.append((name, type_obj, fmt_str, desc))
 
