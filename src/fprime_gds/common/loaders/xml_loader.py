@@ -61,6 +61,7 @@ class XmlLoader(dict_loader.DictLoader):
     SER_MEMB_FMT_STR_TAG = "format_specifier"
     SER_MEMB_DESC_TAG = "description"
     SER_MEMB_TYPE_TAG = "type"
+    SER_MEMB_SIZE_TAG = "size"
 
     # Xml section names and tags for array types
     ARR_SECT = "arrays"
@@ -256,7 +257,15 @@ class XmlLoader(dict_loader.DictLoader):
                     fmt_str = memb.get(self.SER_MEMB_FMT_STR_TAG)
                     desc = memb.get(self.SER_MEMB_DESC_TAG)
                     memb_type_name = memb.get(self.SER_MEMB_TYPE_TAG)
+                    memb_size = memb.get(self.SER_MEMB_SIZE_TAG)
                     type_obj = self.parse_type(memb_type_name, memb, xml_obj)
+                    # memb_size is not None for member array
+                    if(memb_size is not None):
+                        type_obj = ArrayType.construct_type(
+                            f"Array_{type_obj.__name__}_{memb_size}",
+                            type_obj,
+                            int(memb_size),
+                            fmt_str)
 
                     members.append((name, type_obj, fmt_str, desc))
 
