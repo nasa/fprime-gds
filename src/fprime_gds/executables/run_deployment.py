@@ -168,7 +168,7 @@ def main():
         if parsed_args.adapter == "ip":
             launchers.append(launch_app)
         else:
-            print("[WARNING] App cannot be auto-launched without IP adapter")
+            print("[WARNING] App cannot be auto-launched without IP adapter", file=sys.stderr)
 
     # Launch the desired GUI package
     if parsed_args.gui == "html":

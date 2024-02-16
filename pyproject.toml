@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm[toml]>=6.2", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fprime-gds"
+dynamic = ["version"]
+description = "F Prime Flight Software Ground Data System layer"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE.txt"}
+keywords = ["fprime", "embedded", "nasa", "flight", "software"]
+authors = [
+  {name = "Michael Starch", email = "Michael.D.Starch@jpl.nasa.gov"},
+  {name = "Thomas Boyer-Chammard", email = "Thomas.Boyer.Chammard@jpl.nasa.gov"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: Unix",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "flask>=3.0.0",
+    "flask_compress>=1.11",
+    "pyzmq>=24.0.1",
+    "pexpect>=4.8.0",
+    "pytest>=6.2.4",
+    "flask_restful>=0.3.8",
+    "fprime-tools>=3.1.2a1",
+    "argcomplete>=1.12.3",
+    "Jinja2>=2.11.3",
+    "openpyxl>=3.0.10",
+    "pyserial>=3.5",
+]
+
+[project.urls]
+Homepage = "https://fprime.jpl.nasa.gov"
+Documentation = "https://nasa.github.io/fprime/"
+Repository = "https://github.com/fprime-community/fprime-gds"
+
+####
+# Entry Points:
+#
+# Defines the list of entry-level (scripts) that are defined by this package. This allows
+# standard use of utilities that ship as part of F prime.
+####
+[project.scripts]
+fprime-cli = "fprime_gds.executables.fprime_cli:main"
+fprime-seqgen = "fprime_gds.common.tools.seqgen:main"
+
+[project.gui-scripts]
+fprime-gds = "fprime_gds.executables.run_deployment:main"
+
+# For Pytest fixtures
+[project.entry-points."pytest11"]
+fprime_test_api = "fprime_gds.common.testing_fw.pytest_integration"
+
+####
+# setuptools_scm dynamically generates version number from git, as well as automatically
+# include all data files tracked by git (e.g. flash/static/** files).
+# See https://setuptools.pypa.io/en/latest/userguide/datafiles.html
+####
+[tool.setuptools_scm]
+
+
+####
+# Additional notes
+#
+# With regards to the configuration of the older versions of setup.py:
+# - package_data: included by default, and setuptools_scm will automatically include all files tracked by git
+# - package discovery (src/): setuptools will automatically discover all packages as we use the src-layout
+#
+# Reference:
+# - https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
+# - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html#src-layout
+####

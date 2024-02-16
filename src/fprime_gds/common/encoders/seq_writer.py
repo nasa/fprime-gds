@@ -137,9 +137,9 @@ class SeqBinaryWriter:
         for cmd in seq_cmds_list:
             sequence += self.__binaryCmdRecord(cmd)
         size = len(sequence)
-        tb_txt = b"ANY" if self.__timebase == 0xFFFF else bytes(self.__timebase)
+        tb_txt = "ANY" if self.__timebase == 0xFFFF else hex(self.__timebase)
 
-        print("Sequence is %d bytes with timebase %s" % (size, tb_txt))
+        print(f"Sequence is {size} bytes with timebase {tb_txt}")
 
         header = b""
         header += U32Type(

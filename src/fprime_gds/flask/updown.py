@@ -11,6 +11,9 @@ import os
 
 import flask
 import flask_restful
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
+from pathlib import Path
 
 
 class Destination(flask_restful.Resource):
@@ -51,12 +54,12 @@ class FileUploads(flask_restful.Resource):
     A data model for the current uplinking file set.
     """
 
-    def __init__(self, uplinker, uplink_set):
+    def __init__(self, uplinker, dest_dir):
         """
         Constructor: setup the uplinker and argument parsing
         """
         self.uplinker = uplinker
-        self.uplink_set = uplink_set
+        self.dest_dir = dest_dir
         self.parser = flask_restful.reqparse.RequestParser()
         self.parser.add_argument(
             "action", required=True, help="Action to take against files"
@@ -99,11 +102,9 @@ class FileUploads(flask_restful.Resource):
         failed = []
         for key, file in flask.request.files.items():
             try:
-                filename = self.uplink_set.save(file)
+                filename = self.save(file)
                 flask.current_app.logger.info(f"Received file. Saved to: {filename}")
-                self.uplinker.enqueue(
-                    os.path.join(self.uplink_set.config.destination, filename)
-                )
+                self.uplinker.enqueue(os.path.join(self.dest_dir, filename))
                 successful.append(key)
             except Exception as exc:
                 flask.current_app.logger.warning(
@@ -111,6 +112,56 @@ class FileUploads(flask_restful.Resource):
                 )
                 failed.append(key)
         return {"successful": successful, "failed": failed}
+
+    def save(self, file_storage: FileStorage):
+        """
+        This saves a `werkzeug.FileStorage` into this upload set.
+
+        :param file_storage: The uploaded file to save.
+        """
+        if not isinstance(file_storage, FileStorage):
+            raise TypeError("file_storage must be a werkzeug.FileStorage")
+
+        filename = Path(secure_filename(file_storage.filename)).name
+        dest_dir = Path(self.dest_dir)
+
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise PermissionError(
+                f"{dest_dir} is not writable. Fix permissions or change storage directory with --file-storage-directory."
+            )
+
+        # resolve conflict may not be needed
+        if (dest_dir / filename).exists():
+            filename = self.resolve_conflict(dest_dir, filename)
+
+        target = dest_dir / filename
+        file_storage.save(str(target))
+
+        return filename
+
+    def resolve_conflict(self, target_folder: Path, filename: str):
+        """
+        If a file with the selected name already exists in the target folder,
+        this method is called to resolve the conflict. It should return a new
+        filename for the file.
+
+        The default implementation splits the name and extension and adds a
+        suffix to the name consisting of an underscore and a number, and tries
+        that until it finds one that doesn't exist.
+
+        :param target_folder: The absolute path to the target.
+        :param filename: The file's original filename.
+        """
+        path = Path(filename)
+        name, ext = path.stem, path.suffix
+        count = 0
+        while True:
+            count = count + 1
+            newname = f"{name}_{count}{ext}"
+            if not (Path(target_folder) / newname).exists():
+                return newname
 
 
 class FileDownload(flask_restful.Resource):

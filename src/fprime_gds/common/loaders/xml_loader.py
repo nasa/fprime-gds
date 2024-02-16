@@ -62,6 +62,7 @@ class XmlLoader(dict_loader.DictLoader):
     SER_MEMB_FMT_STR_TAG = "format_specifier"
     SER_MEMB_DESC_TAG = "description"
     SER_MEMB_TYPE_TAG = "type"
+    SER_MEMB_SIZE_TAG = "size"
 
     # Xml section names and tags for array types
     ARR_SECT = "arrays"
@@ -118,23 +119,6 @@ class XmlLoader(dict_loader.DictLoader):
             # Parse xml and get element tree object we can retrieve data from
             element_tree = etree.parse(fd, parser=xml_parser)
         root = element_tree.getroot()
-
-        # Check version of the XML before continuing. Versions weren't published before 1.5.4.  Only check major minor
-        # and point versions to allow for development versions to be allowed.
-        dict_version_string = root.attrib.get("framework_version", "1.5.4")
-        digits = []
-        # Process through the tokens of the version until we hit something that is not an int
-        for token in dict_version_string.split("."):
-            try:
-                digits.append(int(token))
-            except ValueError:
-                break
-        dict_version = tuple(digits)
-        if (
-            dict_version < MINIMUM_SUPPORTED_FRAMEWORK_VERSION
-            or dict_version > MAXIMUM_SUPPORTED_FRAMEWORK_VERSION
-        ):
-            raise UnsupportedDictionaryVersionException(dict_version)
         return root
 
     @staticmethod
@@ -277,7 +261,15 @@ class XmlLoader(dict_loader.DictLoader):
                     fmt_str = memb.get(self.SER_MEMB_FMT_STR_TAG)
                     desc = memb.get(self.SER_MEMB_DESC_TAG)
                     memb_type_name = memb.get(self.SER_MEMB_TYPE_TAG)
+                    memb_size = memb.get(self.SER_MEMB_SIZE_TAG)
                     type_obj = self.parse_type(memb_type_name, memb, xml_obj)
+                    # memb_size is not None for member array
+                    if(memb_size is not None):
+                        type_obj = ArrayType.construct_type(
+                            f"Array_{type_obj.__name__}_{memb_size}",
+                            type_obj,
+                            int(memb_size),
+                            fmt_str)
 
                     members.append((name, type_obj, fmt_str, desc))
 
@@ -404,23 +396,4 @@ class XmlLoader(dict_loader.DictLoader):
         msg = f"Could not find type {type_name}"
         raise exceptions.GseControllerParsingException(
             msg
-        )
-
-
-class UnsupportedDictionaryVersionException(Exception):
-    """Dictionary is of unsupported version"""
-
-    def __init__(self, version):
-        """Create a dictionary of a specific version"""
-
-        def pretty(version_tuple):
-            """Pretty print version"""
-            return ".".join([str(item) for item in version_tuple])
-
-        super().__init__(
-            "Dictionary version {} is not in supported range: {}-{}. Please upgrade fprime-gds.".format(
-                pretty(version),
-                pretty(MINIMUM_SUPPORTED_FRAMEWORK_VERSION),
-                pretty(MAXIMUM_SUPPORTED_FRAMEWORK_VERSION),
-            )
         )

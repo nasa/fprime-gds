@@ -547,18 +547,31 @@ class FileHandlingParser(ParserBase):
 
         return {
             ("--file-storage-directory",): {
-                "dest": "files_directory",
+                "dest": "files_storage_directory",
                 "action": "store",
-                "default": "/tmp/" + username + "/fprime-downlink/",
+                "default": "/tmp/" + username,
                 "required": False,
                 "type": str,
-                "help": "File to store uplink and downlink files. Default: %(default)s",
-            }
+                "help": "Directory to store uplink and downlink files. Default: %(default)s",
+            },
+            ("--remote-sequence-directory",): {
+                "dest": "remote_sequence_directory",
+                "action": "store",
+                "default": "/seq",
+                "required": False,
+                "type": str,
+                "help": "Directory to save command sequence binaries, on the remote FSW. Default: %(default)s",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
         """Handle arguments as parsed"""
-        os.makedirs(args.files_directory, exist_ok=True)
+        try:
+            Path(args.files_storage_directory).mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise PermissionError(
+                f"{args.files_storage_directory} is not writable. Fix permissions or change storage directory with --file-storage-directory."
+            )
         return args
 
 
@@ -584,7 +597,7 @@ class StandardPipelineParser(CompositeParser):
         pipeline_arguments = {
             "config": ConfigManager(),
             "dictionary": args_ns.dictionary,
-            "down_store": args_ns.files_directory,
+            "file_store": args_ns.files_storage_directory,
             "packet_spec": args_ns.packet_spec,
             "logging_prefix": args_ns.logs,
         }

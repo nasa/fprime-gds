@@ -7,7 +7,7 @@ communications layer.
 
 @author mstarch
 """
-import os
+from pathlib import Path
 import fprime_gds.common.files.downlinker
 import fprime_gds.common.files.uplinker
 
@@ -43,10 +43,11 @@ class Filing:
         )
         file_decoder.register(self.__downlinker)
         distributor.register("FW_PACKET_HAND", self.__uplinker)
-        if not os.access(down_store, os.W_OK):
+        try:
+            Path(down_store).mkdir(parents=True, exist_ok=True)
+        except PermissionError:
             raise PermissionError(
-                f"{down_store} is not writable. Downlinker not be able to save files. "
-                "Fix permissions or change storage directory with --file-storage-directory."
+                f"{down_store} is not writable. Fix permissions or change storage directory with --file-storage-directory."
             )
 
     @property
