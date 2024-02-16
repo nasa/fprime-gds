@@ -805,3 +805,41 @@ class RetrievalArgumentsParser(ParserBase):
 
     def handle_arguments(self, args, **kwargs):
         return args
+    
+class OpenMCTTelemetryPollerParser(ParserBase):
+    """ Parser for OpenMCT Server arguments  """
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """ Return arguments on whether to use OpenMCT, post to a specific URI, and publish telemetry at a specific frequency"""
+        return {
+            ("--openmct",): {
+                "dest": "openmct",
+                "action": 'store_true',
+                "help": "Determines whethers OpenMCT will be used for Telemetry Visualization",
+                "required": False
+            },
+            ("--openmct-uri",): {
+                "dest": "openmct_uri",
+                "type": str,
+                "default": "http://127.0.0.1:4052/fprime_telem",
+                "help": "URI of the OpenMCT Server. The URI at which the F-Prime telemetry will be broadcasted.",
+                "required": False
+            },
+            ("--openmct-telem-rate",): {
+                "dest": "openmct_telem_rate",
+                "type": float,
+                "default": 1,
+                "help": "Rate(in Hz) at which we want to poll the F-Prime Telemetry Pipeline for new telemetry",
+                "required": False
+            },
+            ("--openmct-dir",): {
+                "dest": "openmct_dir",
+                "type": str, 
+                "default": "",
+                "help": "Directory where the OpenMCT Installation is located",
+                "required": False
+            }
+        }
+
+    def handle_arguments(self, args, **kwargs):
+        return args

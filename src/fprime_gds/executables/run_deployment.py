@@ -13,8 +13,21 @@ from fprime_gds.executables.cli import (
     GdsParser,
     ParserBase,
     StandardPipelineParser,
+    OpenMCTTelemetryPollerParser
 )
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
+
+# Try to Import FPrime-OpenMCT Python Packages
+try: 
+    import fprime_openmct
+except ImportError:
+    fprime_openmct = None
+
+if fprime_openmct is not None: 
+    from fprime_openmct.config_server import ServerConfig
+    from fprime_openmct.fprime_to_openmct import TopologyAppDictionaryJSONifier
+
+
 
 BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
 
@@ -27,7 +40,7 @@ def parse_args():
     :return: parsed argument namespace
     """
     # Get custom handlers for all executables we are running
-    arg_handlers = [StandardPipelineParser, GdsParser, BinaryDeployment, CommParser]
+    arg_handlers = [StandardPipelineParser, GdsParser, BinaryDeployment, CommParser, OpenMCTTelemetryPollerParser]
     # Parse the arguments, and refine through all handlers
     args, parser = ParserBase.parse_args(arg_handlers, "Run F prime deployment and GDS")
     return args
@@ -147,6 +160,32 @@ def launch_comm(parsed_args):
     app_cmd = BASE_MODULE_ARGUMENTS + ["fprime_gds.executables.comm"] + arguments
     return launch_process(app_cmd, name=f'comm[{parsed_args.adapter}] Application', launch_time=1)
 
+def launch_openmct(parsed_args):
+    """ Launch OpenMCT Node Server 
+    
+    Args:
+        parsed_args: parsed argument namespace
+    Return:
+        launched process
+    """
+    openmct_server = ServerConfig()
+
+    app_cmd = openmct_server.launch_openmct_server()
+
+    return app_cmd 
+
+def poll_telem(parsed_args):
+    """ Poll and Send Telemetry to OpenMCT 
+    
+    Args:
+        parsed_args: parsed argument namespace
+    Return:
+        launched process
+    """
+    
+    app_cmd = BASE_MODULE_ARGUMENTS + ["fprime_openmct.fprime_telem_poller"] + StandardPipelineParser().reproduce_cli_args(parsed_args) + OpenMCTTelemetryPollerParser().reproduce_cli_args(parsed_args)
+
+    return launch_process(app_cmd, name='OpenMCT Poller', launch_time=1) 
 
 def main():
     """
@@ -173,6 +212,23 @@ def main():
     # Launch the desired GUI package
     if parsed_args.gui == "html":
         launchers.append(launch_html)
+
+    # Check if OpenMCT is set to be used. If true, generate OpenMCT States and Launch the OpenMCT Server
+    if parsed_args.openmct:
+
+        if fprime_openmct is None:
+            raise ImportError('FPrime-OpenMCT Bridge not installed. Please install fprime_openmct with pip')
+
+        # Try Generating the OpenMCT JSON and Initial States
+        top_dict = TopologyAppDictionaryJSONifier(str(parsed_args.dictionary))
+        top_dict.writeOpenMCTJSON('FPrimeDeploymentTopologyAppDictionary')
+        top_dict.writeInitialStatesJSON('initial_states')
+
+        # Try Launching OpenMCT Server
+        launchers.append(launch_openmct)
+
+        #Try polling for telemetry
+        launchers.append(poll_telem)
 
     # Launch launchers and wait for the last app to finish
     try:
