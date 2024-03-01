@@ -23,5 +23,6 @@ for filename in os.listdir(directory):
         
         # Output the result
         print(f"Running command: {command}")
-        print("Output:", process.stdout.decode())
+        print(process.stdout.decode())
+        print(process.stderr.decode())
 
