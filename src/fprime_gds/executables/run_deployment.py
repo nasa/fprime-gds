@@ -13,6 +13,7 @@ from fprime_gds.executables.cli import (
     GdsParser,
     ParserBase,
     StandardPipelineParser,
+    PluginArgumentParser
 )
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
 
@@ -27,7 +28,7 @@ def parse_args():
     :return: parsed argument namespace
     """
     # Get custom handlers for all executables we are running
-    arg_handlers = [StandardPipelineParser, GdsParser, BinaryDeployment, CommParser]
+    arg_handlers = [StandardPipelineParser, GdsParser, BinaryDeployment, CommParser, PluginArgumentParser]
     # Parse the arguments, and refine through all handlers
     args, parser = ParserBase.parse_args(arg_handlers, "Run F prime deployment and GDS")
     return args

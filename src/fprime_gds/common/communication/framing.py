@@ -17,6 +17,7 @@ import struct
 import sys
 
 from .checksum import calculate_checksum
+from fprime_gds.plugin.definitions import gds_plugin_implementation
 
 
 class FramerDeframer(abc.ABC):
@@ -191,6 +192,13 @@ class FpFramerDeframer(FramerDeframer):
             # Case of not enough data for a full packet, return hoping for more later
             return None, data, discarded
         return None, data, discarded
+
+    @classmethod
+    @gds_plugin_implementation
+    def register_framing_plugin(cls):
+        """ Register a bad plugin """
+        return cls
+
 
 
 class TcpServerFramerDeframer(FramerDeframer):

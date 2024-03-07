@@ -34,7 +34,6 @@ import fprime_gds.common.communication.checksum
 import fprime_gds.common.communication.ground
 import fprime_gds.common.logger
 import fprime_gds.executables.cli
-from fprime_gds.common.communication.framing import FpFramerDeframer
 from fprime_gds.common.communication.updown import Downlinker, Uplinker
 
 # Uses non-standard PIP package pyserial, so test the waters before getting a hard-import crash
@@ -58,6 +57,7 @@ def main():
             fprime_gds.executables.cli.LogDeployParser,
             fprime_gds.executables.cli.MiddleWareParser,
             fprime_gds.executables.cli.CommParser,
+            fprime_gds.executables.cli.PluginArgumentParser,
         ],
         description="F prime communications layer.",
         client=True,
@@ -85,11 +85,11 @@ def main():
 
     # Set the framing class used and pass it to the uplink and downlink component constructions giving each a separate
     # instantiation
-    framer_class = FpFramerDeframer
+    framer_instance = args.framing_selection_instance
     LOGGER.info(
         "Starting uplinker/downlinker connecting to FSW using %s with %s",
         adapter,
-        framer_class.__name__,
+        args.framing_selection
     )
     discarded_file_handle = None
     try:
@@ -108,9 +108,9 @@ def main():
                     discarded_file_handle_path,
                 )
         downlinker = Downlinker(
-            adapter, ground, framer_class(), discarded=discarded_file_handle
+            adapter, ground, framer_instance, discarded=discarded_file_handle
         )
-        uplinker = Uplinker(adapter, ground, framer_class(), downlinker)
+        uplinker = Uplinker(adapter, ground, framer_instance, downlinker)
 
         # Open resources for the handlers on either side, this prepares the resources needed for reading/writing data
         ground.open()
