@@ -7,6 +7,7 @@ code that they are importing.
 
 @author mstarch
 """
+
 import argparse
 import datetime
 import errno
@@ -85,8 +86,9 @@ class ParserBase(ABC):
             argparse parser for supplied arguments
         """
         parser = argparse.ArgumentParser(
-            description=self.description, add_help=True,
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter
+            description=self.description,
+            add_help=True,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
         for flags, keywords in self.get_arguments().items():
             parser.add_argument(*flags, **keywords)
@@ -98,7 +100,7 @@ class ParserBase(ABC):
         def flag_member(flags, argparse_inputs) -> Tuple[str, str]:
             """Get the best CLI flag and namespace member"""
             best_flag = (
-                    [flag for flag in flags if flag.startswith("--")] + list(flags)
+                [flag for flag in flags if flag.startswith("--")] + list(flags)
             )[0]
             member = argparse_inputs.get(
                 "dest", re.sub(r"^-+", "", best_flag).replace("-", "_")
@@ -119,7 +121,7 @@ class ParserBase(ABC):
 
             # Handle arguments
             if (action == "store_true" and value) or (
-                    action == "store_false" and not value
+                action == "store_false" and not value
             ):
                 return [best_flag]
             elif action != "store" or value is None:
@@ -150,10 +152,10 @@ class ParserBase(ABC):
 
     @staticmethod
     def parse_args(
-            parser_classes,
-            description="No tool description provided",
-            arguments=None,
-            **kwargs,
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        **kwargs,
     ):
         """Parse and post-process arguments
 
@@ -236,7 +238,7 @@ class DetectionParser(ParserBase):
             raise Exception(msg)
         # Works for the old structure where the bin, lib, and dict directories live immediately under the platform
         elif len(child_directories) == 3 and set(
-                [path.name for path in child_directories]
+            [path.name for path in child_directories]
         ) == {"bin", "lib", "dict"}:
             args.deployment = detected_toolchain
             return args
@@ -248,7 +250,8 @@ class DetectionParser(ParserBase):
 
 
 class PluginArgumentParser(ParserBase):
-    """ Parser for arguments coming from plugins """
+    """Parser for arguments coming from plugins"""
+
     DESCRIPTION = "Parse plugin CLI arguments and selections"
     FPRIME_CHOICES = {
         "framing": "fprime",
@@ -256,31 +259,37 @@ class PluginArgumentParser(ParserBase):
     }
 
     def __init__(self):
-        """ Initialize the plugin information for this parser """
+        """Initialize the plugin information for this parser"""
         self._plugin_map = {
             category: {
-                self.get_selection_name(selection): selection for selection in Plugins.system().get_selections(category)
-            } for category in Plugins.system().get_categories()
+                self.get_selection_name(selection): selection
+                for selection in Plugins.system().get_selections(category)
+            }
+            for category in Plugins.system().get_categories()
         }
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return arguments to used in plugins """
+        """Return arguments to used in plugins"""
 
         arguments: Dict[Tuple[str, ...], Dict[str, Any]] = {}
         for category, selections in self._plugin_map.items():
-            arguments.update({
-                (f"--{category}-selection",): {
-                    "choices": [choice for choice in selections.keys()],
-                    "help": f"Select {category} implementer.",
-                    "default": self.FPRIME_CHOICES.get(category, list(selections.keys())[0])
+            arguments.update(
+                {
+                    (f"--{category}-selection",): {
+                        "choices": [choice for choice in selections.keys()],
+                        "help": f"Select {category} implementer.",
+                        "default": self.FPRIME_CHOICES.get(
+                            category, list(selections.keys())[0]
+                        ),
+                    }
                 }
-            })
+            )
             for selection_name, selection in selections.items():
                 arguments.update(self.get_selection_arguments(selection))
         return arguments
 
     def handle_arguments(self, args, **kwargs):
-        """ Handles the arguments """
+        """Handles the arguments"""
         for category, selections in self._plugin_map.items():
             selection_string = getattr(args, f"{category}_selection")
             selection_class = selections[selection_string]
@@ -291,24 +300,33 @@ class PluginArgumentParser(ParserBase):
 
     @staticmethod
     def get_selection_name(selection):
-        """ Get the name of a selection """
-        return selection.get_name() if hasattr(selection, "get_name") else selection.__name__
+        """Get the name of a selection"""
+        return (
+            selection.get_name()
+            if hasattr(selection, "get_name")
+            else selection.__name__
+        )
 
     @staticmethod
     def get_selection_arguments(selection) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Get the name of a selection """
+        """Get the name of a selection"""
         return selection.get_arguments() if hasattr(selection, "get_arguments") else {}
 
     @staticmethod
     def map_selection_arguments(args, selection) -> Dict[str, Any]:
-        """ Get the name of a selection """
+        """Get the name of a selection"""
         expected_args = PluginArgumentParser.get_selection_arguments(selection)
         argument_destinations = [
-            value["dest"] if "dest" in value else key[0].replace("--", "").replace("-", "_")
+            (
+                value["dest"]
+                if "dest" in value
+                else key[0].replace("--", "").replace("-", "_")
+            )
             for key, value in expected_args.items()
         ]
         filled_arguments = {
-            destination: getattr(args, destination) for destination in argument_destinations
+            destination: getattr(args, destination)
+            for destination in argument_destinations
         }
         # Check arguments or yield a Value error
         if hasattr(selection, "check_arguments"):
@@ -358,7 +376,7 @@ class CompositeParser(ParserBase):
 
 
 class CommExtraParser(ParserBase):
-    """ Parses extra communication arguments """
+    """Parses extra communication arguments"""
 
     DESCRIPTION = "Process arguments needed to specify arguments for communication"
 
@@ -640,7 +658,12 @@ class StandardPipelineParser(CompositeParser):
 class CommParser(CompositeParser):
     """Comm Executable Parser"""
 
-    CONSTITUENTS = [CommExtraParser, MiddleWareParser, LogDeployParser, PluginArgumentParser]
+    CONSTITUENTS = [
+        CommExtraParser,
+        MiddleWareParser,
+        LogDeployParser,
+        PluginArgumentParser,
+    ]
 
     def __init__(self):
         """Initialization"""
