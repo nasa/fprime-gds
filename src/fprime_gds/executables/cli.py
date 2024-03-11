@@ -23,7 +23,6 @@ from typing import Any, Dict, List, Tuple
 # Required to set the checksum as a module variable
 import fprime_gds.common.communication.checksum
 import fprime_gds.common.logger
-from fprime_gds.common.communication.adapters.base import BaseAdapter
 from fprime_gds.common.communication.adapters.ip import check_port
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.transport import ThreadedTCPSocketClient
@@ -265,7 +264,7 @@ class PluginArgumentParser(ParserBase):
         }
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """ Return arguments to retrieve channels/events/commands in specific ways """
+        """ Return arguments to used in plugins """
 
         arguments: Dict[Tuple[str, ...], Dict[str, Any]] = {}
         for category, selections in self._plugin_map.items():
