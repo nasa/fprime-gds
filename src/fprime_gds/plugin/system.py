@@ -1,7 +1,17 @@
+""" fprime_gds.plugin.system: implementation of plugins
+
+This file contains the implementation and registration of plugins for fprime_gds. Primarily, it defines the Plugins
+class that handles plugins. Users can acquire the Plugin singleton with `Plugin.system()`.
+
+This file also imports and registers plugin implementations built-into fprime-gds. These plugins are not registered
+using entrypoints.
+
+@author lestarch
+"""
 import inspect
 import logging
 import re
-from typing import Iterable, ForwardRef
+from typing import Iterable
 
 import pluggy
 

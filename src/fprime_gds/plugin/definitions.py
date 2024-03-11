@@ -1,4 +1,12 @@
+""" fprime_gds.plugin.definitions: definitions of plugin specifications and decorators
 
+In order to define a plugin, an implementation decorator is used. Users can import `gds_plugin_implementation` from this
+file to decorate functions that implement plugins.
+
+This file also defines the specifications for these implementations and users may inspect those specifications here.
+
+@author lestarch
+"""
 import pluggy
 from typing import Type
 

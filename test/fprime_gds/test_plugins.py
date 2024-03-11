@@ -1,4 +1,7 @@
 import pytest
+from fprime_gds.common.communication.adapters.ip import IpAdapter
+from fprime_gds.common.communication.adapters.base import NoneAdapter
+from fprime_gds.common.communication.adapters.uart import SerialAdapter
 from fprime_gds.common.communication.framing import FramerDeframer, FpFramerDeframer
 from fprime_gds.executables.cli import ParserBase, PluginArgumentParser
 from fprime_gds.plugin.definitions import gds_plugin_implementation
@@ -83,7 +86,6 @@ class GoodWithArgs(FramerDeframer):
         return cls
 
 
-
 @pytest.fixture()
 def plugins():
     """ Register test plugins as fixture for testing """
@@ -96,7 +98,7 @@ def plugins():
     return system
 
 
-def test_framing_plugin(plugins):
+def test_plugin_validation(plugins):
     """ Tests good framing plugins are returned """
     plugin_options = plugins.get_selections("framing")
     assert Good in plugin_options, "Good plugin not registered as expected"
@@ -108,20 +110,27 @@ def test_framing_builtin_plugins(plugins):
     assert FpFramerDeframer in plugin_options, "FpFramerDeframer plugin not registered as expected"
 
 
+def test_communication_builtin_plugins(plugins):
+    """ Tests good framing plugins are returned """
+    plugin_options = plugins.get_selections("communication")
+    for expected in [IpAdapter, NoneAdapter, SerialAdapter]:
+        assert expected in plugin_options, f"{expected.__name__} plugin not registered as expected"
+
+
 def test_plugin_categories(plugins):
     """ Tests plugin categories """
     plugin_categories = plugins.get_categories()
-    assert plugin_categories == ["framing"], "Detected plugin categories incorrect"
+    assert sorted(plugin_categories) == sorted(["communication", "framing"]), "Detected plugin categories incorrect"
 
 
-def test_framing_plugin_validation(plugins):
+def test_plugin_validation(plugins):
     """ Tests good framing plugins are returned """
     plugin_options = plugins.get_selections("framing")
     assert BadSuperClass not in plugin_options, "Plugin with bad parent class not excluded as expected"
     assert BadImplementation not in plugin_options, "Plugin with abstract implementation not excluded as expected"
 
 
-def test_framing_plugin_arguments(plugins):
+def test_plugin_arguments(plugins):
     """ Tests that arguments can be parsed and supplied to a plugin """
     a_string = "a_string"
     a_number = "201"
