@@ -98,7 +98,7 @@ def plugins():
     return system
 
 
-def test_plugin_validation(plugins):
+def test_base_plugin(plugins):
     """ Tests good framing plugins are returned """
     plugin_options = plugins.get_selections("framing")
     assert Good in plugin_options, "Good plugin not registered as expected"
