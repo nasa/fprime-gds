@@ -156,7 +156,7 @@ def main():
     parsed_args = parse_args()
     launchers = []
 
-    # Launch a gui, if specified
+    # Launch middleware layer if not using ZMQ
     if not parsed_args.zmq:
         launchers.append(launch_tts)
 

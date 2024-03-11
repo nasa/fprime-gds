@@ -465,12 +465,6 @@ class MiddleWareParser(ParserBase):
                     "help": "Switch to using the ZMQ transportation layer",
                     "default": False,
                 },
-                ("--zmq-server",): {
-                    "dest": "zmq_server",
-                    "action": "store_true",
-                    "help": "Sets the ZMQ connection to be a server. Default: false (client)",
-                    "default": False,
-                },
                 ("--zmq-transport",): {
                     "dest": "zmq_transport",
                     "nargs": 2,

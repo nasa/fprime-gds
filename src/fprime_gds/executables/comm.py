@@ -71,9 +71,6 @@ def main():
         sys.exit(-1)
     elif args.zmq:
         ground = fprime_gds.common.zmq_transport.ZmqGround(args.zmq_transport)
-        # Check for need to make this a server
-        if args.zmq_server:
-            ground.make_server()
     else:
         ground = fprime_gds.common.communication.ground.TCPGround(
             args.tts_addr, args.tts_port

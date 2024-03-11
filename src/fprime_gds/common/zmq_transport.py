@@ -203,11 +203,11 @@ class ZmqGround(GroundHandler):
     to the display and processing layer(s). This effectively acts as the "FSW" side of that interface as it
     frames/deframes packets heading to that layer.
 
-    Since there is likely only one communications client to the FSW users should call make_server() after construction
+    Since there is likely only one communications client to the FSW users should instantiate with server=True
     to ensure that it binds to resources for the network. This is not forced in case of multiple FSW connections.
     """
 
-    def __init__(self, transport_url):
+    def __init__(self, transport_url, server=True):
         """Initialize this interface with the transport_url needed to connect
 
         Args:
@@ -217,6 +217,8 @@ class ZmqGround(GroundHandler):
         self.zmq = ZmqWrapper()
         self.transport_url = transport_url
         self.timeout = 10
+        if server:
+            self.zmq.make_server()
 
     def open(self):
         """Open this ground interface. Delegates to the connect method
@@ -241,10 +243,6 @@ class ZmqGround(GroundHandler):
         self.zmq.disconnect_incoming()
         self.zmq.disconnect_outgoing()
         self.zmq.terminate()
-
-    def make_server(self):
-        """Makes it into a server"""
-        self.zmq.make_server()
 
     def receive_all(self):
         """Receive all available packets
