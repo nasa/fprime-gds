@@ -57,11 +57,11 @@ class NoneAdapter(BaseAdapter):
 
     def read(self, timeout=0.500):
         """ Raise exception if this is called"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def write(self, frame):
         """ Raise exception if this is called"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     @classmethod
     @gds_plugin_implementation
