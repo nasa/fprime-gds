@@ -18,7 +18,7 @@ gds_plugin_implementation = pluggy.HookimplMarker(PROJECT_NAME)
 
 @gds_plugin_specification
 def register_framing_plugin() -> Type["FramerDeframer"]:
-    """ Register a plugin to provide framing capabilities
+    """Register a plugin to provide framing capabilities
 
     Plugin hook for registering a plugin that supplies a FramerDeframer implementation. Implementors of this hook must
     return a non-abstract subclass of FramerDeframer. This class will be provided as a framing implementation option
@@ -35,7 +35,7 @@ def register_framing_plugin() -> Type["FramerDeframer"]:
 
 @gds_plugin_specification
 def register_communication_plugin() -> Type["BaseAdapter"]:
-    """ Register a communications adapter
+    """Register a communications adapter
 
     Plugin hook for registering a plugin that supplies an adapter to the communications interface (radio, uart, i2c,
     etc). This interface is expected to read and write bytes from a wire and will be provided to the framing system.
@@ -47,4 +47,3 @@ def register_communication_plugin() -> Type["BaseAdapter"]:
     Returns:
         BaseAdapter subclass
     """
-
