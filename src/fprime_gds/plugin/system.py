@@ -10,17 +10,28 @@ import fprime_gds.plugin.definitions as definitions
 # For automatic validation of plugins, each plugin class type must be imported here
 import fprime_gds.common.communication.framing as framing
 
+import fprime_gds.common.communication.adapters.base as base
+import fprime_gds.common.communication.adapters.ip as ip
+try:
+    import fprime_gds.common.communication.adapters.uart as uart
+except ImportError:
+    uart = None
 
 PROJECT_NAME = definitions.PROJECT_NAME
 LOGGER = logging.getLogger(__name__)
 
 _NAME_REGEX = re.compile(r"^register_(\w+)_plugin")
 _TYPE_MAPPINGS = {
-    definitions.register_framing_plugin: framing.FramerDeframer
+    definitions.register_framing_plugin: framing.FramerDeframer,
+    definitions.register_communication_plugin: base.BaseAdapter
 }
 _SUPPLIED_PLUGIN_MODULES_OR_CLASSES = [
-    framing.FpFramerDeframer
+    framing.FpFramerDeframer,
+    base.NoneAdapter,
+    ip.IpAdapter,
 ]
+if uart is not None:
+    _SUPPLIED_PLUGIN_MODULES_OR_CLASSES.append(uart.SerialAdapter)
 
 
 class PluginException(Exception):

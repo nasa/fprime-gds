@@ -146,7 +146,7 @@ def launch_comm(parsed_args):
     arguments = CommParser().reproduce_cli_args(parsed_args)
     arguments = arguments + ["--log-directly"] if "--log-directly" not in arguments else arguments
     app_cmd = BASE_MODULE_ARGUMENTS + ["fprime_gds.executables.comm"] + arguments
-    return launch_process(app_cmd, name=f'comm[{parsed_args.adapter}] Application', launch_time=1)
+    return launch_process(app_cmd, name=f'comm[{parsed_args.communication_selection}] Application', launch_time=1)
 
 
 def main():
@@ -161,12 +161,12 @@ def main():
         launchers.append(launch_tts)
 
     # Check if we are running with communications
-    if parsed_args.adapter != "none":
+    if parsed_args.communication_selection != "none":
         launchers.append(launch_comm)
 
     # Add app, if possible
     if parsed_args.app:
-        if parsed_args.adapter == "ip":
+        if parsed_args.communication_selection == "ip":
             launchers.append(launch_app)
         else:
             print("[WARNING] App cannot be auto-launched without IP adapter", file=sys.stderr)

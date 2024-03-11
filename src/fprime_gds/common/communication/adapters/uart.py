@@ -15,6 +15,8 @@ from serial.tools import list_ports
 
 import fprime_gds.common.communication.adapters.base
 
+from fprime_gds.plugin.definitions import gds_plugin_implementation
+
 LOGGER = logging.getLogger("serial_adapter")
 
 
@@ -151,15 +153,26 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 "dest": "device",
                 "type": str,
                 "default": default,
-                "help": "UART device representing the FSW. Default: %(default)s",
+                "help": "UART device representing the FSW.",
             },
             ("--uart-baud",): {
                 "dest": "baud",
                 "type": int,
                 "default": 9600,
-                "help": "Baud rate of the serial device. Default: %(default)s",
+                "help": "Baud rate of the serial device.",
             },
         }
+
+    @classmethod
+    def get_name(cls):
+        """ Get name of the adapter """
+        return "uart"
+
+    @classmethod
+    @gds_plugin_implementation
+    def register_communication_plugin(cls):
+        """ Register this as a communication plugin """
+        return cls
 
     @classmethod
     def check_arguments(cls, args):

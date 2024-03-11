@@ -18,6 +18,8 @@ import time
 import fprime_gds.common.communication.adapters.base
 import fprime_gds.common.logger
 
+from fprime_gds.plugin.definitions import gds_plugin_implementation
+
 LOGGER = logging.getLogger("ip_adapter")
 
 
@@ -114,7 +116,7 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
 
     def write(self, frame):
         """
-        Send a given framed bit of data by sending it out the serial interface. It will attempt to reconnect if there is
+        Send a given framed bit of data by sending it out the serial interface. It will attempt to reconnect if there
         was a problem previously. This function will return true on success, or false on error.
 
         :param frame: framed data packet to send out
@@ -152,6 +154,11 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
             time.sleep(interval)
 
     @classmethod
+    def get_name(cls):
+        """ Get the name of this adapter  """
+        return "ip"
+
+    @classmethod
     def get_arguments(cls):
         """
         Returns a dictionary of flag to argparse-argument dictionaries for use with argparse to setup arguments.
@@ -163,13 +170,13 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 "dest": "address",
                 "type": str,
                 "default": "0.0.0.0",
-                "help": "Address of the IP adapter server. Default: %(default)s",
+                "help": "Address of the IP adapter server.",
             },
             ("--ip-port",): {
                 "dest": "port",
                 "type": int,
                 "default": 50000,
-                "help": "Port of the IP adapter server. Default: %(default)s",
+                "help": "Port of the IP adapter server.",
             },
             ("--ip-client",): {
                 # dest is "server" since it is handled in BaseAdapter.construct_adapter and passed with the same
@@ -180,6 +187,12 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 "help": "Run the IP adapter as the client (connects to FSW running TcpServer)",
             },
         }
+
+    @classmethod
+    @gds_plugin_implementation
+    def register_communication_plugin(cls):
+        """ Register this as a communication plugin """
+        return cls
 
     @classmethod
     def check_arguments(cls, args):

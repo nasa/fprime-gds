@@ -16,7 +16,7 @@ import copy
 import struct
 import sys
 
-from .checksum import calculate_checksum
+from .checksum import calculate_checksum, CHECKSUM_MAPPING
 from fprime_gds.plugin.definitions import gds_plugin_implementation
 
 
@@ -98,10 +98,11 @@ class FpFramerDeframer(FramerDeframer):
     HEADER_FORMAT = None
     START_TOKEN = None
 
-    def __init__(self):
+    def __init__(self, checksum_type):
         """Sets constants on construction."""
         # Setup the constants as soon as possible.
         FpFramerDeframer.set_constants()
+        self.checksum = checksum_type
 
     @classmethod
     def set_constants(cls):
@@ -135,7 +136,7 @@ class FpFramerDeframer(FramerDeframer):
             FpFramerDeframer.HEADER_FORMAT, FpFramerDeframer.START_TOKEN, len(data)
         )
         framed += data
-        framed += struct.pack(">I", calculate_checksum(framed))
+        framed += struct.pack(">I", calculate_checksum(framed, self.checksum))
         return framed
 
     def deframe(self, data, no_copy=False):
@@ -177,7 +178,8 @@ class FpFramerDeframer(FramerDeframer):
                 )
                 # If the checksum is valid, return the packet. Otherwise continue to rotate
                 if check == calculate_checksum(
-                    data[: data_size + FpFramerDeframer.HEADER_SIZE]
+                    data[: data_size + FpFramerDeframer.HEADER_SIZE],
+                    self.checksum
                 ):
                     data = data[total_size:]
                     return deframed, data, discarded
@@ -194,11 +196,31 @@ class FpFramerDeframer(FramerDeframer):
         return None, data, discarded
 
     @classmethod
+    def get_name(cls):
+        """ Get the name of this plugin """
+        return "fprime"
+
+    @classmethod
+    def get_arguments(cls):
+        """ Get arguments for the framer/deframer """
+        return {("--comm-checksum-type",): {
+            "dest": "checksum_type",
+            "action": "store",
+            "type": str,
+            "help": "Setup the checksum algorithm. [default: %(default)s]",
+            "choices": [
+                item
+                for item in CHECKSUM_MAPPING.keys()
+                if item != "default"
+            ],
+            "default": "crc32",
+        }}
+
+    @classmethod
     @gds_plugin_implementation
     def register_framing_plugin(cls):
         """ Register a bad plugin """
         return cls
-
 
 
 class TcpServerFramerDeframer(FramerDeframer):
