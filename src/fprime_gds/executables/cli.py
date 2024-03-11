@@ -23,12 +23,12 @@ from typing import Any, Dict, List, Tuple
 # Required to set the checksum as a module variable
 import fprime_gds.common.communication.checksum
 import fprime_gds.common.logger
-from fprime_gds.common.communication.adapters.base import BaseAdapter
 from fprime_gds.common.communication.adapters.ip import check_port
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.transport import ThreadedTCPSocketClient
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.executables.utils import find_app, find_dict, get_artifacts_root
+from fprime_gds.plugin.system import Plugins
 
 # Optional import: ZeroMQ. Requires package: pyzmq
 try:
@@ -44,7 +44,6 @@ try:
     from fprime_gds.common.communication.adapters.uart import SerialAdapter
 except ImportError:
     SerialAdapter = None
-
 
 GUIS = ["none", "html"]
 
@@ -85,7 +84,10 @@ class ParserBase(ABC):
         Return:
             argparse parser for supplied arguments
         """
-        parser = argparse.ArgumentParser(description=self.description, add_help=True)
+        parser = argparse.ArgumentParser(
+            description=self.description, add_help=True,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
         for flags, keywords in self.get_arguments().items():
             parser.add_argument(*flags, **keywords)
         return parser
@@ -96,7 +98,7 @@ class ParserBase(ABC):
         def flag_member(flags, argparse_inputs) -> Tuple[str, str]:
             """Get the best CLI flag and namespace member"""
             best_flag = (
-                [flag for flag in flags if flag.startswith("--")] + list(flags)
+                    [flag for flag in flags if flag.startswith("--")] + list(flags)
             )[0]
             member = argparse_inputs.get(
                 "dest", re.sub(r"^-+", "", best_flag).replace("-", "_")
@@ -117,7 +119,7 @@ class ParserBase(ABC):
 
             # Handle arguments
             if (action == "store_true" and value) or (
-                action == "store_false" and not value
+                    action == "store_false" and not value
             ):
                 return [best_flag]
             elif action != "store" or value is None:
@@ -148,10 +150,10 @@ class ParserBase(ABC):
 
     @staticmethod
     def parse_args(
-        parser_classes,
-        description="No tool description provided",
-        arguments=None,
-        **kwargs,
+            parser_classes,
+            description="No tool description provided",
+            arguments=None,
+            **kwargs,
     ):
         """Parse and post-process arguments
 
@@ -234,7 +236,7 @@ class DetectionParser(ParserBase):
             raise Exception(msg)
         # Works for the old structure where the bin, lib, and dict directories live immediately under the platform
         elif len(child_directories) == 3 and set(
-            [path.name for path in child_directories]
+                [path.name for path in child_directories]
         ) == {"bin", "lib", "dict"}:
             args.deployment = detected_toolchain
             return args
@@ -243,6 +245,75 @@ class DetectionParser(ParserBase):
             raise Exception(msg)
         args.deployment = child_directories[0]
         return args
+
+
+class PluginArgumentParser(ParserBase):
+    """ Parser for arguments coming from plugins """
+    DESCRIPTION = "Parse plugin CLI arguments and selections"
+    FPRIME_CHOICES = {
+        "framing": "fprime",
+        "communication": "ip",
+    }
+
+    def __init__(self):
+        """ Initialize the plugin information for this parser """
+        self._plugin_map = {
+            category: {
+                self.get_selection_name(selection): selection for selection in Plugins.system().get_selections(category)
+            } for category in Plugins.system().get_categories()
+        }
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """ Return arguments to used in plugins """
+
+        arguments: Dict[Tuple[str, ...], Dict[str, Any]] = {}
+        for category, selections in self._plugin_map.items():
+            arguments.update({
+                (f"--{category}-selection",): {
+                    "choices": [choice for choice in selections.keys()],
+                    "help": f"Select {category} implementer.",
+                    "default": self.FPRIME_CHOICES.get(category, list(selections.keys())[0])
+                }
+            })
+            for selection_name, selection in selections.items():
+                arguments.update(self.get_selection_arguments(selection))
+        return arguments
+
+    def handle_arguments(self, args, **kwargs):
+        """ Handles the arguments """
+        for category, selections in self._plugin_map.items():
+            selection_string = getattr(args, f"{category}_selection")
+            selection_class = selections[selection_string]
+            filled_arguments = self.map_selection_arguments(args, selection_class)
+            selection_instance = selection_class(**filled_arguments)
+            setattr(args, f"{category}_selection_instance", selection_instance)
+        return args
+
+    @staticmethod
+    def get_selection_name(selection):
+        """ Get the name of a selection """
+        return selection.get_name() if hasattr(selection, "get_name") else selection.__name__
+
+    @staticmethod
+    def get_selection_arguments(selection) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """ Get the name of a selection """
+        return selection.get_arguments() if hasattr(selection, "get_arguments") else {}
+
+    @staticmethod
+    def map_selection_arguments(args, selection) -> Dict[str, Any]:
+        """ Get the name of a selection """
+        expected_args = PluginArgumentParser.get_selection_arguments(selection)
+        argument_destinations = [
+            value["dest"] if "dest" in value else key[0].replace("--", "").replace("-", "_")
+            for key, value in expected_args.items()
+        ]
+        filled_arguments = {
+            destination: getattr(args, destination) for destination in argument_destinations
+        }
+        # Check arguments or yield a Value error
+        if hasattr(selection, "check_arguments"):
+            selection.check_arguments(filled_arguments)
+        return filled_arguments
 
 
 class CompositeParser(ParserBase):
@@ -286,49 +357,14 @@ class CompositeParser(ParserBase):
         return args
 
 
-class CommAdapterParser(ParserBase):
-    """
-    Handles parsing of all of the comm-layer arguments. This means selecting a comm adapter, and passing the arguments
-    required to setup that comm adapter. In addition, this parser uses the import parser to import modules such that a
-    user may import other adapter implementation files.
-    """
+class CommExtraParser(ParserBase):
+    """ Parses extra communication arguments """
 
-    DESCRIPTION = "Process arguments needed to specify a comm-adapter"
+    DESCRIPTION = "Process arguments needed to specify arguments for communication"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Get arguments for the comm-layer parser"""
-        adapter_definition_dictionaries = BaseAdapter.get_adapters()
-        adapter_arguments = {}
-        for name, adapter in adapter_definition_dictionaries.items():
-            adapter_arguments_callable = getattr(adapter, "get_arguments", None)
-            if not callable(adapter_arguments_callable):
-                print(
-                    f"[WARNING] '{name}' does not have 'get_arguments' method, skipping.",
-                    file=sys.stderr,
-                )
-                continue
-            adapter_arguments.update(adapter.get_arguments())
         com_arguments = {
-            ("--comm-adapter",): {
-                "dest": "adapter",
-                "action": "store",
-                "type": str,
-                "help": "Adapter for communicating to flight deployment. [default: %(default)s]",
-                "choices": ["none"] + list(adapter_definition_dictionaries),
-                "default": "ip",
-            },
-            ("--comm-checksum-type",): {
-                "dest": "checksum_type",
-                "action": "store",
-                "type": str,
-                "help": "Setup the checksum algorithm. [default: %(default)s]",
-                "choices": [
-                    item
-                    for item in fprime_gds.common.communication.checksum.CHECKSUM_MAPPING.keys()
-                    if item != "default"
-                ],
-                "default": fprime_gds.common.communication.checksum.CHECKSUM_SELECTION,
-            },
             ("--output-unframed-data",): {
                 "dest": "output_unframed_data",
                 "action": "store",
@@ -339,17 +375,9 @@ class CommAdapterParser(ParserBase):
                 "required": False,
             },
         }
-        return {**adapter_arguments, **com_arguments}
+        return com_arguments
 
     def handle_arguments(self, args, **kwargs):
-        """
-        Handle the input arguments for the parser. This will help setup the adapter with its expected arguments.
-
-        :param args: parsed arguments in namespace format
-        :return: namespace with "comm_adapter" value added
-        """
-        args.comm_adapter = BaseAdapter.construct_adapter(args.adapter, args)
-        fprime_gds.common.communication.checksum.CHECKSUM_SELECTION = args.checksum_type
         return args
 
 
@@ -618,7 +646,7 @@ class StandardPipelineParser(CompositeParser):
 class CommParser(CompositeParser):
     """Comm Executable Parser"""
 
-    CONSTITUENTS = [CommAdapterParser, MiddleWareParser, LogDeployParser]
+    CONSTITUENTS = [CommExtraParser, MiddleWareParser, LogDeployParser, PluginArgumentParser]
 
     def __init__(self):
         """Initialization"""
