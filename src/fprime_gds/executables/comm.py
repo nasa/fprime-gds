@@ -16,7 +16,6 @@ Note: assuming the module containing the ground adapter has been imported, then 
 @author lestarch
 """
 
-
 import logging
 import signal
 import sys
@@ -62,7 +61,10 @@ def main():
         client=True,
     )
     if args.communication_selection == "none":
-        print("[ERROR] Comm adapter set to 'none'. Nothing to do but exit.", file=sys.stderr)
+        print(
+            "[ERROR] Comm adapter set to 'none'. Nothing to do but exit.",
+            file=sys.stderr,
+        )
         sys.exit(-1)
 
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
@@ -71,9 +73,6 @@ def main():
         sys.exit(-1)
     elif args.zmq:
         ground = fprime_gds.common.zmq_transport.ZmqGround(args.zmq_transport)
-        # Check for need to make this a server
-        if args.zmq_server:
-            ground.make_server()
     else:
         ground = fprime_gds.common.communication.ground.TCPGround(
             args.tts_addr, args.tts_port
@@ -87,7 +86,7 @@ def main():
     LOGGER.info(
         "Starting uplinker/downlinker connecting to FSW using %s with %s",
         args.communication_selection,
-        args.framing_selection
+        args.framing_selection,
     )
     discarded_file_handle = None
     try:
