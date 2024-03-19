@@ -181,21 +181,29 @@ class ChJsonLoader:
                 type_name,
                 qualified_type.get("identifiers"),
                 qualified_type.get("representationType").get("name"),
-                # self.parse_type(qualified_type.get("representationType")),
             )
 
         if qualified_type.get("kind") == "struct":
-            struct_member_list = [
-                (
-                    name,
-                    self.parse_type(member_dict.get("type")),
-                    member_dict.get("type", {}).get("format", "%s"),
-                    member_dict.get("type", {}).get("description", ""),
-                )
-                for name, member_dict in qualified_type.get("members", {}).items()
-            ]
+            struct_members = []
+            for name, member_dict in qualified_type.get("members").items():
+                member_type_dict = member_dict.get("type")
+                member_type_obj = self.parse_type(member_type_dict)
+
+                # For member arrays (declared inline, so we create a type on the fly)
+                if member_dict.get("size") is not None:
+                    member_type_obj = ArrayType.construct_type(
+                        f"Array_{member_type_obj.__name__}_{member_dict.get('size')}",
+                        member_type_obj,
+                        member_dict.get("size"),
+                        member_dict.get("type").get("format", "%s"),
+                    )
+
+                fmt_str = member_type_dict.get("format", "%s")
+                description = member_type_dict.get("description", "")
+                struct_members.append((name, member_type_obj, fmt_str, description))
+
             return SerializableType.construct_type(
                 type_name,
-                struct_member_list,
+                struct_members,
             )
 
