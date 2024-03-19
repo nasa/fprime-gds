@@ -47,3 +47,35 @@ def register_communication_plugin() -> Type["BaseAdapter"]:
     Returns:
         BaseAdapter subclass
     """
+
+
+@gds_plugin_specification
+def register_gds_function_plugin() -> Type["GdsFunction"]:
+    """Register gds start-up functionality
+
+    Plugin hook for registering a plugin that supplies start-up functionality. This functionality will run on start-up
+    of the GDS network.
+
+    Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
+    determined from class methods, solicited via the command line, and provided at construction time to the chosen
+    instantiation.
+
+    Returns:
+        GDSFunction subclass
+    """
+
+
+@gds_plugin_specification
+def register_gds_app_plugin() -> Type["GdsApp"]:
+    """Register a gds start-up application
+
+    Plugin hook for registering a plugin that supplies start-up functionality. This functionality will run on start-up
+    of the GDS network isolated into a dedicated process.
+
+    Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
+    determined from class methods, solicited via the command line, and provided at construction time to the chosen
+    instantiation.
+
+    Returns:
+        GdsApp subclass
+    """
