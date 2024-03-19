@@ -90,8 +90,18 @@ class ParserBase(ABC):
             add_help=True,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
-        for flags, keywords in self.get_arguments().items():
-            parser.add_argument(*flags, **keywords)
+        if not hasattr(self, "constituents"):
+            for flags, keywords in self.get_arguments().items():
+                parser.add_argument(*flags, **keywords)
+        else:
+            for constituent in sorted(self.constituents, key=lambda x: x.description):
+                subparser = parser.add_argument_group(title=constituent.description)
+                for flags, keywords in constituent.get_arguments().items():
+                    try:
+                        subparser.add_argument(*flags, **keywords)
+                    except argparse.ArgumentError:
+                        # Constituent tree has duplicates -> flag has already been added, pass
+                        pass
         return parser
 
     def reproduce_cli_args(self, args_ns):
@@ -252,7 +262,7 @@ class DetectionParser(ParserBase):
 class PluginArgumentParser(ParserBase):
     """Parser for arguments coming from plugins"""
 
-    DESCRIPTION = "Parse plugin CLI arguments and selections"
+    DESCRIPTION = "Plugin options"
     FPRIME_CHOICES = {
         "framing": "fprime",
         "communication": "ip",
@@ -378,7 +388,7 @@ class CompositeParser(ParserBase):
 class CommExtraParser(ParserBase):
     """Parses extra communication arguments"""
 
-    DESCRIPTION = "Process arguments needed to specify arguments for communication"
+    DESCRIPTION = "Communications options"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Get arguments for the comm-layer parser"""
@@ -406,7 +416,7 @@ class LogDeployParser(ParserBase):
     to end up in the proper place.
     """
 
-    DESCRIPTION = "Process arguments needed to specify a logging"
+    DESCRIPTION = "Logging options"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Return arguments to parse logging options"""
@@ -469,7 +479,7 @@ class MiddleWareParser(ParserBase):
     however; it should be close enough.
     """
 
-    DESCRIPTION = "Process arguments needed to specify a tool using the middleware"
+    DESCRIPTION = "Middleware options"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Return arguments necessary to run a and connect to the GDS middleware"""
@@ -541,6 +551,8 @@ class MiddleWareParser(ParserBase):
 class DictionaryParser(DetectionParser):
     """Parser for deployments"""
 
+    DESCRIPTION = "Dictionary options"
+
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Arguments to handle deployments"""
         return {
@@ -579,6 +591,8 @@ class DictionaryParser(DetectionParser):
 
 class FileHandlingParser(ParserBase):
     """Parser for deployments"""
+
+    DESCRIPTION = "File handling options"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Arguments to handle deployments"""
@@ -684,7 +698,7 @@ class GdsParser(ParserBase):
     Note: deployment can help in setting both dictionary and logs, but isn't strictly required.
     """
 
-    DESCRIPTION = "Process arguments needed to specify a tool using the GDS"
+    DESCRIPTION = "GUI options"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Return arguments necessary to run a binary deployment via the GDS"""
@@ -731,7 +745,7 @@ class BinaryDeployment(DetectionParser):
     and represents the flight-side of the equation.
     """
 
-    DESCRIPTION = "Process arguments needed for running F prime binary"
+    DESCRIPTION = "FPrime binary options"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Return arguments necessary to run a binary deployment via the GDS"""
@@ -777,7 +791,7 @@ class SearchArgumentsParser(ParserBase):
     """Parser for search arguments"""
 
     DESCRIPTION = (
-        "Process arguments relevant to searching/filtering Channels/Events/Commands"
+        "Searching and filtering options"
     )
 
     def __init__(self, command_name: str) -> None:
@@ -823,7 +837,7 @@ class SearchArgumentsParser(ParserBase):
 class RetrievalArgumentsParser(ParserBase):
     """Parser for retrieval arguments"""
 
-    DESCRIPTION = "Process arguments relevant to retrieving Channels/Events"
+    DESCRIPTION = "Data retrieval options"
 
     def __init__(self, command_name: str) -> None:
         self.command_name = command_name
