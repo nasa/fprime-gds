@@ -8,32 +8,13 @@ Loads flight dictionary (JSON) and returns id and mnemonic based Python dictiona
 """
 
 from fprime_gds.common.templates.ch_template import ChTemplate
-# from .json_loader import JsonLoader
+from fprime_gds.common.loaders.json_loader import JsonLoader
 
-from fprime.common.models.serialize.array_type import ArrayType
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.bool_type import BoolType
-from fprime.common.models.serialize.enum_type import EnumType
-from fprime.common.models.serialize.type_base import DictionaryType
-from fprime.common.models.serialize.numerical_types import (
-    F32Type,
-    F64Type,
-    I8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    U8Type,
-    U16Type,
-    U32Type,
-    U64Type,
-)
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.string_type import StringType
 
 import json
 
 
-class ChJsonLoader:
+class ChJsonLoader(JsonLoader):
     """Class to load python based telemetry channel dictionaries"""
 
     # Field names in the python module files (used to construct dictionaries)
@@ -51,11 +32,10 @@ class ChJsonLoader:
     LIMIT_YELLOW = "yellow"
 
     def __init__(self, dict_path: str):
-        with open(dict_path, "r") as file:
-            self.json_dict = json.load(file)
+        super().__init__(dict_path)
 
 
-    def construct_dicts(self):
+    def construct_dicts(self, dict_path: str):
         """
         Constructs and returns python dictionaries keyed on id and name
 
@@ -70,22 +50,23 @@ class ChJsonLoader:
         id_dict = {}
         name_dict = {}
 
-        for ch_dict in self.json_dict["telemetryChannels"]:
+        with open(dict_path, "r") as file:
+            json_dict = json.load(file)
+
+        for ch_dict in json_dict["telemetryChannels"]:
             # Create a channel template object
             ch_temp = self.construct_template_from_dict(ch_dict)
 
             id_dict[ch_dict[self.ID_FIELD]] = ch_temp
             name_dict[ch_dict[self.NAME_FIELD]] = ch_temp
 
-        return dict(sorted(id_dict.items())), dict(sorted(name_dict.items()))
+        return dict(sorted(id_dict.items())), dict(sorted(name_dict.items())), ("unknown", "unknown")
 
 
     def construct_template_from_dict(self, channel_dict: dict):
         component_name = channel_dict[self.NAME_FIELD].split(".")[0]
         channel_name = channel_dict[self.NAME_FIELD].split(".")[-1]
         channel_type = channel_dict.get("type")
-        if channel_type is None:
-            print("Hello!")
         type_obj = self.parse_type(channel_type)
 
         limit_field = channel_dict.get(self.LIMIT_FIELD)
@@ -117,93 +98,93 @@ class ChJsonLoader:
         return tmp
 
 
-    def parse_type(self, type_dict: dict) -> BaseType:
+    # def parse_type(self, type_dict: dict) -> BaseType:
 
-        type_name: str = type_dict.get(ChJsonLoader.NAME_FIELD, None)
+    #     type_name: str = type_dict.get(ChJsonLoader.NAME_FIELD, None)
 
-        if type_name is None:
-            raise ValueError(
-                f"Channel entry in dictionary has no `name` field"
-            )
+    #     if type_name is None:
+    #         raise ValueError(
+    #             f"Channel entry in dictionary has no `name` field"
+    #         )
 
-        if type_name == "I8":
-            return I8Type
-        if type_name == "I16":
-            return I16Type
-        if type_name == "I32":
-            return I32Type
-        if type_name == "I64":
-            return I64Type
-        if type_name == "U8":
-            return U8Type
-        if type_name == "U16":
-            return U16Type
-        if type_name == "U32":
-            return U32Type
-        if type_name == "U64":
-            return U64Type
-        if type_name == "F32":
-            return F32Type
-        if type_name == "F64":
-            return F64Type
-        if type_name == "bool":
-            return BoolType
+    #     if type_name == "I8":
+    #         return I8Type
+    #     if type_name == "I16":
+    #         return I16Type
+    #     if type_name == "I32":
+    #         return I32Type
+    #     if type_name == "I64":
+    #         return I64Type
+    #     if type_name == "U8":
+    #         return U8Type
+    #     if type_name == "U16":
+    #         return U16Type
+    #     if type_name == "U32":
+    #         return U32Type
+    #     if type_name == "U64":
+    #         return U64Type
+    #     if type_name == "F32":
+    #         return F32Type
+    #     if type_name == "F64":
+    #         return F64Type
+    #     if type_name == "bool":
+    #         return BoolType
 
-        if type_name == "string":
-            return StringType.construct_type(
-                type_dict.get(ChJsonLoader.NAME_FIELD), type_dict.get("size")
-            )
+    #     if type_name == "string":
+    #         return StringType.construct_type(
+    #             type_dict.get(ChJsonLoader.NAME_FIELD), type_dict.get("size")
+    #         )
 
-        # Process for enum/array/serializable types
-        qualified_type = None
-        for type_def in self.json_dict.get("typeDefinitions", []):
-            if type_name == type_def.get("qualifiedName"):
-                qualified_type = type_def
-                break
+    #     # Process for enum/array/serializable types
+    #     qualified_type = None
+    #     for type_def in self.json_dict.get("typeDefinitions", []):
+    #         if type_name == type_def.get("qualifiedName"):
+    #             qualified_type = type_def
+    #             break
 
-        if qualified_type is None:
-            # TODO: There's an issue here with PacketTypes not being in dictionary???
-            return DictionaryType.construct_type(SerializableType, type_name)
-            # raise ValueError(
-            #     f"Channel entry in dictionary has no corresponding type definition."
-            # )
+    #     if qualified_type is None:
+    #         # TODO: There's an issue here with PacketTypes not being in dictionary???
+    #         return DictionaryType.construct_type(SerializableType, type_name)
+    #         # raise ValueError(
+    #         #     f"Channel entry in dictionary has no corresponding type definition."
+    #         # )
 
-        if qualified_type.get("kind") == "array":
-            return ArrayType.construct_type(
-                type_name,
-                self.parse_type(qualified_type.get("elementType")),
-                qualified_type.get("size"),
-                qualified_type.get("format", "%s"),
-            )
+    #     if qualified_type.get("kind") == "array":
+    #         return ArrayType.construct_type(
+    #             type_name,
+    #             self.parse_type(qualified_type.get("elementType")),
+    #             qualified_type.get("size"),
+    #             qualified_type.get("format", "%s"),
+    #         )
 
-        if qualified_type.get("kind") == "enum":
-            return EnumType.construct_type(
-                type_name,
-                qualified_type.get("identifiers"),
-                qualified_type.get("representationType").get("name"),
-            )
+    #     if qualified_type.get("kind") == "enum":
+    #         return EnumType.construct_type(
+    #             type_name,
+    #             qualified_type.get("identifiers"),
+    #             qualified_type.get("representationType").get("name"),
+    #         )
 
-        if qualified_type.get("kind") == "struct":
-            struct_members = []
-            for name, member_dict in qualified_type.get("members").items():
-                member_type_dict = member_dict.get("type")
-                member_type_obj = self.parse_type(member_type_dict)
+    #     if qualified_type.get("kind") == "struct":
+    #         struct_members = []
+    #         for name, member_dict in qualified_type.get("members").items():
+    #             member_type_dict = member_dict.get("type")
+    #             member_type_obj = self.parse_type(member_type_dict)
 
-                # For member arrays (declared inline, so we create a type on the fly)
-                if member_dict.get("size") is not None:
-                    member_type_obj = ArrayType.construct_type(
-                        f"Array_{member_type_obj.__name__}_{member_dict.get('size')}",
-                        member_type_obj,
-                        member_dict.get("size"),
-                        member_dict.get("type").get("format", "%s"),
-                    )
+    #             # For member arrays (declared inline, so we create a type on the fly)
+    #             if member_dict.get("size") is not None:
+    #                 member_type_obj = ArrayType.construct_type(
+    #                     f"Array_{member_type_obj.__name__}_{member_dict.get('size')}",
+    #                     member_type_obj,
+    #                     member_dict.get("size"),
+    #                     member_dict.get("type").get("format", "%s"),
+    #                 )
 
-                fmt_str = member_type_dict.get("format", "%s")
-                description = member_type_dict.get("description", "")
-                struct_members.append((name, member_type_obj, fmt_str, description))
+    #             fmt_str = member_type_dict.get("format", "%s")
+    #             description = member_type_dict.get("description", "")
+    #             struct_members.append((name, member_type_obj, fmt_str, description))
 
-            return SerializableType.construct_type(
-                type_name,
-                struct_members,
-            )
+    #         return SerializableType.construct_type(
+    #             type_name,
+    #             struct_members,
+    #         )
 
