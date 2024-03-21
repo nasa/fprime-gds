@@ -68,6 +68,18 @@ class JsonLoader(dict_loader.DictLoader):
         with open(json_dict, "r") as f:
             self.json_dict = json.load(f)
 
+    def get_versions(self) -> tuple[str, str]:
+        """
+        Get the framework and project versions of the dictionary
+
+        Returns:
+            A tuple of the framework and project versions
+        """
+        return (
+            self.json_dict.get("framework_version", "unknown"),
+            self.json_dict.get("project_version", "unknown"),
+        )
+
 
     def parse_type(self, type_dict: dict) -> BaseType:
 
@@ -103,8 +115,9 @@ class JsonLoader(dict_loader.DictLoader):
             case "bool":
                 return BoolType
             case "string":
+                # Does this break the logic of checking for original arguments?
                 return StringType.construct_type(
-                    type_dict.get("name"), type_dict.get("size")
+                    f'String_{type_dict.get("size")}', type_dict.get("size")
                 )
 
         # Process for enum/array/serializable types
@@ -170,6 +183,7 @@ class JsonLoader(dict_loader.DictLoader):
         if type_name in FORMAT_STR_MAP:
             return FORMAT_STR_MAP[type_name]
 
+        # idk either
         return "%s"
     
     def get_format_string_obj(self, type_obj: BaseType) -> str | None:

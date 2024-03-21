@@ -1,17 +1,13 @@
 """
 ch_json_loader.py:
 
-Loads flight dictionary (JSON) and returns id and mnemonic based Python dictionaries 
+Loads flight dictionary (JSON) and returns id and mnemonic based Python dictionaries of channels
 
 @author thomas-bc
-
 """
 
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.loaders.json_loader import JsonLoader
-
-
-import json
 
 
 class ChJsonLoader(JsonLoader):
@@ -50,10 +46,7 @@ class ChJsonLoader(JsonLoader):
         id_dict = {}
         name_dict = {}
 
-        with open(dict_path, "r") as file:
-            json_dict = json.load(file)
-
-        for ch_dict in json_dict["telemetryChannels"]:
+        for ch_dict in self.json_dict["telemetryChannels"]:
             # Create a channel template object
             ch_temp = self.construct_template_from_dict(ch_dict)
 
