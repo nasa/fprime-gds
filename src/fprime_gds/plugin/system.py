@@ -8,49 +8,52 @@ using entrypoints.
 
 @author lestarch
 """
+import os
+import importlib
 import inspect
 import logging
-import re
-from typing import Iterable
-
-import pluggy
-
-import fprime_gds.executables.apps
-import fprime_gds.plugin.definitions as definitions
-
-# For automatic validation of plugins, each plugin class type must be imported here
-import fprime_gds.common.communication.framing as framing
-
-import fprime_gds.common.communication.adapters.base as base
-import fprime_gds.common.communication.adapters.ip as ip
+from typing import Iterable, List, Union
 
 from fprime_gds.plugin.definitions import *
 
+# For automatic validation of plugins, each plugin class type must be imported here
+from fprime_gds.executables.apps import GdsFunction, GdsApp
+from fprime_gds.common.communication.framing import FramerDeframer, FpFramerDeframer
+from fprime_gds.common.communication.adapters.base import BaseAdapter, NoneAdapter
+from fprime_gds.common.communication.adapters.ip import IpAdapter
+
 try:
-    import fprime_gds.common.communication.adapters.uart as uart
+    from fprime_gds.common.communication.adapters.uart import SerialAdapter
 except ImportError:
-    uart = None
+    SerialAdapter = None
 
 # Handy constants
 LOGGER = logging.getLogger(__name__)
-_NAME_REGEX = re.compile(r"^register_(\w+)_plugin")
+
 
 # Metadata regarding each plugin:
 _PLUGIN_METADATA = {
-    register_framing_plugin: {"class": framing.FramerDeframer, "type": PluginType.SELECTION},
-    register_communication_plugin: {"class": base.BaseAdapter, "type": PluginType.SELECTION},
-    register_gds_function_plugin: {"class": fprime_gds.executables.apps.GdsFunction, "type": PluginType.FEATURE},
-    register_gds_app_plugin: {"class": fprime_gds.executables.apps.GdsApp, "type": PluginType.FEATURE}
+    "framing": {
+        "class": FramerDeframer,
+        "type": PluginType.SELECTION,
+        "built-in": [FpFramerDeframer]
+    },
+    "communication": {
+        "class": BaseAdapter,
+        "type": PluginType.SELECTION,
+        "built-in": [adapter for adapter in [NoneAdapter, IpAdapter, SerialAdapter] if adapter is not None]
+    },
+    "gds_function": {
+        "class": GdsFunction,
+        "type": PluginType.FEATURE,
+        "built-in": []
+    },
+    "gds_app": {
+        "class": GdsApp,
+        "type": PluginType.FEATURE,
+        "built-in": []
+    }
 }
-
-# F´ supplied plugin classes to be registered directly and not via entrypoints
-_SUPPLIED_PLUGIN_MODULES_OR_CLASSES = [
-    framing.FpFramerDeframer,
-    base.NoneAdapter,
-    ip.IpAdapter,
-]
-if uart is not None:
-    _SUPPLIED_PLUGIN_MODULES_OR_CLASSES.append(uart.SerialAdapter)
 
 
 class PluginException(Exception):
@@ -61,20 +64,49 @@ class InvalidCategoryException(PluginException):
     pass
 
 
-
-
 class Plugins(object):
-    """GDS plugin system providing a plugin Singleton for use across the GDS"""
+    """GDS plugin system providing a plugin Singleton for use across the GDS
 
+    GDS plugins are broken into categories (e.g. framing) that represent the key features users can adjust. Each GDS
+    application will support and load the plugins for a given category.
+    """
+    PLUGIN_ENVIRONMENT_VARIABLE = "FPRIME_GDS_EXTRA_PLUGINS"
     _singleton = None
 
-    def __init__(self):
-        """Initialize the plugin system"""
+    def __init__(self, categories: Union[None, List] = None):
+        """ Initialize the plugin system with specific categories
+
+        Initialize the plugin system with support for the supplied categories. Only plugins for the specified categories
+        will be loaded for use. Other plugins will not be available for use.
+
+        Args:
+            categories: None for all categories otherwise a list of categories
+        """
+        categories = self.get_all_categories() if categories is None else categories
+        self.categories = categories
         self.manager = pluggy.PluginManager(PROJECT_NAME)
-        self.manager.add_hookspecs(definitions)
+
+        # Load hook specifications from only the configured categories
+        for category in categories:
+            self.manager.add_hookspecs(_PLUGIN_METADATA[category]["class"])
+
+        # Load plugins from setuptools entrypoints and the built-in plugins (limited to category)
         self.manager.load_setuptools_entrypoints(PROJECT_NAME)
-        for module in _SUPPLIED_PLUGIN_MODULES_OR_CLASSES:
-            self.manager.register(module)
+
+        # Load plugins from environment variable specified modules
+        for token in [token for token in os.environ.get(self.PLUGIN_ENVIRONMENT_VARIABLE, "").split(";") if token]:
+            module, class_token = token.split(":")
+            try:
+                imported_module = importlib.import_module(module)
+                module_class = module if class_token == "" else getattr(imported_module, class_token, imported_module)
+                self.register_plugin(module_class)
+            except ImportError as imp:
+                LOGGER.debug("Failed to load %s.%s as plugin", module, class_token)
+
+        # Load built-in plugins
+        for category in categories:
+            for built_in in _PLUGIN_METADATA[category]["built-in"]:
+                self.register_plugin(built_in)
 
     def get_plugins(self, category) -> Iterable:
         """Get available plugins for the given category
@@ -88,12 +120,11 @@ class Plugins(object):
         Return:
             validated list of plugin implementor classes
         """
-        plugin_function_name = f"register_{category}_plugin"
-        if not hasattr(definitions, plugin_function_name) or not hasattr(
-            self.manager.hook, plugin_function_name
-        ):
-            raise InvalidCategoryException(f"Invalid plugin category: {category}")
-        plugin_classes = getattr(self.manager.hook, plugin_function_name)()
+        try:
+            plugin_classes = getattr(self.manager.hook, f"register_{category}_plugin")()
+        except KeyError as error:
+            raise InvalidCategoryException(f"Invalid plugin category: {error}")
+
         return [
             Plugin(category, self.get_category_plugin_type(category), plugin_class)
             for plugin_class in plugin_classes
@@ -110,25 +141,19 @@ class Plugins(object):
         """
         self.manager.register(module_or_class)
 
+    def get_categories(self):
+        """ Get plugin categories """
+        return self.categories
+
     @staticmethod
-    def get_categories():
-        """Get all plugin categories"""
-        specifications = _PLUGIN_METADATA.keys()
-        matches = [
-            _NAME_REGEX.match(specification.__name__)
-            for specification in specifications
-        ]
-        return [match.group(1) for match in matches if match]
+    def get_all_categories():
+        """ Get all plugin categories """
+        return _PLUGIN_METADATA.keys()
 
     @staticmethod
     def get_plugin_metadata(category):
         """ Get the plugin metadata for a given plugin category """
-        plugin_function_name = f"register_{category}_plugin"
-        plugin_specification_function = getattr(definitions, plugin_function_name)
-        assert hasattr(
-            definitions, plugin_function_name
-        ), "Plugin category failed pre-validation"
-        return _PLUGIN_METADATA[plugin_specification_function]
+        return _PLUGIN_METADATA[category]
 
     @classmethod
     def get_category_plugin_type(cls, category):
@@ -176,12 +201,23 @@ class Plugins(object):
         return True
 
     @classmethod
-    def system(cls) -> "PluginSystem":
-        """Construct singleton if needed then return it"""
-        return cls._build_singleton()
+    def system(cls, categories: Union[None, List] = None) -> "Plugins":
+        """ Get plugin system singleton
 
-    @classmethod
-    def _build_singleton(cls) -> "PluginSystem":
-        """Build a singleton for this class"""
-        cls._singleton = cls._singleton if cls._singleton is not None else cls()
+        Constructs the plugin system singleton (when it has yet to be constructed) then returns the singleton. The
+        singleton will support specific categories and further requests for a singleton will cause an assertion error
+        unless the categories match or is None.
+
+        Args:
+            categories: a list of categories to support or None to use the existing categories
+
+        Returns:
+            plugin system
+        """
+        # Singleton undefined, construct it
+        if cls._singleton is None:
+            cls._singleton = cls(cls.get_all_categories() if categories is None else categories)
+        # Ensure categories was unspecified or matches the singleton
+        assert categories is None or cls._singleton.categories == categories, "Inconsistent plugin categories"
         return cls._singleton
+

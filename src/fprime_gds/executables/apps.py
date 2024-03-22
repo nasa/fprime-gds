@@ -10,17 +10,39 @@ command line that will be spun into its own process.
 
 @author lestarch
 """
-import abc
 import subprocess
-from typing import List
+from abc import ABC, abstractmethod
+from typing import List, Type
+
+from fprime_gds.plugin.definitions import gds_plugin_specification
 
 
-class GdsFunction(object):
+class GdsBaseFunction(ABC):
     """ Base functionality for pluggable GDS start-up functions
 
-    GDS start-up functionality is pluggable. This class acts as a base for pluggable functionality that requires
-    complete control of the start-up functionality. However, this comes at the cost of instability in that case of
-    poorly designed functions.
+    GDS start-up functionality is pluggable. This class acts as a base for pluggable functionality supplies helpers to
+    the various start-up plugins.
+
+    Developers who intend to run in an isolated subprocess are strongly encouraged to use `GdsApp` (see below).
+    Developers who need flexibility may use GdsFunction.
+    """
+
+    @abstractmethod
+    def run(self):
+        """ Run the start-up function
+
+        Run the start-up function unconstrained by the limitations of running in a dedicated subprocess.
+
+        """
+        raise NotImplementedError()
+
+
+class GdsFunction(GdsBaseFunction, ABC):
+    """ Functionality for pluggable GDS start-up functions
+
+    GDS start-up functionality is pluggable. This class acts as a wide-open implementation of functionality via a single
+    `run` callback. Developers have complete control of the start-up functionality. However, this comes at the cost of
+    instability in that case of poorly designed functions.
 
     Developers who intend to run in an isolated subprocess are strongly encouraged to use `GdsApp` (see below).
 
@@ -33,17 +55,25 @@ class GdsFunction(object):
     Arguments will be supplied to the class's `__init__` function.
     """
 
-    @abc.abstractmethod
-    def run(self):
-        """ Run the start-up function
+    @classmethod
+    @gds_plugin_specification
+    def register_gds_function_plugin(cls) -> Type["GdsFunction"]:
+        """Register gds start-up functionality
 
-        Run the start-up function unconstrained by the limitations of running in a dedicated subprocess.
+        Plugin hook for registering a plugin that supplies start-up functionality. This functionality will run on start-up
+        of the GDS network.
 
+        Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
+        determined from class methods, solicited via the command line, and provided at construction time to the chosen
+        instantiation.
+
+        Returns:
+            GDSFunction subclass
         """
         raise NotImplementedError()
 
 
-class GdsApp(GdsFunction):
+class GdsApp(GdsBaseFunction):
     """ GDS start-up proces functionality
 
     A pluggable base class used to start a new process as part of the GDS command line invocation. This allows
@@ -56,9 +86,16 @@ class GdsApp(GdsFunction):
     Standard plug-in functions (get_name, get_arguments) are available should the implementer desire these features.
     Arguments will be supplied to the class's `__init__` function.
     """
-    def __init__(self):
-        """ Constructor """
+    def __init__(self, **arguments):
+        """ Construct the communication applications around the arguments
+
+        Command line arguments are passed in to match those returned from the `get_arguments` functions.
+
+        Args:
+            arguments: arguments from the command line
+        """
         self.process = None
+        self.arguments = arguments
 
     def run(self):
         """ Run the application as an isolated process
@@ -86,11 +123,28 @@ class GdsApp(GdsFunction):
             _, _ = self.process.wait(timeout=timeout)
         return self.process.returncode
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_process_invocation(self) -> List[str]:
         """ Run the start-up function
 
         Run the start-up function unconstrained by the limitations of running in a dedicated subprocess.
 
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    @gds_plugin_specification
+    def register_gds_app_plugin(cls) -> Type["GdsApp"]:
+        """Register a gds start-up application
+
+        Plugin hook for registering a plugin that supplies start-up functionality. This functionality will run on start-up
+        of the GDS network isolated into a dedicated process.
+
+        Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
+        determined from class methods, solicited via the command line, and provided at construction time to the chosen
+        instantiation.
+
+        Returns:
+            GdsApp subclass
         """
         raise NotImplementedError()

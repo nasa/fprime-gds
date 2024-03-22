@@ -197,6 +197,7 @@ class ParserBase(ABC):
             sys.exit(-1)
         except Exception as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
+            raise
             sys.exit(-1)
         return args_ns, parser
 
@@ -282,6 +283,24 @@ class PluginArgumentParser(ParserBase):
             for category in Plugins.system().get_categories()
         }
 
+    @staticmethod
+    def safe_add_argument(parser, *flags, **keywords):
+        """ Add an argument allowing duplicates
+
+        Add arguments to the parser (passes through *flags and **keywords) to the supplied parser. This method traps
+        errors to prevent duplicates.
+
+        Args:
+            parser: parser or argument group to add arguments to
+            *flags: positional arguments passed to `add_argument`
+            **keywords: key word arguments passed to `add_argument`
+        """
+        try:
+            parser.add_argument(*flags, **keywords)
+        except argparse.ArgumentError:
+            # flag has already been added, pass
+            pass
+
     def fill_parser(self, parser):
         """ File supplied parser with grouped arguments
 
@@ -294,19 +313,18 @@ class PluginArgumentParser(ParserBase):
         for category, plugins in self._plugin_map.items():
             argument_group = parser.add_argument_group(title=f"{category.title()} Plugin Options")
             for flags, keywords in self.get_category_arguments(category).items():
-                try:
-                    argument_group.add_argument(*flags, **keywords)
-                except argparse.ArgumentError:
-                    # flag has already been added, pass
-                    pass
+                self.safe_add_argument(argument_group, *flags, **keywords)
+
             for plugin in plugins:
                 argument_group = parser.add_argument_group(title=f"{category.title()} Plugin '{plugin.get_name()}' Options")
+                if plugin.type == PluginType.FEATURE:
+                    self.safe_add_argument(argument_group,
+                                           f"--disable-{plugin.get_name()}",
+                                           action="store_true",
+                                           default=False,
+                                           help=f"Disable the {category} plugin '{plugin.get_name()}'")
                 for flags, keywords in plugin.get_arguments().items():
-                    try:
-                        argument_group.add_argument(*flags, **keywords)
-                    except argparse.ArgumentError:
-                        # flag has already been added, pass
-                        pass
+                    self.safe_add_argument(argument_group, *flags, **keywords)
 
     def get_category_arguments(self, category):
         """ Get arguments for a plugin category """
@@ -354,7 +372,9 @@ class PluginArgumentParser(ParserBase):
             # Selection plugins choose one plugin and instantiate it
             if plugin_type == PluginType.SELECTION:
                 selection_string = getattr(args, f"{category}_selection")
-                selection_class = plugins[selection_string]
+                matching_plugins = [plugin for plugin in plugins if plugin.get_name() == selection_string]
+                assert len(matching_plugins) == 1, "Plugin selection system failed"
+                selection_class = matching_plugins[0].plugin_class
                 filled_arguments = self.extract_plugin_arguments(args, selection_class)
                 selection_instance = selection_class(**filled_arguments)
                 setattr(args, f"{category}_selection_instance", selection_instance)
@@ -362,17 +382,17 @@ class PluginArgumentParser(ParserBase):
             elif plugin_type == PluginType.FEATURE:
                 enabled_plugins = [
                     plugin for plugin in plugins
-                    if not getattr(args, f"disable_{plugin.get_name()}", False)
+                    if not getattr(args, f"disable_{plugin.get_name().replace('-', '_')}", False)
                 ]
                 plugin_instantiations = [
-                    plugin(self.extract_plugin_arguments(args, plugin))
+                    plugin.plugin_class(**self.extract_plugin_arguments(args, plugin))
                     for plugin in enabled_plugins
                 ]
                 setattr(args, f"{category}_enabled_instances", plugin_instantiations)
         return args
 
     @staticmethod
-    def extract_plugin_arguments(cls, args, plugin) -> Dict[str, Any]:
+    def extract_plugin_arguments(args, plugin) -> Dict[str, Any]:
         """Extract plugin argument values from the args namespace into a map
 
         Plugin arguments will be supplied to the `__init__` function of the plugin via a keyword argument dictionary.

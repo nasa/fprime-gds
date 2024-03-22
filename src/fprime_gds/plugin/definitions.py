@@ -3,7 +3,7 @@
 In order to define a plugin, an implementation decorator is used. Users can import `gds_plugin_implementation` from this
 file to decorate functions that implement plugins.
 
-This file also defines the specifications for these implementations and users may inspect those specifications here.
+This file also defines helper classes to support the plugin system.
 
 @author lestarch
 """
@@ -69,68 +69,3 @@ class Plugin(object):
         """
         return self.plugin_class.get_arguments() if hasattr(self.plugin_class, "get_arguments") else {}
 
-
-
-@gds_plugin_specification
-def register_framing_plugin() -> Type["FramerDeframer"]:
-    """Register a plugin to provide framing capabilities
-
-    Plugin hook for registering a plugin that supplies a FramerDeframer implementation. Implementors of this hook must
-    return a non-abstract subclass of FramerDeframer. This class will be provided as a framing implementation option
-    that users may select via command line arguments.
-
-    Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
-    determined from class methods, solicited via the command line, and provided at construction time to the chosen
-    instantiation.
-
-    Returns:
-        FramerDeframer subclass
-    """
-
-
-@gds_plugin_specification
-def register_communication_plugin() -> Type["BaseAdapter"]:
-    """Register a communications adapter
-
-    Plugin hook for registering a plugin that supplies an adapter to the communications interface (radio, uart, i2c,
-    etc). This interface is expected to read and write bytes from a wire and will be provided to the framing system.
-
-    Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
-    determined from class methods, solicited via the command line, and provided at construction time to the chosen
-    instantiation.
-
-    Returns:
-        BaseAdapter subclass
-    """
-
-
-@gds_plugin_specification
-def register_gds_function_plugin() -> Type["GdsFunction"]:
-    """Register gds start-up functionality
-
-    Plugin hook for registering a plugin that supplies start-up functionality. This functionality will run on start-up
-    of the GDS network.
-
-    Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
-    determined from class methods, solicited via the command line, and provided at construction time to the chosen
-    instantiation.
-
-    Returns:
-        GDSFunction subclass
-    """
-
-
-@gds_plugin_specification
-def register_gds_app_plugin() -> Type["GdsApp"]:
-    """Register a gds start-up application
-
-    Plugin hook for registering a plugin that supplies start-up functionality. This functionality will run on start-up
-    of the GDS network isolated into a dedicated process.
-
-    Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
-    determined from class methods, solicited via the command line, and provided at construction time to the chosen
-    instantiation.
-
-    Returns:
-        GdsApp subclass
-    """

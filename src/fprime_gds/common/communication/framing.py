@@ -15,9 +15,10 @@ import abc
 import copy
 import struct
 import sys
+from typing import Type
 
 from .checksum import calculate_checksum, CHECKSUM_MAPPING
-from fprime_gds.plugin.definitions import gds_plugin_implementation
+from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin_specification
 
 
 class FramerDeframer(abc.ABC):
@@ -70,6 +71,24 @@ class FramerDeframer(abc.ABC):
             if packet is None:
                 return packets, data, discarded_aggregate
             packets.append(packet)
+
+    @classmethod
+    @gds_plugin_specification
+    def register_framing_plugin(cls) -> Type["FramerDeframer"]:
+        """Register a plugin to provide framing capabilities
+
+        Plugin hook for registering a plugin that supplies a FramerDeframer implementation. Implementors of this hook must
+        return a non-abstract subclass of FramerDeframer. This class will be provided as a framing implementation option
+        that users may select via command line arguments.
+
+        Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
+        determined from class methods, solicited via the command line, and provided at construction time to the chosen
+        instantiation.
+
+        Returns:
+            FramerDeframer subclass
+        """
+        raise NotImplementedError()
 
 
 class FpFramerDeframer(FramerDeframer):
