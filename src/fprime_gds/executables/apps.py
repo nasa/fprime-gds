@@ -74,13 +74,13 @@ class GdsFunction(GdsBaseFunction, ABC):
 
 
 class GdsApp(GdsBaseFunction):
-    """ GDS start-up proces functionality
+    """ GDS start-up process functionality
 
     A pluggable base class used to start a new process as part of the GDS command line invocation. This allows
     developers to add process-isolated functionality to the GDS network.
 
     Plugin developers are required to implement the `get_process_invocation` function that returns a list of arguments
-    needed to invoke the process via python's `subrpocess`. Additionally, the developer must define the
+    needed to invoke the process via python's `subprocess`. Additionally, the developer must define the
     `register_gds_function_plugin` class method annotated with the @gds_plugin_implementation annotation.
 
     Standard plug-in functions (get_name, get_arguments) are available should the implementer desire these features.

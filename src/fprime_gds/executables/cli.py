@@ -358,7 +358,7 @@ class PluginArgumentParser(ParserBase):
                         (f"--disable-{plugin.get_name()}", ): {
                             "action": "store_true",
                             "default": False,
-                            "help": f"Disable the {category} plguin '{plugin.get_name()}'"
+                            "help": f"Disable the {category} plugin '{plugin.get_name()}'"
                         }
                     })
                 arguments.update(plugin.get_arguments())
