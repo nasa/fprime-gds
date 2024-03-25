@@ -213,8 +213,8 @@ def main():
     # Launch launchers and wait for the last app to finish
     try:
         procs = [launcher(parsed_args) for launcher in launchers]
-        apps = [launch_plugin(cls) for cls in  parsed_args.gds_app_enabled_instances]
-        run_returns = [instance.run() for instance in parsed_args.gds_function_enabled_instances]
+        _ = [launch_plugin(cls) for cls in  parsed_args.gds_app_enabled_instances]
+        _ = [instance.run() for instance in parsed_args.gds_function_enabled_instances]
 
         print("[INFO] F prime is now running. CTRL-C to shutdown all components.")
         procs[-1].wait()

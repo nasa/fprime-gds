@@ -14,7 +14,9 @@ import inspect
 import logging
 from typing import Iterable, List, Union
 
-from fprime_gds.plugin.definitions import *
+import pluggy
+
+from fprime_gds.plugin.definitions import Plugin, PluginType, PROJECT_NAME
 
 # For automatic validation of plugins, each plugin class type must be imported here
 from fprime_gds.executables.apps import GdsFunction, GdsApp
