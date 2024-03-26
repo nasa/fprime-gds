@@ -111,6 +111,12 @@ class GoodWithArgs(Good):
             },
         }
 
+    @classmethod
+    def check_arguments(cls, my_fancy_arg, fancy_2):
+        """ Check arguments to raise ValueError """
+        if fancy_2 < 0:
+            raise ValueError("Must be positive")
+
 
 class StartFunction(GdsFunction):
     """ A plugin implementation that starts a function
@@ -273,6 +279,15 @@ def test_plugin_arguments(plugins):
     assert isinstance(args.framing_selection_instance, GoodWithArgs), "Invalid instance created"
     assert args.framing_selection_instance.my_fancy_arg == a_string, "String argument did not process"
     assert args.framing_selection_instance.fancy_2 == int(a_number), "Integer argument did not process"
+
+
+def test_plugin_check_arguments(plugins):
+    """ Tests that arguments are validated in plugins """
+    a_string = "a_string"
+    a_number = "-20"
+    to_parse = ["--framing", "good-with-args", "--my-fancy-arg", a_string, "--my-fancy-arg-with-dest", a_number]
+    with pytest.raises(SystemExit):
+        args, _ = ParserBase.parse_args([PluginArgumentParser,], arguments=to_parse)
 
 
 @pytest.mark.parametrize("start_up", [(f"{__name__}:StartFunction", [])], indirect=True)
