@@ -419,7 +419,7 @@ class PluginArgumentParser(ParserBase):
         }
         # Check arguments or yield a Value error
         if hasattr(plugin, "check_arguments"):
-            plugin.check_arguments(filled_arguments)
+            plugin.check_arguments(**filled_arguments)
         return filled_arguments
 
 
