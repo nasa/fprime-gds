@@ -202,7 +202,12 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
 
         :param args: arguments as dictionary
         """
-        check_port(address, port)
+        try:
+            if server:
+                check_port(address, port)
+        except OSError as os_error:
+            raise ValueError(f"{os_error}")
+
 
 
 class IpHandler(abc.ABC):
