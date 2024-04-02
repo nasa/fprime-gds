@@ -208,12 +208,12 @@ class RecordStruct(BaseModel):
     description: str
     type: Union[StructType, ArrayType, IntegerType, FloatType, BoolType, QualifiedType]
     array: bool
-    identifier: int
+    id: int
 
 class ContainerStruct(BaseModel):
     name: str
     description: str
-    identifier: int
+    id: int
 
 # -------------------------------------------------------------------------------------
 # These Pydantic classes define the FPRIME_DICTIONARY_FILE
@@ -498,8 +498,8 @@ def get_record_data(headerJSON: DPHeader, dictJSON: FprimeDict) -> Dict[str, int
     # Go through all the Records and find the one that matches recordId
     rootDict['dataId'] = read_field(headerJSON.dataId.type)
     for record in dictJSON.records:
-        if record.identifier == rootDict['dataId']:    
-            print(f'Processing Record ID {record.identifier}')
+        if record.id == rootDict['dataId']:    
+            print(f'Processing Record ID {record.id}')
             if record.array:
                 dataSize = read_field(headerJSON.dataSize.type)
                 rootDict['size'] = dataSize
@@ -661,10 +661,10 @@ def handleException(msg):
 def check_record_data(dictJSON: FprimeDict):
     idSet = set()
     for record in dictJSON.records:
-        if record.identifier in idSet:
-            raise DuplicateRecordID(record.identifier)
+        if record.id in idSet:
+            raise DuplicateRecordID(record.id)
         else:
-            idSet.add(record.identifier)
+            idSet.add(record.id)
 
 
 # ------------------------------------------------------------------------------------------
