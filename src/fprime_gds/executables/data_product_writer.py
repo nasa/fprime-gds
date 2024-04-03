@@ -103,7 +103,6 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-FPRIME_DICTIONARY_FILE = "dictionary.json"
 DP_HEADER_FILE = "dpspec.json"
 
 # Deserialize the binary file big endian
@@ -675,17 +674,18 @@ def check_record_data(dictJSON: FprimeDict):
 # Application arguments
 parser = argparse.ArgumentParser(description='Data Product Writer.')
 parser.add_argument('binFile', help='Data Product Binary file')
+parser.add_argument('jsonDict', help='JSON Dictionary')
 args = parser.parse_args()
 
 try:
 
     # Read the F prime JSON dictionary
-    print(f"Parsing {FPRIME_DICTIONARY_FILE}...")
+    print(f"Parsing {args.jsonDict}...")
     try:
-        with open(FPRIME_DICTIONARY_FILE, 'r') as fprimeDictFile:
+        with open(args.jsonDict, 'r') as fprimeDictFile:
             dictJSON = FprimeDict(**json.load(fprimeDictFile))
     except JSONDecodeError as e:
-        raise DictionaryError(FPRIME_DICTIONARY_FILE, e.lineno)
+        raise DictionaryError(args.jsonDict, e.lineno)
     
     check_record_data(dictJSON)
 
@@ -740,13 +740,12 @@ except (ValueError) as e:
     msg = f'ValueError in JSON file {error["loc"]}: {error["msg"]}'
     handleException(msg)
 
-# Ensure the output directory exists
-output_directory = "./JSONoutput/"
-if not os.path.exists(output_directory):
-    os.makedirs(output_directory)
 
 # Output the generated json to a file
-outputJsonFile = "./JSONoutput/" + os.path.splitext(args.binFile)[0] + '.json'
+baseName = os.path.basename(args.binFile)
+outputJsonFile = os.path.splitext(baseName)[0] + '.json'
+if outputJsonFile.startswith('._'):
+    outputJsonFile = outputJsonFile.replace('._', '')
 with open(outputJsonFile, 'w') as file:
     json.dump(recordList, file, indent=2)
 
