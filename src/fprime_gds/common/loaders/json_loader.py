@@ -23,6 +23,9 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.type_base import DictionaryType, BaseType
+
+from fprime_gds.common.data_types import exceptions
+
 from fprime_gds.version import (
     MAXIMUM_SUPPORTED_FRAMEWORK_VERSION,
     MINIMUM_SUPPORTED_FRAMEWORK_VERSION,
@@ -128,11 +131,9 @@ class JsonLoader(dict_loader.DictLoader):
                 break
 
         if qualified_type is None:
-            # TODO: There's an issue here with PacketTypes not being in dictionary???
-            return DictionaryType.construct_type(SerializableType, type_name)
-            # raise ValueError(
-            #     f"Channel entry in dictionary has no corresponding type definition."
-            # )
+            raise ValueError(
+                f"Channel entry in dictionary has no corresponding type definition."
+            )
 
         if qualified_type.get("kind") == "array":
             return ArrayType.construct_type(
@@ -143,9 +144,12 @@ class JsonLoader(dict_loader.DictLoader):
             )
 
         if qualified_type.get("kind") == "enum":
+            enum_dict = {}
+            for member in qualified_type.get("enumeratedConstants"):
+                enum_dict[member.get("name")] = member.get("value")
             return EnumType.construct_type(
                 type_name,
-                qualified_type.get("identifiers"),
+                enum_dict,
                 qualified_type.get("representationType").get("name"),
             )
 
@@ -165,7 +169,7 @@ class JsonLoader(dict_loader.DictLoader):
                     )
 
                 fmt_str = self.get_format_string_obj(member_type_obj)
-                description = member_type_dict.get("description", "")
+                description = member_type_dict.get("annotation", "")
                 struct_members.append((name, member_type_obj, fmt_str, description))
 
             return SerializableType.construct_type(

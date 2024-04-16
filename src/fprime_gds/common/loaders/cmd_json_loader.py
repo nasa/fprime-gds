@@ -15,7 +15,7 @@ class CmdJsonLoader(JsonLoader):
 
     MNEMONIC_TAG = "name"
     OPCODE_TAG = "opcode"
-    DESC_TAG = "description"
+    DESC_TAG = "annotation"
     PARAMETERS_TAG = "formalParams"
 
     def __init__(self, dict_path: str):
@@ -45,12 +45,12 @@ class CmdJsonLoader(JsonLoader):
 
             cmd_opcode = cmd_dict.get("opcode")
 
-            cmd_desc = cmd_dict.get("description")
+            cmd_desc = cmd_dict.get("annotation")
 
             # Parse Arguments
             cmd_args = []
             for arg in cmd_dict.get("formalParams", []):
-                cmd_args.append((arg.get("name"), arg.get("description"), self.parse_type(arg.get("type"))))
+                cmd_args.append((arg.get("name"), arg.get("annotation"), self.parse_type(arg.get("type"))))
 
             cmd_temp = CmdTemplate(cmd_opcode, cmd_mnemonic, cmd_comp, cmd_args, cmd_desc)
 

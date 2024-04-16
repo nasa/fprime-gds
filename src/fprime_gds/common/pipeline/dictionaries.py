@@ -7,6 +7,7 @@ class called "Dictionaries".
 @author mstarch
 """
 import os
+from pathlib import Path
 
 import fprime_gds.common.loaders.ch_py_loader
 import fprime_gds.common.loaders.ch_xml_loader
@@ -83,8 +84,7 @@ class Dictionaries:
             self._channel_name_dict = channel_loader.get_name_dict(
                 os.path.join(dictionary, "channels")
             )
-        # TODO: rework with Pathlib
-        elif os.path.isfile(dictionary) and ".json" in str(dictionary):
+        elif Path(dictionary).is_file() and ".json" in Path(dictionary).suffixes:
             # Events
             json_event_loader = fprime_gds.common.loaders.event_json_loader.EventJsonLoader(dictionary)
             self._event_name_dict = json_event_loader.get_name_dict(None)
@@ -101,34 +101,22 @@ class Dictionaries:
             self._channel_id_dict = json_channel_loader.get_id_dict(None)
             assert self._versions == json_channel_loader.get_versions(), "Version mismatch while loading"
         # XML dictionaries
-        elif os.path.isfile(dictionary):
+        elif Path(dictionary).is_file():
             # Events
             event_loader = fprime_gds.common.loaders.event_xml_loader.EventXmlLoader()
             self._event_id_dict = event_loader.get_id_dict(dictionary)
             self._event_name_dict = event_loader.get_name_dict(dictionary)  
             self._versions = event_loader.get_versions()
-            # if os.path.isfile(ref_json_dict) and True:  
-            #     json_event_loader = fprime_gds.common.loaders.event_json_loader.EventJsonLoader(ref_json_dict)
-            #     self._event_name_dict = json_event_loader.get_name_dict(None)
-            #     self._event_id_dict = json_event_loader.get_id_dict(None)
             # Commands
             command_loader = fprime_gds.common.loaders.cmd_xml_loader.CmdXmlLoader()
             self._command_id_dict = command_loader.get_id_dict(dictionary)
             self._command_name_dict = command_loader.get_name_dict(dictionary)
             assert self._versions == command_loader.get_versions(), "Version mismatch while loading"
-            # if os.path.isfile(ref_json_dict) and True:  
-            #     json_command_loader = fprime_gds.common.loaders.cmd_json_loader.CmdJsonLoader(ref_json_dict)
-            #     self._command_name_dict = json_command_loader.get_name_dict(None)
-            #     self._command_id_dict = json_command_loader.get_id_dict(None)  
             # Channels
             channel_loader = fprime_gds.common.loaders.ch_xml_loader.ChXmlLoader()
             self._channel_id_dict = channel_loader.get_id_dict(dictionary)
             self._channel_name_dict = channel_loader.get_name_dict(dictionary)
             assert self._versions == channel_loader.get_versions(), "Version mismatch while loading"
-            # if os.path.isfile(ref_json_dict) and True:  
-            #     json_channel_loader = fprime_gds.common.loaders.ch_json_loader.ChJsonLoader(ref_json_dict)
-            #     self._channel_name_dict = json_channel_loader.get_name_dict(None)
-            #     self._channel_id_dict = json_channel_loader.get_id_dict(None)  
         else:
             msg = f"[ERROR] Dictionary '{dictionary}' does not exist."
             raise Exception(msg)

@@ -17,7 +17,7 @@ class ChJsonLoader(JsonLoader):
     ID_FIELD = "id"
     NAME_FIELD = "name"
     KIND_FIELD = "kind"
-    DESC_FIELD = "description"
+    DESC_FIELD = "annotation"
     TYPE_FIELD = "type"
     FMT_STR_FIELD = "format"
     LIMIT_FIELD = "limit"

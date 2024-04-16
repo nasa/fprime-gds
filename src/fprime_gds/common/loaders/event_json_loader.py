@@ -24,7 +24,7 @@ class EventJsonLoader(JsonLoader):
     ID_TAG = "id"
     SEVERITY_TAG = "severity"
     FMT_STR_TAG = "format"
-    DESC_TAG = "description"
+    DESC_TAG = "annotation"
 
     def construct_dicts(self, path):
         """
@@ -53,25 +53,13 @@ class EventJsonLoader(JsonLoader):
         id_dict = {}
         name_dict = {}
 
-        # Needed cause names LOW/HIGH are really LO/HI
-        severity_map = {
-            "COMMAND": "COMMAND",
-            "ACTIVITY_LOW": "ACTIVITY_LO",
-            "ACTIVITY_HIGH": "ACTIVITY_HI",
-            "WARNING_LOW": "WARNING_LO",
-            "WARNING_HIGH": "WARNING_HI",
-            "DIAGNOSTIC": "DIAGNOSTIC",
-            "FATAL": "FATAL",
-            
-        }
-
         for event_dict in self.json_dict.get("events"):
             event_mnemonic = event_dict.get("name")
             event_comp = event_mnemonic.split(".")[0]
             event_name = event_mnemonic.split(".")[1]
 
             event_id = event_dict[self.ID_TAG]
-            event_severity = EventSeverity[severity_map[event_dict[self.SEVERITY_TAG]]]
+            event_severity = EventSeverity[event_dict[self.SEVERITY_TAG]]
 
             event_fmt_str = event_dict.get(self.FMT_STR_TAG, "")
 
@@ -80,7 +68,7 @@ class EventJsonLoader(JsonLoader):
             # Parse arguments
             event_args = []
             for arg in event_dict.get("formalParams", []):
-                event_args.append((arg.get("name"), arg.get("description"), self.parse_type(arg.get("type"))))
+                event_args.append((arg.get("name"), arg.get("annotation"), self.parse_type(arg.get("type"))))
 
 
             event_temp = EventTemplate(
