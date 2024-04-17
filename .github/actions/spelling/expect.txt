@@ -47,10 +47,12 @@ backport
 basestring
 batchmode
 baudrate
+bcolors
 beforeunload
 BGR
 Biberstein
 bibtex
+binascii
 bitmaps
 blockquote
 bmp
@@ -67,8 +69,8 @@ cata
 cbl
 CCB
 CCFF
-cdn
 Cdioux
+cdn
 CFDG
 CFDP
 CFPD
@@ -95,8 +97,8 @@ combuffer
 commandsi
 concat
 config
-configs
 configparser
+configs
 Consolas
 cpp
 CPython
@@ -166,6 +168,8 @@ doxyrules
 doxysearch
 Doxywizard
 doy
+dpi
+dpspec
 dropdown
 dropleft
 dropright
@@ -183,6 +187,7 @@ EINPROGRESS
 elif
 Emoji
 encodable
+ENDC
 endcond
 endian
 endif
@@ -191,6 +196,7 @@ endtime
 enqueuing
 entrypoint
 enum
+Enumtype
 envvar
 errno
 errored
@@ -216,6 +222,7 @@ FFCC
 FFFF
 fieldset
 figcaption
+figsize
 filemode
 fileno
 filepath
@@ -229,6 +236,7 @@ focusring
 FONTNAME
 FONTPATH
 FONTSIZE
+Fpp
 fprime
 fptable
 frac
@@ -357,6 +365,7 @@ libc
 libclang
 libcrc
 libiconv
+lineno
 Linting
 Linux
 listbox
@@ -381,6 +390,7 @@ MAKEVAR
 marijnh
 matchobj
 mathjax
+matplotlib
 maxcountryman
 maxdepth
 mcternan
@@ -409,6 +419,7 @@ myproject
 namespace
 nargs
 navbar
+nbytes
 Neue
 newname
 Nify
@@ -430,6 +441,8 @@ odl
 odo
 oga
 ogg
+OKBLUE
+OKGREEN
 OMG
 onabort
 onerror
@@ -466,6 +479,7 @@ Pkts
 plainnat
 plantuml
 plist
+plt
 plugin
 png
 PNGs
@@ -487,8 +501,11 @@ ptr
 px
 py
 pyc
+Pydantic
+pydantic
 pylint
 pypi
+pyplot
 pyserial
 pytest
 PYTHONHOME
@@ -541,6 +558,7 @@ rst
 rtd
 rtf
 saba
+savefig
 scm
 scrollable
 scrollbar
@@ -656,8 +674,8 @@ ttl
 tts
 twbs
 txz
-typedef'ed
 typedef
+typedef'ed
 typehints
 typeof
 tzinfo
@@ -681,8 +699,8 @@ uplinker
 uplinkvue
 uploader
 upto
-uri
 URI
+uri
 url
 usec
 useconds
@@ -714,6 +732,7 @@ vname
 VRuntime
 vue
 vw
+Watney
 wav
 webbrowser
 webified
@@ -737,14 +756,16 @@ xcode
 xhtml
 xhttp
 xl
+xlabel
 xls
 xlsx
 xml
 xy
 yaml
+ylabel
 yml
 zeromq
 zlib
-zmq
 ZMQ
+zmq
 Zmq
