@@ -133,6 +133,7 @@ DEPRECATEDLIST
 deserialization
 deserialize
 deserialized
+deserializes
 deserializing
 dest
 dexc
@@ -501,7 +502,6 @@ ptr
 px
 py
 pyc
-Pydantic
 pydantic
 pylint
 pypi
@@ -699,7 +699,6 @@ uplinker
 uplinkvue
 uploader
 upto
-URI
 uri
 url
 usec
@@ -768,4 +767,3 @@ zeromq
 zlib
 ZMQ
 zmq
-Zmq
