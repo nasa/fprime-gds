@@ -765,5 +765,4 @@ ylabel
 yml
 zeromq
 zlib
-ZMQ
 zmq
