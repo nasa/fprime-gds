@@ -30,7 +30,6 @@ class ChJsonLoader(JsonLoader):
     def __init__(self, dict_path: str):
         super().__init__(dict_path)
 
-
     def construct_dicts(self, dict_path: str):
         """
         Constructs and returns python dictionaries keyed on id and name
@@ -53,8 +52,11 @@ class ChJsonLoader(JsonLoader):
             id_dict[ch_dict[self.ID_FIELD]] = ch_temp
             name_dict[ch_dict[self.NAME_FIELD]] = ch_temp
 
-        return dict(sorted(id_dict.items())), dict(sorted(name_dict.items())), ("unknown", "unknown")
-
+        return (
+            dict(sorted(id_dict.items())),
+            dict(sorted(name_dict.items())),
+            ("unknown", "unknown"),
+        )
 
     def construct_template_from_dict(self, channel_dict: dict):
         component_name = channel_dict[self.NAME_FIELD].split(".")[0]

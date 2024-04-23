@@ -44,7 +44,12 @@ class EventData(sys_data.SysData):
             self.display_text = event_temp.description
         elif event_temp.format_str == "":
             args_template = self.template.get_args()
-            self.display_text = str([{args_template[index][0]:arg.val} for index, arg in enumerate(event_args)])
+            self.display_text = str(
+                [
+                    {args_template[index][0]: arg.val}
+                    for index, arg in enumerate(event_args)
+                ]
+            )
         else:
             self.display_text = format_string_template(
                 event_temp.format_str, tuple([arg.val for arg in event_args])

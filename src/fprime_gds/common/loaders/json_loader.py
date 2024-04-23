@@ -5,6 +5,7 @@ Base class for all loaders that load dictionaries from json dictionaries
 
 @author thomas-bc
 """
+
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.enum_type import EnumType
@@ -51,6 +52,7 @@ FORMAT_STR_MAP = {
     "ENUM": "%d",
 }
 
+
 class JsonLoader(dict_loader.DictLoader):
     """Class to help load JSON dictionaries"""
 
@@ -83,16 +85,12 @@ class JsonLoader(dict_loader.DictLoader):
             self.json_dict.get("project_version", "unknown"),
         )
 
-
     def parse_type(self, type_dict: dict) -> BaseType:
 
         type_name: str = type_dict.get("name", None)
 
         if type_name is None:
-            raise ValueError(
-                "Channel entry in dictionary has no `name` field"
-            )
-
+            raise ValueError("Channel entry in dictionary has no `name` field")
 
         match type_name:
             case "I8":
@@ -178,21 +176,23 @@ class JsonLoader(dict_loader.DictLoader):
             )
 
     def get_format_string(self, type_dict: dict) -> str | None:
-        
-        #probably useless
+
+        # TODO: this function is probably useless now
         if type_dict.get("format") is not None:
             return type_dict.get("format")
 
-        type_name = type_dict.get("name")
-        if type_name in FORMAT_STR_MAP:
-            return FORMAT_STR_MAP[type_name]
+        # type_name = type_dict.get("name")
+        # if type_name in FORMAT_STR_MAP:
+        #     return FORMAT_STR_MAP[type_name]
 
-        # idk either
-        return "%s"
-    
+        # return "{}"
+        # raise exceptions.GseControllerParsingException(
+        #     f"Could not find `format` attribute for type {type_name}"
+        # )
+
     def get_format_string_obj(self, type_obj: BaseType) -> str | None:
 
-        # needs a lot of rework
+        # TODO: look into this more, unclear what really needs to happen
         if hasattr(type_obj, "FORMAT"):
             return type_obj.FORMAT
 
@@ -202,4 +202,4 @@ class JsonLoader(dict_loader.DictLoader):
                 return FORMAT_STR_MAP[type_name]
 
         # Why? idk
-        return "%s"
+        # return "{}"

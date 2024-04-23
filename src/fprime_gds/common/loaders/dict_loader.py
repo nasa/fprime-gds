@@ -93,7 +93,7 @@ class DictLoader:
         return name_dict
 
     def get_versions(self):
-        """ Get version tuple """
+        """Get version tuple"""
         return self.versions
 
     def construct_dicts(self, path):

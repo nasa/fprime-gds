@@ -46,9 +46,7 @@ class EventJsonLoader(JsonLoader):
         # Check if xml dict has events section
         if self.json_dict.get("events") is None:
             msg = "JSON dict did not have a events section"
-            raise exceptions.GseControllerParsingException(
-                msg
-            )
+            raise exceptions.GseControllerParsingException(msg)
 
         id_dict = {}
         name_dict = {}
@@ -68,8 +66,13 @@ class EventJsonLoader(JsonLoader):
             # Parse arguments
             event_args = []
             for arg in event_dict.get("formalParams", []):
-                event_args.append((arg.get("name"), arg.get("annotation"), self.parse_type(arg.get("type"))))
-
+                event_args.append(
+                    (
+                        arg.get("name"),
+                        arg.get("annotation"),
+                        self.parse_type(arg.get("type")),
+                    )
+                )
 
             event_temp = EventTemplate(
                 event_id,

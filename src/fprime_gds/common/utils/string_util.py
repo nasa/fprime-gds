@@ -14,6 +14,20 @@ LOGGER = logging.getLogger("string_util_logger")
 
 
 def format_string_template(format_str, given_values):
+    # Regular expression pattern to match format strings like "{.3f}"
+    pattern = r"{(\.?\d*[cdxoefg])}"
+
+    # Replace the format string with the correct Python representation
+    try:
+        corrected_format_string = re.sub(pattern, r"{:\1}", format_str)
+        return corrected_format_string.format(*given_values)
+    except ValueError:
+        # TODO: This doesn't work correctly - needs rework
+        # Goal is to format either FPP-style of C-style strings
+        format_c_style_string_template(format_str, given_values)
+
+
+def format_c_style_string_template(format_str, given_values):
     r"""
     Function to convert C-string style to python format
     without using python interpolation
