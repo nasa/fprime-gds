@@ -25,31 +25,40 @@ from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.type_base import DictionaryType, BaseType
 
-from fprime_gds.common.data_types import exceptions
-
-from fprime_gds.version import (
-    MAXIMUM_SUPPORTED_FRAMEWORK_VERSION,
-    MINIMUM_SUPPORTED_FRAMEWORK_VERSION,
-)
 
 # Custom Python Modules
 from . import dict_loader
+
 import json
 
-FORMAT_STR_MAP = {
-    "U8": "%u",
-    "I8": "%d",
-    "U16": "%u",
-    "I16": "%d",
-    "U32": "%u",
-    "I32": "%d",
-    "U64": "%lu",
-    "I64": "%ld",
-    "F32": "%g",
-    "F64": "%g",
-    "bool": "%s",
-    "string": "%s",
-    "ENUM": "%d",
+# FORMAT_STR_MAP = {
+#     "U8": "%u",
+#     "I8": "%d",
+#     "U16": "%u",
+#     "I16": "%d",
+#     "U32": "%u",
+#     "I32": "%d",
+#     "U64": "%lu",
+#     "I64": "%ld",
+#     "F32": "%g",
+#     "F64": "%g",
+#     "bool": "%s",
+#     "string": "%s",
+#     "ENUM": "%d",
+# }
+
+PRIMITIVE_TYPE_MAP = {
+    "I8": I8Type,
+    "I16": I16Type,
+    "I32": I32Type,
+    "I64": I64Type,
+    "U8": U8Type,
+    "U16": U16Type,
+    "U32": U32Type,
+    "U64": U64Type,
+    "F32": F32Type,
+    "F64": F64Type,
+    "bool": BoolType,
 }
 
 
@@ -92,36 +101,17 @@ class JsonLoader(dict_loader.DictLoader):
         if type_name is None:
             raise ValueError("Channel entry in dictionary has no `name` field")
 
-        match type_name:
-            case "I8":
-                return I8Type
-            case "I16":
-                return I16Type
-            case "I32":
-                return I32Type
-            case "I64":
-                return I64Type
-            case "U8":
-                return U8Type
-            case "U16":
-                return U16Type
-            case "U32":
-                return U32Type
-            case "U64":
-                return U64Type
-            case "F32":
-                return F32Type
-            case "F64":
-                return F64Type
-            case "bool":
-                return BoolType
-            case "string":
-                # Does this break the logic of checking for original arguments?
-                return StringType.construct_type(
-                    f'String_{type_dict.get("size")}', type_dict.get("size")
-                )
+        if type_name in PRIMITIVE_TYPE_MAP:
+            return PRIMITIVE_TYPE_MAP[type_name]
+
+        if type_name == "string":
+            # REVIEW NOTE: Does name matter? I believe not
+            return StringType.construct_type(
+                f'String_{type_dict.get("size")}', type_dict.get("size")
+            )
 
         # Process for enum/array/serializable types
+        # TODO: Rework logic here to cache typeDefinitions in member variable, either at read-time or init-time?
         qualified_type = None
         for type_def in self.json_dict.get("typeDefinitions", []):
             if type_name == type_def.get("qualifiedName"):
@@ -138,7 +128,7 @@ class JsonLoader(dict_loader.DictLoader):
                 type_name,
                 self.parse_type(qualified_type.get("elementType")),
                 qualified_type.get("size"),
-                self.get_format_string(qualified_type.get("elementType")),
+                qualified_type.get("elementType").get("format", "{}"),
             )
 
         if qualified_type.get("kind") == "enum":
@@ -163,10 +153,14 @@ class JsonLoader(dict_loader.DictLoader):
                         f"Array_{member_type_obj.__name__}_{member_dict.get('size')}",
                         member_type_obj,
                         member_dict.get("size"),
-                        self.get_format_string(member_dict.get("type")),
+                        member_dict.get("type").get("format", "{}"),
                     )
 
-                fmt_str = self.get_format_string_obj(member_type_obj)
+                fmt_str = (
+                    member_type_obj.FORMAT
+                    if hasattr(member_type_obj, "FORMAT")
+                    else "{}"
+                )
                 description = member_type_dict.get("annotation", "")
                 struct_members.append((name, member_type_obj, fmt_str, description))
 
@@ -175,31 +169,6 @@ class JsonLoader(dict_loader.DictLoader):
                 struct_members,
             )
 
-    def get_format_string(self, type_dict: dict) -> str | None:
-
-        # TODO: this function is probably useless now
-        if type_dict.get("format") is not None:
-            return type_dict.get("format")
-
-        # type_name = type_dict.get("name")
-        # if type_name in FORMAT_STR_MAP:
-        #     return FORMAT_STR_MAP[type_name]
-
-        # return "{}"
-        # raise exceptions.GseControllerParsingException(
-        #     f"Could not find `format` attribute for type {type_name}"
-        # )
-
-    def get_format_string_obj(self, type_obj: BaseType) -> str | None:
-
-        # TODO: look into this more, unclear what really needs to happen
-        if hasattr(type_obj, "FORMAT"):
-            return type_obj.FORMAT
-
-        if hasattr(type_obj, "REP_TYPE"):
-            type_name = type_obj.REP_TYPE
-            if type_name in FORMAT_STR_MAP:
-                return FORMAT_STR_MAP[type_name]
-
-        # Why? idk
-        # return "{}"
+        raise ValueError(
+            f"Channel entry in dictionary has unknown type {str(type_dict)}"
+        )
