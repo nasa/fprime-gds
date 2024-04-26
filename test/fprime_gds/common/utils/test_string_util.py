@@ -41,9 +41,7 @@ class TestFormatString(unittest.TestCase):
         template = "Opcode 0x%04X dispatched to port %04d and value %0.02f"
         values = ("181", "8", "0.123")
         with self.assertRaises(ValueError):
-            self.assertEqual(
-                format_string_template(preprocess_c_style_format_str(template), values)
-            )
+            format_string_template(preprocess_c_style_format_str(template), values)
 
     def test_format_decimal_with_width_flag(self):
         template = "Decimals: %d %ld"
@@ -159,9 +157,7 @@ class TestFormatString(unittest.TestCase):
         template = "Opcode 0x{04X} dispatched to port {04d} and value {0.02f}"
         values = ("181", "8", "0.123")
         with self.assertRaises(ValueError):
-            self.assertEqual(
-                format_string_template(preprocess_fpp_format_str(template), values)
-            )
+            format_string_template(preprocess_fpp_format_str(template), values)
 
     def test_fpp_format_decimal_with_width_flag(self):
         template = "Decimals: {} {}"
