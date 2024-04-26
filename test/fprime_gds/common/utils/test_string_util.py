@@ -189,7 +189,7 @@ class TestFormatString(unittest.TestCase):
 
     def test_fpp_format_regular_string(self):
         template = "{}"
-        values = ["A string"] # list instead of tupes
+        values = ["A string"] # list instead of tuples
         expected = "A string"
         actual = format_string_template(preprocess_fpp_format_str(template), values)
         self.assertEqual(expected, actual)

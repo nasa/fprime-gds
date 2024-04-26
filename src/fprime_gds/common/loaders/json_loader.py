@@ -86,7 +86,9 @@ class JsonLoader(dict_loader.DictLoader):
         type_name: str = type_dict.get("name", None)
 
         if type_name is None:
-            raise ValueError("Channel entry in dictionary has no `name` field")
+            raise ValueError(
+                f"Channel entry in dictionary has no `name` field: {str(type_dict)}"
+            )
 
         if type_name in PRIMITIVE_TYPE_MAP:
             return PRIMITIVE_TYPE_MAP[type_name]
@@ -107,7 +109,7 @@ class JsonLoader(dict_loader.DictLoader):
 
         if qualified_type is None:
             raise ValueError(
-                f"Channel entry in dictionary has no corresponding type definition."
+                f"Channel entry {type_name} in dictionary has no corresponding type definition."
             )
 
         if qualified_type.get("kind") == "array":
