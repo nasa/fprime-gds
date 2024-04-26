@@ -142,7 +142,7 @@ class TestFormatString(unittest.TestCase):
     def test_fpp_format_value_with_string_input_as_other_types(self):
         template = "Opcode 0x{04x} dispatched to port {} and value {.2f}"
         values = (181, "8", 1.234)
-        expected = "Opcode 0x00B5 dispatched to port 8 and value 1.23"
+        expected = "Opcode 0x00b5 dispatched to port 8 and value 1.23"
         actual = format_string_template(preprocess_fpp_format_str(template), values)
         self.assertEqual(expected, actual)
 
