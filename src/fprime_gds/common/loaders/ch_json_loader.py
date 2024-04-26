@@ -63,6 +63,9 @@ class ChJsonLoader(JsonLoader):
         channel_name = channel_dict[self.NAME_FIELD].split(".")[1]
         channel_type = channel_dict.get("type")
         type_obj = self.parse_type(channel_type)
+        format_str = JsonLoader.preprocess_format_str(
+            channel_dict.get(self.FMT_STR_FIELD)
+        )
 
         limit_field = channel_dict.get(self.LIMIT_FIELD)
         limit_low = limit_field.get(self.LIMIT_LOW) if limit_field else None
@@ -81,7 +84,7 @@ class ChJsonLoader(JsonLoader):
             channel_name,
             component_name,
             type_obj,
-            ch_fmt_str=channel_dict.get(self.FMT_STR_FIELD),
+            ch_fmt_str=format_str,
             ch_desc=channel_dict.get(self.DESC_FIELD),
             low_red=limit_low_red,
             low_orange=limit_low_orange,

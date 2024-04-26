@@ -13,6 +13,7 @@ helper functions
 
 @bug No known bugs
 """
+
 import os
 
 from fprime.common.models.serialize.array_type import ArrayType
@@ -34,6 +35,7 @@ from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
 from lxml import etree
 
+from fprime_gds.common.utils.string_util import preprocess_c_style_format_str
 from fprime_gds.common.data_types import exceptions
 from fprime_gds.version import (
     MAXIMUM_SUPPORTED_FRAMEWORK_VERSION,
@@ -258,18 +260,21 @@ class XmlLoader(dict_loader.DictLoader):
                 members = []
                 for memb in memb_section:
                     name = memb.get(self.SER_MEMB_NAME_TAG)
-                    fmt_str = memb.get(self.SER_MEMB_FMT_STR_TAG)
+                    fmt_str = XmlLoader.preprocess_format_str(
+                        memb.get(self.SER_MEMB_FMT_STR_TAG)
+                    )
                     desc = memb.get(self.SER_MEMB_DESC_TAG)
                     memb_type_name = memb.get(self.SER_MEMB_TYPE_TAG)
                     memb_size = memb.get(self.SER_MEMB_SIZE_TAG)
                     type_obj = self.parse_type(memb_type_name, memb, xml_obj)
                     # memb_size is not None for member array
-                    if(memb_size is not None):
+                    if memb_size is not None:
                         type_obj = ArrayType.construct_type(
                             f"Array_{type_obj.__name__}_{memb_size}",
                             type_obj,
                             int(memb_size),
-                            fmt_str)
+                            fmt_str,
+                        )
 
                     members.append((name, type_obj, fmt_str, desc))
 
@@ -319,10 +324,14 @@ class XmlLoader(dict_loader.DictLoader):
                 # Make config
                 arr_type = arr_memb.get(self.ARR_TYPE_TAG)
                 type_obj = self.parse_type(arr_type, arr_memb, xml_obj)
-                arr_format = arr_memb.get(self.ARR_FORMAT_TAG)
+                arr_format = XmlLoader.preprocess_format_str(
+                    arr_memb.get(self.ARR_FORMAT_TAG)
+                )
                 arr_size = arr_memb.get(self.ARR_SIZE_TAG)
 
-                arr_obj = ArrayType.construct_type(type_name, type_obj, int(arr_size), arr_format)
+                arr_obj = ArrayType.construct_type(
+                    type_name, type_obj, int(arr_size), arr_format
+                )
 
                 self.array_types[type_name] = arr_obj
                 return arr_obj
@@ -372,7 +381,9 @@ class XmlLoader(dict_loader.DictLoader):
             return BoolType
         if type_name == "string":
             if self.STR_LEN_TAG not in xml_item.attrib:
-                print(f"Trying to parse string type, but found {self.STR_LEN_TAG} field")
+                print(
+                    f"Trying to parse string type, but found {self.STR_LEN_TAG} field"
+                )
                 return None
             max_length = int(xml_item.get(self.STR_LEN_TAG, 0))
             name = f"{context or ''}::{xml_item.get(self.ARG_NAME_TAG)}String"
@@ -394,6 +405,17 @@ class XmlLoader(dict_loader.DictLoader):
 
         # Abandon all hope
         msg = f"Could not find type {type_name}"
-        raise exceptions.GseControllerParsingException(
-            msg
-        )
+        raise exceptions.GseControllerParsingException(msg)
+
+    @staticmethod
+    def preprocess_format_str(format_str):
+        """Converts C-style format strings to Python-style format strings
+        For example "%x" -> "{:x}" or "%.2f" -> "{:.2f}"
+
+        Args:
+            format_str (str): C-style format string
+
+        Returns:
+            str: Python-style format string
+        """
+        return preprocess_c_style_format_str(format_str)

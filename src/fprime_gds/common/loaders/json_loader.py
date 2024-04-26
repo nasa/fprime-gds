@@ -23,29 +23,16 @@ from fprime.common.models.serialize.numerical_types import (
 )
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.type_base import DictionaryType, BaseType
+from fprime.common.models.serialize.type_base import BaseType
 
+from typing import Optional
 
 # Custom Python Modules
 from . import dict_loader
 
 import json
+from fprime_gds.common.utils.string_util import preprocess_fpp_format_str
 
-# FORMAT_STR_MAP = {
-#     "U8": "%u",
-#     "I8": "%d",
-#     "U16": "%u",
-#     "I16": "%d",
-#     "U32": "%u",
-#     "I32": "%d",
-#     "U64": "%lu",
-#     "I64": "%ld",
-#     "F32": "%g",
-#     "F64": "%g",
-#     "bool": "%s",
-#     "string": "%s",
-#     "ENUM": "%d",
-# }
 
 PRIMITIVE_TYPE_MAP = {
     "I8": I8Type,
@@ -172,3 +159,18 @@ class JsonLoader(dict_loader.DictLoader):
         raise ValueError(
             f"Channel entry in dictionary has unknown type {str(type_dict)}"
         )
+
+    @staticmethod
+    def preprocess_format_str(format_str: Optional[str]) -> str:
+        """Preprocess format strings before using them in Python format function
+        Internally, this converts FPP-style format strings to Python-style format strings
+
+        Args:
+            format_str (str): FPP-style format string
+
+        Returns:
+            str: Python-style format string
+        """
+        if format_str is None:
+            return None
+        return preprocess_fpp_format_str(format_str)

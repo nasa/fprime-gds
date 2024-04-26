@@ -59,7 +59,9 @@ class EventJsonLoader(JsonLoader):
             event_id = event_dict[self.ID_TAG]
             event_severity = EventSeverity[event_dict[self.SEVERITY_TAG]]
 
-            event_fmt_str = event_dict.get(self.FMT_STR_TAG, "")
+            event_fmt_str = JsonLoader.preprocess_format_str(
+                event_dict.get(self.FMT_STR_TAG, "")
+            )
 
             event_desc = event_dict.get(self.DESC_TAG)
 
