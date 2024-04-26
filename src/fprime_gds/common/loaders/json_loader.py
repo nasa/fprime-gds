@@ -6,45 +6,32 @@ Base class for all loaders that load dictionaries from json dictionaries
 @author thomas-bc
 """
 
+import json
+from typing import Optional
+
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.enum_type import EnumType
-from fprime.common.models.serialize.numerical_types import (
-    F32Type,
-    F64Type,
-    I8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    U8Type,
-    U16Type,
-    U32Type,
-    U64Type,
-)
+import fprime.common.models.serialize.numerical_types as numerical_types
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.type_base import BaseType
 
-from typing import Optional
-
-# Custom Python Modules
-from . import dict_loader
-
-import json
 from fprime_gds.common.utils.string_util import preprocess_fpp_format_str
+from fprime_gds.common.loaders import dict_loader
 
 
 PRIMITIVE_TYPE_MAP = {
-    "I8": I8Type,
-    "I16": I16Type,
-    "I32": I32Type,
-    "I64": I64Type,
-    "U8": U8Type,
-    "U16": U16Type,
-    "U32": U32Type,
-    "U64": U64Type,
-    "F32": F32Type,
-    "F64": F64Type,
+    "I8": numerical_types.I8Type,
+    "I16": numerical_types.I16Type,
+    "I32": numerical_types.I32Type,
+    "I64": numerical_types.I64Type,
+    "U8": numerical_types.U8Type,
+    "U16": numerical_types.U16Type,
+    "U32": numerical_types.U32Type,
+    "U64": numerical_types.U64Type,
+    "F32": numerical_types.F32Type,
+    "F64": numerical_types.F64Type,
     "bool": BoolType,
 }
 
@@ -82,7 +69,6 @@ class JsonLoader(dict_loader.DictLoader):
         )
 
     def parse_type(self, type_dict: dict) -> BaseType:
-
         type_name: str = type_dict.get("name", None)
 
         if type_name is None:

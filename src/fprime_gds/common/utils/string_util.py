@@ -7,9 +7,9 @@ Utility functions to process strings to be used in FPrime GDS
 Note: This function has an identical copy in fprime-gds
 """
 
-from typing import Any, Union
 import logging
 import re
+from typing import Any, Union
 
 LOGGER = logging.getLogger("string_util_logger")
 
