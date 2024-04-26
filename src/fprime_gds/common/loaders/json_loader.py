@@ -69,7 +69,7 @@ class JsonLoader(dict_loader.DictLoader):
         with open(json_dict, "r") as f:
             self.json_dict = json.load(f)
 
-    def get_versions(self) -> tuple[str, str]:
+    def get_versions(self):
         """
         Get the framework and project versions of the dictionary
 
