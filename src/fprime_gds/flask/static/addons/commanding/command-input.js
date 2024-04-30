@@ -83,7 +83,8 @@ Vue.component("command-input", {
         this.$root.$refs.command_input = this;
     },
     data: function() {
-        let selected = command_assignment_helper(null, [], "CMD_NO_OP");
+        // Select CMD_NO_OP by default if it exists, otherwise select the first command
+        let selected = command_assignment_helper("cmdDisp.CMD_NO_OP", [], "CMD_NO_OP");
         selected = (selected != null)? selected : Object.values(_datastore.commands)[0];
         return {
             "commands": _datastore.commands,
