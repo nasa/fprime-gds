@@ -39,7 +39,10 @@ PRIMITIVE_TYPE_MAP = {
 class JsonLoader(dict_loader.DictLoader):
     """Class to help load JSON dictionaries"""
 
-    def __init__(self, json_dict: dict):
+    # Cache parsed type objects at the class level so they can be reused across subclasses
+    parsed_types: dict = {}
+
+    def __init__(self, json_file: str):
         """
         Constructor
 
@@ -47,13 +50,7 @@ class JsonLoader(dict_loader.DictLoader):
             An initialized loader object
         """
         super().__init__()
-
-        # These dicts hold already parsed enum objects so things don't need
-        # to be parsed multiple times
-        self.enums = {}
-        self.serializable_types = {}
-        self.array_types = {}
-        with open(json_dict, "r") as f:
+        with open(json_file, "r") as f:
             self.json_dict = json.load(f)
 
     def get_versions(self):
@@ -83,13 +80,16 @@ class JsonLoader(dict_loader.DictLoader):
             return PRIMITIVE_TYPE_MAP[type_name]
 
         if type_name == "string":
-            # REVIEW NOTE: Does name matter? I believe not
+            # REVIEW NOTE: All strings of same size will share the same type. I believe this is good?
             return StringType.construct_type(
                 f'String_{type_dict.get("size")}', type_dict.get("size")
             )
 
-        # Process for enum/array/serializable types
-        # TODO: Rework logic here to cache typeDefinitions in member variable, either at read-time or init-time?
+        # Check if type has already been parsed
+        if type_name in self.parsed_types:
+            return self.parsed_types[type_name]
+
+        # Parse new enum/array/serializable types
         qualified_type = None
         for type_def in self.json_dict.get("typeDefinitions", []):
             if type_name == type_def.get("qualifiedName"):
@@ -102,54 +102,105 @@ class JsonLoader(dict_loader.DictLoader):
             )
 
         if qualified_type.get("kind") == "array":
-            return ArrayType.construct_type(
-                type_name,
-                self.parse_type(qualified_type.get("elementType")),
-                qualified_type.get("size"),
-                qualified_type.get("elementType").get("format", "{}"),
-            )
+            return self.construct_array_type(type_name, qualified_type)
 
         if qualified_type.get("kind") == "enum":
-            enum_dict = {}
-            for member in qualified_type.get("enumeratedConstants"):
-                enum_dict[member.get("name")] = member.get("value")
-            return EnumType.construct_type(
-                type_name,
-                enum_dict,
-                qualified_type.get("representationType").get("name"),
-            )
+            return self.construct_enum_type(type_name, qualified_type)
 
         if qualified_type.get("kind") == "struct":
-            struct_members = []
-            for name, member_dict in qualified_type.get("members").items():
-                member_type_dict = member_dict.get("type")
-                member_type_obj = self.parse_type(member_type_dict)
-
-                # For member arrays (declared inline, so we create a type on the fly)
-                if member_dict.get("size") is not None:
-                    member_type_obj = ArrayType.construct_type(
-                        f"Array_{member_type_obj.__name__}_{member_dict.get('size')}",
-                        member_type_obj,
-                        member_dict.get("size"),
-                        member_dict.get("type").get("format", "{}"),
-                    )
-
-                fmt_str = (
-                    member_type_obj.FORMAT
-                    if hasattr(member_type_obj, "FORMAT")
-                    else "{}"
-                )
-                description = member_type_dict.get("annotation", "")
-                struct_members.append((name, member_type_obj, fmt_str, description))
-
-            return SerializableType.construct_type(
-                type_name,
-                struct_members,
-            )
+            return self.construct_serializable_type(type_name, qualified_type)
 
         raise ValueError(
             f"Channel entry in dictionary has unknown type {str(type_dict)}"
         )
+
+    def construct_enum_type(self, type_name: str, qualified_type: dict) -> EnumType:
+        """
+        Constructs an EnumType object of the given type name and qualified type dictionary.
+        Caches the constructed EnumType object in the parsed_types dictionary.
+
+        Args:
+            type_name (str): The name of the enum type.
+            qualified_type (dict): A dictionary containing the qualified type information.
+
+        Returns:
+            EnumType: The constructed EnumType object.
+
+        """
+        enum_dict = {}
+        for member in qualified_type.get("enumeratedConstants"):
+            enum_dict[member.get("name")] = member.get("value")
+        enum_type = EnumType.construct_type(
+            type_name,
+            enum_dict,
+            qualified_type.get("representationType").get("name"),
+        )
+        self.parsed_types[type_name] = enum_type
+        return enum_type
+
+    def construct_array_type(self, type_name: str, qualified_type: dict) -> ArrayType:
+        """
+        Constructs an ArrayType object based on the given type name and qualified type dictionary.
+        Caches the constructed ArrayType object in the parsed_types dictionary.
+
+        Args:
+            type_name (str): The name of the array type.
+            qualified_type (dict): The qualified type dictionary containing information about the array type.
+
+        Returns:
+            ArrayType: The constructed ArrayType object.
+
+        """
+        array_type = ArrayType.construct_type(
+            type_name,
+            self.parse_type(qualified_type.get("elementType")),
+            qualified_type.get("size"),
+            qualified_type.get("elementType").get("format", "{}"),
+        )
+        self.parsed_types[type_name] = array_type
+        return array_type
+
+    def construct_serializable_type(
+        self, type_name: str, qualified_type: dict
+    ) -> SerializableType:
+        """
+        Constructs a SerializableType based on the given type name and qualified type dictionary.
+        Caches the constructed SerializableType object in the parsed_types dictionary.
+
+        Args:
+            type_name (str): The name of the serializable type.
+            qualified_type (dict): The qualified type dictionary containing information about the type.
+
+        Returns:
+            SerializableType: The constructed serializable type.
+
+        """
+        struct_members = []
+        for name, member_dict in qualified_type.get("members").items():
+            member_type_dict = member_dict.get("type")
+            member_type_obj = self.parse_type(member_type_dict)
+
+            # For member arrays (declared inline, so we create a type on the fly)
+            if member_dict.get("size") is not None:
+                member_type_obj = ArrayType.construct_type(
+                    f"Array_{member_type_obj.__name__}_{member_dict.get('size')}",
+                    member_type_obj,
+                    member_dict.get("size"),
+                    member_dict.get("type").get("format", "{}"),
+                )
+            # TODO: does this need to be preprocessed or something?
+            fmt_str = (
+                member_type_obj.FORMAT if hasattr(member_type_obj, "FORMAT") else "{}"
+            )
+            description = member_type_dict.get("annotation", "")
+            struct_members.append((name, member_type_obj, fmt_str, description))
+
+        ser_type = SerializableType.construct_type(
+            type_name,
+            struct_members,
+        )
+        self.parsed_types[type_name] = ser_type
+        return ser_type
 
     @staticmethod
     def preprocess_format_str(format_str: Optional[str]) -> str:
