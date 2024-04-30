@@ -49,19 +49,19 @@ class ChJsonLoader(JsonLoader):
             # Create a channel template object
             ch_temp = self.construct_template_from_dict(ch_dict)
 
-            id_dict[ch_dict[self.ID_FIELD]] = ch_temp
-            name_dict[ch_dict[self.NAME_FIELD]] = ch_temp
+            id_dict[ch_temp.get_id()] = ch_temp
+            name_dict[ch_temp.get_full_name()] = ch_temp
 
         return (
-            dict(sorted(id_dict.items())),
-            dict(sorted(name_dict.items())),
-            ("unknown", "unknown"),
+            id_dict,
+            name_dict,
+            self.get_versions(),
         )
 
-    def construct_template_from_dict(self, channel_dict: dict):
+    def construct_template_from_dict(self, channel_dict: dict) -> ChTemplate:
         component_name = channel_dict[self.NAME_FIELD].split(".")[0]
         channel_name = channel_dict[self.NAME_FIELD].split(".")[1]
-        channel_type = channel_dict.get("type")
+        channel_type = channel_dict["type"]
         type_obj = self.parse_type(channel_type)
         format_str = JsonLoader.preprocess_format_str(
             channel_dict.get(self.FMT_STR_FIELD)

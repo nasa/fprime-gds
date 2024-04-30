@@ -38,55 +38,55 @@ class EventJsonLoader(JsonLoader):
 
         Returns:
             A tuple with two event dictionaries (python type dict):
-            (id_idct, name_dict). The keys are the events' id and name fields
+            (id_dict, name_dict). The keys are the events' id and name fields
             respectively and the values are ChTemplate objects
         """
-        versions = self.get_versions()
-
-        # Check if xml dict has events section
-        if self.json_dict.get("events") is None:
-            msg = "JSON dict did not have a events section"
-            raise exceptions.GseControllerParsingException(msg)
-
         id_dict = {}
         name_dict = {}
 
         for event_dict in self.json_dict.get("events"):
-            event_mnemonic = event_dict.get("name")
-            event_comp = event_mnemonic.split(".")[0]
-            event_name = event_mnemonic.split(".")[1]
+            event_temp = self.construct_template_from_dict(event_dict)
 
-            event_id = event_dict[self.ID_TAG]
-            event_severity = EventSeverity[event_dict[self.SEVERITY_TAG]]
-
-            event_fmt_str = JsonLoader.preprocess_format_str(
-                event_dict.get(self.FMT_STR_TAG, "")
-            )
-
-            event_desc = event_dict.get(self.DESC_TAG)
-
-            # Parse arguments
-            event_args = []
-            for arg in event_dict.get("formalParams", []):
-                event_args.append(
-                    (
-                        arg.get("name"),
-                        arg.get("annotation"),
-                        self.parse_type(arg.get("type")),
-                    )
-                )
-
-            event_temp = EventTemplate(
-                event_id,
-                event_name,
-                event_comp,
-                event_args,
-                event_severity,
-                event_fmt_str,
-                event_desc,
-            )
-
-            id_dict[event_id] = event_temp
+            id_dict[event_temp.get_id()] = event_temp
             name_dict[event_temp.get_full_name()] = event_temp
 
-        return id_dict, name_dict, versions
+        return (
+            id_dict,
+            name_dict,
+            self.get_versions(),
+        )
+
+    def construct_template_from_dict(self, event_dict: dict):
+        event_mnemonic = event_dict.get("name")
+        event_comp = event_mnemonic.split(".")[0]
+        event_name = event_mnemonic.split(".")[1]
+
+        event_id = event_dict[self.ID_TAG]
+        event_severity = EventSeverity[event_dict[self.SEVERITY_TAG]]
+
+        event_fmt_str = JsonLoader.preprocess_format_str(
+            event_dict.get(self.FMT_STR_TAG, "")
+        )
+
+        event_desc = event_dict.get(self.DESC_TAG)
+
+        # Parse arguments
+        event_args = []
+        for arg in event_dict.get("formalParams", []):
+            event_args.append(
+                (
+                    arg.get("name"),
+                    arg.get("annotation"),
+                    self.parse_type(arg.get("type")),
+                )
+            )
+
+        return EventTemplate(
+            event_id,
+            event_name,
+            event_comp,
+            event_args,
+            event_severity,
+            event_fmt_str,
+            event_desc,
+        )

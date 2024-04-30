@@ -37,31 +37,38 @@ class CmdJsonLoader(JsonLoader):
         name_dict = {}
 
         for cmd_dict in self.json_dict["commands"]:
-            cmd_name = cmd_dict.get("name")
+            cmd_temp = self.construct_template_from_dict(cmd_dict)
 
-            cmd_comp = cmd_name.split(".")[0]
-            cmd_mnemonic = cmd_name.split(".")[1]
-
-            cmd_opcode = cmd_dict.get("opcode")
-
-            cmd_desc = cmd_dict.get("annotation")
-
-            # Parse Arguments
-            cmd_args = []
-            for arg in cmd_dict.get("formalParams", []):
-                cmd_args.append(
-                    (
-                        arg.get("name"),
-                        arg.get("annotation"),
-                        self.parse_type(arg.get("type")),
-                    )
-                )
-
-            cmd_temp = CmdTemplate(
-                cmd_opcode, cmd_mnemonic, cmd_comp, cmd_args, cmd_desc
-            )
-
-            id_dict[cmd_opcode] = cmd_temp
+            id_dict[cmd_temp.get_id()] = cmd_temp
             name_dict[cmd_temp.get_full_name()] = cmd_temp
 
-        return id_dict, name_dict, ("unknown", "unknown")
+        return (
+            id_dict,
+            name_dict,
+            self.get_versions(),
+        )
+
+    def construct_template_from_dict(self, cmd_dict: dict) -> CmdTemplate:
+        cmd_name = cmd_dict.get("name")
+
+        cmd_comp = cmd_name.split(".")[0]
+        cmd_mnemonic = cmd_name.split(".")[1]
+
+        cmd_opcode = cmd_dict.get("opcode")
+
+        cmd_desc = cmd_dict.get("annotation")
+
+        # Parse Arguments
+        cmd_args = []
+        for arg in cmd_dict.get("formalParams", []):
+            cmd_args.append(
+                (
+                    arg.get("name"),
+                    arg.get("annotation"),
+                    self.parse_type(arg.get("type")),
+                )
+            )
+
+        return CmdTemplate(
+            cmd_opcode, cmd_mnemonic, cmd_comp, cmd_args, cmd_desc
+        )
