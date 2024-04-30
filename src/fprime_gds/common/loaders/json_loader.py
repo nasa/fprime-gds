@@ -63,9 +63,12 @@ class JsonLoader(dict_loader.DictLoader):
         Returns:
             A tuple of the framework and project versions
         """
+        if "metadata" not in self.json_dict:
+            # REVIEW NOTE: Should we raise an error instead?
+            return ("unknown", "unknown")
         return (
-            self.json_dict.get("framework_version", "unknown"),
-            self.json_dict.get("project_version", "unknown"),
+            self.json_dict.get("metadata").get("frameworkVersion", "unknown"),
+            self.json_dict.get("metadata").get("projectVersion", "unknown"),
         )
 
     def parse_type(self, type_dict: dict) -> BaseType:
