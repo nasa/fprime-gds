@@ -9,7 +9,9 @@ adapter for use with the comm-layer.
 @author lestarch
 """
 import abc
-from fprime_gds.plugin.definitions import gds_plugin_implementation
+from typing import Type
+from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin_specification
+
 
 class BaseAdapter(abc.ABC):
     """
@@ -45,6 +47,23 @@ class BaseAdapter(abc.ABC):
         :param frame: framed data to uplink
         :return: True if data sent through adapter, False otherwise
         """
+
+    @classmethod
+    @gds_plugin_specification
+    def register_communication_plugin(cls) -> Type["BaseAdapter"]:
+        """Register a communications adapter
+
+        Plugin hook for registering a plugin that supplies an adapter to the communications interface (radio, uart, i2c,
+        etc). This interface is expected to read and write bytes from a wire and will be provided to the framing system.
+
+        Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
+        determined from class methods, solicited via the command line, and provided at construction time to the chosen
+        instantiation.
+
+        Returns:
+            BaseAdapter subclass
+        """
+        raise NotImplementedError()
 
 
 class NoneAdapter(BaseAdapter):

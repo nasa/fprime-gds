@@ -195,14 +195,19 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         return cls
 
     @classmethod
-    def check_arguments(cls, args):
+    def check_arguments(cls, address, port, server=True):
         """
         Code that should check arguments of this adapter. If there is a problem with this code, then a "ValueError"
         should be raised describing the problem with these arguments.
 
         :param args: arguments as dictionary
         """
-        check_port(args["address"], args["port"])
+        try:
+            if server:
+                check_port(address, port)
+        except OSError as os_error:
+            raise ValueError(f"{os_error}")
+
 
 
 class IpHandler(abc.ABC):

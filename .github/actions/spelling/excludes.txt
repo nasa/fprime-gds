@@ -46,4 +46,3 @@ RefTopologyDictionary.json
 \.xlsx$
 \.xsd$
 \.ico$
-
