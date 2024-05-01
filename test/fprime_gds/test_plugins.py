@@ -217,7 +217,7 @@ def start_up(request):
     extra_plugins, flags = request.param
 
     command_arguments = ["fprime-gds", "-n", "--dictionary", str( parent_path / "sample" / "dictionary.xml"),
-                         "--zmq", "--zmq-transport", "ipc:///tmp/fprime-test-in",  "ipc:///tmp/fprime-test-out",
+                         "--zmq-transport", "ipc:///tmp/fprime-test-in",  "ipc:///tmp/fprime-test-out",
                          "-g", "none"] + flags
 
     # Update the environment to side-load python

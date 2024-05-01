@@ -19,20 +19,16 @@ Note: assuming the module containing the ground adapter has been imported, then 
 import logging
 import signal
 import sys
-
 from pathlib import Path
 
 # Required adapters built on standard tools
-try:
-    from fprime_gds.common.zmq_transport import ZmqGround
-except ImportError:
-    ZmqGround = None
 import fprime_gds.common.communication.adapters.base
 import fprime_gds.common.communication.adapters.ip
 import fprime_gds.common.communication.ground
 import fprime_gds.common.logger
 import fprime_gds.executables.cli
 from fprime_gds.common.communication.updown import Downlinker, Uplinker
+from fprime_gds.common.zmq_transport import ZmqGround
 
 # Uses non-standard PIP package pyserial, so test the waters before getting a hard-import crash
 try:
@@ -68,11 +64,8 @@ def main():
         sys.exit(-1)
 
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
-    if args.zmq and ZmqGround is None:
-        print("[ERROR] ZeroMQ is not available. Install pyzmq.", file=sys.stderr)
-        sys.exit(-1)
-    elif args.zmq:
-        ground = fprime_gds.common.zmq_transport.ZmqGround(args.zmq_transport)
+    if args.zmq:
+        ground = ZmqGround(args.zmq_transport)
     else:
         ground = fprime_gds.common.communication.ground.TCPGround(
             args.tts_addr, args.tts_port

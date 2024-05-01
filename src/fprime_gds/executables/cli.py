@@ -31,21 +31,8 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.executables.utils import find_app, find_dict, get_artifacts_root
 from fprime_gds.plugin.definitions import PluginType
 from fprime_gds.plugin.system import Plugins
+from fprime_gds.common.zmq_transport import ZmqClient
 
-# Optional import: ZeroMQ. Requires package: pyzmq
-try:
-    import zmq
-
-    from fprime_gds.common.zmq_transport import ZmqClient
-except ImportError:
-    zmq = None
-    ZmqClient = None
-
-# Optional import: Serial Adapter. Requires package: SerialAdapter
-try:
-    from fprime_gds.common.communication.adapters.uart import SerialAdapter
-except ImportError:
-    SerialAdapter = None
 
 GUIS = ["none", "html"]
 
@@ -198,7 +185,6 @@ class ParserBase(ABC):
         except Exception as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
             raise
-            sys.exit(-1)
         return args_ns, parser
 
     @staticmethod
@@ -578,40 +564,37 @@ class MiddleWareParser(ParserBase):
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Return arguments necessary to run a and connect to the GDS middleware"""
-        # May use ZMQ transportation layer if zmq package is available
-        zmq_arguments = {}
-        if zmq is not None and ZmqClient is not None:
-            zmq_arguments = {
-                ("--zmq",): {
-                    "dest": "zmq",
-                    "action": "store_true",
-                    "help": "Switch to using the ZMQ transportation layer",
-                    "default": False,
-                },
-                ("--zmq-transport",): {
-                    "dest": "zmq_transport",
-                    "nargs": 2,
-                    "help": "Pair of URls used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
-                    "default": [
-                        "ipc:///tmp/fprime-server-in",
-                        "ipc:///tmp/fprime-server-out",
-                    ],
-                    "metavar": ("serverInUrl", "serverOutUrl"),
-                },
-            }
+        zmq_arguments = {
+            ("--no-zmq",): {
+                "dest": "zmq",
+                "action": "store_false",
+                "help": "Disable ZMQ transportation layer, falling back to TCP socket server.",
+                "default": False,
+            },
+            ("--zmq-transport",): {
+                "dest": "zmq_transport",
+                "nargs": 2,
+                "help": "Pair of URls used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
+                "default": [
+                    "ipc:///tmp/fprime-server-in",
+                    "ipc:///tmp/fprime-server-out",
+                ],
+                "metavar": ("serverInUrl", "serverOutUrl"),
+            },
+        }
         tts_arguments = {
             ("--tts-port",): {
                 "dest": "tts_port",
                 "action": "store",
                 "type": int,
-                "help": "Set the threaded TCP socket server port [default: %(default)s]",
+                "help": "Set the threaded TCP socket server port when ZMQ is not used [default: %(default)s]",
                 "default": 50050,
             },
             ("--tts-addr",): {
                 "dest": "tts_addr",
                 "action": "store",
                 "type": str,
-                "help": "Set the threaded TCP socket server address [default: %(default)s]",
+                "help": "Set the threaded TCP socket server address when ZMQ is not used [default: %(default)s]",
                 "default": "0.0.0.0",
             },
         }
@@ -626,7 +609,6 @@ class MiddleWareParser(ParserBase):
         :return: args namespace
         """
         is_client = kwargs.get("client", False)
-        args.zmq = getattr(args, "zmq", False)
         tts_connection_address = (
             args.tts_addr.replace("0.0.0.0", "127.0.0.1")
             if is_client
