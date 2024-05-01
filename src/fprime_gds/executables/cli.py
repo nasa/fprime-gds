@@ -569,7 +569,7 @@ class MiddleWareParser(ParserBase):
                 "dest": "zmq",
                 "action": "store_false",
                 "help": "Disable ZMQ transportation layer, falling back to TCP socket server.",
-                "default": False,
+                "default": True,
             },
             ("--zmq-transport",): {
                 "dest": "zmq_transport",
