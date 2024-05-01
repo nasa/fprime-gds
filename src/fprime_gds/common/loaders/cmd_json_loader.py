@@ -13,10 +13,10 @@ from fprime_gds.common.loaders.json_loader import JsonLoader
 class CmdJsonLoader(JsonLoader):
     """Class to load xml based command dictionaries"""
 
-    NAME_TAG = "name"
-    OPCODE_TAG = "opcode"
-    DESC_TAG = "annotation"
-    PARAMETERS_TAG = "formalParams"
+    NAME = "name"
+    OPCODE = "opcode"
+    DESC = "annotation"
+    PARAMETERS = "formalParams"
 
     def construct_dicts(self, _):
         """
@@ -45,14 +45,14 @@ class CmdJsonLoader(JsonLoader):
         )
 
     def construct_template_from_dict(self, cmd_dict: dict) -> CmdTemplate:
-        cmd_name = cmd_dict.get(self.NAME_TAG)
+        cmd_name = cmd_dict.get(self.NAME)
         cmd_comp = cmd_name.split(".")[0]
         cmd_mnemonic = cmd_name.split(".")[1]
-        cmd_opcode = cmd_dict.get(self.OPCODE_TAG)
-        cmd_desc = cmd_dict.get(self.DESC_TAG)
+        cmd_opcode = cmd_dict.get(self.OPCODE)
+        cmd_desc = cmd_dict.get(self.DESC)
         # Parse Arguments
         cmd_args = []
-        for param in cmd_dict.get(self.PARAMETERS_TAG, []):
+        for param in cmd_dict.get(self.PARAMETERS, []):
             cmd_args.append(
                 (
                     param.get("name"),

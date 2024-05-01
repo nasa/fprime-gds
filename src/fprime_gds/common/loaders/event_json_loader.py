@@ -14,12 +14,12 @@ from fprime_gds.common.loaders.json_loader import JsonLoader
 class EventJsonLoader(JsonLoader):
     """Class to load xml based event dictionaries"""
 
-    NAME_TAG = "name"
-    ID_TAG = "id"
-    SEVERITY_TAG = "severity"
-    FMT_STR_TAG = "format"
-    DESC_TAG = "annotation"
-    PARAMETERS_TAG = "formalParams"
+    NAME = "name"
+    ID = "id"
+    SEVERITY = "severity"
+    FMT_STR = "format"
+    DESC = "annotation"
+    PARAMETERS = "formalParams"
 
     def construct_dicts(self, _):
         """
@@ -52,22 +52,22 @@ class EventJsonLoader(JsonLoader):
         )
 
     def construct_template_from_dict(self, event_dict: dict):
-        event_mnemonic = event_dict.get(self.NAME_TAG)
+        event_mnemonic = event_dict.get(self.NAME)
         event_comp = event_mnemonic.split(".")[0]
         event_name = event_mnemonic.split(".")[1]
 
-        event_id = event_dict[self.ID_TAG]
-        event_severity = EventSeverity[event_dict[self.SEVERITY_TAG]]
+        event_id = event_dict[self.ID]
+        event_severity = EventSeverity[event_dict[self.SEVERITY]]
 
         event_fmt_str = JsonLoader.preprocess_format_str(
-            event_dict.get(self.FMT_STR_TAG, "")
+            event_dict.get(self.FMT_STR, "")
         )
 
-        event_desc = event_dict.get(self.DESC_TAG)
+        event_desc = event_dict.get(self.DESC)
 
         # Parse arguments
         event_args = []
-        for arg in event_dict.get(self.PARAMETERS_TAG, []):
+        for arg in event_dict.get(self.PARAMETERS, []):
             event_args.append(
                 (
                     arg.get("name"),

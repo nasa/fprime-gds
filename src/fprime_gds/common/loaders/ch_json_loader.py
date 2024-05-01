@@ -8,7 +8,6 @@ Loads flight dictionary (JSON) and returns id and mnemonic based Python dictiona
 
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.loaders.json_loader import JsonLoader
-from enum import Enum
 
 
 class ChJsonLoader(JsonLoader):
