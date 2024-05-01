@@ -6,27 +6,22 @@ Loads flight dictionary (JSON) and returns id and mnemonic based Python dictiona
 @author thomas-bc
 """
 
-from fprime_gds.common.data_types import exceptions
 from fprime_gds.common.templates.event_template import EventTemplate
 from fprime_gds.common.utils.event_severity import EventSeverity
-
-# Custom Python Modules
 from fprime_gds.common.loaders.json_loader import JsonLoader
 
 
 class EventJsonLoader(JsonLoader):
     """Class to load xml based event dictionaries"""
 
-    EVENT_SECT = "events"
-
-    COMP_TAG = "component"
     NAME_TAG = "name"
     ID_TAG = "id"
     SEVERITY_TAG = "severity"
     FMT_STR_TAG = "format"
     DESC_TAG = "annotation"
+    PARAMETERS_TAG = "formalParams"
 
-    def construct_dicts(self, path):
+    def construct_dicts(self, _):
         """
         Constructs and returns python dictionaries keyed on id and name
 
@@ -34,7 +29,7 @@ class EventJsonLoader(JsonLoader):
         get_id_dict(path) and get_name_dict(path)
 
         Args:
-            path: Path to the xml dictionary file containing event information
+            _: Unused argument (inherited)
 
         Returns:
             A tuple with two event dictionaries (python type dict):
@@ -57,7 +52,7 @@ class EventJsonLoader(JsonLoader):
         )
 
     def construct_template_from_dict(self, event_dict: dict):
-        event_mnemonic = event_dict.get("name")
+        event_mnemonic = event_dict.get(self.NAME_TAG)
         event_comp = event_mnemonic.split(".")[0]
         event_name = event_mnemonic.split(".")[1]
 
@@ -72,7 +67,7 @@ class EventJsonLoader(JsonLoader):
 
         # Parse arguments
         event_args = []
-        for arg in event_dict.get("formalParams", []):
+        for arg in event_dict.get(self.PARAMETERS_TAG, []):
             event_args.append(
                 (
                     arg.get("name"),
