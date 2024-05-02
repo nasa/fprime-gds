@@ -217,7 +217,7 @@ Vue.component("command-input", {
                  * @return {number} -1 or 1
                  */
                 function(obj1, obj2) {
-                    if (obj1.full_name <= obj2.full_name) {
+                    if (obj1.full_name.toLowerCase() <= obj2.full_name.toLowerCase()) {
                         return -1;
                     }
                     return 1;
