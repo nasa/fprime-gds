@@ -204,7 +204,7 @@ def find_dict(root: Path) -> Path:
         if child.is_file() and child.name.endswith("Dictionary.json")
     ]
     # Select json dictionary if available, otherwise use xml dictionary
-    dicts = json_dicts or xml_dicts
+    dicts = json_dicts if json_dicts else xml_dicts
 
     if not dicts:
         print(

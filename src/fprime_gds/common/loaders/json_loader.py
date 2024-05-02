@@ -80,7 +80,6 @@ class JsonLoader(dict_loader.DictLoader):
             return PRIMITIVE_TYPE_MAP[type_name]
 
         if type_name == "string":
-            # REVIEW NOTE: All strings of same size will share the same type. I believe this is good?
             return StringType.construct_type(
                 f'String_{type_dict.get("size")}', type_dict.get("size")
             )
