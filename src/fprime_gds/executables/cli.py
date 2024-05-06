@@ -184,7 +184,7 @@ class ParserBase(ABC):
             sys.exit(-1)
         except Exception as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
-            raise
+            sys.exit(-1)
         return args_ns, parser
 
     @staticmethod
