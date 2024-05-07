@@ -56,8 +56,8 @@ class ChJsonLoader(JsonLoader):
             name_dict[ch_temp.get_full_name()] = ch_temp
 
         return (
-            id_dict,
-            name_dict,
+            dict(sorted(id_dict.items())),
+            dict(sorted(name_dict.items())),
             self.get_versions(),
         )
 

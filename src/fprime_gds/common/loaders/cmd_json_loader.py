@@ -47,8 +47,8 @@ class CmdJsonLoader(JsonLoader):
             name_dict[cmd_temp.get_full_name()] = cmd_temp
 
         return (
-            id_dict,
-            name_dict,
+            dict(sorted(id_dict.items())),
+            dict(sorted(name_dict.items())),
             self.get_versions(),
         )
 
