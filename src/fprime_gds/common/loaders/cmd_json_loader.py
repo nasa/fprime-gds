@@ -8,10 +8,13 @@ Loads flight dictionary (JSON) and returns id and mnemonic based Python dictiona
 
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.loaders.json_loader import JsonLoader
+from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
 
 
 class CmdJsonLoader(JsonLoader):
     """Class to load xml based command dictionaries"""
+
+    COMMANDS_FIELD = "commands"
 
     NAME = "name"
     OPCODE = "opcode"
@@ -32,7 +35,12 @@ class CmdJsonLoader(JsonLoader):
         id_dict = {}
         name_dict = {}
 
-        for cmd_dict in self.json_dict["commands"]:
+        if self.COMMANDS_FIELD not in self.json_dict:
+            raise GdsDictionaryParsingException(
+                f"Ground Dictionary missing '{self.COMMANDS_FIELD}' field: {str(self.json_file)}"
+            )
+
+        for cmd_dict in self.json_dict[self.COMMANDS_FIELD]:
             cmd_temp = self.construct_template_from_dict(cmd_dict)
 
             id_dict[cmd_temp.get_id()] = cmd_temp
@@ -45,20 +53,33 @@ class CmdJsonLoader(JsonLoader):
         )
 
     def construct_template_from_dict(self, cmd_dict: dict) -> CmdTemplate:
-        cmd_name = cmd_dict.get(self.NAME)
-        cmd_comp = cmd_name.split(".")[0]
-        cmd_mnemonic = cmd_name.split(".")[1]
-        cmd_opcode = cmd_dict.get(self.OPCODE)
-        cmd_desc = cmd_dict.get(self.DESC)
+        try:
+            cmd_comp, cmd_mnemonic = cmd_dict[self.NAME].split(".")
+            cmd_opcode = cmd_dict[self.OPCODE]
+            cmd_desc = cmd_dict.get(self.DESC)
+        except ValueError as e:
+            raise GdsDictionaryParsingException(
+                f"Command dictionary entry malformed, expected name of the form '<COMP_NAME>.<CMD_NAME>' in : {str(cmd_dict)}"
+            )
+        except KeyError as e:
+            raise GdsDictionaryParsingException(
+                f"{str(e)} key missing from Command dictionary entry: {str(cmd_dict)}"
+            )
         # Parse Arguments
         cmd_args = []
         for param in cmd_dict.get(self.PARAMETERS, []):
+            try:
+                param_name = param["name"]
+                param_type = self.parse_type(param["type"])
+            except KeyError as e:
+                raise GdsDictionaryParsingException(
+                    f"{str(e)} key missing from Command parameter or its associated type in the dictionary: {str(param)}"
+                )
             cmd_args.append(
                 (
-                    param.get("name"),
+                    param_name,
                     param.get("annotation"),
-                    self.parse_type(param.get("type")),
+                    param_type,
                 )
             )
-
         return CmdTemplate(cmd_opcode, cmd_mnemonic, cmd_comp, cmd_args, cmd_desc)

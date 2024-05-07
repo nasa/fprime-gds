@@ -9,10 +9,13 @@ Loads flight dictionary (JSON) and returns id and mnemonic based Python dictiona
 from fprime_gds.common.templates.event_template import EventTemplate
 from fprime_gds.common.utils.event_severity import EventSeverity
 from fprime_gds.common.loaders.json_loader import JsonLoader
+from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
 
 
 class EventJsonLoader(JsonLoader):
     """Class to load xml based event dictionaries"""
+
+    EVENTS_FIELD = "events"
 
     NAME = "name"
     ID = "id"
@@ -39,7 +42,12 @@ class EventJsonLoader(JsonLoader):
         id_dict = {}
         name_dict = {}
 
-        for event_dict in self.json_dict.get("events"):
+        if self.EVENTS_FIELD not in self.json_dict:
+            raise GdsDictionaryParsingException(
+                f"Ground Dictionary missing '{self.EVENTS_FIELD}' field: {str(self.json_file)}"
+            )
+
+        for event_dict in self.json_dict[self.EVENTS_FIELD]:
             event_temp = self.construct_template_from_dict(event_dict)
 
             id_dict[event_temp.get_id()] = event_temp
@@ -52,12 +60,18 @@ class EventJsonLoader(JsonLoader):
         )
 
     def construct_template_from_dict(self, event_dict: dict):
-        event_mnemonic = event_dict.get(self.NAME)
-        event_comp = event_mnemonic.split(".")[0]
-        event_name = event_mnemonic.split(".")[1]
-
-        event_id = event_dict[self.ID]
-        event_severity = EventSeverity[event_dict[self.SEVERITY]]
+        try:
+            event_comp, event_name = event_dict[self.NAME].split(".")
+            event_id = event_dict[self.ID]
+            event_severity = EventSeverity[event_dict[self.SEVERITY]]
+        except ValueError as e:
+            raise GdsDictionaryParsingException(
+                f"Event dictionary entry malformed, expected name of the form '<COMP_NAME>.<EVENT_NAME>' in : {str(event_dict)}"
+            )
+        except KeyError as e:
+            raise GdsDictionaryParsingException(
+                f"{str(e)} key missing from Event dictionary entry: {str(event_dict)}"
+            )
 
         event_fmt_str = JsonLoader.preprocess_format_str(
             event_dict.get(self.FMT_STR, "")
@@ -68,11 +82,18 @@ class EventJsonLoader(JsonLoader):
         # Parse arguments
         event_args = []
         for arg in event_dict.get(self.PARAMETERS, []):
+            try:
+                arg_name = arg["name"]
+                arg_type = self.parse_type(arg["type"])
+            except KeyError as e:
+                raise GdsDictionaryParsingException(
+                    f"{str(e)} key missing from Event parameter or its associated type in the dictionary: {str(arg)}"
+                )
             event_args.append(
                 (
-                    arg.get("name"),
+                    arg_name,
                     arg.get("annotation"),
-                    self.parse_type(arg.get("type")),
+                    arg_type,
                 )
             )
 

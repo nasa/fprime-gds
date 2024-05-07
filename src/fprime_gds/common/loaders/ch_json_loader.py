@@ -8,10 +8,13 @@ Loads flight dictionary (JSON) and returns id and mnemonic based Python dictiona
 
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.loaders.json_loader import JsonLoader
+from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
 
 
 class ChJsonLoader(JsonLoader):
     """Class to load python based telemetry channel dictionaries"""
+
+    CHANNELS_FIELD = "telemetryChannels"
 
     ID = "id"
     NAME = "name"
@@ -40,7 +43,12 @@ class ChJsonLoader(JsonLoader):
         id_dict = {}
         name_dict = {}
 
-        for ch_dict in self.json_dict["telemetryChannels"]:
+        if self.CHANNELS_FIELD not in self.json_dict:
+            raise GdsDictionaryParsingException(
+                f"Ground Dictionary missing '{self.CHANNELS_FIELD}' field: {str(self.json_file)}"
+            )
+
+        for ch_dict in self.json_dict[self.CHANNELS_FIELD]:
             # Create a channel template object
             ch_temp = self.construct_template_from_dict(ch_dict)
 
@@ -54,10 +62,23 @@ class ChJsonLoader(JsonLoader):
         )
 
     def construct_template_from_dict(self, channel_dict: dict) -> ChTemplate:
-        component_name = channel_dict[self.NAME].split(".")[0]
-        channel_name = channel_dict[self.NAME].split(".")[1]
-        channel_type = channel_dict[self.TYPE]
-        type_obj = self.parse_type(channel_type)
+        try:
+            ch_id = channel_dict[self.ID]
+            # The below assignment also raises a ValueError if the name does not contain a '.'
+            component_name, channel_name = channel_dict[self.NAME].split(".")
+            if not component_name or not channel_name:
+                raise ValueError()
+
+            type_obj = self.parse_type(channel_dict[self.TYPE])
+        except ValueError as e:
+            raise GdsDictionaryParsingException(
+                f"Channel dictionary entry malformed, expected name of the form '<COMP_NAME>.<CH_NAME>' in : {str(channel_dict)}"
+            )
+        except KeyError as e:
+            raise GdsDictionaryParsingException(
+                f"{str(e)} key missing from Channel dictionary entry or its associated type in the dictionary: {str(channel_dict)}"
+            )
+
         format_str = JsonLoader.preprocess_format_str(channel_dict.get(self.FMT_STR))
 
         limit_field = channel_dict.get(self.LIMIT_FIELD)
@@ -71,7 +92,7 @@ class ChJsonLoader(JsonLoader):
         limit_high_orange = limit_high.get(self.LIMIT_ORANGE) if limit_high else None
 
         return ChTemplate(
-            channel_dict[self.ID],
+            ch_id,
             channel_name,
             component_name,
             type_obj,

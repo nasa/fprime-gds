@@ -19,6 +19,7 @@ from fprime.common.models.serialize.type_base import BaseType
 
 from fprime_gds.common.utils.string_util import preprocess_fpp_format_str
 from fprime_gds.common.loaders import dict_loader
+from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
 
 
 PRIMITIVE_TYPE_MAP = {
@@ -50,6 +51,7 @@ class JsonLoader(dict_loader.DictLoader):
             An initialized loader object
         """
         super().__init__()
+        self.json_file = json_file
         with open(json_file, "r") as f:
             self.json_dict = json.load(f)
 
@@ -61,19 +63,20 @@ class JsonLoader(dict_loader.DictLoader):
             A tuple of the framework and project versions
         """
         if "metadata" not in self.json_dict:
-            # REVIEW NOTE: Should we raise an error instead?
-            return ("unknown", "unknown")
+            raise GdsDictionaryParsingException(
+                f"Dictionary has no metadata field: {self.json_file}"
+            )
         return (
-            self.json_dict.get("metadata").get("frameworkVersion", "unknown"),
-            self.json_dict.get("metadata").get("projectVersion", "unknown"),
+            self.json_dict["metadata"].get("frameworkVersion", "unknown"),
+            self.json_dict["metadata"].get("projectVersion", "unknown"),
         )
 
     def parse_type(self, type_dict: dict) -> BaseType:
         type_name: str = type_dict.get("name", None)
 
         if type_name is None:
-            raise ValueError(
-                f"Channel entry in dictionary has no `name` field: {str(type_dict)}"
+            raise GdsDictionaryParsingException(
+                f"Dictionary entry has no `name` field: {str(type_dict)}"
             )
 
         if type_name in PRIMITIVE_TYPE_MAP:
@@ -81,7 +84,7 @@ class JsonLoader(dict_loader.DictLoader):
 
         if type_name == "string":
             return StringType.construct_type(
-                f'String_{type_dict.get("size")}', type_dict.get("size")
+                f'String_{type_dict["size"]}', type_dict["size"]
             )
 
         # Check if type has already been parsed
@@ -94,10 +97,9 @@ class JsonLoader(dict_loader.DictLoader):
             if type_name == type_def.get("qualifiedName"):
                 qualified_type = type_def
                 break
-
-        if qualified_type is None:
-            raise ValueError(
-                f"Channel entry {type_name} in dictionary has no corresponding type definition."
+        else:
+            raise GdsDictionaryParsingException(
+                f"Dictionary type name has no corresponding type definition: {type_name}"
             )
 
         if qualified_type.get("kind") == "array":
@@ -109,8 +111,8 @@ class JsonLoader(dict_loader.DictLoader):
         if qualified_type.get("kind") == "struct":
             return self.construct_serializable_type(type_name, qualified_type)
 
-        raise ValueError(
-            f"Channel entry in dictionary has unknown type {str(type_dict)}"
+        raise GdsDictionaryParsingException(
+            f"Dictionary entry has unknown type {str(type_dict)}"
         )
 
     def construct_enum_type(self, type_name: str, qualified_type: dict) -> EnumType:
@@ -128,11 +130,11 @@ class JsonLoader(dict_loader.DictLoader):
         """
         enum_dict = {}
         for member in qualified_type.get("enumeratedConstants"):
-            enum_dict[member.get("name")] = member.get("value")
+            enum_dict[member["name"]] = member.get("value")
         enum_type = EnumType.construct_type(
             type_name,
             enum_dict,
-            qualified_type.get("representationType").get("name"),
+            qualified_type["representationType"].get("name"),
         )
         self.parsed_types[type_name] = enum_type
         return enum_type
@@ -154,7 +156,9 @@ class JsonLoader(dict_loader.DictLoader):
             type_name,
             self.parse_type(qualified_type.get("elementType")),
             qualified_type.get("size"),
-            qualified_type.get("elementType").get("format", "{}"),
+            JsonLoader.preprocess_format_str(
+                qualified_type["elementType"].get("format", "{}")
+            ),
         )
         self.parsed_types[type_name] = array_type
         return array_type
@@ -176,19 +180,20 @@ class JsonLoader(dict_loader.DictLoader):
         """
         struct_members = []
         for name, member_dict in qualified_type.get("members").items():
-            member_type_dict = member_dict.get("type")
+            member_type_dict = member_dict["type"]
             member_type_obj = self.parse_type(member_type_dict)
 
             # For member arrays (declared inline, so we create a type on the fly)
             if member_dict.get("size") is not None:
                 member_type_obj = ArrayType.construct_type(
-                    f"Array_{member_type_obj.__name__}_{member_dict.get('size')}",
+                    f"Array_{member_type_obj.__name__}_{member_dict['size']}",
                     member_type_obj,
-                    member_dict.get("size"),
-                    member_dict.get("type").get("format", "{}"),
+                    member_dict["size"],
+                    JsonLoader.preprocess_format_str(
+                        member_dict["type"].get("format", "{}")
+                    ),
                 )
-            # TODO: does this need to be preprocessed or something?
-            fmt_str = (
+            fmt_str = JsonLoader.preprocess_format_str(
                 member_type_obj.FORMAT if hasattr(member_type_obj, "FORMAT") else "{}"
             )
             description = member_type_dict.get("annotation", "")
@@ -202,7 +207,7 @@ class JsonLoader(dict_loader.DictLoader):
         return ser_type
 
     @staticmethod
-    def preprocess_format_str(format_str: Optional[str]) -> str:
+    def preprocess_format_str(format_str: Optional[str]) -> Optional[str]:
         """Preprocess format strings before using them in Python format function
         Internally, this converts FPP-style format strings to Python-style format strings
 
