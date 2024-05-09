@@ -43,6 +43,9 @@ dependencies = [
     "openpyxl>=3.0.10",
     "pyserial>=3.5",
 ]
+optional-dependencies.test = [
+    "pydantic"
+]
 
 [project.urls]
 Homepage = "https://fprime.jpl.nasa.gov"
