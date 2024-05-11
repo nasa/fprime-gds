@@ -1,27 +1,27 @@
-#!/bin/env python3
-
-import subprocess
+import unittest
 import os
 import sys
 
-def test_data_product_writer():
-    # Specify the directory where the .bin files are located
-    directory = os.path.abspath(os.path.dirname(__file__))
-    # Loop through each file in the specified directory
-    for filename in os.listdir(directory):
-        # Check if the file is a .bin file
-        if filename.endswith(".bin"):
-            # Construct the full path to the file
-            file_path = os.path.join(directory, filename)
-            
-            # Construct the command to run
-            command = f"../../../src/fprime_gds/executables/data_product_writer.py {file_path}"
-            
-            # Execute the command
-            process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            
-            # Output the result
-            print(f"Running command: {command}")
-            print(process.stdout.decode())
-            print(process.stderr.decode())
+from fprime_gds.executables import data_product_writer
+
+class TestRunDataProduct(unittest.TestCase):
+
+    def test_data_product_parser(self):
+        args = data_product_writer.parse_args(["test.bin", "dictionary.json"])
+        assert args.binFile == "test.bin"
+        assert args.jsonDict == "dictionary.json"
+
+    def test_data_product_writer(self):
+        # Specify the directory where the .bin files are located
+        directory = os.path.abspath(os.path.dirname(__file__))
+        # Loop through each file in the specified directory
+        for filename in os.listdir(directory):
+            # Check if the file is a .bin file
+            if filename.endswith(".bin"):
+                bin_file = os.path.join(directory, filename)
+                dict_file = os.path.join(directory, "dictionary.json")
+                args = data_product_writer.parse_args([bin_file, dict_file])
+                data_product_writer.process(args)
+                return
+                
 
