@@ -160,10 +160,19 @@ class QualifiedType(BaseModel):
             raise ValueError('Check the "kind" field')
         return v
 
+class StructMember(BaseModel):
+    type: Union[IntegerType, FloatType, BoolType, QualifiedType]
+    size: int = 1
+
 class StructType(BaseModel):
     kind: str
     qualifiedName: str
-    members: Dict[str, Type]
+    members: Dict[str, StructMember]
+
+# class StructType(BaseModel):
+#     kind: str
+#     qualifiedName: str
+#     members: Dict[str, Type]
 
     @field_validator('kind')
     def kind_qualifiedIdentifier(cls, v):
@@ -427,10 +436,13 @@ def get_struct_item(field_name: str, typeKind: TypeKind, typeList: List[TypeDef]
         parent_dict[field_name] = array_list
 
     elif isinstance(typeKind, StructType):
-        struct_dict = {}
+        array_list = []
         for key, member in typeKind.members.items():
-            get_struct_item(key, member.type, typeList, struct_dict)
-        parent_dict[field_name] = struct_dict
+            for i in range(member.size):
+                element_dict = {}
+                get_struct_item(key, member.type, typeList, element_dict)
+                array_list.append(element_dict[key])
+            parent_dict[field_name] = array_list
 
     elif isinstance(typeKind, QualifiedType):
         qualType = get_struct_type(typeList, typeKind.name)
