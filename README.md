@@ -25,7 +25,7 @@ output data type included. Command data objects are created in the command panel
 the command encoder registered to that panel. Encoders take a data object and turn it into binary
 data that can be sent to the F´ deployment. The binary data is then passed to the TCP client
 which is registered to the encoder. Finally, the TCP client send the data back to the TCP server and
-the F´ deployment. ![The layout of the GDS](https://github.com/nasa/fprime/blob/master/docs/UsersGuide/media/gds_layout.jpg)
+the F´ deployment. ![The layout of the GDS](https://github.com/nasa/fprime/blob/devel/docs/UsersGuide/media/gds_layout.jpg)
 
 All of these objects are created and registered to other objects when the GDS
 is initialized. Thus, all of the structure of the GDS is created in one place,
