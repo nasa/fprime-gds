@@ -69,7 +69,6 @@
 
 import struct
 import json
-from json import JSONDecodeError
 import os
 import sys
 from typing import List, Dict, Union, ForwardRef
@@ -859,7 +858,7 @@ def process(args):
         try:
             with open(args.jsonDict, 'r') as fprimeDictFile:
                 dictJSON = FprimeDict(**json.load(fprimeDictFile))
-        except JSONDecodeError as e:
+        except json.JSONDecodeError as e:
             raise DictionaryError(args.jsonDict, e.lineno)
         
         check_record_data(dictJSON)
@@ -895,7 +894,7 @@ def process(args):
                 raise CRCError("Data", headerData['dataHash'], computedCRC)
 
 
-    except (FileNotFoundError, RecordIDNotFound, IOError, KeyError, JSONDecodeError, 
+    except (FileNotFoundError, RecordIDNotFound, IOError, KeyError, json.JSONDecodeError, 
             DictionaryError, CRCError, DuplicateRecordID) as e:
         handleException(e)
 
