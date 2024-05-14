@@ -1,6 +1,5 @@
 import unittest
 import os
-import sys
 
 from fprime_gds.executables import data_product_writer
 
@@ -12,16 +11,36 @@ class TestRunDataProduct(unittest.TestCase):
         assert args.jsonDict == "dictionary.json"
 
     def test_data_product_writer(self):
+        binFiles = ["makeBool.bin",
+                    "makeDataArray.bin",
+                    "makeF32.bin",
+                    "makeFppArray.bin",
+                    "makeI32.bin",
+                    "makeI8.bin",
+                    "makeU32Array.bin",
+                    "makeComplex.bin",
+                    "makeEnum.bin",
+                    "makeF64.bin",
+                    "makeI16.bin",
+                    "makeI64.bin",
+                    "makeU32.bin",
+                    "makeU8Array.bin"]
+        
         # Specify the directory where the .bin files are located
         directory = os.path.abspath(os.path.dirname(__file__))
         # Loop through each file in the specified directory
-        for filename in os.listdir(directory):
-            # Check if the file is a .bin file
-            if filename.endswith(".bin"):
-                bin_file = os.path.join(directory, filename)
-                dict_file = os.path.join(directory, "dictionary.json")
-                args = data_product_writer.parse_args([bin_file, dict_file])
-                data_product_writer.process(args)
-                return
-                
+        for filename in binFiles:
+            print(f'Processing {filename}')
+            bin_file = os.path.join(directory, "dp_writer_data", filename)
+            dict_file = os.path.join(directory, "dp_writer_data", "dictionary.json")
+            args = data_product_writer.parse_args([bin_file, dict_file])
+            data_product_writer.process(args)
 
+            # Check if the json file was created
+            jsonFile = filename.replace('.bin', '.json')
+            jsonFilePath = os.path.join(directory, jsonFile)
+            self.assertTrue(os.path.exists(jsonFilePath))
+    
+            # If the json file exists, delete it
+            if os.path.exists(jsonFilePath):
+                    os.remove(jsonFile)
