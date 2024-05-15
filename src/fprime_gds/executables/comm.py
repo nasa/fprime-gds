@@ -16,26 +16,19 @@ Note: assuming the module containing the ground adapter has been imported, then 
 @author lestarch
 """
 
-
 import logging
 import signal
 import sys
-
 from pathlib import Path
 
 # Required adapters built on standard tools
-try:
-    from fprime_gds.common.zmq_transport import ZmqGround
-except ImportError:
-    ZmqGround = None
 import fprime_gds.common.communication.adapters.base
 import fprime_gds.common.communication.adapters.ip
-import fprime_gds.common.communication.checksum
 import fprime_gds.common.communication.ground
 import fprime_gds.common.logger
 import fprime_gds.executables.cli
-from fprime_gds.common.communication.framing import FpFramerDeframer
 from fprime_gds.common.communication.updown import Downlinker, Uplinker
+from fprime_gds.common.zmq_transport import ZmqGround
 
 # Uses non-standard PIP package pyserial, so test the waters before getting a hard-import crash
 try:
@@ -58,38 +51,35 @@ def main():
             fprime_gds.executables.cli.LogDeployParser,
             fprime_gds.executables.cli.MiddleWareParser,
             fprime_gds.executables.cli.CommParser,
+            fprime_gds.executables.cli.PluginArgumentParser,
         ],
         description="F prime communications layer.",
         client=True,
     )
-    fprime_gds.common.communication.checksum = args.checksum_type
-    if args.comm_adapter == "none":
-        print("[ERROR] Comm adapter set to 'none'. Nothing to do but exit.", file=sys.stderr)
+    if args.communication_selection == "none":
+        print(
+            "[ERROR] Comm adapter set to 'none'. Nothing to do but exit.",
+            file=sys.stderr,
+        )
         sys.exit(-1)
 
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
-    if args.zmq and ZmqGround is None:
-        print("[ERROR] ZeroMQ is not available. Install pyzmq.", file=sys.stderr)
-        sys.exit(-1)
-    elif args.zmq:
-        ground = fprime_gds.common.zmq_transport.ZmqGround(args.zmq_transport)
-        # Check for need to make this a server
-        if args.zmq_server:
-            ground.make_server()
+    if args.zmq:
+        ground = ZmqGround(args.zmq_transport)
     else:
         ground = fprime_gds.common.communication.ground.TCPGround(
             args.tts_addr, args.tts_port
         )
 
-    adapter = args.comm_adapter
+    adapter = args.communication_selection_instance
 
     # Set the framing class used and pass it to the uplink and downlink component constructions giving each a separate
     # instantiation
-    framer_class = FpFramerDeframer
+    framer_instance = args.framing_selection_instance
     LOGGER.info(
         "Starting uplinker/downlinker connecting to FSW using %s with %s",
-        adapter,
-        framer_class.__name__,
+        args.communication_selection,
+        args.framing_selection,
     )
     discarded_file_handle = None
     try:
@@ -108,9 +98,9 @@ def main():
                     discarded_file_handle_path,
                 )
         downlinker = Downlinker(
-            adapter, ground, framer_class(), discarded=discarded_file_handle
+            adapter, ground, framer_instance, discarded=discarded_file_handle
         )
-        uplinker = Uplinker(adapter, ground, framer_class(), downlinker)
+        uplinker = Uplinker(adapter, ground, framer_instance, downlinker)
 
         # Open resources for the handlers on either side, this prepares the resources needed for reading/writing data
         ground.open()
@@ -121,8 +111,8 @@ def main():
         uplinker.start()
         LOGGER.debug("Uplinker and downlinker running")
 
-        # Wait for shutdown event in the form of a KeyboardInterrupt then stop the processing, close resources, and wait for
-        # everything to terminate as expected.
+        # Wait for shutdown event in the form of a KeyboardInterrupt then stop the processing, close resources,
+        # and wait for everything to terminate as expected.
         def shutdown(*_):
             """Shutdown function for signals"""
             uplinker.stop()

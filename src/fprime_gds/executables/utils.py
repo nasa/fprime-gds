@@ -118,14 +118,15 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
         if launch_time is not None:
             time.sleep(launch_time)
             child.poll()
-            if child.returncode is not None:
+            if child.returncode is not None and child.returncode != 0:
                 raise ProcessNotStableException(
                     arguments[0], child.returncode, launch_time
                 )
         return child
     except Exception as exc:
-        msg = f"Failed to run application: {' '.join(arguments)}. Error: {exc}"
-        raise AppWrapperException(msg)
+        argument_strings = [str(argument) for argument in arguments]
+        message = f"Failed to run application: {' '.join(argument_strings)}. Error: {exc}"
+        raise AppWrapperException(message)
 
 
 def find_settings(path: Path) -> Path:

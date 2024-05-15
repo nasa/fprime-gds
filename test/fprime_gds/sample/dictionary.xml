@@ -1,0 +1,1522 @@
+<dictionary topology="Ref" framework_version="3.4.3-13-g5a2d4a889" project_version="3.4.3-13-g5a2d4a889">
+  <enums>
+    <enum type="Fw::DeserialStatus" serialize_type="I32">
+      <item name="OK" value="0" description=""/>
+      <item name="BUFFER_EMPTY" value="3" description="Deserialization buffer was empty when trying to read data"/>
+      <item name="FORMAT_ERROR" value="4" description="Deserialization data had incorrect values (unexpected data types)"/>
+      <item name="SIZE_MISMATCH" value="5" description="Data was left in in the buffer, but not enough to deserialize"/>
+      <item name="TYPE_MISMATCH" value="6" description="Deserialized type ID didn't match"/>
+    </enum>
+    <enum type="Svc::CmdSequencer_BlockState" serialize_type="I32">
+      <item name="BLOCK" value="0" description=""/>
+      <item name="NO_BLOCK" value="1" description=""/>
+    </enum>
+    <enum type="Svc::CmdSequencer_FileReadStage" serialize_type="I32">
+      <item name="READ_HEADER" value="0" description=""/>
+      <item name="READ_HEADER_SIZE" value="1" description=""/>
+      <item name="DESER_SIZE" value="2" description=""/>
+      <item name="DESER_NUM_RECORDS" value="3" description=""/>
+      <item name="DESER_TIME_BASE" value="4" description=""/>
+      <item name="DESER_TIME_CONTEXT" value="5" description=""/>
+      <item name="READ_SEQ_CRC" value="6" description=""/>
+      <item name="READ_SEQ_DATA" value="7" description=""/>
+      <item name="READ_SEQ_DATA_SIZE" value="8" description=""/>
+    </enum>
+    <enum type="Svc::CmdSequencer_SeqMode" serialize_type="I32">
+      <item name="STEP" value="0" description=""/>
+      <item name="AUTO" value="1" description=""/>
+    </enum>
+    <enum type="Svc::SendFileStatus" serialize_type="I32">
+      <item name="STATUS_OK" value="0" description=""/>
+      <item name="STATUS_ERROR" value="1" description=""/>
+      <item name="STATUS_INVALID" value="2" description=""/>
+      <item name="STATUS_BUSY" value="3" description=""/>
+    </enum>
+    <enum type="Svc::ActiveLogger_Enabled" serialize_type="I32">
+      <item name="ENABLED" value="0" description="Enabled state"/>
+      <item name="DISABLED" value="1" description="Disabled state"/>
+    </enum>
+    <enum type="Svc::ActiveLogger_FilterSeverity" serialize_type="I32">
+      <item name="WARNING_HI" value="0" description="Filter WARNING_HI events"/>
+      <item name="WARNING_LO" value="1" description="Filter WARNING_LO events"/>
+      <item name="COMMAND" value="2" description="Filter COMMAND events"/>
+      <item name="ACTIVITY_HI" value="3" description="Filter ACTIVITY_HI events"/>
+      <item name="ACTIVITY_LO" value="4" description="Filter ACTIVITY_LO events"/>
+      <item name="DIAGNOSTIC" value="5" description="Filter DIAGNOSTIC events"/>
+    </enum>
+    <enum type="Svc::PrmDb_PrmReadError" serialize_type="I32">
+      <item name="OPEN" value="0" description=""/>
+      <item name="DELIMITER" value="1" description=""/>
+      <item name="DELIMITER_SIZE" value="2" description=""/>
+      <item name="DELIMITER_VALUE" value="3" description=""/>
+      <item name="RECORD_SIZE" value="4" description=""/>
+      <item name="RECORD_SIZE_SIZE" value="5" description=""/>
+      <item name="RECORD_SIZE_VALUE" value="6" description=""/>
+      <item name="PARAMETER_ID" value="7" description=""/>
+      <item name="PARAMETER_ID_SIZE" value="8" description=""/>
+      <item name="PARAMETER_VALUE" value="9" description=""/>
+      <item name="PARAMETER_VALUE_SIZE" value="10" description=""/>
+    </enum>
+    <enum type="Svc::PrmDb_PrmWriteError" serialize_type="I32">
+      <item name="OPEN" value="0" description=""/>
+      <item name="DELIMITER" value="1" description=""/>
+      <item name="DELIMITER_SIZE" value="2" description=""/>
+      <item name="RECORD_SIZE" value="3" description=""/>
+      <item name="RECORD_SIZE_SIZE" value="4" description=""/>
+      <item name="PARAMETER_ID" value="5" description=""/>
+      <item name="PARAMETER_ID_SIZE" value="6" description=""/>
+      <item name="PARAMETER_VALUE" value="7" description=""/>
+      <item name="PARAMETER_VALUE_SIZE" value="8" description=""/>
+    </enum>
+    <enum type="Ref::Choice" serialize_type="I32">
+      <item name="ONE" value="0" description=""/>
+      <item name="TWO" value="1" description=""/>
+      <item name="RED" value="2" description=""/>
+      <item name="BLUE" value="3" description=""/>
+    </enum>
+    <enum type="Fw::Enabled" serialize_type="I32">
+      <item name="DISABLED" value="0" description="Disabled state"/>
+      <item name="ENABLED" value="1" description="Enabled state"/>
+    </enum>
+    <enum type="Ref::SignalType" serialize_type="I32">
+      <item name="TRIANGLE" value="0" description=""/>
+      <item name="SQUARE" value="1" description=""/>
+      <item name="SINE" value="2" description=""/>
+      <item name="NOISE" value="3" description=""/>
+    </enum>
+    <enum type="Ref::SendBuff_ActiveState" serialize_type="I32">
+      <item name="SEND_IDLE" value="0" description=""/>
+      <item name="SEND_ACTIVE" value="1" description=""/>
+    </enum>
+    <enum type="Drv::SendStatus" serialize_type="I32">
+      <item name="SEND_OK" value="0" description="Send worked as expected"/>
+      <item name="SEND_RETRY" value="1" description="Data send should be retried"/>
+      <item name="SEND_ERROR" value="2" description="Send error occurred retrying may succeed"/>
+    </enum>
+    <enum type="Fw::Success" serialize_type="I32">
+      <item name="FAILURE" value="0" description="Representing failure"/>
+      <item name="SUCCESS" value="1" description="Representing success"/>
+    </enum>
+    <enum type="Fw::ParamValid" serialize_type="I32">
+      <item name="UNINIT" value="0" description=""/>
+      <item name="VALID" value="1" description=""/>
+      <item name="INVALID" value="2" description=""/>
+      <item name="DEFAULT" value="3" description=""/>
+    </enum>
+    <enum type="Ref::PacketRecvStatus" serialize_type="I32">
+      <item name="PACKET_STATE_NO_PACKETS" value="0" description=""/>
+      <item name="PACKET_STATE_OK" value="1" description=""/>
+      <item name="PACKET_STATE_ERRORS" value="3" description="Receiver has seen errors"/>
+    </enum>
+    <enum type="Drv::PollStatus" serialize_type="I32">
+      <item name="POLL_OK" value="0" description="Poll successfully received data"/>
+      <item name="POLL_RETRY" value="1" description="No data available, retry later"/>
+      <item name="POLL_ERROR" value="2" description="Error received when polling"/>
+    </enum>
+    <enum type="Drv::RecvStatus" serialize_type="I32">
+      <item name="RECV_OK" value="0" description="Receive worked as expected"/>
+      <item name="RECV_ERROR" value="1" description="Receive error occurred retrying may succeed"/>
+    </enum>
+    <enum type="Svc::SystemResourceEnabled" serialize_type="I32">
+      <item name="DISABLED" value="0" description=""/>
+      <item name="ENABLED" value="1" description=""/>
+    </enum>
+    <enum type="Fw::CmdResponse" serialize_type="I32">
+      <item name="OK" value="0" description="Command successfully executed"/>
+      <item name="INVALID_OPCODE" value="1" description="Invalid opcode dispatched"/>
+      <item name="VALIDATION_ERROR" value="2" description="Command failed validation"/>
+      <item name="FORMAT_ERROR" value="3" description="Command failed to deserialize"/>
+      <item name="EXECUTION_ERROR" value="4" description="Command had execution error"/>
+      <item name="BUSY" value="5" description="Component busy"/>
+    </enum>
+    <enum type="Fw::LogSeverity" serialize_type="I32">
+      <item name="FATAL" value="1" description="A fatal non-recoverable event"/>
+      <item name="WARNING_HI" value="2" description="A serious but recoverable event"/>
+      <item name="WARNING_LO" value="3" description="A less serious but recoverable event"/>
+      <item name="COMMAND" value="4" description="An activity related to commanding"/>
+      <item name="ACTIVITY_HI" value="5" description="Important informational events"/>
+      <item name="ACTIVITY_LO" value="6" description="Less important informational events"/>
+      <item name="DIAGNOSTIC" value="7" description="Software diagnostic events"/>
+    </enum>
+  </enums>
+  <serializables>
+    <serializable type="Svc::SendFileResponse">
+      <members>
+        <member name="status" format_specifier="%s" default="Svc::SendFileStatus::STATUS_OK" type="Svc::SendFileStatus"/>
+        <member name="context" format_specifier="%u" default="0" type="U32"/>
+      </members>
+    </serializable>
+    <serializable type="Ref::ChoicePair">
+      <members>
+        <member name="firstChoice" format_specifier="%s" description="The first choice to make" default="Ref::Choice::ONE" type="Ref::Choice"/>
+        <member name="secondChoice" format_specifier="%s" description="The second choice to make" default="Ref::Choice::ONE" type="Ref::Choice"/>
+      </members>
+    </serializable>
+    <serializable type="Ref::ChoiceSlurry">
+      <members>
+        <member name="tooManyChoices" format_specifier="%s" description="A large set of disorganized choices" default="Ref::TooManyChoices(Ref::ManyChoices(Ref::Choice::ONE, Ref::Choice::ONE), Ref::ManyChoices(Ref::Choice::ONE, Ref::Choice::ONE))" type="Ref::TooManyChoices"/>
+        <member name="separateChoice" format_specifier="%s" description="A singular choice" default="Ref::Choice::ONE" type="Ref::Choice"/>
+        <member name="choicePair" format_specifier="%s" description="A pair of choices" default="Ref::ChoicePair(Ref::Choice::ONE, Ref::Choice::ONE)" type="Ref::ChoicePair"/>
+        <member name="choiceAsMemberArray" format_specifier="%u" description="An array of choices defined as member array" default="0" size="2" type="U8"/>
+      </members>
+    </serializable>
+    <serializable type="Ref::ScalarStruct">
+      <members>
+        <member name="i8" format_specifier="%d" default="0" type="I8"/>
+        <member name="i16" format_specifier="%d" default="0" type="I16"/>
+        <member name="i32" format_specifier="%d" default="0" type="I32"/>
+        <member name="i64" format_specifier="%ld" default="0" type="I64"/>
+        <member name="u8" format_specifier="%u" default="0" type="U8"/>
+        <member name="u16" format_specifier="%u" default="0" type="U16"/>
+        <member name="u32" format_specifier="%u" default="0" type="U32"/>
+        <member name="u64" format_specifier="%lu" default="0" type="U64"/>
+        <member name="f32" format_specifier="%g" default="0.0f" type="F32"/>
+        <member name="f64" format_specifier="%g" default="0.0" type="F64"/>
+      </members>
+    </serializable>
+    <serializable type="Ref::SignalPair">
+      <members>
+        <member name="time" format_specifier="%f" default="0.0f" type="F32"/>
+        <member name="value" format_specifier="%f" default="0.0f" type="F32"/>
+      </members>
+    </serializable>
+    <serializable type="Ref::SignalInfo">
+      <members>
+        <member name="type" format_specifier="%s" default="Ref::SignalType::TRIANGLE" type="Ref::SignalType"/>
+        <member name="history" format_specifier="%s" default="Ref::SignalSet(0.0f, 0.0f, 0.0f, 0.0f)" type="Ref::SignalSet"/>
+        <member name="pairHistory" format_specifier="%s" default="Ref::SignalPairSet(Ref::SignalPair(0.0f, 0.0f), Ref::SignalPair(0.0f, 0.0f), Ref::SignalPair(0.0f, 0.0f), Ref::SignalPair(0.0f, 0.0f))" type="Ref::SignalPairSet"/>
+      </members>
+    </serializable>
+    <serializable type="Ref::PacketStat">
+      <members>
+        <member name="BuffRecv" format_specifier="%u" description="Number of buffers received" default="0" type="U32"/>
+        <member name="BuffErr" format_specifier="%u" description="Number of buffers received with errors" default="0" type="U32"/>
+        <member name="PacketStatus" format_specifier="%s" description="Packet Status" default="Ref::PacketRecvStatus::PACKET_STATE_NO_PACKETS" type="Ref::PacketRecvStatus"/>
+      </members>
+    </serializable>
+  </serializables>
+  <arrays>
+    <array name="Ref::FloatSet" type="F32" type_id="0xF8E063EC" size="3" format="%g">
+      <defaults>
+        <default value="0.0f"/>
+        <default value="0.0f"/>
+        <default value="0.0f"/>
+      </defaults>
+    </array>
+    <array name="Ref::ManyChoices" type="Ref::Choice" type_id="0xBEF04111" size="2" format="%s">
+      <defaults>
+        <default value="Ref::Choice::ONE"/>
+        <default value="Ref::Choice::ONE"/>
+      </defaults>
+    </array>
+    <array name="Ref::TooManyChoices" type="Ref::ManyChoices" type_id="0x5D09FDB7" size="2" format="%s">
+      <defaults>
+        <default value="Ref::ManyChoices(Ref::Choice::ONE, Ref::Choice::ONE)"/>
+        <default value="Ref::ManyChoices(Ref::Choice::ONE, Ref::Choice::ONE)"/>
+      </defaults>
+    </array>
+    <array name="Ref::SignalPairSet" type="Ref::SignalPair" type_id="0xB7FC714B" size="4" format="%s">
+      <defaults>
+        <default value="Ref::SignalPair(0.0f, 0.0f)"/>
+        <default value="Ref::SignalPair(0.0f, 0.0f)"/>
+        <default value="Ref::SignalPair(0.0f, 0.0f)"/>
+        <default value="Ref::SignalPair(0.0f, 0.0f)"/>
+      </defaults>
+    </array>
+    <array name="Ref::SignalSet" type="F32" type_id="0xC523CFF3" size="4" format="%f">
+      <defaults>
+        <default value="0.0f"/>
+        <default value="0.0f"/>
+        <default value="0.0f"/>
+        <default value="0.0f"/>
+      </defaults>
+    </array>
+  </arrays>
+  <commands>
+    <command component="cmdDisp" mnemonic="CMD_NO_OP" opcode="0x500" description="No-op command">
+      <args/>
+    </command>
+    <command component="cmdDisp" mnemonic="CMD_NO_OP_STRING" opcode="0x501" description="No-op string command">
+      <args>
+        <arg name="arg1" description="&#10;          The String command argument&#10;          " len="40" type="string"/>
+      </args>
+    </command>
+    <command component="cmdDisp" mnemonic="CMD_TEST_CMD_1" opcode="0x502" description="No-op command">
+      <args>
+        <arg name="arg1" description="&#10;          The I32 command argument&#10;          " type="I32"/>
+        <arg name="arg2" description="&#10;          The F32 command argument&#10;          " type="F32"/>
+        <arg name="arg3" description="&#10;          The U8 command argument&#10;          " type="U8"/>
+      </args>
+    </command>
+    <command component="cmdDisp" mnemonic="CMD_CLEAR_TRACKING" opcode="0x503" description="Clear command tracking info to recover from components not returning status">
+      <args/>
+    </command>
+    <command component="cmdSeq" mnemonic="CS_RUN" opcode="0x600" description="Run a command sequence file">
+      <args>
+        <arg name="fileName" description="&#10;          The name of the sequence file&#10;          " len="240" type="string"/>
+        <arg name="block" description="&#10;          Return command status when complete or not&#10;          " type="Svc::CmdSequencer_BlockState"/>
+      </args>
+    </command>
+    <command component="cmdSeq" mnemonic="CS_VALIDATE" opcode="0x601" description="Validate a command sequence file">
+      <args>
+        <arg name="fileName" description="&#10;          The name of the sequence file&#10;          " len="240" type="string"/>
+      </args>
+    </command>
+    <command component="cmdSeq" mnemonic="CS_CANCEL" opcode="0x602" description="Cancel a command sequence">
+      <args/>
+    </command>
+    <command component="cmdSeq" mnemonic="CS_START" opcode="0x603" description="Start running a command sequence">
+      <args/>
+    </command>
+    <command component="cmdSeq" mnemonic="CS_STEP" opcode="0x604" description="Perform one step in a command sequence. Valid only if CmdSequencer is in MANUAL run mode.">
+      <args/>
+    </command>
+    <command component="cmdSeq" mnemonic="CS_AUTO" opcode="0x605" description="Set the run mode to AUTO.">
+      <args/>
+    </command>
+    <command component="cmdSeq" mnemonic="CS_MANUAL" opcode="0x606" description="Set the run mode to MANUAL.">
+      <args/>
+    </command>
+    <command component="cmdSeq" mnemonic="CS_JOIN_WAIT" opcode="0x607" description="Wait for sequences that are running to finish. Allow user to run multiple seq files in SEQ_NO_BLOCK mode then wait for them to finish before allowing more seq run request.">
+      <args/>
+    </command>
+    <command component="fileDownlink" mnemonic="SendFile" opcode="0x700" description="Read a named file off the disk. Divide it into packets and send the packets for transmission to the ground.">
+      <args>
+        <arg name="sourceFileName" description="&#10;          The name of the on-board file to send&#10;          " len="100" type="string"/>
+        <arg name="destFileName" description="&#10;          The name of the destination file on the ground&#10;          " len="100" type="string"/>
+      </args>
+    </command>
+    <command component="fileDownlink" mnemonic="Cancel" opcode="0x701" description="Cancel the downlink in progress, if any">
+      <args/>
+    </command>
+    <command component="fileDownlink" mnemonic="SendPartial" opcode="0x702" description="Read a named file off the disk from a starting position. Divide it into packets and send the packets for transmission to the ground.">
+      <args>
+        <arg name="sourceFileName" description="&#10;          The name of the on-board file to send&#10;          " len="100" type="string"/>
+        <arg name="destFileName" description="&#10;          The name of the destination file on the ground&#10;          " len="100" type="string"/>
+        <arg name="startOffset" description="&#10;          Starting offset of the source file&#10;          " type="U32"/>
+        <arg name="length" description="&#10;          Number of bytes to send from starting offset. Length of 0 implies until the end of the file&#10;          " type="U32"/>
+      </args>
+    </command>
+    <command component="fileManager" mnemonic="CreateDirectory" opcode="0x800" description="Create a directory">
+      <args>
+        <arg name="dirName" description="&#10;          The directory to create&#10;          " len="256" type="string"/>
+      </args>
+    </command>
+    <command component="fileManager" mnemonic="MoveFile" opcode="0x801" description="Move a file">
+      <args>
+        <arg name="sourceFileName" description="&#10;          The source file name&#10;          " len="256" type="string"/>
+        <arg name="destFileName" description="&#10;          The destination file name&#10;          " len="256" type="string"/>
+      </args>
+    </command>
+    <command component="fileManager" mnemonic="RemoveDirectory" opcode="0x802" description="Remove a directory, which must be empty">
+      <args>
+        <arg name="dirName" description="&#10;          The directory to remove&#10;          " len="256" type="string"/>
+      </args>
+    </command>
+    <command component="fileManager" mnemonic="RemoveFile" opcode="0x803" description="Remove a file">
+      <args>
+        <arg name="fileName" description="&#10;          The file to remove&#10;          " len="256" type="string"/>
+        <arg name="ignoreErrors" description="&#10;          Ignore nonexistent files&#10;          " type="bool"/>
+      </args>
+    </command>
+    <command component="fileManager" mnemonic="ShellCommand" opcode="0x804" description="Perform a Linux shell command and write the output to a log file.">
+      <args>
+        <arg name="command" description="&#10;          The shell command string&#10;          " len="256" type="string"/>
+        <arg name="logFileName" description="&#10;          The name of the log file&#10;          " len="256" type="string"/>
+      </args>
+    </command>
+    <command component="fileManager" mnemonic="AppendFile" opcode="0x805" description="Append 1 file's contents to the end of another.">
+      <args>
+        <arg name="source" description="&#10;          The name of the file to take content from&#10;          " len="256" type="string"/>
+        <arg name="target" description="&#10;          The name of the file to append to&#10;          " len="256" type="string"/>
+      </args>
+    </command>
+    <command component="fileManager" mnemonic="FileSize" opcode="0x806">
+      <args>
+        <arg name="fileName" description="&#10;          The file to get the size of&#10;          " len="256" type="string"/>
+      </args>
+    </command>
+    <command component="pingRcvr" mnemonic="PR_StopPings" opcode="0xa00" description="Command to disable ping response">
+      <args/>
+    </command>
+    <command component="eventLogger" mnemonic="SET_EVENT_FILTER" opcode="0xb00" description="Set filter for reporting events. Events are not stored in component.">
+      <args>
+        <arg name="filterLevel" description="&#10;          Filter level&#10;          " type="Svc::ActiveLogger_FilterSeverity"/>
+        <arg name="filterEnabled" description="&#10;          Filter state&#10;          " type="Svc::ActiveLogger_Enabled"/>
+      </args>
+    </command>
+    <command component="eventLogger" mnemonic="SET_ID_FILTER" opcode="0xb02" description="Filter a particular ID">
+      <args>
+        <arg name="ID" type="U32"/>
+        <arg name="idFilterEnabled" description="&#10;          ID filter state&#10;          " type="Svc::ActiveLogger_Enabled"/>
+      </args>
+    </command>
+    <command component="eventLogger" mnemonic="DUMP_FILTER_STATE" opcode="0xb03" description="Dump the filter states via events">
+      <args/>
+    </command>
+    <command component="prmDb" mnemonic="PRM_SAVE_FILE" opcode="0xd00" description="Command to save parameter image to file. Uses file name passed to constructor">
+      <args/>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICE" opcode="0xe00" description="Single choice command">
+      <args>
+        <arg name="choice" description="&#10;          A single choice&#10;          " type="Ref::Choice"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICES" opcode="0xe03" description="Multiple choice command via Array">
+      <args>
+        <arg name="choices" description="&#10;          A set of choices&#10;          " type="Ref::ManyChoices"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICES_WITH_FRIENDS" opcode="0xe04" description="Multiple choice command via Array with a preceding and following argument">
+      <args>
+        <arg name="repeat" description="&#10;          Number of times to repeat the choices&#10;          " type="U8"/>
+        <arg name="choices" description="&#10;          A set of choices&#10;          " type="Ref::ManyChoices"/>
+        <arg name="repeat_max" description="&#10;          Limit to the number of repetitions&#10;          " type="U8"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="EXTRA_CHOICES" opcode="0xe07" description="Too many choice command via Array">
+      <args>
+        <arg name="choices" description="&#10;          Way to many choices to make&#10;          " type="Ref::TooManyChoices"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="EXTRA_CHOICES_WITH_FRIENDS" opcode="0xe08" description="Too many choices command via Array with a preceding and following argument">
+      <args>
+        <arg name="repeat" description="&#10;          Number of times to repeat the choices&#10;          " type="U8"/>
+        <arg name="choices" description="&#10;          Way to many choices to make&#10;          " type="Ref::TooManyChoices"/>
+        <arg name="repeat_max" description="&#10;          Limit to the number of repetitions&#10;          " type="U8"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICE_PAIR" opcode="0xe0b" description="Multiple choice command via Structure">
+      <args>
+        <arg name="choices" description="&#10;          A pair of choices&#10;          " type="Ref::ChoicePair"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICE_PAIR_WITH_FRIENDS" opcode="0xe0c" description="Multiple choices command via Structure with a preceding and following argument">
+      <args>
+        <arg name="repeat" description="&#10;          Number of times to repeat the choices&#10;          " type="U8"/>
+        <arg name="choices" description="&#10;          A pair of choices&#10;          " type="Ref::ChoicePair"/>
+        <arg name="repeat_max" description="&#10;          Limit to the number of repetitions&#10;          " type="U8"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="GLUTTON_OF_CHOICE" opcode="0xe0f" description="Multiple choice command via Complex Structure">
+      <args>
+        <arg name="choices" description="&#10;          A phenomenal amount of choice&#10;          " type="Ref::ChoiceSlurry"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="GLUTTON_OF_CHOICE_WITH_FRIENDS" opcode="0xe10" description="Multiple choices command via Complex Structure with a preceding and following argument">
+      <args>
+        <arg name="repeat" description="&#10;          Number of times to repeat the choices&#10;          " type="U8"/>
+        <arg name="choices" description="&#10;          A phenomenal amount of choice&#10;          " type="Ref::ChoiceSlurry"/>
+        <arg name="repeat_max" description="&#10;          Limit to the number of repetitions&#10;          " type="U8"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="DUMP_TYPED_PARAMETERS" opcode="0xe13" description="Dump the typed parameters">
+      <args/>
+    </command>
+    <command component="typeDemo" mnemonic="DUMP_FLOATS" opcode="0xe14" description="Dump the float values">
+      <args/>
+    </command>
+    <command component="typeDemo" mnemonic="SEND_SCALARS" opcode="0xe15" description="Send scalars">
+      <args>
+        <arg name="scalar_input" type="Ref::ScalarStruct"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICE_PRM_PRM_SET" opcode="0xe01" description="Single enumeration parameter parameter set">
+      <args>
+        <arg name="val" type="Ref::Choice"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICE_PRM_PRM_SAVE" opcode="0xe02" description="Single enumeration parameter parameter save"/>
+    <command component="typeDemo" mnemonic="CHOICES_PRM_PRM_SET" opcode="0xe05" description="Multiple enumeration parameter via Array parameter set">
+      <args>
+        <arg name="val" type="Ref::ManyChoices"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICES_PRM_PRM_SAVE" opcode="0xe06" description="Multiple enumeration parameter via Array parameter save"/>
+    <command component="typeDemo" mnemonic="EXTRA_CHOICES_PRM_PRM_SET" opcode="0xe09" description="Too many enumeration parameter via Array parameter set">
+      <args>
+        <arg name="val" type="Ref::ManyChoices"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="EXTRA_CHOICES_PRM_PRM_SAVE" opcode="0xe0a" description="Too many enumeration parameter via Array parameter save"/>
+    <command component="typeDemo" mnemonic="CHOICE_PAIR_PRM_PRM_SET" opcode="0xe0d" description="Multiple enumeration parameter via Structure parameter set">
+      <args>
+        <arg name="val" type="Ref::ChoicePair"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="CHOICE_PAIR_PRM_PRM_SAVE" opcode="0xe0e" description="Multiple enumeration parameter via Structure parameter save"/>
+    <command component="typeDemo" mnemonic="GLUTTON_OF_CHOICE_PRM_PRM_SET" opcode="0xe11" description="Multiple enumeration parameter via Complex Structure parameter set">
+      <args>
+        <arg name="val" type="Ref::ChoiceSlurry"/>
+      </args>
+    </command>
+    <command component="typeDemo" mnemonic="GLUTTON_OF_CHOICE_PRM_PRM_SAVE" opcode="0xe12" description="Multiple enumeration parameter via Complex Structure parameter save"/>
+    <command component="health" mnemonic="HLTH_ENABLE" opcode="0x2000" description="A command to enable or disable health checks">
+      <args>
+        <arg name="enable" description="&#10;          whether or not health checks are enabled&#10;          " type="Fw::Enabled"/>
+      </args>
+    </command>
+    <command component="health" mnemonic="HLTH_PING_ENABLE" opcode="0x2001" description="Ignore a particular ping entry">
+      <args>
+        <arg name="entry" description="&#10;          The entry to enable/disable&#10;          " len="40" type="string"/>
+        <arg name="enable" description="&#10;          whether or not a port is pinged&#10;          " type="Fw::Enabled"/>
+      </args>
+    </command>
+    <command component="health" mnemonic="HLTH_CHNG_PING" opcode="0x2002" description="Change ping value">
+      <args>
+        <arg name="entry" description="&#10;          The entry to modify&#10;          " len="40" type="string"/>
+        <arg name="warningValue" description="&#10;          Ping warning threshold&#10;          " type="U32"/>
+        <arg name="fatalValue" description="&#10;          Ping fatal threshold&#10;          " type="U32"/>
+      </args>
+    </command>
+    <command component="SG1" mnemonic="SignalGen_Settings" opcode="0x2100" description="Signal Generator Settings">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SigType" type="Ref::SignalType"/>
+      </args>
+    </command>
+    <command component="SG1" mnemonic="SignalGen_Toggle" opcode="0x2101" description="Toggle Signal Generator On/Off.">
+      <args/>
+    </command>
+    <command component="SG1" mnemonic="SignalGen_Skip" opcode="0x2102" description="Skip next sample">
+      <args/>
+    </command>
+    <command component="SG2" mnemonic="SignalGen_Settings" opcode="0x2200" description="Signal Generator Settings">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SigType" type="Ref::SignalType"/>
+      </args>
+    </command>
+    <command component="SG2" mnemonic="SignalGen_Toggle" opcode="0x2201" description="Toggle Signal Generator On/Off.">
+      <args/>
+    </command>
+    <command component="SG2" mnemonic="SignalGen_Skip" opcode="0x2202" description="Skip next sample">
+      <args/>
+    </command>
+    <command component="SG3" mnemonic="SignalGen_Settings" opcode="0x2300" description="Signal Generator Settings">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SigType" type="Ref::SignalType"/>
+      </args>
+    </command>
+    <command component="SG3" mnemonic="SignalGen_Toggle" opcode="0x2301" description="Toggle Signal Generator On/Off.">
+      <args/>
+    </command>
+    <command component="SG3" mnemonic="SignalGen_Skip" opcode="0x2302" description="Skip next sample">
+      <args/>
+    </command>
+    <command component="SG4" mnemonic="SignalGen_Settings" opcode="0x2400" description="Signal Generator Settings">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SigType" type="Ref::SignalType"/>
+      </args>
+    </command>
+    <command component="SG4" mnemonic="SignalGen_Toggle" opcode="0x2401" description="Toggle Signal Generator On/Off.">
+      <args/>
+    </command>
+    <command component="SG4" mnemonic="SignalGen_Skip" opcode="0x2402" description="Skip next sample">
+      <args/>
+    </command>
+    <command component="SG5" mnemonic="SignalGen_Settings" opcode="0x2500" description="Signal Generator Settings">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SigType" type="Ref::SignalType"/>
+      </args>
+    </command>
+    <command component="SG5" mnemonic="SignalGen_Toggle" opcode="0x2501" description="Toggle Signal Generator On/Off.">
+      <args/>
+    </command>
+    <command component="SG5" mnemonic="SignalGen_Skip" opcode="0x2502" description="Skip next sample">
+      <args/>
+    </command>
+    <command component="sendBuffComp" mnemonic="SB_START_PKTS" opcode="0x2600" description="Command to start sending packets">
+      <args/>
+    </command>
+    <command component="sendBuffComp" mnemonic="SB_INJECT_PKT_ERROR" opcode="0x2601" description="Send a bad packet">
+      <args/>
+    </command>
+    <command component="sendBuffComp" mnemonic="SB_GEN_FATAL" opcode="0x2602" description="Generate a FATAL EVR">
+      <args>
+        <arg name="arg1" description="&#10;          First FATAL Argument&#10;          " type="U32"/>
+        <arg name="arg2" description="&#10;          Second FATAL Argument&#10;          " type="U32"/>
+        <arg name="arg3" description="&#10;          Third FATAL Argument&#10;          " type="U32"/>
+      </args>
+    </command>
+    <command component="sendBuffComp" mnemonic="SB_GEN_ASSERT" opcode="0x2603" description="Generate an ASSERT">
+      <args>
+        <arg name="arg1" description="&#10;          First ASSERT Argument&#10;          " type="U32"/>
+        <arg name="arg2" description="&#10;          Second ASSERT Argument&#10;          " type="U32"/>
+        <arg name="arg3" description="&#10;          Third ASSERT Argument&#10;          " type="U32"/>
+        <arg name="arg4" description="&#10;          Fourth ASSERT Argument&#10;          " type="U32"/>
+        <arg name="arg5" description="&#10;          Fifth ASSERT Argument&#10;          " type="U32"/>
+        <arg name="arg6" description="&#10;          Sixth ASSERT Argument&#10;          " type="U32"/>
+      </args>
+    </command>
+    <command component="sendBuffComp" mnemonic="parameter3_PRM_SET" opcode="0x260a" description="A test parameter parameter set">
+      <args>
+        <arg name="val" type="U8"/>
+      </args>
+    </command>
+    <command component="sendBuffComp" mnemonic="parameter3_PRM_SAVE" opcode="0x260b" description="A test parameter parameter save"/>
+    <command component="sendBuffComp" mnemonic="parameter4_PRM_SET" opcode="0x260c" description="A test parameter parameter set">
+      <args>
+        <arg name="val" type="F32"/>
+      </args>
+    </command>
+    <command component="sendBuffComp" mnemonic="parameter4_PRM_SAVE" opcode="0x260d" description="A test parameter parameter save"/>
+    <command component="recvBuffComp" mnemonic="parameter1_PRM_SET" opcode="0x4700" description="A test parameter parameter set">
+      <args>
+        <arg name="val" type="U32"/>
+      </args>
+    </command>
+    <command component="recvBuffComp" mnemonic="parameter1_PRM_SAVE" opcode="0x4701" description="A test parameter parameter save"/>
+    <command component="recvBuffComp" mnemonic="parameter2_PRM_SET" opcode="0x4702" description="A test parameter parameter set">
+      <args>
+        <arg name="val" type="I16"/>
+      </args>
+    </command>
+    <command component="recvBuffComp" mnemonic="parameter2_PRM_SAVE" opcode="0x4703" description="A test parameter parameter save"/>
+    <command component="systemResources" mnemonic="ENABLE" opcode="0x4b00" description="A command to enable or disable system resource telemetry">
+      <args>
+        <arg name="enable" description="&#10;          whether or not system resource telemetry is enabled&#10;          " type="Svc::SystemResourceEnabled"/>
+      </args>
+    </command>
+    <command component="systemResources" mnemonic="VERSION" opcode="0x4b01" description="Report version as EVR">
+      <args/>
+    </command>
+  </commands>
+  <events>
+    <event component="rateGroup1Comp" name="RateGroupStarted" id="0x200" severity="DIAGNOSTIC" description="Informational event that rate group has started" format_string="Rate group started.">
+      <args/>
+    </event>
+    <event component="rateGroup1Comp" name="RateGroupCycleSlip" id="0x201" severity="WARNING_HI" description="Warning event that rate group has had a cycle slip" format_string="Rate group cycle slipped on cycle %u">
+      <args>
+        <arg name="cycle" description="The cycle where the cycle occurred" type="U32"/>
+      </args>
+    </event>
+    <event component="rateGroup2Comp" name="RateGroupStarted" id="0x300" severity="DIAGNOSTIC" description="Informational event that rate group has started" format_string="Rate group started.">
+      <args/>
+    </event>
+    <event component="rateGroup2Comp" name="RateGroupCycleSlip" id="0x301" severity="WARNING_HI" description="Warning event that rate group has had a cycle slip" format_string="Rate group cycle slipped on cycle %u">
+      <args>
+        <arg name="cycle" description="The cycle where the cycle occurred" type="U32"/>
+      </args>
+    </event>
+    <event component="rateGroup3Comp" name="RateGroupStarted" id="0x400" severity="DIAGNOSTIC" description="Informational event that rate group has started" format_string="Rate group started.">
+      <args/>
+    </event>
+    <event component="rateGroup3Comp" name="RateGroupCycleSlip" id="0x401" severity="WARNING_HI" description="Warning event that rate group has had a cycle slip" format_string="Rate group cycle slipped on cycle %u">
+      <args>
+        <arg name="cycle" description="The cycle where the cycle occurred" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="OpCodeRegistered" id="0x500" severity="DIAGNOSTIC" format_string="Opcode 0x%x registered to port %d slot %d">
+      <args>
+        <arg name="Opcode" description="The opcode to register" type="U32"/>
+        <arg name="port" description="The registration port" type="I32"/>
+        <arg name="slot" description="The dispatch slot it was placed in" type="I32"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="OpCodeDispatched" id="0x501" severity="COMMAND" description="Op code dispatched event" format_string="Opcode 0x%x dispatched to port %d">
+      <args>
+        <arg name="Opcode" description="The opcode dispatched" type="U32"/>
+        <arg name="port" description="The port dispatched to" type="I32"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="OpCodeCompleted" id="0x502" severity="COMMAND" description="Op code completed event" format_string="Opcode 0x%x completed">
+      <args>
+        <arg name="Opcode" description="The I32 command argument" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="OpCodeError" id="0x503" severity="COMMAND" description="Op code completed with error event" format_string="Opcode 0x%x completed with error %s">
+      <args>
+        <arg name="Opcode" description="The opcode with the error" type="U32"/>
+        <arg name="error" description="The error value" type="Fw::CmdResponse"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="MalformedCommand" id="0x504" severity="WARNING_HI" description="Received a malformed command packet" format_string="Received malformed command packet. Status: %s">
+      <args>
+        <arg name="Status" description="The deserialization error" type="Fw::DeserialStatus"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="InvalidCommand" id="0x505" severity="WARNING_HI" description="Received an invalid opcode" format_string="Invalid opcode 0x%x received">
+      <args>
+        <arg name="Opcode" description="Invalid opcode" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="TooManyCommands" id="0x506" severity="WARNING_HI" description="Exceeded the number of commands that can be simultaneously executed" format_string="Too many outstanding commands. opcode=0x%x">
+      <args>
+        <arg name="Opcode" description="The opcode that overflowed the list" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="NoOpReceived" id="0x507" severity="ACTIVITY_HI" description="The command dispatcher has successfully received a NO-OP command" format_string="Received a NO-OP command">
+      <args/>
+    </event>
+    <event component="cmdDisp" name="NoOpStringReceived" id="0x508" severity="ACTIVITY_HI" description="The command dispatcher has successfully received a NO-OP command from GUI with a string" format_string="Received a NO-OP string=%s">
+      <args>
+        <arg name="message" description="The NO-OP string that is generated" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="TestCmd1Args" id="0x509" severity="ACTIVITY_HI" description="This log event message returns the TEST_CMD_1 arguments." format_string="TEST_CMD_1 args: I32: %d, F32: %f, U8: %u">
+      <args>
+        <arg name="arg1" description="Arg1" type="I32"/>
+        <arg name="arg2" description="Arg2" type="F32"/>
+        <arg name="arg3" description="Arg3" type="U8"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="OpCodeReregistered" id="0x50a" severity="DIAGNOSTIC" description="Op code reregistered event" format_string="Opcode 0x%x is already registered to port %d">
+      <args>
+        <arg name="Opcode" description="The opcode reregistered" type="U32"/>
+        <arg name="port" description="The reregistration port" type="I32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_SequenceLoaded" id="0x600" severity="ACTIVITY_LO" description="Sequence file was successfully loaded." format_string="Loaded sequence %s">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_SequenceCanceled" id="0x601" severity="ACTIVITY_HI" description="A command sequence was successfully canceled." format_string="Sequence file %s canceled">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_FileReadError" id="0x602" severity="WARNING_HI" description="The Sequence File Loader could not read the sequence file." format_string="Error reading sequence file %s">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_FileInvalid" id="0x603" severity="WARNING_HI" description="The sequence file format was invalid." format_string="Sequence file %s invalid. Stage: %s Error: %d">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+        <arg name="stage" description="The read stage" type="Svc::CmdSequencer_FileReadStage"/>
+        <arg name="error" description="The error code" type="I32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_RecordInvalid" id="0x604" severity="WARNING_HI" description="The format of a command record was invalid." format_string="Sequence file %s: Record %u invalid. Err: %d">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+        <arg name="recordNumber" description="The record number" type="U32"/>
+        <arg name="error" description="The error code" type="I32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_FileSizeError" id="0x605" severity="WARNING_HI" description="The sequence file was too large." format_string="Sequence file %s too large. Size: %u">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+        <arg name="size" description="Invalid size" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_FileNotFound" id="0x606" severity="WARNING_HI" description="The sequence file was not found" format_string="Sequence file %s not found.">
+      <args>
+        <arg name="fileName" description="The sequence file" len="60" type="string"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_FileCrcFailure" id="0x607" severity="WARNING_HI" description="The sequence file validation failed" format_string="Sequence file %s had invalid CRC. Stored 0x%x, Computed 0x%x.">
+      <args>
+        <arg name="fileName" description="The sequence file" len="60" type="string"/>
+        <arg name="storedCRC" description="The CRC stored in the file" type="U32"/>
+        <arg name="computedCRC" description="The CRC computed over the file" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_CommandComplete" id="0x608" severity="ACTIVITY_LO" description="The Command Sequencer issued a command and received a success status in return." format_string="Sequence file %s: Command %u (opcode %u) complete">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+        <arg name="recordNumber" description="The record number of the command" type="U32"/>
+        <arg name="opCode" description="The command opcode" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_SequenceComplete" id="0x609" severity="ACTIVITY_HI" description="A command sequence successfully completed." format_string="Sequence file %s complete">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_CommandError" id="0x60a" severity="WARNING_HI" description="The Command Sequencer issued a command and received an error status in return." format_string="Sequence file %s: Command %u (opcode %u) completed with error %u">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+        <arg name="recordNumber" description="The record number" type="U32"/>
+        <arg name="opCode" description="The opcode" type="U32"/>
+        <arg name="errorStatus" description="The error status" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_InvalidMode" id="0x60b" severity="WARNING_HI" description="The Command Sequencer received a command that was invalid for its current mode." format_string="Invalid mode">
+      <args/>
+    </event>
+    <event component="cmdSeq" name="CS_RecordMismatch" id="0x60c" severity="WARNING_HI" description="Number of records in header doesn't match number in file" format_string="Sequence file %s header records mismatch: %u in header, found %u extra bytes.">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+        <arg name="header_records" description="The number of records in the header" type="U32"/>
+        <arg name="extra_bytes" description="The number of bytes beyond last record" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_TimeBaseMismatch" id="0x60d" severity="WARNING_HI" description="The running time base doesn't match the time base in the sequence files" format_string="Sequence file %s: Current time base doesn't match sequence time: base: %u seq: %u">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+        <arg name="time_base" description="The current time" type="U16"/>
+        <arg name="seq_time_base" description="The sequence time base" type="U16"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_TimeContextMismatch" id="0x60e" severity="WARNING_HI" description="The running time base doesn't match the time base in the sequence files" format_string="Sequence file %s: Current time context doesn't match sequence context: base: %u seq: %u">
+      <args>
+        <arg name="fileName" description="The name of the sequence file" len="60" type="string"/>
+        <arg name="currTimeBase" description="The current time base" type="U8"/>
+        <arg name="seqTimeBase" description="The sequence time base" type="U8"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_PortSequenceStarted" id="0x60f" severity="ACTIVITY_HI" description="A local port request to run a sequence was started" format_string="Local request for sequence %s started.">
+      <args>
+        <arg name="filename" description="The sequence file" len="60" type="string"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_UnexpectedCompletion" id="0x610" severity="WARNING_HI" description="A command status came back when no sequence was running" format_string="Command complete status received while no sequences active. Opcode: %u">
+      <args>
+        <arg name="opcode" description="The reported opcode" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_ModeSwitched" id="0x611" severity="ACTIVITY_HI" description="Switched step mode" format_string="Sequencer switched to %s step mode">
+      <args>
+        <arg name="mode" description="The new mode" type="Svc::CmdSequencer_SeqMode"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_NoSequenceActive" id="0x612" severity="WARNING_LO" description="A sequence related command came with no active sequence" format_string="No sequence active.">
+      <args/>
+    </event>
+    <event component="cmdSeq" name="CS_SequenceValid" id="0x613" severity="ACTIVITY_HI" description="A sequence passed validation" format_string="Sequence %s is valid.">
+      <args>
+        <arg name="filename" description="The sequence file" len="60" type="string"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_SequenceTimeout" id="0x614" severity="WARNING_HI" description="A sequence passed validation" format_string="Sequence %s timed out on command %u">
+      <args>
+        <arg name="filename" description="The sequence file" len="60" type="string"/>
+        <arg name="command" description="The command that timed out" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_CmdStepped" id="0x615" severity="ACTIVITY_HI" description="A command in a sequence was stepped through" format_string="Sequence %s command %u stepped">
+      <args>
+        <arg name="filename" description="The sequence file" len="60" type="string"/>
+        <arg name="command" description="The command that was stepped" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_CmdStarted" id="0x616" severity="ACTIVITY_HI" description="A manual sequence was started" format_string="Sequence %s started">
+      <args>
+        <arg name="filename" description="The sequence file" len="60" type="string"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_JoinWaiting" id="0x617" severity="ACTIVITY_HI" description="Wait for the current running sequence file complete" format_string="Start waiting for sequence file %s: Command %u (opcode %u) to complete">
+      <args>
+        <arg name="filename" description="The sequence file" len="60" type="string"/>
+        <arg name="recordNumber" description="The record number" type="U32"/>
+        <arg name="opCode" description="The opcode" type="U32"/>
+      </args>
+    </event>
+    <event component="cmdSeq" name="CS_JoinWaitingNotComplete" id="0x618" severity="WARNING_HI" description="Cannot run new sequence when current sequence file is still running." format_string="Still waiting for sequence file to complete">
+      <args/>
+    </event>
+    <event component="fileDownlink" name="FileOpenError" id="0x700" severity="WARNING_HI" description="An error occurred opening a file" format_string="Could not open file %s">
+      <args>
+        <arg name="fileName" description="The name of the file" len="100" type="string"/>
+      </args>
+    </event>
+    <event component="fileDownlink" name="FileReadError" id="0x701" severity="WARNING_HI" description="An error occurred reading a file" format_string="Could not read file %s with status %d">
+      <args>
+        <arg name="fileName" description="The name of the file" len="100" type="string"/>
+        <arg name="status" description="The file status of read" type="I32"/>
+      </args>
+    </event>
+    <event component="fileDownlink" name="FileSent" id="0x702" severity="ACTIVITY_HI" description="The File Downlink component successfully sent a file" format_string="Sent file %s to file %s">
+      <args>
+        <arg name="sourceFileName" description="The source file name" len="100" type="string"/>
+        <arg name="destFileName" description="The destination file name" len="100" type="string"/>
+      </args>
+    </event>
+    <event component="fileDownlink" name="DownlinkCanceled" id="0x703" severity="ACTIVITY_HI" description="The File Downlink component canceled downlink of a file" format_string="Canceled downlink of file %s to file %s">
+      <args>
+        <arg name="sourceFileName" description="The source file name" len="100" type="string"/>
+        <arg name="destFileName" description="The destination file name" len="100" type="string"/>
+      </args>
+    </event>
+    <event component="fileDownlink" name="DownlinkTimeout" id="0x704" severity="WARNING_HI" description="The File Downlink component has detected a timeout. Downlink has been canceled." format_string="Timeout occurred during downlink of file %s to file %s. Downlink has been canceled.">
+      <args>
+        <arg name="sourceFileName" description="The source filename" len="100" type="string"/>
+        <arg name="destFileName" description="The destination file name" len="100" type="string"/>
+      </args>
+    </event>
+    <event component="fileDownlink" name="DownlinkPartialWarning" id="0x705" severity="WARNING_LO" description="The File Downlink component has detected a timeout. Downlink has been canceled." format_string="Offset %u plus length %u is greater than source size %u for partial downlink of file %s to file %s. ">
+      <args>
+        <arg name="startOffset" description="Starting file offset in bytes" type="U32"/>
+        <arg name="length" description="Number of bytes to downlink" type="U32"/>
+        <arg name="filesize" description="Size of source file" type="U32"/>
+        <arg name="sourceFileName" description="The source filename" len="100" type="string"/>
+        <arg name="destFileName" description="The destination file name" len="100" type="string"/>
+      </args>
+    </event>
+    <event component="fileDownlink" name="DownlinkPartialFail" id="0x706" severity="WARNING_HI" description="The File Downlink component has detected a timeout. Downlink has been canceled." format_string="Error occurred during partial downlink of file %s to file %s. Offset %u greater than or equal to source filesize %u.">
+      <args>
+        <arg name="sourceFileName" description="The source filename" len="100" type="string"/>
+        <arg name="destFileName" description="The destination file name" len="100" type="string"/>
+        <arg name="startOffset" description="Starting file offset in bytes" type="U32"/>
+        <arg name="filesize" description="Size of source file" type="U32"/>
+      </args>
+    </event>
+    <event component="fileDownlink" name="SendDataFail" id="0x707" severity="WARNING_HI" description="The File Downlink component generated an error when trying to send a data packet." format_string="Failed to send data packet from file %s at byte offset %u.">
+      <args>
+        <arg name="sourceFileName" description="The source filename" len="100" type="string"/>
+        <arg name="byteOffset" description="Byte offset" type="U32"/>
+      </args>
+    </event>
+    <event component="fileDownlink" name="SendStarted" id="0x708" severity="ACTIVITY_HI" description="The File Downlink component started a file download." format_string="Downlink of %u bytes started from %s to %s">
+      <args>
+        <arg name="fileSize" description="The source file size" type="U32"/>
+        <arg name="sourceFileName" description="The source filename" len="100" type="string"/>
+        <arg name="destFileName" description="The destination filename" len="100" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="DirectoryCreateError" id="0x800" severity="WARNING_HI" description="An error occurred while attempting to create a directory" format_string="Could not create directory %s, returned status %u">
+      <args>
+        <arg name="dirName" description="The name of the directory" len="256" type="string"/>
+        <arg name="status" description="The error status" type="U32"/>
+      </args>
+    </event>
+    <event component="fileManager" name="DirectoryRemoveError" id="0x801" severity="WARNING_HI" description="An error occurred while attempting to remove a directory" format_string="Could not remove directory %s, returned status %u">
+      <args>
+        <arg name="dirName" description="The name of the directory" len="256" type="string"/>
+        <arg name="status" description="The error status" type="U32"/>
+      </args>
+    </event>
+    <event component="fileManager" name="FileMoveError" id="0x802" severity="WARNING_HI" description="An error occurred while attempting to move a file" format_string="Could not move file %s to file %s, returned status %u">
+      <args>
+        <arg name="sourceFileName" description="The name of the source file" len="256" type="string"/>
+        <arg name="destFileName" description="The name of the destination file" len="256" type="string"/>
+        <arg name="status" description="The error status" type="U32"/>
+      </args>
+    </event>
+    <event component="fileManager" name="FileRemoveError" id="0x803" severity="WARNING_HI" description="An error occurred while attempting to remove a file" format_string="Could not remove file %s, returned status %u">
+      <args>
+        <arg name="fileName" description="The name of the file" len="256" type="string"/>
+        <arg name="status" description="The error status" type="U32"/>
+      </args>
+    </event>
+    <event component="fileManager" name="ShellCommandFailed" id="0x804" severity="WARNING_HI" description="The File System component executed a shell command that returned status non-zero" format_string="Shell command %s failed with status %u">
+      <args>
+        <arg name="command" description="The command string" len="256" type="string"/>
+        <arg name="status" description="The status code" type="U32"/>
+      </args>
+    </event>
+    <event component="fileManager" name="AppendFileFailed" id="0x805" severity="WARNING_HI" description="The File System component returned status non-zero when trying to append 2 files together" format_string="Appending %s onto %s failed with status %u">
+      <args>
+        <arg name="source" description="The name of the file being read from" len="256" type="string"/>
+        <arg name="target" description="The name of the file to append to" len="256" type="string"/>
+        <arg name="status" description="The error status" type="U32"/>
+      </args>
+    </event>
+    <event component="fileManager" name="AppendFileSucceeded" id="0x806" severity="ACTIVITY_HI" description="The File System component appended 2 files without error" format_string="Appended %s to the end of %s">
+      <args>
+        <arg name="source" description="The name of the file being read from" len="256" type="string"/>
+        <arg name="target" description="The name of the file to append to" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="ShellCommandSucceeded" id="0x807" severity="ACTIVITY_HI" description="The File System component executed a shell command that returned status zero" format_string="Shell command %s succeeded">
+      <args>
+        <arg name="command" description="The command string" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="CreateDirectorySucceeded" id="0x808" severity="ACTIVITY_HI" description="The File System component created a new directory without error" format_string="Created directory %s successfully">
+      <args>
+        <arg name="dirName" description="The name of the directory" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="RemoveDirectorySucceeded" id="0x809" severity="ACTIVITY_HI" description="The File System component deleted and existing directory without error" format_string="Removed directory %s successfully">
+      <args>
+        <arg name="dirName" description="The name of the directory" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="MoveFileSucceeded" id="0x80a" severity="ACTIVITY_HI" description="The File System component moved a file to a new location without error" format_string="Moved file %s to file %s successfully">
+      <args>
+        <arg name="sourceFileName" description="The name of the source file" len="256" type="string"/>
+        <arg name="destFileName" description="The name of the destination file" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="RemoveFileSucceeded" id="0x80b" severity="ACTIVITY_HI" description="The File System component deleted an existing file without error" format_string="Removed file %s successfully">
+      <args>
+        <arg name="fileName" description="The name of the file" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="AppendFileStarted" id="0x80c" severity="ACTIVITY_HI" description="The File System component appended 2 files without error" format_string="Appending file %s to the end of %s...">
+      <args>
+        <arg name="source" description="The name of the file being read from" len="256" type="string"/>
+        <arg name="target" description="The name of the file to append to" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="ShellCommandStarted" id="0x80d" severity="ACTIVITY_HI" description="The File System component began executing a shell command" format_string="Running shell command %s...">
+      <args>
+        <arg name="command" description="The command string" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="CreateDirectoryStarted" id="0x80e" severity="ACTIVITY_HI" description="The File System component began creating a new directory" format_string="Creating directory %s...">
+      <args>
+        <arg name="dirName" description="The name of the directory" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="RemoveDirectoryStarted" id="0x80f" severity="ACTIVITY_HI" description="The File System component began deleting a directory" format_string="Removing directory %s...">
+      <args>
+        <arg name="dirName" description="The name of the directory" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="MoveFileStarted" id="0x810" severity="ACTIVITY_HI" description="The File System component began moving a file to a new location" format_string="Moving file %s to file %s...">
+      <args>
+        <arg name="sourceFileName" description="The name of the source file" len="256" type="string"/>
+        <arg name="destFileName" description="The name of the destination file" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="RemoveFileStarted" id="0x811" severity="ACTIVITY_HI" description="The File System component began deleting an existing file" format_string="Removing file %s...">
+      <args>
+        <arg name="fileName" description="The name of the file" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileManager" name="FileSizeSucceeded" id="0x812" severity="ACTIVITY_HI" description="File size response" format_string="The size of file %s is %lu B">
+      <args>
+        <arg name="fileName" description="The name of the file" len="256" type="string"/>
+        <arg name="size" description="The size of the file in bytes" type="U64"/>
+      </args>
+    </event>
+    <event component="fileManager" name="FileSizeError" id="0x813" severity="WARNING_HI" description="Failed to get file size" format_string="Failed to get the size of file %s, returned status %u">
+      <args>
+        <arg name="fileName" description="The name of the file" len="256" type="string"/>
+        <arg name="status" description="The error status" type="U32"/>
+      </args>
+    </event>
+    <event component="fileManager" name="FileSizeStarted" id="0x814" severity="ACTIVITY_HI" description="Checking file size" format_string="Checking size of file %s...">
+      <args>
+        <arg name="fileName" description="The name of the file" len="256" type="string"/>
+      </args>
+    </event>
+    <event component="fileUplink" name="BadChecksum" id="0x900" severity="WARNING_HI" description="During receipt of a file, the computed checksum value did not match the stored value" format_string="Bad checksum value during receipt of file %s: computed 0x%x, read 0x%x">
+      <args>
+        <arg name="fileName" description="The file name" len="40" type="string"/>
+        <arg name="computed" description="The computed value" type="U32"/>
+        <arg name="read" description="The value read" type="U32"/>
+      </args>
+    </event>
+    <event component="fileUplink" name="FileOpenError" id="0x901" severity="WARNING_HI" description="An error occurred opening a file" format_string="Could not open file %s">
+      <args>
+        <arg name="fileName" description="The name of the file" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="fileUplink" name="FileReceived" id="0x902" severity="ACTIVITY_HI" description="The File Uplink component successfully received a file" format_string="Received file %s">
+      <args>
+        <arg name="fileName" description="The name of the file" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="fileUplink" name="FileWriteError" id="0x903" severity="WARNING_HI" description="An error occurred writing to a file" format_string="Could not write to file %s">
+      <args>
+        <arg name="fileName" description="The name of the file" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="fileUplink" name="InvalidReceiveMode" id="0x904" severity="WARNING_HI" description="The File Uplink component received a packet with a type that was invalid for the current receive mode" format_string="Packet type %u received in mode %u">
+      <args>
+        <arg name="packetType" description="The type of the packet received" type="U32"/>
+        <arg name="mode" description="The receive mode" type="U32"/>
+      </args>
+    </event>
+    <event component="fileUplink" name="PacketOutOfBounds" id="0x905" severity="WARNING_HI" description="During receipt of a file, the File Uplink component encountered a packet with offset and size out of bounds for the current file" format_string="Packet %u out of bounds for file %s">
+      <args>
+        <arg name="packetIndex" description="The sequence index of the packet" type="U32"/>
+        <arg name="fileName" description="The name of the file" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="fileUplink" name="PacketOutOfOrder" id="0x906" severity="WARNING_HI" description="The File Uplink component encountered an out-of-order packet during file receipt" format_string="Received packet %u after packet %u">
+      <args>
+        <arg name="packetIndex" description="The sequence index of the out-of-order packet" type="U32"/>
+        <arg name="lastPacketIndex" description="The sequence index of the last packet received before the out-of-order packet" type="U32"/>
+      </args>
+    </event>
+    <event component="fileUplink" name="UplinkCanceled" id="0x907" severity="ACTIVITY_HI" description="The File Uplink component received a CANCEL packet" format_string="Received CANCEL packet">
+      <args/>
+    </event>
+    <event component="fileUplink" name="DecodeError" id="0x908" severity="WARNING_HI" description="Error decoding file packet" format_string="Unable to decode file packet. Status: %d">
+      <args>
+        <arg name="status" description="The sequence index of the out-of-order packet" type="I32"/>
+      </args>
+    </event>
+    <event component="pingRcvr" name="PR_PingsDisabled" id="0xa00" severity="ACTIVITY_HI" description="Disabled ping responses" format_string="PingReceiver ping responses disabled">
+      <args/>
+    </event>
+    <event component="pingRcvr" name="PR_PingReceived" id="0xa01" severity="DIAGNOSTIC" description="Got ping" format_string="PingReceiver pinged with code %u">
+      <args>
+        <arg name="code" description="Ping code" type="U32"/>
+      </args>
+    </event>
+    <event component="eventLogger" name="SEVERITY_FILTER_STATE" id="0xb00" severity="ACTIVITY_LO" description="Dump severity filter state" format_string="%s filter state. %d">
+      <args>
+        <arg name="severity" description="The severity level" type="Svc::ActiveLogger_FilterSeverity"/>
+        <arg name="enabled" type="bool"/>
+      </args>
+    </event>
+    <event component="eventLogger" name="ID_FILTER_ENABLED" id="0xb01" severity="ACTIVITY_HI" description="Indicate ID is filtered" format_string="ID %u is filtered.">
+      <args>
+        <arg name="ID" description="The ID filtered" type="U32"/>
+      </args>
+    </event>
+    <event component="eventLogger" name="ID_FILTER_LIST_FULL" id="0xb02" severity="WARNING_LO" description="Attempted to add ID to full ID filter ID" format_string="ID filter list is full. Cannot filter %u .">
+      <args>
+        <arg name="ID" description="The ID filtered" type="U32"/>
+      </args>
+    </event>
+    <event component="eventLogger" name="ID_FILTER_REMOVED" id="0xb03" severity="ACTIVITY_HI" description="Removed an ID from the filter" format_string="ID filter ID %u removed.">
+      <args>
+        <arg name="ID" description="The ID removed" type="U32"/>
+      </args>
+    </event>
+    <event component="eventLogger" name="ID_FILTER_NOT_FOUND" id="0xb04" severity="WARNING_LO" description="ID not in filter" format_string="ID filter ID %u not found.">
+      <args>
+        <arg name="ID" description="The ID removed" type="U32"/>
+      </args>
+    </event>
+    <event component="prmDb" name="PrmIdNotFound" id="0xd00" severity="WARNING_LO" description="Parameter ID not found in database." format_string="Parameter ID 0x%x not found">
+      <args>
+        <arg name="Id" description="The parameter ID" type="U32"/>
+      </args>
+    </event>
+    <event component="prmDb" name="PrmIdUpdated" id="0xd01" severity="ACTIVITY_HI" description="Parameter ID updated in database" format_string="Parameter ID 0x%x updated">
+      <args>
+        <arg name="Id" description="The parameter ID" type="U32"/>
+      </args>
+    </event>
+    <event component="prmDb" name="PrmDbFull" id="0xd02" severity="FATAL" description="Parameter database is full" format_string="Parameter DB full when adding ID 0x%x ">
+      <args>
+        <arg name="Id" description="The parameter ID" type="U32"/>
+      </args>
+    </event>
+    <event component="prmDb" name="PrmIdAdded" id="0xd03" severity="ACTIVITY_HI" description="Parameter ID added to database" format_string="Parameter ID 0x%x added">
+      <args>
+        <arg name="Id" description="The parameter ID" type="U32"/>
+      </args>
+    </event>
+    <event component="prmDb" name="PrmFileWriteError" id="0xd04" severity="WARNING_HI" description="Failed to write parameter file" format_string="Parameter write failed in stage %s with record %d and error %d">
+      <args>
+        <arg name="stage" description="The write stage" type="Svc::PrmDb_PrmWriteError"/>
+        <arg name="record" description="The record that had the failure" type="I32"/>
+        <arg name="error" description="The error code" type="I32"/>
+      </args>
+    </event>
+    <event component="prmDb" name="PrmFileSaveComplete" id="0xd05" severity="ACTIVITY_HI" description="Save of parameter file completed" format_string="Parameter file save completed. Wrote %u records.">
+      <args>
+        <arg name="records" description="The number of records saved" type="U32"/>
+      </args>
+    </event>
+    <event component="prmDb" name="PrmFileReadError" id="0xd06" severity="WARNING_HI" description="Failed to read parameter file" format_string="Parameter file read failed in stage %s with record %d and error %d">
+      <args>
+        <arg name="stage" description="The read stage" type="Svc::PrmDb_PrmReadError"/>
+        <arg name="record" description="The record that had the failure" type="I32"/>
+        <arg name="error" description="The error code" type="I32"/>
+      </args>
+    </event>
+    <event component="prmDb" name="PrmFileLoadComplete" id="0xd07" severity="ACTIVITY_HI" description="Load of parameter file completed" format_string="Parameter file load completed. Read %u records.">
+      <args>
+        <arg name="records" description="The number of records loaded" type="U32"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ChoiceEv" id="0xe00" severity="ACTIVITY_HI" description="Single choice event" format_string="Choice: %s">
+      <args>
+        <arg name="choice" type="Ref::Choice"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ChoicesEv" id="0xe01" severity="ACTIVITY_HI" description="Multiple choice event via Array" format_string="Choices: %s">
+      <args>
+        <arg name="choices" type="Ref::ManyChoices"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ExtraChoicesEv" id="0xe02" severity="ACTIVITY_HI" description="Too many choice event via Array" format_string="Choices: %s">
+      <args>
+        <arg name="choices" type="Ref::TooManyChoices"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ChoicePairEv" id="0xe03" severity="ACTIVITY_HI" description="Multiple choice event via Structure" format_string="Choices: %s">
+      <args>
+        <arg name="choices" type="Ref::ChoicePair"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ChoiceSlurryEv" id="0xe04" severity="ACTIVITY_HI" description="Multiple choice event via Complex Structure" format_string="Choices: %s">
+      <args>
+        <arg name="choices" type="Ref::ChoiceSlurry"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ChoicePrmEv" id="0xe05" severity="ACTIVITY_HI" description="Single choice parameter event" format_string="CHOICE_PRM: %s with validity: %s">
+      <args>
+        <arg name="choice" type="Ref::Choice"/>
+        <arg name="validity" type="Fw::ParamValid"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ChoicesPrmEv" id="0xe06" severity="ACTIVITY_HI" description="Multiple choice parameter event via Array" format_string="CHOICES_PRM: %s with validity: %s">
+      <args>
+        <arg name="choices" type="Ref::ManyChoices"/>
+        <arg name="validity" type="Fw::ParamValid"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ExtraChoicesPrmEv" id="0xe07" severity="ACTIVITY_HI" description="Too many choice parameter event via Array" format_string="EXTRA_CHOICES_PRM: %s with validity: %s">
+      <args>
+        <arg name="choices" type="Ref::TooManyChoices"/>
+        <arg name="validity" type="Fw::ParamValid"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ChoicePairPrmEv" id="0xe08" severity="ACTIVITY_HI" description="Multiple choice parameter event via Structure" format_string="CHOICE_PAIR_PRM: %s with validity: %s">
+      <args>
+        <arg name="choices" type="Ref::ChoicePair"/>
+        <arg name="validity" type="Fw::ParamValid"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ChoiceSlurryPrmEv" id="0xe09" severity="ACTIVITY_HI" description="Multiple choice parameter event via Complex Structure" format_string="GLUTTON_OF_CHOICE_PRM: %s with validity: %s">
+      <args>
+        <arg name="choices" type="Ref::ChoiceSlurry"/>
+        <arg name="validity" type="Fw::ParamValid"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="FloatEv" id="0xe0a" severity="ACTIVITY_HI" description="A set of floats in an event" format_string="Floats: %g %g %g as a set: %s">
+      <args>
+        <arg name="float1" type="F32"/>
+        <arg name="float2" type="F32"/>
+        <arg name="float3" type="F32"/>
+        <arg name="floats" type="Ref::FloatSet"/>
+      </args>
+    </event>
+    <event component="typeDemo" name="ScalarStructEv" id="0xe0b" severity="ACTIVITY_HI" description="Event for scalar struct" format_string="ScalarStruct: %s">
+      <args>
+        <arg name="scalar_argument" type="Ref::ScalarStruct"/>
+      </args>
+    </event>
+    <event component="health" name="HLTH_PING_WARN" id="0x2000" severity="WARNING_HI" description="Warn that a ping target is longer than the warning value" format_string="Ping entry %s late warning">
+      <args>
+        <arg name="entry" description="The entry passing the warning level" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="health" name="HLTH_PING_LATE" id="0x2001" severity="FATAL" description="Declare FATAL since task is no longer responding" format_string="Ping entry %s did not respond">
+      <args>
+        <arg name="entry" description="The entry passing the warning level" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="health" name="HLTH_PING_WRONG_KEY" id="0x2002" severity="FATAL" description="Declare FATAL since task is no longer responding" format_string="Ping entry %s responded with wrong key 0x%x">
+      <args>
+        <arg name="entry" description="The entry passing the warning level" len="40" type="string"/>
+        <arg name="badKey" description="The incorrect key value" type="U32"/>
+      </args>
+    </event>
+    <event component="health" name="HLTH_CHECK_ENABLE" id="0x2003" severity="ACTIVITY_HI" description="Report checking turned on or off" format_string="Health checking set to %s">
+      <args>
+        <arg name="enabled" description="If health checking is enabled" type="Fw::Enabled"/>
+      </args>
+    </event>
+    <event component="health" name="HLTH_CHECK_PING" id="0x2004" severity="ACTIVITY_HI" description="Report a particular entry on or off" format_string="Health checking set to %s for %s">
+      <args>
+        <arg name="enabled" description="If health pinging is enabled for a particular entry" type="Fw::Enabled"/>
+        <arg name="entry" description="The entry passing the warning level" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="health" name="HLTH_CHECK_LOOKUP_ERROR" id="0x2005" severity="WARNING_LO" description="Entry was not found" format_string="Couldn't find entry %s">
+      <args>
+        <arg name="entry" description="The entry passing the warning level" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="health" name="HLTH_PING_UPDATED" id="0x2006" severity="ACTIVITY_HI" description="Report changed ping" format_string="Health ping for %s changed to WARN %u FATAL %u">
+      <args>
+        <arg name="entry" description="The entry changed" len="40" type="string"/>
+        <arg name="warn" description="The new warning value" type="U32"/>
+        <arg name="fatal" description="The new FATAL value" type="U32"/>
+      </args>
+    </event>
+    <event component="health" name="HLTH_PING_INVALID_VALUES" id="0x2007" severity="WARNING_HI" description="Report changed ping" format_string="Health ping for %s invalid values: WARN %u FATAL %u">
+      <args>
+        <arg name="entry" description="The entry changed" len="40" type="string"/>
+        <arg name="warn" description="The new warning value" type="U32"/>
+        <arg name="fatal" description="The new FATAL value" type="U32"/>
+      </args>
+    </event>
+    <event component="SG1" name="SignalGen_SettingsChanged" id="0x2100" severity="ACTIVITY_LO" description="Signal Generator Settings Changed" format_string="Set Frequency(Hz) %u, Amplitude %f, Phase %f, Signal Type %s">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SignalType" type="Ref::SignalType"/>
+      </args>
+    </event>
+    <event component="SG2" name="SignalGen_SettingsChanged" id="0x2200" severity="ACTIVITY_LO" description="Signal Generator Settings Changed" format_string="Set Frequency(Hz) %u, Amplitude %f, Phase %f, Signal Type %s">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SignalType" type="Ref::SignalType"/>
+      </args>
+    </event>
+    <event component="SG3" name="SignalGen_SettingsChanged" id="0x2300" severity="ACTIVITY_LO" description="Signal Generator Settings Changed" format_string="Set Frequency(Hz) %u, Amplitude %f, Phase %f, Signal Type %s">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SignalType" type="Ref::SignalType"/>
+      </args>
+    </event>
+    <event component="SG4" name="SignalGen_SettingsChanged" id="0x2400" severity="ACTIVITY_LO" description="Signal Generator Settings Changed" format_string="Set Frequency(Hz) %u, Amplitude %f, Phase %f, Signal Type %s">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SignalType" type="Ref::SignalType"/>
+      </args>
+    </event>
+    <event component="SG5" name="SignalGen_SettingsChanged" id="0x2500" severity="ACTIVITY_LO" description="Signal Generator Settings Changed" format_string="Set Frequency(Hz) %u, Amplitude %f, Phase %f, Signal Type %s">
+      <args>
+        <arg name="Frequency" type="U32"/>
+        <arg name="Amplitude" type="F32"/>
+        <arg name="Phase" type="F32"/>
+        <arg name="SignalType" type="Ref::SignalType"/>
+      </args>
+    </event>
+    <event component="sendBuffComp" name="FirstPacketSent" id="0x2600" severity="ACTIVITY_HI" description="First packet send" format_string="First packet ID %u received">
+      <args>
+        <arg name="id" description="The ID argument" type="U32"/>
+      </args>
+    </event>
+    <event component="sendBuffComp" name="PacketErrorInserted" id="0x2601" severity="WARNING_HI" description="Packet checksum error" format_string="Inserted error in packet ID %u">
+      <args>
+        <arg name="id" description="The ID argument" type="U32"/>
+      </args>
+    </event>
+    <event component="sendBuffComp" name="BuffSendParameterUpdated" id="0x2602" severity="ACTIVITY_LO" description="Report parameter update" format_string="BuffSend Parameter %u was updated">
+      <args>
+        <arg name="id" description="The ID argument" type="U32"/>
+      </args>
+    </event>
+    <event component="sendBuffComp" name="SendBuffFatal" id="0x2603" severity="FATAL" description="A test FATAL" format_string="Test Fatal: %u %u %u">
+      <args>
+        <arg name="arg1" description="First FATAL argument" type="U32"/>
+        <arg name="arg2" description="Second FATAL argument" type="U32"/>
+        <arg name="arg3" description="Second FATAL argument" type="U32"/>
+      </args>
+    </event>
+    <event component="fatalAdapter" name="AF_ASSERT_0" id="0x4200" severity="FATAL" description="An assert happened" format_string="Assert in file %s, line %u">
+      <args>
+        <arg name="file" description="The source file of the assert" len="80" type="string"/>
+        <arg name="line" description="Line number of the assert" type="U32"/>
+      </args>
+    </event>
+    <event component="fatalAdapter" name="AF_ASSERT_1" id="0x4201" severity="FATAL" description="An assert happened" format_string="Assert in file %s, line %u: %u">
+      <args>
+        <arg name="file" description="The source file of the assert" len="80" type="string"/>
+        <arg name="line" description="Line number of the assert" type="U32"/>
+        <arg name="arg1" description="First assert argument" type="U32"/>
+      </args>
+    </event>
+    <event component="fatalAdapter" name="AF_ASSERT_2" id="0x4202" severity="FATAL" description="An assert happened" format_string="Assert in file %s, line %u: %u %u">
+      <args>
+        <arg name="file" description="The source file of the assert" len="80" type="string"/>
+        <arg name="line" description="Line number of the assert" type="U32"/>
+        <arg name="arg1" description="First assert argument" type="U32"/>
+        <arg name="arg2" description="Second assert argument" type="U32"/>
+      </args>
+    </event>
+    <event component="fatalAdapter" name="AF_ASSERT_3" id="0x4203" severity="FATAL" description="An assert happened" format_string="Assert in file %s, line %u: %u %u %u">
+      <args>
+        <arg name="file" description="The source file of the assert" len="80" type="string"/>
+        <arg name="line" description="Line number of the assert" type="U32"/>
+        <arg name="arg1" description="First assert argument" type="U32"/>
+        <arg name="arg2" description="Second assert argument" type="U32"/>
+        <arg name="arg3" description="Third assert argument" type="U32"/>
+      </args>
+    </event>
+    <event component="fatalAdapter" name="AF_ASSERT_4" id="0x4204" severity="FATAL" description="An assert happened" format_string="Assert in file %s, line %u: %u %u %u %u">
+      <args>
+        <arg name="file" description="The source file of the assert" len="80" type="string"/>
+        <arg name="line" description="Line number of the assert" type="U32"/>
+        <arg name="arg1" description="First assert argument" type="U32"/>
+        <arg name="arg2" description="Second assert argument" type="U32"/>
+        <arg name="arg3" description="Third assert argument" type="U32"/>
+        <arg name="arg4" description="Fourth assert argument" type="U32"/>
+      </args>
+    </event>
+    <event component="fatalAdapter" name="AF_ASSERT_5" id="0x4205" severity="FATAL" description="An assert happened" format_string="Assert in file %s, line %u: %u %u %u %u %u">
+      <args>
+        <arg name="file" description="The source file of the assert" len="80" type="string"/>
+        <arg name="line" description="Line number of the assert" type="U32"/>
+        <arg name="arg1" description="First assert argument" type="U32"/>
+        <arg name="arg2" description="Second assert argument" type="U32"/>
+        <arg name="arg3" description="Third assert argument" type="U32"/>
+        <arg name="arg4" description="Fourth assert argument" type="U32"/>
+        <arg name="arg5" description="Fifth assert argument" type="U32"/>
+      </args>
+    </event>
+    <event component="fatalAdapter" name="AF_ASSERT_6" id="0x4206" severity="FATAL" description="An assert happened" format_string="Assert in file %s, line %u: %u %u %u %u %u %u">
+      <args>
+        <arg name="file" description="The source file of the assert" len="80" type="string"/>
+        <arg name="line" description="Line number of the assert" type="U32"/>
+        <arg name="arg1" description="First assert argument" type="U32"/>
+        <arg name="arg2" description="Second assert argument" type="U32"/>
+        <arg name="arg3" description="Third assert argument" type="U32"/>
+        <arg name="arg4" description="Fourth assert argument" type="U32"/>
+        <arg name="arg5" description="Fifth assert argument" type="U32"/>
+        <arg name="arg6" description="Sixth assert argument" type="U32"/>
+      </args>
+    </event>
+    <event component="fatalAdapter" name="AF_UNEXPECTED_ASSERT" id="0x4207" severity="FATAL" description="An unexpected assert happened" format_string="Unexpected assert in file %s, line %u, args %u">
+      <args>
+        <arg name="file" description="The source file of the assert" len="80" type="string"/>
+        <arg name="line" description="Line number of the assert" type="U32"/>
+        <arg name="numArgs" description="Number of unexpected arguments" type="U32"/>
+      </args>
+    </event>
+    <event component="fileUplinkBufferManager" name="NoBuffsAvailable" id="0x4400" severity="WARNING_HI" description="The BufferManager was unable to allocate a requested buffer" format_string="No available buffers of size %u">
+      <args>
+        <arg name="size" description="The requested size" type="U32"/>
+      </args>
+    </event>
+    <event component="fileUplinkBufferManager" name="ZeroSizeBuffer" id="0x4401" severity="WARNING_HI" description="The buffer manager received a zero-sized buffer as a return. Probably undetected empty buffer allocation" format_string="Received zero size buffer">
+      <args/>
+    </event>
+    <event component="recvBuffComp" name="FirstPacketReceived" id="0x4700" severity="ACTIVITY_LO" description="First packet received" format_string="First packet ID %u received">
+      <args>
+        <arg name="id" description="The ID argument" type="U32"/>
+      </args>
+    </event>
+    <event component="recvBuffComp" name="PacketChecksumError" id="0x4701" severity="WARNING_HI" description="Packet checksum error" format_string="Packet ID %u had checksum error">
+      <args>
+        <arg name="id" description="The ID argument" type="U32"/>
+      </args>
+    </event>
+    <event component="recvBuffComp" name="BuffRecvParameterUpdated" id="0x4702" severity="ACTIVITY_LO" description="Report parameter update" format_string="BuffRecv Parameter %u was updated">
+      <args>
+        <arg name="id" description="The ID argument" type="U32"/>
+      </args>
+    </event>
+    <event component="systemResources" name="FRAMEWORK_VERSION" id="0x4b00" severity="ACTIVITY_LO" description="Version of the git repository." format_string="Framework Version: [%s]">
+      <args>
+        <arg name="version" description="version string" len="40" type="string"/>
+      </args>
+    </event>
+    <event component="systemResources" name="PROJECT_VERSION" id="0x4b01" severity="ACTIVITY_LO" description="Version of the git repository." format_string="Project Version: [%s]">
+      <args>
+        <arg name="version" description="version string" len="40" type="string"/>
+      </args>
+    </event>
+  </events>
+  <channels>
+    <channel component="blockDrv" name="BD_Cycles" id="0x100" description="Driver cycle count" type="U32"/>
+    <channel component="rateGroup1Comp" name="RgMaxTime" id="0x200" format_string="%u us" description="Max execution time rate group" type="U32"/>
+    <channel component="rateGroup1Comp" name="RgCycleSlips" id="0x201" description="Cycle slips for rate group" type="U32"/>
+    <channel component="rateGroup2Comp" name="RgMaxTime" id="0x300" format_string="%u us" description="Max execution time rate group" type="U32"/>
+    <channel component="rateGroup2Comp" name="RgCycleSlips" id="0x301" description="Cycle slips for rate group" type="U32"/>
+    <channel component="rateGroup3Comp" name="RgMaxTime" id="0x400" format_string="%u us" description="Max execution time rate group" type="U32"/>
+    <channel component="rateGroup3Comp" name="RgCycleSlips" id="0x401" description="Cycle slips for rate group" type="U32"/>
+    <channel component="cmdDisp" name="CommandsDispatched" id="0x500" description="Number of commands dispatched" type="U32"/>
+    <channel component="cmdDisp" name="CommandErrors" id="0x501" description="Number of command errors" type="U32"/>
+    <channel component="cmdSeq" name="CS_LoadCommands" id="0x600" description="The number of Load commands executed" type="U32"/>
+    <channel component="cmdSeq" name="CS_CancelCommands" id="0x601" description="The number of Cancel commands executed" type="U32"/>
+    <channel component="cmdSeq" name="CS_Errors" id="0x602" description="The number of errors that have occurred" type="U32"/>
+    <channel component="cmdSeq" name="CS_CommandsExecuted" id="0x603" description="The number of commands executed across all sequences." type="U32"/>
+    <channel component="cmdSeq" name="CS_SequencesCompleted" id="0x604" description="The number of sequences completed." type="U32"/>
+    <channel component="fileDownlink" name="FilesSent" id="0x700" description="The total number of files sent" type="U32"/>
+    <channel component="fileDownlink" name="PacketsSent" id="0x701" description="The total number of packets sent" type="U32"/>
+    <channel component="fileDownlink" name="Warnings" id="0x702" description="The total number of warnings" type="U32"/>
+    <channel component="fileManager" name="CommandsExecuted" id="0x800" description="The total number of commands successfully executed" type="U32"/>
+    <channel component="fileManager" name="Errors" id="0x801" description="The total number of errors" type="U32"/>
+    <channel component="fileUplink" name="FilesReceived" id="0x900" description="The total number of complete files received" type="U32"/>
+    <channel component="fileUplink" name="PacketsReceived" id="0x901" description="The total number of packets received" type="U32"/>
+    <channel component="fileUplink" name="Warnings" id="0x902" description="The total number of warnings issued" type="U32"/>
+    <channel component="pingRcvr" name="PR_NumPings" id="0xa00" description="Number of pings received" type="U32"/>
+    <channel component="typeDemo" name="ChoiceCh" id="0xe00" description="Single choice channel" type="Ref::Choice"/>
+    <channel component="typeDemo" name="ChoicesCh" id="0xe01" description="Multiple choice channel via Array" type="Ref::ManyChoices"/>
+    <channel component="typeDemo" name="ExtraChoicesCh" id="0xe02" description="Too many choice channel via Array" type="Ref::TooManyChoices"/>
+    <channel component="typeDemo" name="ChoicePairCh" id="0xe03" description="Multiple choice channel via Structure" type="Ref::ChoicePair"/>
+    <channel component="typeDemo" name="ChoiceSlurryCh" id="0xe04" description="Multiple choice channel via Complex Structure" type="Ref::ChoiceSlurry"/>
+    <channel component="typeDemo" name="Float1Ch" id="0xe05" description="Float output channel 1" type="F32"/>
+    <channel component="typeDemo" name="Float2Ch" id="0xe06" description="Float output channel 2" type="F32"/>
+    <channel component="typeDemo" name="Float3Ch" id="0xe07" description="Float output channel 3" type="F32"/>
+    <channel component="typeDemo" name="FloatSet" id="0xe08" description="Float set output channel" type="Ref::FloatSet"/>
+    <channel component="health" name="PingLateWarnings" id="0x2000" description="Number of overrun warnings" type="U32"/>
+    <channel component="SG1" name="Type" id="0x2100" description="Type of the output signal: SINE, TRIANGLE, etc." type="Ref::SignalType"/>
+    <channel component="SG1" name="Output" id="0x2101" format_string="%.4f" description="Single Y value of the output" type="F32"/>
+    <channel component="SG1" name="PairOutput" id="0x2102" description="Single (time, value) pair of the signal" type="Ref::SignalPair"/>
+    <channel component="SG1" name="History" id="0x2103" description="Last 10 Y values of the signal" type="Ref::SignalSet"/>
+    <channel component="SG1" name="PairHistory" id="0x2104" description="Last 10 (time, value) pairs of the signal" type="Ref::SignalPairSet"/>
+    <channel component="SG1" name="Info" id="0x2105" description="Composite field of signal information, containing histories, pairs etc" type="Ref::SignalInfo"/>
+    <channel component="SG2" name="Type" id="0x2200" description="Type of the output signal: SINE, TRIANGLE, etc." type="Ref::SignalType"/>
+    <channel component="SG2" name="Output" id="0x2201" format_string="%.4f" description="Single Y value of the output" type="F32"/>
+    <channel component="SG2" name="PairOutput" id="0x2202" description="Single (time, value) pair of the signal" type="Ref::SignalPair"/>
+    <channel component="SG2" name="History" id="0x2203" description="Last 10 Y values of the signal" type="Ref::SignalSet"/>
+    <channel component="SG2" name="PairHistory" id="0x2204" description="Last 10 (time, value) pairs of the signal" type="Ref::SignalPairSet"/>
+    <channel component="SG2" name="Info" id="0x2205" description="Composite field of signal information, containing histories, pairs etc" type="Ref::SignalInfo"/>
+    <channel component="SG3" name="Type" id="0x2300" description="Type of the output signal: SINE, TRIANGLE, etc." type="Ref::SignalType"/>
+    <channel component="SG3" name="Output" id="0x2301" format_string="%.4f" description="Single Y value of the output" type="F32"/>
+    <channel component="SG3" name="PairOutput" id="0x2302" description="Single (time, value) pair of the signal" type="Ref::SignalPair"/>
+    <channel component="SG3" name="History" id="0x2303" description="Last 10 Y values of the signal" type="Ref::SignalSet"/>
+    <channel component="SG3" name="PairHistory" id="0x2304" description="Last 10 (time, value) pairs of the signal" type="Ref::SignalPairSet"/>
+    <channel component="SG3" name="Info" id="0x2305" description="Composite field of signal information, containing histories, pairs etc" type="Ref::SignalInfo"/>
+    <channel component="SG4" name="Type" id="0x2400" description="Type of the output signal: SINE, TRIANGLE, etc." type="Ref::SignalType"/>
+    <channel component="SG4" name="Output" id="0x2401" format_string="%.4f" description="Single Y value of the output" type="F32"/>
+    <channel component="SG4" name="PairOutput" id="0x2402" description="Single (time, value) pair of the signal" type="Ref::SignalPair"/>
+    <channel component="SG4" name="History" id="0x2403" description="Last 10 Y values of the signal" type="Ref::SignalSet"/>
+    <channel component="SG4" name="PairHistory" id="0x2404" description="Last 10 (time, value) pairs of the signal" type="Ref::SignalPairSet"/>
+    <channel component="SG4" name="Info" id="0x2405" description="Composite field of signal information, containing histories, pairs etc" type="Ref::SignalInfo"/>
+    <channel component="SG5" name="Type" id="0x2500" description="Type of the output signal: SINE, TRIANGLE, etc." type="Ref::SignalType"/>
+    <channel component="SG5" name="Output" id="0x2501" format_string="%.4f" description="Single Y value of the output" type="F32"/>
+    <channel component="SG5" name="PairOutput" id="0x2502" description="Single (time, value) pair of the signal" type="Ref::SignalPair"/>
+    <channel component="SG5" name="History" id="0x2503" description="Last 10 Y values of the signal" type="Ref::SignalSet"/>
+    <channel component="SG5" name="PairHistory" id="0x2504" description="Last 10 (time, value) pairs of the signal" type="Ref::SignalPairSet"/>
+    <channel component="SG5" name="Info" id="0x2505" description="Composite field of signal information, containing histories, pairs etc" type="Ref::SignalInfo"/>
+    <channel component="sendBuffComp" name="PacketsSent" id="0x2600" description="Number of packets sent" type="U64"/>
+    <channel component="sendBuffComp" name="NumErrorsInjected" id="0x2601" description="Number of errors injected" type="U32"/>
+    <channel component="sendBuffComp" name="Parameter3" id="0x2602" description="Readback of Parameter3" type="U8"/>
+    <channel component="sendBuffComp" name="Parameter4" id="0x2603" description="Readback of Parameter4" type="F32"/>
+    <channel component="sendBuffComp" name="SendState" id="0x2604" description="Readback of Parameter4" type="Ref::SendBuff_ActiveState"/>
+    <channel component="fileUplinkBufferManager" name="TotalBuffs" id="0x4400" description="The total buffers allocated" type="U32"/>
+    <channel component="fileUplinkBufferManager" name="CurrBuffs" id="0x4401" description="The current number of allocated buffers" type="U32"/>
+    <channel component="fileUplinkBufferManager" name="HiBuffs" id="0x4402" description="The high water mark of allocated buffers" type="U32"/>
+    <channel component="fileUplinkBufferManager" name="NoBuffs" id="0x4403" description="The number of requests that couldn't return a buffer" high_red="1" type="U32"/>
+    <channel component="fileUplinkBufferManager" name="EmptyBuffs" id="0x4404" description="The number of empty buffers returned" high_red="1" type="U32"/>
+    <channel component="recvBuffComp" name="PktState" id="0x4700" description="Packet Statistics" type="Ref::PacketStat"/>
+    <channel component="recvBuffComp" name="Sensor1" id="0x4701" format_string="%.2fV" description="Value of Sensor1" type="F32"/>
+    <channel component="recvBuffComp" name="Sensor2" id="0x4702" description="Value of Sensor3" type="F32"/>
+    <channel component="recvBuffComp" name="Parameter1" id="0x4703" description="Readback of Parameter1" type="U32"/>
+    <channel component="recvBuffComp" name="Parameter2" id="0x4704" description="Readback of Parameter2" low_red="-3" low_orange="-2" low_yellow="-1" high_yellow="1" high_orange="2" high_red="3" type="I16"/>
+    <channel component="systemResources" name="MEMORY_TOTAL" id="0x4b00" format_string="%lu KB" description="Total system memory in KB" type="U64"/>
+    <channel component="systemResources" name="MEMORY_USED" id="0x4b01" format_string="%lu KB" description="System memory used in KB" type="U64"/>
+    <channel component="systemResources" name="NON_VOLATILE_TOTAL" id="0x4b02" format_string="%lu KB" description="System non-volatile available in KB" type="U64"/>
+    <channel component="systemResources" name="NON_VOLATILE_FREE" id="0x4b03" format_string="%lu KB" description="System non-volatile available in KB" type="U64"/>
+    <channel component="systemResources" name="CPU" id="0x4b04" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_00" id="0x4b05" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_01" id="0x4b06" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_02" id="0x4b07" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_03" id="0x4b08" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_04" id="0x4b09" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_05" id="0x4b0a" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_06" id="0x4b0b" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_07" id="0x4b0c" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_08" id="0x4b0d" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_09" id="0x4b0e" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_10" id="0x4b0f" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_11" id="0x4b10" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_12" id="0x4b11" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_13" id="0x4b12" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_14" id="0x4b13" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="CPU_15" id="0x4b14" format_string="%.2f percent" description="System's CPU Percentage" type="F32"/>
+    <channel component="systemResources" name="FRAMEWORK_VERSION" id="0x4b15" description="Software framework version" len="40" type="string"/>
+    <channel component="systemResources" name="PROJECT_VERSION" id="0x4b16" description="Software project version" len="40" type="string"/>
+  </channels>
+  <parameters>
+    <parameter component="typeDemo" name="CHOICE_PRM" id="0xe00" default="0"/>
+    <parameter component="typeDemo" name="CHOICES_PRM" id="0xe01" default="0"/>
+    <parameter component="typeDemo" name="EXTRA_CHOICES_PRM" id="0xe02" default="0"/>
+    <parameter component="typeDemo" name="CHOICE_PAIR_PRM" id="0xe03" default="0"/>
+    <parameter component="typeDemo" name="GLUTTON_OF_CHOICE_PRM" id="0xe04" default="0"/>
+    <parameter component="sendBuffComp" name="parameter3" id="0x2600" default="12"/>
+    <parameter component="sendBuffComp" name="parameter4" id="0x2601" default="13.14f"/>
+    <parameter component="recvBuffComp" name="parameter1" id="0x4700" default="10"/>
+    <parameter component="recvBuffComp" name="parameter2" id="0x4701" default="11"/>
+  </parameters>
+</dictionary>

@@ -11,7 +11,6 @@ def crc_calculation(data: bytes):
     return zlib.crc32(data) & 0xFFFFFFFF
 
 
-CHECKSUM_SELECTION = "crc32"
 CHECKSUM_MAPPING = {
     "fixed": lambda data: 0xCAFECAFE,
     "crc32": crc_calculation,
@@ -19,8 +18,7 @@ CHECKSUM_MAPPING = {
 }
 
 
-def calculate_checksum(data: bytes):
+def calculate_checksum(data: bytes, selected_checksum: str):
     """Calculates the checksum of bytes"""
-    selected_checksum = CHECKSUM_SELECTION
     hash_fn = CHECKSUM_MAPPING.get(selected_checksum, CHECKSUM_MAPPING.get("default"))
     return hash_fn(data)

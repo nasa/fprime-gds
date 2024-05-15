@@ -89,3 +89,7 @@ fprime_test_api = "fprime_gds.common.testing_fw.pytest_integration"
 # - https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
 # - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html#src-layout
 ####
+[tool.pytest.ini_options]
+markers =[
+  "gds_cli"
+]
