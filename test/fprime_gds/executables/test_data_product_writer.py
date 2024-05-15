@@ -27,7 +27,7 @@ class TestRunDataProduct(unittest.TestCase):
                     "makeU8Array.bin"]
         
         # Specify the directory where the .bin files are located
-        directory = os.path.abspath(os.path.dirname(__file__))
+        directory = os.getcwd()
         # Loop through each file in the specified directory
         for filename in binFiles:
             print(f'Processing {filename}')
