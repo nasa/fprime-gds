@@ -78,6 +78,7 @@ cgi
 Chainable
 chartjs
 checkbox
+CHNG
 chrono
 classdocs
 classmethod
@@ -130,6 +131,8 @@ deframed
 deframer
 deframing
 DEPRECATEDLIST
+DESER
+Deserial
 deserialization
 deserialize
 deserialized
@@ -170,11 +173,13 @@ doxysearch
 Doxywizard
 doy
 dpi
+dps
 dpspec
 dropdown
 dropleft
 dropright
 dropup
+Drv
 Dsh
 dst
 dts
@@ -227,6 +232,7 @@ figsize
 filemode
 fileno
 filepath
+filesize
 fileurl
 finditer
 Firefox
@@ -286,6 +292,7 @@ hidecallergraph
 hidecallgraph
 hideinitializer
 hlp
+HLTH
 hostname
 hpaulson
 hpp
@@ -476,6 +483,7 @@ php
 phtml
 pid
 pkgutil
+pkts
 Pkts
 plainnat
 plantuml
@@ -488,6 +496,7 @@ popen
 posixpath
 PREDEF
 preds
+prm
 procs
 PROGRAMLISTING
 progressbar
@@ -526,6 +535,7 @@ RCE
 RCVHWM
 RCVTIMEO
 RDWR
+Readback
 readlines
 README
 readonly
@@ -691,6 +701,7 @@ UML
 undef
 undoc
 unicode
+UNINIT
 unittest
 unpause
 updown
@@ -758,6 +769,7 @@ xl
 xlabel
 xls
 xlsx
+xmit
 xml
 xy
 yaml
