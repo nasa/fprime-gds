@@ -45,3 +45,4 @@ ignore$
 \.ico$
 pyproject.toml
 setup.py
+dictionary.xml

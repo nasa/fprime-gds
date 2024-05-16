@@ -293,6 +293,8 @@ hidecallgraph
 hideinitializer
 hlp
 HLTH
+Hookimpl
+hookspec
 hostname
 hpaulson
 hpp
@@ -329,6 +331,7 @@ ints
 ip
 ipc
 ipp
+isabstract
 isalnum
 isclass
 isdir

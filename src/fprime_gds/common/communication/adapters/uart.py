@@ -15,6 +15,8 @@ from serial.tools import list_ports
 
 import fprime_gds.common.communication.adapters.base
 
+from fprime_gds.plugin.definitions import gds_plugin_implementation
+
 LOGGER = logging.getLogger("serial_adapter")
 
 
@@ -151,18 +153,29 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 "dest": "device",
                 "type": str,
                 "default": default,
-                "help": "UART device representing the FSW. Default: %(default)s",
+                "help": "UART device representing the FSW.",
             },
             ("--uart-baud",): {
                 "dest": "baud",
                 "type": int,
                 "default": 9600,
-                "help": "Baud rate of the serial device. Default: %(default)s",
+                "help": "Baud rate of the serial device.",
             },
         }
 
     @classmethod
-    def check_arguments(cls, args):
+    def get_name(cls):
+        """ Get name of the adapter """
+        return "uart"
+
+    @classmethod
+    @gds_plugin_implementation
+    def register_communication_plugin(cls):
+        """ Register this as a communication plugin """
+        return cls
+
+    @classmethod
+    def check_arguments(cls, device, baud):
         """
         Code that should check arguments of this adapter. If there is a problem with this code, then a "ValueError"
         should be raised describing the problem with these arguments.
@@ -170,16 +183,16 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         :param args: arguments as dictionary
         """
         ports = map(lambda info: info.device, list_ports.comports(include_links=True))
-        if args["device"] not in ports:
-            msg = f"Serial port '{args['device']}' not valid. Available ports: {ports}"
+        if device not in ports:
+            msg = f"Serial port '{device}' not valid. Available ports: {ports}"
             raise ValueError(
                 msg
             )
         # Note: baud rate may not *always* work. These are a superset
         try:
-            baud = int(args["baud"])
+            baud = int(baud)
         except ValueError:
-            msg = f"Serial baud rate '{args['baud']}' not integer. Use one of: {SerialAdapter.BAUDS}"
+            msg = f"Serial baud rate '{baud}' not integer. Use one of: {SerialAdapter.BAUDS}"
             raise ValueError(
                 msg
             )
