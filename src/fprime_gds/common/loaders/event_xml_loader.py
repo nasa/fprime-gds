@@ -43,15 +43,15 @@ class EventXmlLoader(XmlLoader):
             respectively and the values are ChTemplate objects
         """
         xml_tree = self.get_xml_tree(path)
-        versions = xml_tree.attrib.get("framework_version", "unknown"), xml_tree.attrib.get("project_version", "unknown")
+        versions = xml_tree.attrib.get(
+            "framework_version", "unknown"
+        ), xml_tree.attrib.get("project_version", "unknown")
 
         # Check if xml dict has events section
         event_section = self.get_xml_section(self.EVENT_SECT, xml_tree)
         if event_section is None:
             msg = f"Xml dict did not have a {self.EVENT_SECT} section"
-            raise exceptions.GseControllerParsingException(
-                msg
-            )
+            raise exceptions.GseControllerParsingException(msg)
 
         id_dict = {}
         name_dict = {}
@@ -63,14 +63,18 @@ class EventXmlLoader(XmlLoader):
             event_name = event_dict[self.NAME_TAG]
             event_id = int(event_dict[self.ID_TAG], base=16)
             event_severity = EventSeverity[event_dict[self.SEVERITY_TAG]]
-            event_fmt_str = event_dict[self.FMT_STR_TAG]
+            event_fmt_str = XmlLoader.preprocess_format_str(
+                event_dict[self.FMT_STR_TAG]
+            )
 
             event_desc = None
             if self.DESC_TAG in event_dict:
                 event_desc = event_dict[self.DESC_TAG]
 
             # Parse arguments
-            args = self.get_args_list(event, xml_tree, f"{ event_comp }::{ event_name }")
+            args = self.get_args_list(
+                event, xml_tree, f"{ event_comp }::{ event_name }"
+            )
 
             event_temp = EventTemplate(
                 event_id,

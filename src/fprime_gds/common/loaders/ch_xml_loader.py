@@ -49,15 +49,15 @@ class ChXmlLoader(XmlLoader):
             respectively and the values are ChTemplate objects
         """
         xml_tree = self.get_xml_tree(path)
-        versions = xml_tree.attrib.get("framework_version", "unknown"), xml_tree.attrib.get("project_version", "unknown")
+        versions = xml_tree.attrib.get(
+            "framework_version", "unknown"
+        ), xml_tree.attrib.get("project_version", "unknown")
 
         # Check if xml dict has channels section
         ch_section = self.get_xml_section(self.CH_SECT, xml_tree)
         if ch_section is None:
             msg = f"Xml dict did not have a {self.CH_SECT} section"
-            raise exceptions.GseControllerParsingException(
-                msg
-            )
+            raise exceptions.GseControllerParsingException(msg)
 
         id_dict = {}
         name_dict = {}
@@ -84,7 +84,7 @@ class ChXmlLoader(XmlLoader):
                 ch_desc = ch_dict[self.DESC_TAG]
 
             if self.FMT_STR_TAG in ch_dict:
-                ch_fmt_str = ch_dict[self.FMT_STR_TAG]
+                ch_fmt_str = XmlLoader.preprocess_format_str(ch_dict[self.FMT_STR_TAG])
 
             # TODO we need to convert these into numbers, is this the best
             #  way to do it?
