@@ -130,11 +130,13 @@ class ZmqWrapper(object):
 
     def disconnect_outgoing(self):
         """Disconnect the ZeroMQ sockets"""
-        self.zmq_socket_outgoing.close()
+        if self.zmq_socket_outgoing is not None:
+            self.zmq_socket_outgoing.close()
 
     def disconnect_incoming(self):
         """Disconnect the ZeroMQ sockets"""
-        self.zmq_socket_incoming.close()
+        if self.zmq_socket_incoming is not None:
+            self.zmq_socket_incoming.close()
 
     def terminate(self):
         """Terminate the ZeroMQ context"""

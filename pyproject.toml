@@ -58,8 +58,6 @@ Repository = "https://github.com/fprime-community/fprime-gds"
 [project.scripts]
 fprime-cli = "fprime_gds.executables.fprime_cli:main"
 fprime-seqgen = "fprime_gds.common.tools.seqgen:main"
-
-[project.gui-scripts]
 fprime-gds = "fprime_gds.executables.run_deployment:main"
 
 # For Pytest fixtures

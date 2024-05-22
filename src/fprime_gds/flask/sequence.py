@@ -73,7 +73,7 @@ class SequenceCompiler(flask_restful.Resource):
                 403,
                 message=f"{key} is invalid command key. Supply 0xfeedcafe to run command.",
             )
-        elif not re.match(".*\.seq", name) or Path(name).name != name:
+        elif not re.match(".*\\.seq", name) or Path(name).name != name:
             flask_restful.abort(
                 403,
                 message={"error": "Supply filename with .seq suffix", "type": "error"},
