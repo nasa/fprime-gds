@@ -2,10 +2,25 @@
 Created on Jan 9, 2015
 @author: reder
 """
+
 # Exception classes for all controllers modules
 
 
-class GseControllerException(Exception):
+class FprimeGdsException(Exception):
+    """
+    Base Exception for exceptions that need to be handled at the system-level
+    by the GDS
+    """
+
+    pass
+
+
+class GdsDictionaryParsingException(FprimeGdsException):
+    pass
+
+
+# Note: Gse is the historical name for what is now called the GDS
+class GseControllerException(FprimeGdsException):
     def __init__(self, val):
         self.except_msg = val
         super().__init__(val)
@@ -27,13 +42,3 @@ class GseControllerUndefinedFileException(GseControllerException):
 class GseControllerParsingException(GseControllerException):
     def __init__(self, val):
         super().__init__(f"Parsing error: {str(val)}")
-
-
-class GseControllerMnemonicMismatchException(GseControllerException):
-    def __init__(self, val1, val2):
-        super().__init__(f"ID mismatch ({str(val1)}, {str(val2)})!")
-
-
-class GseControllerStatusUpdateException(GseControllerException):
-    def __init__(self, val):
-        super().__init__(f"Bad status update mode: {str(val)}!")

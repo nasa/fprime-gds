@@ -71,6 +71,7 @@ CCB
 CCFF
 Cdioux
 cdn
+cdxoefg
 CFDG
 CFDP
 CFPD
@@ -243,7 +244,7 @@ focusring
 FONTNAME
 FONTPATH
 FONTSIZE
-Fpp
+fpp
 fprime
 fptable
 frac
@@ -439,6 +440,7 @@ nitpicky
 noapp
 noqa
 normpath
+NOSONAR
 nosort
 Noto
 novalidate

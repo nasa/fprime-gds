@@ -3,6 +3,7 @@ fprime_gds.executables.utils:
 
 Utility functions to enable the executables package to function seamlessly.
 """
+
 import atexit
 import signal
 import subprocess
@@ -148,7 +149,7 @@ def get_artifacts_root() -> Path:
     except FprimeLocationUnknownException:
         print(
             "[ERROR] Not in fprime project and no deployment path provided, unable to find dictionary and/or app",
-            file=sys.stderr
+            file=sys.stderr,
         )
         sys.exit(-1)
     except FprimeSettingsException as e:
@@ -178,7 +179,7 @@ def find_app(root: Path) -> Path:
     if len(files) > 1:
         print(
             f"[ERROR] Multiple app candidates in binary location {bin_dir}. Specify app manually with --app.",
-            file=sys.stderr
+            file=sys.stderr,
         )
         sys.exit(-1)
 
@@ -192,21 +193,31 @@ def find_dict(root: Path) -> Path:
         print(f"[ERROR] dictionary location {dict_dir} does not exist", file=sys.stderr)
         sys.exit(-1)
 
-    files = [
+    xml_dicts = [
         child
         for child in dict_dir.iterdir()
         if child.is_file() and child.name.endswith("Dictionary.xml")
     ]
+    json_dicts = [
+        child
+        for child in dict_dir.iterdir()
+        if child.is_file() and child.name.endswith("Dictionary.json")
+    ]
+    # Select json dictionary if available, otherwise use xml dictionary
+    dicts = json_dicts if json_dicts else xml_dicts
 
-    if not files:
-        print(f"[ERROR] No xml dictionary found in dictionary location {dict_dir}", file=sys.stderr)
-        sys.exit(-1)
-
-    if len(files) > 1:
+    if not dicts:
         print(
-            f"[ERROR] Multiple xml dictionaries found in dictionary location {dict_dir}. Specify dictionary manually with --dictionary.",
-            file=sys.stderr
+            f"[ERROR] No dictionary found in dictionary location {dict_dir}",
+            file=sys.stderr,
         )
         sys.exit(-1)
 
-    return files[0]
+    if len(dicts) > 1:
+        print(
+            f"[ERROR] Multiple dictionaries of same type found in dictionary location {dict_dir}. Specify dictionary manually with --dictionary.",
+            file=sys.stderr,
+        )
+        sys.exit(-1)
+
+    return dicts[0]

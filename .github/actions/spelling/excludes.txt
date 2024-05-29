@@ -1,3 +1,5 @@
+pyproject.toml
+setup.py
 ignore$
 /html/
 (?:^|/)(?i)COPYRIGHT
@@ -5,6 +7,8 @@ ignore$
 (?:^|/)vendor/
 ^\.github/
 ^Autocoders/Python/test/.*\.xml$
+RefTopologyDictionary.json
+dictionary.xml
 /doc/xml/
 /third-party/
 /third/
@@ -43,6 +47,3 @@ ignore$
 \.xlsx$
 \.xsd$
 \.ico$
-pyproject.toml
-setup.py
-dictionary.xml
