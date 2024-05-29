@@ -47,10 +47,12 @@ backport
 basestring
 batchmode
 baudrate
+bcolors
 beforeunload
 BGR
 Biberstein
 bibtex
+binascii
 bitmaps
 blockquote
 bmp
@@ -67,8 +69,8 @@ cata
 cbl
 CCB
 CCFF
-cdn
 Cdioux
+cdn
 cdxoefg
 CFDG
 CFDP
@@ -77,6 +79,7 @@ cgi
 Chainable
 chartjs
 checkbox
+CHNG
 chrono
 classdocs
 classmethod
@@ -96,8 +99,8 @@ combuffer
 commandsi
 concat
 config
-configs
 configparser
+configs
 Consolas
 cpp
 CPython
@@ -129,9 +132,12 @@ deframed
 deframer
 deframing
 DEPRECATEDLIST
+DESER
+Deserial
 deserialization
 deserialize
 deserialized
+deserializes
 deserializing
 dest
 dexc
@@ -167,10 +173,14 @@ doxyrules
 doxysearch
 Doxywizard
 doy
+dpi
+dps
+dpspec
 dropdown
 dropleft
 dropright
 dropup
+Drv
 Dsh
 dst
 dts
@@ -184,6 +194,7 @@ EINPROGRESS
 elif
 Emoji
 encodable
+ENDC
 endcond
 endian
 endif
@@ -192,6 +203,7 @@ endtime
 enqueuing
 entrypoint
 enum
+Enumtype
 envvar
 errno
 errored
@@ -217,9 +229,11 @@ FFCC
 FFFF
 fieldset
 figcaption
+figsize
 filemode
 fileno
 filepath
+filesize
 fileurl
 finditer
 Firefox
@@ -279,6 +293,7 @@ hidecallergraph
 hidecallgraph
 hideinitializer
 hlp
+HLTH
 Hookimpl
 hookspec
 hostname
@@ -362,6 +377,7 @@ libc
 libclang
 libcrc
 libiconv
+lineno
 Linting
 Linux
 listbox
@@ -386,6 +402,7 @@ MAKEVAR
 marijnh
 matchobj
 mathjax
+matplotlib
 maxcountryman
 maxdepth
 mcternan
@@ -414,6 +431,7 @@ myproject
 namespace
 nargs
 navbar
+nbytes
 Neue
 newname
 Nify
@@ -436,6 +454,8 @@ odl
 odo
 oga
 ogg
+OKBLUE
+OKGREEN
 OMG
 onabort
 onerror
@@ -468,10 +488,12 @@ php
 phtml
 pid
 pkgutil
+pkts
 Pkts
 plainnat
 plantuml
 plist
+plt
 plugin
 png
 PNGs
@@ -479,6 +501,7 @@ popen
 posixpath
 PREDEF
 preds
+prm
 procs
 PROGRAMLISTING
 progressbar
@@ -493,8 +516,10 @@ ptr
 px
 py
 pyc
+pydantic
 pylint
 pypi
+pyplot
 pyserial
 pytest
 PYTHONHOME
@@ -515,6 +540,7 @@ RCE
 RCVHWM
 RCVTIMEO
 RDWR
+Readback
 readlines
 README
 readonly
@@ -547,6 +573,7 @@ rst
 rtd
 rtf
 saba
+savefig
 scm
 scrollable
 scrollbar
@@ -662,8 +689,8 @@ ttl
 tts
 twbs
 txz
-typedef'ed
 typedef
+typedef'ed
 typehints
 typeof
 tzinfo
@@ -679,6 +706,7 @@ UML
 undef
 undoc
 unicode
+UNINIT
 unittest
 unpause
 updown
@@ -688,7 +716,6 @@ uplinkvue
 uploader
 upto
 uri
-URI
 url
 usec
 useconds
@@ -720,6 +747,7 @@ vname
 VRuntime
 vue
 vw
+Watney
 wav
 webbrowser
 webified
@@ -743,14 +771,15 @@ xcode
 xhtml
 xhttp
 xl
+xlabel
 xls
 xlsx
+xmit
 xml
 xy
 yaml
+ylabel
 yml
 zeromq
 zlib
 zmq
-ZMQ
-Zmq

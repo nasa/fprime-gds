@@ -42,6 +42,7 @@ dependencies = [
     "Jinja2>=2.11.3",
     "openpyxl>=3.0.10",
     "pyserial>=3.5",
+    "pydantic>=2.6"
 ]
 
 [project.urls]
@@ -58,6 +59,7 @@ Repository = "https://github.com/fprime-community/fprime-gds"
 [project.scripts]
 fprime-cli = "fprime_gds.executables.fprime_cli:main"
 fprime-seqgen = "fprime_gds.common.tools.seqgen:main"
+fprime-dp-write = "fprime_gds.executables.data_product_writer:main"
 fprime-gds = "fprime_gds.executables.run_deployment:main"
 
 # For Pytest fixtures
