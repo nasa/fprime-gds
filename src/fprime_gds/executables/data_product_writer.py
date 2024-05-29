@@ -77,8 +77,6 @@ from typing import List, Union
 import argparse
 from binascii import crc32
 
-binaryFile = None
-
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -252,6 +250,22 @@ header_data = {
 # Deserialize the binary file big endian
 BIG_ENDIAN = ">"
 
+
+# -------------------------------------------------------------------------------------------------------------------------
+# Function parse_args
+#
+# Description: 
+#   Parse the input arguments either as passed into this function or on the command line
+# -------------------------------------------------------------------------------------------------------------------------
+def parse_args(args=None):
+    parser = argparse.ArgumentParser(description='Data Product Writer.')
+    parser.add_argument('binFile', help='Data Product Binary file')
+    parser.add_argument('jsonDict', help='JSON Dictionary')
+    if args is None:
+        args = sys.argv[1:]
+    return parser.parse_args(args)
+
+
 # -------------------------------------------------------------------------------------
 # These are common Pydantic classes that 
 # are used by both the dictionary json and the data product json 
@@ -414,267 +428,6 @@ type_mapping = {
     # Add more mappings as needed
 }
 
-
-
-# ----------------------------------------------------------------------------------------------
-# Function: read_and_deserialize
-#
-# Description: 
-#   Reads specified bytes from a binary file, updates CRC, increments byte count,
-#   and deserializes bytes into an integer.
-#
-# Parameters:
-#   nbytes (int): Number of bytes to read.
-#   intType (IntegerType): Integer type for deserialization.
-#
-# Returns:
-#   int: Deserialized integer.
-#
-# Exceptions:
-#   IOError: If reading specified bytes fails.
-#   KeyError: If intType is unrecognized in type_mapping.
-# ----------------------------------------------------------------------------------------------
-
-def read_and_deserialize(nbytes: int, intType: IntegerType) -> int:
-    global totalBytesRead
-    global calculatedCRC
-    global binaryFile
-
-    bytes_read = binaryFile.read(nbytes)
-    if len(bytes_read) != nbytes:
-        raise IOError(f"Tried to read {nbytes} bytes from the binary file, but failed.")
-
-    calculatedCRC = crc32(bytes_read, calculatedCRC) & 0xffffffff
-    totalBytesRead += nbytes
-
-    try:
-        format_str = f'{BIG_ENDIAN}{type_mapping[intType.name]}'
-    except KeyError:
-        raise KeyError(f"Unrecognized JSON Dictionary Type: {intType}")
-    data = struct.unpack(format_str, bytes_read)[0]
-
-
-    return data
-
-# -----------------------------------------------------------------------------------------------------------------------
-# Function: get_struct_type
-#
-# Description: 
-#   Searches for a structure with a matching identifier in a list of type definitions
-#   and returns the matching structure if found.
-#
-# Parameters:
-#   typeList (List[TypeDef]): A list of type definitions to search through.
-#   identifier (str): The identifier to match against the qualifiedName attribute of each structure.
-#
-# Returns:
-#   TypeDef: The structure that matches the identifier, or None if no match is found.
-#
-# Exceptions:
-#   No explicit exceptions are raised by this function.
-# -----------------------------------------------------------------------------------------------------------------------
-
-def get_struct_type(typeList: List[TypeDef], identifier: str) -> TypeDef:
-
-    for structure in typeList:
-        if structure.qualifiedName == identifier:
-            return structure
-
-    return None
-
-# -----------------------------------------------------------------------------------------------------------------------
-# Function: read_field
-#
-# Description: 
-#   Reads and deserializes a field from a binary file, determining the field's size and type
-#   based on the provided configuration, which may be an integer, float, or boolean.
-#
-# Parameters:
-#   field_config (Union[IntegerType, FloatType, BoolType]): Configuration specifying the type and size
-#   of the field to read.
-#
-# Returns:
-#   Union[int, float, bool]: The deserialized value of the field, which can be an integer, float, or boolean.
-#
-# Exceptions:
-#   AssertionError: If the field_config is not an IntegerType, FloatType, or BoolType.
-# -----------------------------------------------------------------------------------------------------------------------
-
-def read_field(field_config: Union[IntegerType, FloatType, BoolType]) -> Union[int, float, bool]:
-
-    if type(field_config) is IntegerType:
-        sizeBytes = field_config.size // 8
-
-    elif type(field_config) is FloatType:
-        sizeBytes = field_config.size // 8
-
-    elif type(field_config) is BoolType:
-        sizeBytes = field_config.size // 8
-
-    else:
-        assert False, "Unsupported typeKind encountered"
-
-    return read_and_deserialize(sizeBytes, field_config)
-
-
-# -----------------------------------------------------------------------------------------------------------------------
-# Function: get_struct_item
-#
-# Description: 
-#   This function recursively reads and processes a field from a binary file, adding it to a parent dictionary.
-#   The process varies depending on the field's type:
-#   - For basic types (IntegerType, FloatType, BoolType), it directly reads and assigns the value.
-#   - For EnumType, it reads the value, finds the corresponding enum identifier, and assigns it.
-#   - For ArrayType, it creates a list, iteratively fills it with elements read recursively, and assigns the list.
-#   - For StructType, it constructs a nested dictionary by recursively processing each struct member.
-#   - For QualifiedType, it resolves the actual type from typeList and recursively processes the field.
-#   This approach allows the function to handle complex, nested data structures by adapting to the field's type,
-#   ensuring each is read and stored appropriately in the parent dictionary.
-#
-# Parameters:
-#   field_name (str): The name of the field to be read and added to the dictionary.
-#   typeKind (TypeKind): The type information of the field, determining how it should be read.
-#   typeList (List[TypeDef]): A list of type definitions, used for resolving qualified types.
-#   parent_dict (Dict[str, int]): The dictionary to which the read field value will be added.
-#
-# Returns:
-#   None: The function does not return a value but modifies parent_dict in place.
-#
-# Exceptions:
-#   AssertionError: If an unsupported typeKind is encountered.
-
-#
-# -----------------------------------------------------------------------------------------------------------------------
-
-def get_struct_item(field_name: str, typeKind: TypeKind, typeList: List[TypeDef], parent_dict: Dict[str, int]):
-
-    if isinstance(typeKind, IntegerType):
-        parent_dict[field_name] = read_field(typeKind)
-
-    elif isinstance(typeKind, FloatType):
-        parent_dict[field_name] = read_field(typeKind)
-
-    elif isinstance(typeKind, BoolType):
-        parent_dict[field_name] = read_field(typeKind)
-
-
-    elif isinstance(typeKind, EnumType):
-        value = read_field(typeKind.representationType)
-        enum_mapping = typeKind.enumeratedConstants
-        reverse_mapping = {enum.value: enum.name for enum in enum_mapping}
-        parent_dict[field_name] = reverse_mapping[value]
-
-
-    elif isinstance(typeKind, ArrayType):
-        array_list = []
-        for item in range(typeKind.size):
-            element_dict = {} 
-            get_struct_item("arrayElement", typeKind.elementType, typeList, element_dict)
-            array_list.append(element_dict["arrayElement"]) 
-        parent_dict[field_name] = array_list
-
-    elif isinstance(typeKind, StructType):
-        array_list = []
-        for key, member in typeKind.members.items():
-            for i in range(member.size):
-                element_dict = {}
-                get_struct_item(key, member.type, typeList, element_dict)
-                #array_list.append(element_dict[key])
-                array_list.append(element_dict)
-            parent_dict[field_name] = array_list
-
-    elif isinstance(typeKind, QualifiedType):
-        qualType = get_struct_type(typeList, typeKind.name)
-        get_struct_item(field_name, qualType, typeList, parent_dict)
-
-    else:
-        assert False, "Unsupported typeKind encountered"
-
-
-# -----------------------------------------------------------------------------------------------------------------------
-# Function: get_header_info
-#
-# Description: 
-#   Extracts header information from a given DPHeader object, populating and returning a dictionary with the data.
-#   Iterates over header fields, reading each and updating a root dictionary with the field values. After processing all fields,
-#   it reads and compares the header hash with a computed CRC value to verify data integrity. If the CRC check fails, it raises
-#   a CRCError. This function demonstrates a pattern of using global variables and custom exceptions to manage and validate
-#   binary data parsing.
-#
-# Parameters:
-#   headerJSON (DPHeader): The DPHeader object containing header information and type definitions.
-#
-# Returns:
-#   Dict[str, int]: A dictionary populated with the header fields and their corresponding values.
-#
-# Exceptions:
-#   CRCError: Raised if the computed CRC does not match the expected header hash value.
-# -----------------------------------------------------------------------------------------------------------------------
-
-def get_header_info(headerJSON: DPHeader) -> Dict[str, int]:
-    global calculatedCRC
-
-    header_fields = headerJSON.header
-    rootDict = {}
-
-    for field_name, field_info in header_fields.items():
-        get_struct_item(field_name, field_info.type, headerJSON.typeDefinitions, rootDict)
-
-    computedHash = calculatedCRC
-    rootDict['headerHash'] = read_field(headerJSON.headerHash.type)
-    calculatedCRC = 0
-
-    if rootDict['headerHash'] != computedHash:
-        raise CRCError("Header", rootDict['headerHash'], computedHash)
-
-    return rootDict
-
-# ------------------------------------------------------------------------------------------
-# Function: get_record_data
-#
-# Description:
-#     Retrieves and processes the record data based on a given header and dictionary
-#     definition. The function first reads the 'dataId' from the header to identify the
-#     relevant record. It then processes the record's data, handling both scalar values and
-#     arrays by reading each item according to its type. For arrays, it also reads the
-#     'dataSize' from the header to determine the number of items to process.
-#
-# Parameters:
-#     - headerJSON (DPHeader): An object containing the header information, including
-#       identifiers and sizes for the data to be processed.
-#     - dictJSON (FprimeDict): An object containing definitions for records and types,
-#       which are used to process the data correctly.
-#
-# Returns:
-#     Dict[str, int]: A dictionary with the processed data, including 'dataId', optionally
-#     'size' for arrays, and the data itself. For arrays, the data is indexed by its position
-#     within the array.
-
-# ------------------------------------------------------------------------------------------
-
-def get_record_data(headerJSON: DPHeader, dictJSON: FprimeDict) -> Dict[str, int]:
-    rootDict = {}
-    # Go through all the Records and find the one that matches recordId
-    rootDict['dataId'] = read_field(headerJSON.dataId.type)
-    for record in dictJSON.records:
-        if record.id == rootDict['dataId']:    
-            print(f'Processing Record ID {record.id}')
-            if record.array:
-                dataSize = read_field(headerJSON.dataSize.type)
-                rootDict['size'] = dataSize
-                array_data = []
-                for i in range(dataSize):
-                    element_dict = {}
-                    get_struct_item("arrayElement", record.type, dictJSON.typeDefinitions, element_dict)
-                    array_data.append(element_dict["arrayElement"])
-                rootDict['data'] = array_data
-            else:
-                # For non-array records, directly use 'data' as the key.
-                get_struct_item("data", record.type, dictJSON.typeDefinitions, rootDict)
-
-            return rootDict
-    raise RecordIDNotFound(rootDict['dataId'])
-
 # --------------------------------------------------------------------------------------------------
 # class RecordIDNotFound
 # 
@@ -771,148 +524,401 @@ class DuplicateRecordID(Exception):
         
     def __str__(self):
         return f"In the Dictionary JSON there is a duplicate Record identifier: {self.identifier}"
-
+    
 # --------------------------------------------------------------------------------------------------------------------
-# Function handleException
-# 
-# Description: 
-#   Function for handling exceptions by displaying an error message and terminating the program.
-#   It displays the provided exception message with color-coded output for emphasis. 
-#   After displaying the messages, it immediately exits the program, halting further execution.
+# class DataProductWriter
 #
-# Parameters:
-#   msg (str): The specific error message to be displayed.
+# Description:
+#   This is the main class that processes the data.  It is a container for managing global variables
 #
-# Returns:
-#   None: This function does not return a value. It terminates the program execution with sys.exit().
-#
-# Exceptions:
-#   No explicit exceptions are raised by this function, but it triggers the program's termination.
-# -----------------------------------------------------------------------------------------------------------------
-def handleException(msg):
-    errorMessage = f"*** Error in processing: "
-    print(bcolors.FAIL)
-    print(errorMessage)
-    print(bcolors.WARNING)
-    print(msg)
-    print(bcolors.ENDC)
-    sys.exit()
+# --------------------------------------------------------------------------------------------------------------------
+class DataProductWriter:
+    def __init__(self, jsonDict, binaryFileName):
+        self.jsonDict = jsonDict
+        self.binaryFileName = binaryFileName
+        self.totalBytesRead = 0
+        self.calculatedCRC = 0
 
 
-# -------------------------------------------------------------------------------------------------------------------------
-# Function check_record_data
-#
-# Description: 
-#   Validates record data in a given dictionary JSON object by ensuring there are no duplicate record identifiers.
-#   Iterates through the records in the dictionary, checking each record's identifier against a set that 
-#   tracks unique identifiers.  If a duplicate identifier is detected, a DuplicateRecordID exception is raised.
-#
-# Parameters:
-#   dictJSON (FprimeDict): The dictionary JSON object containing records to be validated.
-#
-# Returns:
-#   None: This function does not return a value. It either completes successfully or raises an exception.
-#
-# Exceptions:
-#   DuplicateRecordID: Raised if a duplicate record identifier is found in the dictionary JSON object.
+    # ----------------------------------------------------------------------------------------------
+    # Function: read_and_deserialize
+    #
+    # Description: 
+    #   Reads specified bytes from a binary file, updates CRC, increments byte count,
+    #   and deserializes bytes into an integer.
+    #
+    # Parameters:
+    #   nbytes (int): Number of bytes to read.
+    #   intType (IntegerType): Integer type for deserialization.
+    #
+    # Returns:
+    #   int: Deserialized integer.
+    #
+    # Exceptions:
+    #   IOError: If reading specified bytes fails.
+    #   KeyError: If intType is unrecognized in type_mapping.
+    # ----------------------------------------------------------------------------------------------
 
-# -----------------------------------------------------------------------------------------------------------------------
-def check_record_data(dictJSON: FprimeDict):
-    idSet = set()
-    for record in dictJSON.records:
-        if record.id in idSet:
-            raise DuplicateRecordID(record.id)
-        else:
-            idSet.add(record.id)
+    def read_and_deserialize(self, nbytes: int, intType: IntegerType) -> int:
 
-# -------------------------------------------------------------------------------------------------------------------------
-# Function parse_args
-#
-# Description: 
-#   Parse the input arguments either as passed into this function or on the command line
-# -------------------------------------------------------------------------------------------------------------------------
-def parse_args(args=None):
-    parser = argparse.ArgumentParser(description='Data Product Writer.')
-    parser.add_argument('binFile', help='Data Product Binary file')
-    parser.add_argument('jsonDict', help='JSON Dictionary')
-    if args is None:
-        args = sys.argv[1:]
-    return parser.parse_args(args)
+        bytes_read = self.binaryFile.read(nbytes)
+        if len(bytes_read) != nbytes:
+            raise IOError(f"Tried to read {nbytes} bytes from the binary file, but failed.")
 
+        self.calculatedCRC = crc32(bytes_read, self.calculatedCRC) & 0xffffffff
+        self.totalBytesRead += nbytes
 
-# -------------------------------------------------------------------------------------------------------------------------
-# Function process
-#
-# Description: 
-#   Main processing
-# -------------------------------------------------------------------------------------------------------------------------
-def process(args):
-    global binaryFile
-    global calculatedCRC
-    global totalBytesRead
-
-    try:
-
-        # Read the F prime JSON dictionary
-        print(f"Parsing {args.jsonDict}...")
         try:
-            with open(args.jsonDict, 'r') as fprimeDictFile:
-                dictJSON = FprimeDict(**json.load(fprimeDictFile))
-        except json.JSONDecodeError as e:
-            raise DictionaryError(args.jsonDict, e.lineno)
-        
-        check_record_data(dictJSON)
-
-        headerJSON = DPHeader(**header_data)
-
-        with open(args.binFile, 'rb') as binaryFile:
-
-            totalBytesRead = 0
-            calculatedCRC = 0
-
-            # Read the header data up until the Records
-            headerData = get_header_info(headerJSON)
-
-            # Read the total data size
-            dataSize = headerData['DataSize']
-
-            # Restart the count of bytes read
-            totalBytesRead = 0
-
-            recordList = [headerData]
-
-            while totalBytesRead < dataSize:
-
-                recordData = get_record_data(headerJSON, dictJSON)
-                recordList.append(recordData)
-
-            computedCRC = calculatedCRC
-            # Read the data checksum
-            headerData['dataHash'] = read_field(headerJSON.dataHash.type)
-
-            if computedCRC != headerData['dataHash']:
-                raise CRCError("Data", headerData['dataHash'], computedCRC)
+            format_str = f'{BIG_ENDIAN}{type_mapping[intType.name]}'
+        except KeyError:
+            raise KeyError(f"Unrecognized JSON Dictionary Type: {intType}")
+        data = struct.unpack(format_str, bytes_read)[0]
 
 
-    except (FileNotFoundError, RecordIDNotFound, IOError, KeyError, json.JSONDecodeError, 
-            DictionaryError, CRCError, DuplicateRecordID) as e:
-        handleException(e)
+        return data
 
-    except (ValueError) as e:
-        error = e.errors()[0]
-        msg = f'ValueError in JSON file {error["loc"]}: {error["msg"]}'
-        handleException(msg)
+    # -----------------------------------------------------------------------------------------------------------------------
+    # Function: get_struct_type
+    #
+    # Description: 
+    #   Searches for a structure with a matching identifier in a list of type definitions
+    #   and returns the matching structure if found.
+    #
+    # Parameters:
+    #   typeList (List[TypeDef]): A list of type definitions to search through.
+    #   identifier (str): The identifier to match against the qualifiedName attribute of each structure.
+    #
+    # Returns:
+    #   TypeDef: The structure that matches the identifier, or None if no match is found.
+    #
+    # Exceptions:
+    #   No explicit exceptions are raised by this function.
+    # -----------------------------------------------------------------------------------------------------------------------
+
+    def get_struct_type(self, typeList: List[TypeDef], identifier: str) -> TypeDef:
+
+        for structure in typeList:
+            if structure.qualifiedName == identifier:
+                return structure
+
+        return None
+
+    # -----------------------------------------------------------------------------------------------------------------------
+    # Function: read_field
+    #
+    # Description: 
+    #   Reads and deserializes a field from a binary file, determining the field's size and type
+    #   based on the provided configuration, which may be an integer, float, or boolean.
+    #
+    # Parameters:
+    #   field_config (Union[IntegerType, FloatType, BoolType]): Configuration specifying the type and size
+    #   of the field to read.
+    #
+    # Returns:
+    #   Union[int, float, bool]: The deserialized value of the field, which can be an integer, float, or boolean.
+    #
+    # Exceptions:
+    #   AssertionError: If the field_config is not an IntegerType, FloatType, or BoolType.
+    # -----------------------------------------------------------------------------------------------------------------------
+
+    def read_field(self, field_config: Union[IntegerType, FloatType, BoolType]) -> Union[int, float, bool]:
+
+        if type(field_config) is IntegerType:
+            sizeBytes = field_config.size // 8
+
+        elif type(field_config) is FloatType:
+            sizeBytes = field_config.size // 8
+
+        elif type(field_config) is BoolType:
+            sizeBytes = field_config.size // 8
+
+        else:
+            assert False, "Unsupported typeKind encountered"
+
+        return self.read_and_deserialize(sizeBytes, field_config)
 
 
-    # Output the generated json to a file
-    baseName = os.path.basename(args.binFile)
-    outputJsonFile = os.path.splitext(baseName)[0] + '.json'
-    if outputJsonFile.startswith('._'):
-        outputJsonFile = outputJsonFile.replace('._', '')
-    with open(outputJsonFile, 'w') as file:
-        json.dump(recordList, file, indent=2)
+    # -----------------------------------------------------------------------------------------------------------------------
+    # Function: get_struct_item
+    #
+    # Description: 
+    #   This function recursively reads and processes a field from a binary file, adding it to a parent dictionary.
+    #   The process varies depending on the field's type:
+    #   - For basic types (IntegerType, FloatType, BoolType), it directly reads and assigns the value.
+    #   - For EnumType, it reads the value, finds the corresponding enum identifier, and assigns it.
+    #   - For ArrayType, it creates a list, iteratively fills it with elements read recursively, and assigns the list.
+    #   - For StructType, it constructs a nested dictionary by recursively processing each struct member.
+    #   - For QualifiedType, it resolves the actual type from typeList and recursively processes the field.
+    #   This approach allows the function to handle complex, nested data structures by adapting to the field's type,
+    #   ensuring each is read and stored appropriately in the parent dictionary.
+    #
+    # Parameters:
+    #   field_name (str): The name of the field to be read and added to the dictionary.
+    #   typeKind (TypeKind): The type information of the field, determining how it should be read.
+    #   typeList (List[TypeDef]): A list of type definitions, used for resolving qualified types.
+    #   parent_dict (Dict[str, int]): The dictionary to which the read field value will be added.
+    #
+    # Returns:
+    #   None: The function does not return a value but modifies parent_dict in place.
+    #
+    # Exceptions:
+    #   AssertionError: If an unsupported typeKind is encountered.
 
-    print(f'Output data generated in {outputJsonFile}')
+    #
+    # -----------------------------------------------------------------------------------------------------------------------
+
+    def get_struct_item(self, field_name: str, typeKind: TypeKind, typeList: List[TypeDef], parent_dict: Dict[str, int]):
+
+        if isinstance(typeKind, IntegerType):
+            parent_dict[field_name] = self.read_field(typeKind)
+
+        elif isinstance(typeKind, FloatType):
+            parent_dict[field_name] = self.read_field(typeKind)
+
+        elif isinstance(typeKind, BoolType):
+            parent_dict[field_name] = self.read_field(typeKind)
+
+
+        elif isinstance(typeKind, EnumType):
+            value = self.read_field(typeKind.representationType)
+            enum_mapping = typeKind.enumeratedConstants
+            reverse_mapping = {enum.value: enum.name for enum in enum_mapping}
+            parent_dict[field_name] = reverse_mapping[value]
+
+
+        elif isinstance(typeKind, ArrayType):
+            array_list = []
+            for item in range(typeKind.size):
+                element_dict = {} 
+                self.get_struct_item("arrayElement", typeKind.elementType, typeList, element_dict)
+                array_list.append(element_dict["arrayElement"]) 
+            parent_dict[field_name] = array_list
+
+        elif isinstance(typeKind, StructType):
+            array_list = []
+            for key, member in typeKind.members.items():
+                for i in range(member.size):
+                    element_dict = {}
+                    self.get_struct_item(key, member.type, typeList, element_dict)
+                    #array_list.append(element_dict[key])
+                    array_list.append(element_dict)
+                parent_dict[field_name] = array_list
+
+        elif isinstance(typeKind, QualifiedType):
+            qualType = self.get_struct_type(typeList, typeKind.name)
+            self.get_struct_item(field_name, qualType, typeList, parent_dict)
+
+        else:
+            assert False, "Unsupported typeKind encountered"
+
+
+    # -----------------------------------------------------------------------------------------------------------------------
+    # Function: get_header_info
+    #
+    # Description: 
+    #   Extracts header information from a given DPHeader object, populating and returning a dictionary with the data.
+    #   Iterates over header fields, reading each and updating a root dictionary with the field values. After processing all fields,
+    #   it reads and compares the header hash with a computed CRC value to verify data integrity. If the CRC check fails, it raises
+    #   a CRCError. This function demonstrates a pattern of custom exceptions to manage and validate
+    #   binary data parsing.
+    #
+    # Parameters:
+    #   headerJSON (DPHeader): The DPHeader object containing header information and type definitions.
+    #
+    # Returns:
+    #   Dict[str, int]: A dictionary populated with the header fields and their corresponding values.
+    #
+    # Exceptions:
+    #   CRCError: Raised if the computed CRC does not match the expected header hash value.
+    # -----------------------------------------------------------------------------------------------------------------------
+
+    def get_header_info(self, headerJSON: DPHeader) -> Dict[str, int]:
+
+        header_fields = headerJSON.header
+        rootDict = {}
+
+        for field_name, field_info in header_fields.items():
+            self.get_struct_item(field_name, field_info.type, headerJSON.typeDefinitions, rootDict)
+
+        computedHash = self.calculatedCRC
+        rootDict['headerHash'] = self.read_field(headerJSON.headerHash.type)
+        self.calculatedCRC = 0
+
+        if rootDict['headerHash'] != computedHash:
+            raise CRCError("Header", rootDict['headerHash'], computedHash)
+
+        return rootDict
+
+    # ------------------------------------------------------------------------------------------
+    # Function: get_record_data
+    #
+    # Description:
+    #     Retrieves and processes the record data based on a given header and dictionary
+    #     definition. The function first reads the 'dataId' from the header to identify the
+    #     relevant record. It then processes the record's data, handling both scalar values and
+    #     arrays by reading each item according to its type. For arrays, it also reads the
+    #     'dataSize' from the header to determine the number of items to process.
+    #
+    # Parameters:
+    #     - headerJSON (DPHeader): An object containing the header information, including
+    #       identifiers and sizes for the data to be processed.
+    #     - dictJSON (FprimeDict): An object containing definitions for records and types,
+    #       which are used to process the data correctly.
+    #
+    # Returns:
+    #     Dict[str, int]: A dictionary with the processed data, including 'dataId', optionally
+    #     'size' for arrays, and the data itself. For arrays, the data is indexed by its position
+    #     within the array.
+
+    # ------------------------------------------------------------------------------------------
+
+    def get_record_data(self, headerJSON: DPHeader, dictJSON: FprimeDict) -> Dict[str, int]:
+        rootDict = {}
+        # Go through all the Records and find the one that matches recordId
+        rootDict['dataId'] = self.read_field(headerJSON.dataId.type)
+        for record in dictJSON.records:
+            if record.id == rootDict['dataId']:    
+                print(f'Processing Record ID {record.id}')
+                if record.array:
+                    dataSize = self.read_field(headerJSON.dataSize.type)
+                    rootDict['size'] = dataSize
+                    array_data = []
+                    for i in range(dataSize):
+                        element_dict = {}
+                        self.get_struct_item("arrayElement", record.type, dictJSON.typeDefinitions, element_dict)
+                        array_data.append(element_dict["arrayElement"])
+                    rootDict['data'] = array_data
+                else:
+                    # For non-array records, directly use 'data' as the key.
+                    self.get_struct_item("data", record.type, dictJSON.typeDefinitions, rootDict)
+
+                return rootDict
+        raise RecordIDNotFound(rootDict['dataId'])
+
+    
+
+    # --------------------------------------------------------------------------------------------------------------------
+    # Function handleException
+    # 
+    # Description: 
+    #   Function for handling exceptions by displaying an error message and terminating the program.
+    #   It displays the provided exception message with color-coded output for emphasis. 
+    #   After displaying the messages, it immediately exits the program, halting further execution.
+    #
+    # Parameters:
+    #   msg (str): The specific error message to be displayed.
+    #
+    # Returns:
+    #   None: This function does not return a value. It terminates the program execution with sys.exit().
+    #
+    # Exceptions:
+    #   No explicit exceptions are raised by this function, but it triggers the program's termination.
+    # -----------------------------------------------------------------------------------------------------------------
+    def handleException(self, msg):
+        errorMessage = f"*** Error in processing: "
+        print(bcolors.FAIL)
+        print(errorMessage)
+        print(bcolors.WARNING)
+        print(msg)
+        print(bcolors.ENDC)
+        sys.exit()
+
+
+    # -------------------------------------------------------------------------------------------------------------------------
+    # Function check_record_data
+    #
+    # Description: 
+    #   Validates record data in a given dictionary JSON object by ensuring there are no duplicate record identifiers.
+    #   Iterates through the records in the dictionary, checking each record's identifier against a set that 
+    #   tracks unique identifiers.  If a duplicate identifier is detected, a DuplicateRecordID exception is raised.
+    #
+    # Parameters:
+    #   dictJSON (FprimeDict): The dictionary JSON object containing records to be validated.
+    #
+    # Returns:
+    #   None: This function does not return a value. It either completes successfully or raises an exception.
+    #
+    # Exceptions:
+    #   DuplicateRecordID: Raised if a duplicate record identifier is found in the dictionary JSON object.
+
+    # -----------------------------------------------------------------------------------------------------------------------
+    def check_record_data(self, dictJSON: FprimeDict):
+        idSet = set()
+        for record in dictJSON.records:
+            if record.id in idSet:
+                raise DuplicateRecordID(record.id)
+            else:
+                idSet.add(record.id)
+
+
+
+    # -------------------------------------------------------------------------------------------------------------------------
+    # Function process
+    #
+    # Description: 
+    #   Main processing
+    # -------------------------------------------------------------------------------------------------------------------------
+    def process(self):
+
+        try:
+
+            # Read the F prime JSON dictionary
+            print(f"Parsing {self.jsonDict}...")
+            try:
+                with open(self.jsonDict, 'r') as fprimeDictFile:
+                    dictJSON = FprimeDict(**json.load(fprimeDictFile))
+            except json.JSONDecodeError as e:
+                raise DictionaryError(self.jsonDict, e.lineno)
+            
+            self.check_record_data(dictJSON)
+
+            headerJSON = DPHeader(**header_data)
+
+            with open(self.binaryFileName, 'rb') as self.binaryFile:
+
+                # Read the header data up until the Records
+                headerData = self.get_header_info(headerJSON)
+
+                # Read the total data size
+                dataSize = headerData['DataSize']
+
+                # Restart the count of bytes read
+                self.totalBytesRead = 0
+
+                recordList = [headerData]
+
+                while self.totalBytesRead < dataSize:
+
+                    recordData = self.get_record_data(headerJSON, dictJSON)
+                    recordList.append(recordData)
+
+                computedCRC = self.calculatedCRC
+                # Read the data checksum
+                headerData['dataHash'] = self.read_field(headerJSON.dataHash.type)
+
+                if computedCRC != headerData['dataHash']:
+                    raise CRCError("Data", headerData['dataHash'], computedCRC)
+
+
+        except (FileNotFoundError, RecordIDNotFound, IOError, KeyError, json.JSONDecodeError, 
+                DictionaryError, CRCError, DuplicateRecordID) as e:
+            self.handleException(e)
+
+        except (ValueError) as e:
+            error = e.errors()[0]
+            msg = f'ValueError in JSON file {error["loc"]}: {error["msg"]}'
+            self.handleException(msg)
+
+
+        # Output the generated json to a file
+        baseName = os.path.basename(self.binaryFileName)
+        outputJsonFile = os.path.splitext(baseName)[0] + '.json'
+        if outputJsonFile.startswith('._'):
+            outputJsonFile = outputJsonFile.replace('._', '')
+        with open(outputJsonFile, 'w') as file:
+            json.dump(recordList, file, indent=2)
+
+        print(f'Output data generated in {outputJsonFile}')
 
 
 # ------------------------------------------------------------------------------------------
@@ -921,8 +927,7 @@ def process(args):
 # ------------------------------------------------------------------------------------------
 def main():
     args = parse_args()
-    process(args)
-
+    DataProductWriter(args.jsonDict, args.binFile).process()
 
 if __name__ == "main":
     sys.exit(main())

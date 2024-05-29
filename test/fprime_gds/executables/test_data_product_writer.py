@@ -36,7 +36,8 @@ class TestRunDataProduct(unittest.TestCase):
             bin_file = os.path.join(test_directory, "dp_writer_data", filename)
             dict_file = os.path.join(test_directory, "dp_writer_data", "dictionary.json")
             args = data_product_writer.parse_args([bin_file, dict_file])
-            data_product_writer.process(args)
+            data_product_writer.DataProductWriter(args.jsonDict, args.binFile).process()
+            #data_product_writer.process(args)
 
             # Check if the json file was created
             jsonFile = filename.replace('.bin', '.json')
