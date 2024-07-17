@@ -89,6 +89,7 @@ cls
 CMake
 cmdhist
 cmds
+cmp
 CODEFILE
 Codemirror
 colorized
@@ -230,6 +231,7 @@ FFFF
 fieldset
 figcaption
 figsize
+filecmp
 filemode
 fileno
 filepath
