@@ -153,7 +153,7 @@ def main():
         action="store",
         type=str,
         required=True,
-        help="Dictionary file name",
+        help="JSON Dictionary file name",
     )
     parser.add_argument(
         "-t",

@@ -1,0 +1,12 @@
+<dictionary topology="test" framework_version="0" project_version="0">
+    <commands>
+        <command component="cmdDisp" mnemonic="CMD_NO_OP" opcode="0x1000" description="No-op command">
+            <args/>
+        </command>
+        <command component="cmdDisp" mnemonic="CMD_NO_OP_STRING" opcode="0x1001" description="No-op string command">
+            <args>
+                <arg name="arg1" description="&#10;          The String command argument&#10;          " len="40" type="string"/>
+            </args>
+        </command>
+    </commands>
+</dictionary>
