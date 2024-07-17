@@ -7,24 +7,24 @@ import fprime_gds.common.tools.seqgen as seqgen
 
 class APITestCases(unittest.TestCase):
     def test_nominal_sequence(self):
-        self.assertEqual(self.diff_input_sequence(
+        self.assertEqual(self.check_sequence_generates_expected_binary(
             "./input/simple_sequence.seq",
-            "./expected/simple_sequence_expected.bin",
+            "./expected/simple_expected.bin",
             "./resources/simple_dictionary.json"
         ), True)
     
-    # This test is expected to fail due to unmatched command in
-    # simple_bad_sequence.seq and seqgen should produce a SeqGenException. 
-    # Passing these executions is a test failure.
-    @unittest.expectedFailure 
     def test_fail_unmatched_command_sequence(self):
-        self.diff_input_sequence(
-            "./input/simple_bad_sequence.seq",
-            "./expected/simple_sequence_expected.bin",
-            "./resources/simple_dictionary.json"
-        )
+        with self.assertRaisesRegex(seqgen.SeqGenException, "does not match any command in the command dictionary."):
+            self.check_sequence_generates_expected_binary(
+                "./input/simple_bad_sequence.seq",
+                "./expected/simple_expected.bin",
+                "./resources/simple_dictionary.json"
+            )
         
-    def diff_input_sequence(self, input_sequence, expected_output, dictionary):
+    def check_sequence_generates_expected_binary(self, 
+                                                 input_sequence, 
+                                                 expected_binary, 
+                                                 dictionary):
         temp_dir = tempfile.TemporaryDirectory()
         output_bin = Path(f"{temp_dir.name}/out_binary")
         seqgen.generateSequence(
@@ -33,7 +33,7 @@ class APITestCases(unittest.TestCase):
             dictionary,
             0xffff
         )
-        is_equal = filecmp.cmp(output_bin, expected_output)
+        is_equal = filecmp.cmp(output_bin, expected_binary)
         temp_dir.cleanup()
         return is_equal
         

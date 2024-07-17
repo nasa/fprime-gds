@@ -6,4 +6,4 @@
 
 R00:00:00 cmdDisp.CMD_NO_OP
 R00:00:00 cmdDisp.CMD_NO_OP_STRING "Awesome string!" ; And a nice comment too
-R00:00:00 cmdDisp.FRNDLY_GRTNG "Hello!"
+R00:00:00 cmdDisp.FRIENDLY_GREETING "Hello!"
