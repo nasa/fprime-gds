@@ -22,7 +22,7 @@ from fprime.common.models.serialize.time_type import TimeBase, TimeType
 from fprime_gds.common.data_types import exceptions as gseExceptions
 from fprime_gds.common.data_types.cmd_data import CmdData, CommandArgumentsException
 from fprime_gds.common.encoders.seq_writer import SeqBinaryWriter
-from fprime_gds.common.loaders.cmd_xml_loader import CmdXmlLoader
+from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.parsers.seq_file_parser import SeqFileParser
 
 __author__ = "Tim Canham"
@@ -56,9 +56,9 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
         raise SeqGenException(msg)
 
     # Check the user environment:
-    cmd_xml_dict = CmdXmlLoader()
+    cmd_json_dict = CmdJsonLoader(dictionary)
     try:
-        (cmd_id_dict, cmd_name_dict, versions) = cmd_xml_dict.construct_dicts(
+        (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict.construct_dicts(
             dictionary
         )
     except gseExceptions.GseControllerUndefinedFileException:
@@ -153,7 +153,7 @@ def main():
         action="store",
         type=str,
         required=True,
-        help="Dictionary file name",
+        help="JSON Dictionary file name",
     )
     parser.add_argument(
         "-t",

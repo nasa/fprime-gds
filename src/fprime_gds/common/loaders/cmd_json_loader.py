@@ -12,7 +12,7 @@ from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingExceptio
 
 
 class CmdJsonLoader(JsonLoader):
-    """Class to load xml based command dictionaries"""
+    """Class to load json based command dictionaries"""
 
     COMMANDS_FIELD = "commands"
 

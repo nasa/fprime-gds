@@ -1,0 +1,40 @@
+{
+    "metadata" : {
+        "deploymentName" : "test",
+        "projectVersion" : "0",
+        "frameworkVersion" : "0",
+        "libraryVersions" : [
+        ],
+        "dictionarySpecVersion" : "1.0.0"
+    },
+    "commands" : [
+        {
+            "name" : "cmdDisp.CMD_NO_OP_STRING",
+            "commandKind" : "async",
+            "opcode" : 4097,
+            "formalParams" : [
+                {
+                    "name" : "arg1",
+                    "type" : {
+                        "name" : "string",
+                        "kind" : "string",
+                        "size" : 40
+                    },
+                    "ref" : false,
+                    "annotation" : "The String command argument"
+                }
+            ],
+            "queueFullBehavior" : "assert",
+            "annotation" : "No-op string command"
+        },    
+        {
+            "name" : "cmdDisp.CMD_NO_OP",
+            "commandKind" : "async",
+            "opcode" : 4096,
+            "formalParams" : [
+            ],
+            "queueFullBehavior" : "assert",
+            "annotation" : "No-op command"
+        }
+    ]
+}

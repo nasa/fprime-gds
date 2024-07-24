@@ -1,0 +1,9 @@
+;--------------------------------------------------------------------
+; Simple sequence file
+; Note: that anything after a ';' is a comment
+;--------------------------------------------------------------------
+
+
+R00:00:00 cmdDisp.CMD_NO_OP
+R00:00:00 cmdDisp.CMD_NO_OP_STRING "Awesome string!" ; And a nice comment too
+R00:00:00 cmdDisp.FRIENDLY_GREETING "Hello!"

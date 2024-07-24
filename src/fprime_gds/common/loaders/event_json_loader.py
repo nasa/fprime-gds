@@ -13,7 +13,7 @@ from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingExceptio
 
 
 class EventJsonLoader(JsonLoader):
-    """Class to load xml based event dictionaries"""
+    """Class to load json based event dictionaries"""
 
     EVENTS_FIELD = "events"
 
