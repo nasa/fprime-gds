@@ -8,17 +8,17 @@ import fprime_gds.common.tools.seqgen as seqgen
 class APITestCases(unittest.TestCase):
     def test_nominal_sequence(self):
         self.assertEqual(self.check_sequence_generates_expected_binary(
-            "./input/simple_sequence.seq",
-            "./expected/simple_expected.bin",
-            "./resources/simple_dictionary.json"
+            Path(__file__).parent / "input" / "simple_sequence.seq",
+            Path(__file__).parent / "expected" / "simple_expected.bin",
+            Path(__file__).parent / "resources" / "simple_dictionary.json"
         ), True)
     
     def test_fail_unmatched_command_sequence(self):
         with self.assertRaisesRegex(seqgen.SeqGenException, "does not match any command in the command dictionary."):
             self.check_sequence_generates_expected_binary(
-                "./input/simple_bad_sequence.seq",
-                "./expected/simple_expected.bin",
-                "./resources/simple_dictionary.json"
+                Path(__file__).parent / "input" / "simple_bad_sequence.seq",
+                Path(__file__).parent / "expected" / "simple_expected.bin",
+                Path(__file__).parent / "resources" / "simple_dictionary.json"
             )
         
     def check_sequence_generates_expected_binary(self, 
