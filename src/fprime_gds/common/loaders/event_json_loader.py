@@ -61,12 +61,12 @@ class EventJsonLoader(JsonLoader):
 
     def construct_template_from_dict(self, event_dict: dict):
         try:
-            event_comp, event_name = event_dict[self.NAME].split(".")
+            qualified_component_name, event_name = event_dict[self.NAME].rsplit('.', 1)
             event_id = event_dict[self.ID]
             event_severity = EventSeverity[event_dict[self.SEVERITY]]
         except ValueError as e:
             raise GdsDictionaryParsingException(
-                f"Event dictionary entry malformed, expected name of the form '<COMP_NAME>.<EVENT_NAME>' in : {str(event_dict)}"
+                f"Event dictionary entry malformed, expected name of the form '<QUAL_COMP_NAME>.<EVENT_NAME>' in : {str(event_dict)}"
             )
         except KeyError as e:
             raise GdsDictionaryParsingException(
@@ -100,7 +100,7 @@ class EventJsonLoader(JsonLoader):
         return EventTemplate(
             event_id,
             event_name,
-            event_comp,
+            qualified_component_name,
             event_args,
             event_severity,
             event_fmt_str,
