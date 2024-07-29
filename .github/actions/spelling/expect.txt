@@ -571,6 +571,7 @@ RLock
 Roboto
 rollup
 rpaetz
+rsplit
 rst
 rtd
 rtf
