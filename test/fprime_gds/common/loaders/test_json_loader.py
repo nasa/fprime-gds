@@ -120,7 +120,7 @@ def test_construct_cmd_dict(cmd_loader, json_dict_obj):
     assert len(id_dict) == len(name_dict) == len(json_dict_obj["commands"])
     assert versions == ("TestVersion", "TestVersion")
 
-    cmd_no_op_string: CmdTemplate = name_dict["cmdDisp.CMD_NO_OP_STRING"]
+    cmd_no_op_string: CmdTemplate = name_dict["Ref.cmdDisp.CMD_NO_OP_STRING"]
     assert cmd_no_op_string.get_op_code() == 1281
     assert cmd_no_op_string.get_description() == "No-op string command"
     assert issubclass(cmd_no_op_string.get_args()[0][2], StringType)
@@ -131,7 +131,7 @@ def test_construct_event_dict(event_loader, json_dict_obj):
     assert len(id_dict) == len(name_dict) == len(json_dict_obj["events"])
     assert versions == ("TestVersion", "TestVersion")
 
-    event_choice: EventTemplate = name_dict["typeDemo.ChoiceEv"]
+    event_choice: EventTemplate = name_dict["Ref.typeDemo.ChoiceEv"]
     assert event_choice.get_id() == 4352
     assert event_choice.get_description() == "Single choice event"
     assert event_choice.get_args()[0][0] == "choice"
@@ -145,7 +145,7 @@ def test_construct_ch_dict(ch_loader, json_dict_obj):
     assert len(id_dict) == len(name_dict) == len(json_dict_obj["telemetryChannels"])
     assert versions == ("TestVersion", "TestVersion")
 
-    ch_choice: ChTemplate = name_dict["typeDemo.ChoicesCh"]
+    ch_choice: ChTemplate = name_dict["Ref.typeDemo.ChoicesCh"]
     assert ch_choice.get_id() == 4353
     assert ch_choice.get_ch_desc() == "Multiple choice channel via Array"
     assert ch_choice.ch_type_obj.__name__ == "Ref.ManyChoices"

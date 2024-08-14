@@ -65,14 +65,14 @@ class ChJsonLoader(JsonLoader):
         try:
             ch_id = channel_dict[self.ID]
             # The below assignment also raises a ValueError if the name does not contain a '.'
-            component_name, channel_name = channel_dict[self.NAME].split(".")
-            if not component_name or not channel_name:
+            qualified_component_name, channel_name = channel_dict[self.NAME].rsplit('.', 1)
+            if not qualified_component_name or not channel_name:
                 raise ValueError()
 
             type_obj = self.parse_type(channel_dict[self.TYPE])
         except ValueError as e:
             raise GdsDictionaryParsingException(
-                f"Channel dictionary entry malformed, expected name of the form '<COMP_NAME>.<CH_NAME>' in : {str(channel_dict)}"
+                f"Channel dictionary entry malformed, expected name of the form '<QUAL_COMP_NAME>.<CH_NAME>' in : {str(channel_dict)}"
             )
         except KeyError as e:
             raise GdsDictionaryParsingException(
@@ -94,7 +94,7 @@ class ChJsonLoader(JsonLoader):
         return ChTemplate(
             ch_id,
             channel_name,
-            component_name,
+            qualified_component_name,
             type_obj,
             ch_fmt_str=format_str,
             ch_desc=channel_dict.get(self.DESC),

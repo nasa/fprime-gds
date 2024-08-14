@@ -54,12 +54,12 @@ class CmdJsonLoader(JsonLoader):
 
     def construct_template_from_dict(self, cmd_dict: dict) -> CmdTemplate:
         try:
-            cmd_comp, cmd_mnemonic = cmd_dict[self.NAME].split(".")
+            qualified_component_name, cmd_mnemonic = cmd_dict[self.NAME].rsplit('.', 1)
             cmd_opcode = cmd_dict[self.OPCODE]
             cmd_desc = cmd_dict.get(self.DESC)
         except ValueError as e:
             raise GdsDictionaryParsingException(
-                f"Command dictionary entry malformed, expected name of the form '<COMP_NAME>.<CMD_NAME>' in : {str(cmd_dict)}"
+                f"Command dictionary entry malformed, expected name of the form '<QUAL_COMP_NAME>.<CMD_NAME>' in : {str(cmd_dict)}"
             )
         except KeyError as e:
             raise GdsDictionaryParsingException(
@@ -82,4 +82,4 @@ class CmdJsonLoader(JsonLoader):
                     param_type,
                 )
             )
-        return CmdTemplate(cmd_opcode, cmd_mnemonic, cmd_comp, cmd_args, cmd_desc)
+        return CmdTemplate(cmd_opcode, cmd_mnemonic, qualified_component_name, cmd_args, cmd_desc)

@@ -1103,7 +1103,7 @@
   ],
   "commands" : [
     {
-      "name" : "pingRcvr.PR_StopPings",
+      "name" : "Ref.pingRcvr.PR_StopPings",
       "commandKind" : "async",
       "opcode" : 2560,
       "formalParams" : [
@@ -1112,7 +1112,7 @@
       "annotation" : "Command to disable ping response"
     },
     {
-      "name" : "fileManager.CreateDirectory",
+      "name" : "Ref.fileManager.CreateDirectory",
       "commandKind" : "async",
       "opcode" : 2048,
       "formalParams" : [
@@ -1131,7 +1131,7 @@
       "annotation" : "Create a directory"
     },
     {
-      "name" : "health.HLTH_ENABLE",
+      "name" : "Ref.health.HLTH_ENABLE",
       "commandKind" : "async",
       "opcode" : 8192,
       "formalParams" : [
@@ -1149,7 +1149,7 @@
       "annotation" : "A command to enable or disable health checks"
     },
     {
-      "name" : "cmdSeq.CS_CANCEL",
+      "name" : "Ref.cmdSeq.CS_CANCEL",
       "commandKind" : "async",
       "opcode" : 1538,
       "formalParams" : [
@@ -1158,7 +1158,7 @@
       "annotation" : "Cancel a command sequence"
     },
     {
-      "name" : "SG3.SignalGen_Toggle",
+      "name" : "Ref.SG3.SignalGen_Toggle",
       "commandKind" : "async",
       "opcode" : 8961,
       "formalParams" : [
@@ -1167,7 +1167,7 @@
       "annotation" : "Toggle Signal Generator On/Off."
     },
     {
-      "name" : "SG3.SignalGen_Settings",
+      "name" : "Ref.SG3.SignalGen_Settings",
       "commandKind" : "async",
       "opcode" : 8960,
       "formalParams" : [
@@ -1212,7 +1212,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "sendBuffComp.SB_GEN_ASSERT",
+      "name" : "Ref.sendBuffComp.SB_GEN_ASSERT",
       "commandKind" : "async",
       "opcode" : 9731,
       "formalParams" : [
@@ -1287,7 +1287,7 @@
       "annotation" : "Generate an ASSERT"
     },
     {
-      "name" : "SG1.SignalGen_Skip",
+      "name" : "Ref.SG1.SignalGen_Skip",
       "commandKind" : "async",
       "opcode" : 8450,
       "formalParams" : [
@@ -1296,7 +1296,7 @@
       "annotation" : "Skip next sample"
     },
     {
-      "name" : "fileDownlink.Cancel",
+      "name" : "Ref.fileDownlink.Cancel",
       "commandKind" : "async",
       "opcode" : 1793,
       "formalParams" : [
@@ -1305,7 +1305,7 @@
       "annotation" : "Cancel the downlink in progress, if any"
     },
     {
-      "name" : "recvBuffComp.PARAMETER2_PARAM_SET",
+      "name" : "Ref.recvBuffComp.PARAMETER2_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 18178,
       "formalParams" : [
@@ -1323,7 +1323,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "SG3.SignalGen_Dp",
+      "name" : "Ref.SG3.SignalGen_Dp",
       "commandKind" : "async",
       "opcode" : 8963,
       "formalParams" : [
@@ -1342,7 +1342,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "SG4.SignalGen_Skip",
+      "name" : "Ref.SG4.SignalGen_Skip",
       "commandKind" : "async",
       "opcode" : 9218,
       "formalParams" : [
@@ -1351,7 +1351,7 @@
       "annotation" : "Skip next sample"
     },
     {
-      "name" : "typeDemo.DUMP_TYPED_PARAMETERS",
+      "name" : "Ref.typeDemo.DUMP_TYPED_PARAMETERS",
       "commandKind" : "sync",
       "opcode" : 4371,
       "formalParams" : [
@@ -1359,7 +1359,7 @@
       "annotation" : "Dump the typed parameters"
     },
     {
-      "name" : "SG2.SignalGen_Toggle",
+      "name" : "Ref.SG2.SignalGen_Toggle",
       "commandKind" : "async",
       "opcode" : 8705,
       "formalParams" : [
@@ -1368,7 +1368,7 @@
       "annotation" : "Toggle Signal Generator On/Off."
     },
     {
-      "name" : "eventLogger.DUMP_FILTER_STATE",
+      "name" : "Ref.eventLogger.DUMP_FILTER_STATE",
       "commandKind" : "async",
       "opcode" : 2819,
       "formalParams" : [
@@ -1377,7 +1377,7 @@
       "annotation" : "Dump the filter states via events"
     },
     {
-      "name" : "fileDownlink.SendFile",
+      "name" : "Ref.fileDownlink.SendFile",
       "commandKind" : "async",
       "opcode" : 1792,
       "formalParams" : [
@@ -1406,7 +1406,7 @@
       "annotation" : "Read a named file off the disk. Divide it into packets and send the packets for transmission to the ground."
     },
     {
-      "name" : "SG4.SignalGen_Settings",
+      "name" : "Ref.SG4.SignalGen_Settings",
       "commandKind" : "async",
       "opcode" : 9216,
       "formalParams" : [
@@ -1451,7 +1451,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "dpMgr.CLEAR_EVENT_THROTTLE",
+      "name" : "Ref.dpMgr.CLEAR_EVENT_THROTTLE",
       "commandKind" : "async",
       "opcode" : 3840,
       "formalParams" : [
@@ -1460,7 +1460,7 @@
       "annotation" : "Clear event throttling"
     },
     {
-      "name" : "typeDemo.CHOICE_PRM_PARAM_SET",
+      "name" : "Ref.typeDemo.CHOICE_PRM_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 4353,
       "formalParams" : [
@@ -1476,7 +1476,7 @@
       "annotation" : "Single enumeration parameter"
     },
     {
-      "name" : "typeDemo.GLUTTON_OF_CHOICE_WITH_FRIENDS",
+      "name" : "Ref.typeDemo.GLUTTON_OF_CHOICE_WITH_FRIENDS",
       "commandKind" : "sync",
       "opcode" : 4368,
       "formalParams" : [
@@ -1515,7 +1515,7 @@
       "annotation" : "Multiple choices command via Complex Structure with a preceding and following argument"
     },
     {
-      "name" : "SG5.SignalGen_Dp",
+      "name" : "Ref.SG5.SignalGen_Dp",
       "commandKind" : "async",
       "opcode" : 9475,
       "formalParams" : [
@@ -1534,7 +1534,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "typeDemo.CHOICES_PRM_PARAM_SAVE",
+      "name" : "Ref.typeDemo.CHOICES_PRM_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 4358,
       "formalParams" : [
@@ -1542,7 +1542,7 @@
       "annotation" : "Multiple enumeration parameter via Array"
     },
     {
-      "name" : "fileManager.MoveFile",
+      "name" : "Ref.fileManager.MoveFile",
       "commandKind" : "async",
       "opcode" : 2049,
       "formalParams" : [
@@ -1571,7 +1571,7 @@
       "annotation" : "Move a file"
     },
     {
-      "name" : "systemResources.VERSION",
+      "name" : "Ref.systemResources.VERSION",
       "commandKind" : "guarded",
       "opcode" : 19201,
       "formalParams" : [
@@ -1579,7 +1579,7 @@
       "annotation" : "Report version as EVR"
     },
     {
-      "name" : "cmdDisp.CMD_CLEAR_TRACKING",
+      "name" : "Ref.cmdDisp.CMD_CLEAR_TRACKING",
       "commandKind" : "async",
       "opcode" : 1283,
       "formalParams" : [
@@ -1588,7 +1588,7 @@
       "annotation" : "Clear command tracking info to recover from components not returning status"
     },
     {
-      "name" : "typeDemo.CHOICE_PAIR_WITH_FRIENDS",
+      "name" : "Ref.typeDemo.CHOICE_PAIR_WITH_FRIENDS",
       "commandKind" : "sync",
       "opcode" : 4364,
       "formalParams" : [
@@ -1627,7 +1627,7 @@
       "annotation" : "Multiple choices command via Structure with a preceding and following argument"
     },
     {
-      "name" : "sendBuffComp.PARAMETER3_PARAM_SET",
+      "name" : "Ref.sendBuffComp.PARAMETER3_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 9738,
       "formalParams" : [
@@ -1645,7 +1645,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "SG5.SignalGen_Settings",
+      "name" : "Ref.SG5.SignalGen_Settings",
       "commandKind" : "async",
       "opcode" : 9472,
       "formalParams" : [
@@ -1690,7 +1690,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "recvBuffComp.PARAMETER1_PARAM_SAVE",
+      "name" : "Ref.recvBuffComp.PARAMETER1_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 18177,
       "formalParams" : [
@@ -1698,7 +1698,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "typeDemo.GLUTTON_OF_CHOICE_PRM_PARAM_SAVE",
+      "name" : "Ref.typeDemo.GLUTTON_OF_CHOICE_PRM_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 4370,
       "formalParams" : [
@@ -1706,7 +1706,7 @@
       "annotation" : "Multiple enumeration parameter via Complex Structure"
     },
     {
-      "name" : "SG4.SignalGen_Toggle",
+      "name" : "Ref.SG4.SignalGen_Toggle",
       "commandKind" : "async",
       "opcode" : 9217,
       "formalParams" : [
@@ -1715,7 +1715,7 @@
       "annotation" : "Toggle Signal Generator On/Off."
     },
     {
-      "name" : "cmdDisp.CMD_NO_OP_STRING",
+      "name" : "Ref.cmdDisp.CMD_NO_OP_STRING",
       "commandKind" : "async",
       "opcode" : 1281,
       "formalParams" : [
@@ -1734,7 +1734,7 @@
       "annotation" : "No-op string command"
     },
     {
-      "name" : "cmdSeq.CS_AUTO",
+      "name" : "Ref.cmdSeq.CS_AUTO",
       "commandKind" : "async",
       "opcode" : 1541,
       "formalParams" : [
@@ -1743,7 +1743,7 @@
       "annotation" : "Set the run mode to AUTO."
     },
     {
-      "name" : "sendBuffComp.SB_GEN_FATAL",
+      "name" : "Ref.sendBuffComp.SB_GEN_FATAL",
       "commandKind" : "async",
       "opcode" : 9730,
       "formalParams" : [
@@ -1785,7 +1785,7 @@
       "annotation" : "Generate a FATAL EVR"
     },
     {
-      "name" : "fileDownlink.SendPartial",
+      "name" : "Ref.fileDownlink.SendPartial",
       "commandKind" : "async",
       "opcode" : 1794,
       "formalParams" : [
@@ -1836,7 +1836,7 @@
       "annotation" : "Read a named file off the disk from a starting position. Divide it into packets and send the packets for transmission to the ground."
     },
     {
-      "name" : "SG1.SignalGen_Dp",
+      "name" : "Ref.SG1.SignalGen_Dp",
       "commandKind" : "async",
       "opcode" : 8451,
       "formalParams" : [
@@ -1855,7 +1855,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "cmdSeq.CS_STEP",
+      "name" : "Ref.cmdSeq.CS_STEP",
       "commandKind" : "async",
       "opcode" : 1540,
       "formalParams" : [
@@ -1864,7 +1864,7 @@
       "annotation" : "Perform one step in a command sequence. Valid only if CmdSequencer is in MANUAL run mode."
     },
     {
-      "name" : "SG2.SignalGen_Settings",
+      "name" : "Ref.SG2.SignalGen_Settings",
       "commandKind" : "async",
       "opcode" : 8704,
       "formalParams" : [
@@ -1909,7 +1909,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "fileManager.AppendFile",
+      "name" : "Ref.fileManager.AppendFile",
       "commandKind" : "async",
       "opcode" : 2053,
       "formalParams" : [
@@ -1938,7 +1938,7 @@
       "annotation" : "Append 1 file's contents to the end of another."
     },
     {
-      "name" : "cmdSeq.CS_START",
+      "name" : "Ref.cmdSeq.CS_START",
       "commandKind" : "async",
       "opcode" : 1539,
       "formalParams" : [
@@ -1947,7 +1947,7 @@
       "annotation" : "Start running a command sequence"
     },
     {
-      "name" : "fileManager.ShellCommand",
+      "name" : "Ref.fileManager.ShellCommand",
       "commandKind" : "async",
       "opcode" : 2052,
       "formalParams" : [
@@ -1976,7 +1976,7 @@
       "annotation" : "Perform a Linux shell command and write the output to a log file."
     },
     {
-      "name" : "typeDemo.EXTRA_CHOICES_PRM_PARAM_SET",
+      "name" : "Ref.typeDemo.EXTRA_CHOICES_PRM_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 4361,
       "formalParams" : [
@@ -1992,7 +1992,7 @@
       "annotation" : "Too many enumeration parameter via Array"
     },
     {
-      "name" : "sendBuffComp.PARAMETER3_PARAM_SAVE",
+      "name" : "Ref.sendBuffComp.PARAMETER3_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 9739,
       "formalParams" : [
@@ -2000,7 +2000,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "recvBuffComp.PARAMETER1_PARAM_SET",
+      "name" : "Ref.recvBuffComp.PARAMETER1_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 18176,
       "formalParams" : [
@@ -2018,7 +2018,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "typeDemo.CHOICE",
+      "name" : "Ref.typeDemo.CHOICE",
       "commandKind" : "sync",
       "opcode" : 4352,
       "formalParams" : [
@@ -2035,7 +2035,7 @@
       "annotation" : "Single choice command"
     },
     {
-      "name" : "dpCat.CLEAR_CATALOG",
+      "name" : "Ref.dpCat.CLEAR_CATALOG",
       "commandKind" : "async",
       "opcode" : 3587,
       "formalParams" : [
@@ -2044,7 +2044,7 @@
       "annotation" : "clear existing catalog"
     },
     {
-      "name" : "typeDemo.CHOICE_PRM_PARAM_SAVE",
+      "name" : "Ref.typeDemo.CHOICE_PRM_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 4354,
       "formalParams" : [
@@ -2052,7 +2052,7 @@
       "annotation" : "Single enumeration parameter"
     },
     {
-      "name" : "typeDemo.EXTRA_CHOICES",
+      "name" : "Ref.typeDemo.EXTRA_CHOICES",
       "commandKind" : "sync",
       "opcode" : 4359,
       "formalParams" : [
@@ -2069,7 +2069,7 @@
       "annotation" : "Too many choice command via Array"
     },
     {
-      "name" : "typeDemo.CHOICE_PAIR_PRM_PARAM_SET",
+      "name" : "Ref.typeDemo.CHOICE_PAIR_PRM_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 4365,
       "formalParams" : [
@@ -2085,7 +2085,7 @@
       "annotation" : "Multiple enumeration parameter via Structure"
     },
     {
-      "name" : "dpWriter.CLEAR_EVENT_THROTTLE",
+      "name" : "Ref.dpWriter.CLEAR_EVENT_THROTTLE",
       "commandKind" : "async",
       "opcode" : 4096,
       "formalParams" : [
@@ -2094,7 +2094,7 @@
       "annotation" : "Clear event throttling"
     },
     {
-      "name" : "sendBuffComp.SB_INJECT_PKT_ERROR",
+      "name" : "Ref.sendBuffComp.SB_INJECT_PKT_ERROR",
       "commandKind" : "async",
       "opcode" : 9729,
       "formalParams" : [
@@ -2103,7 +2103,7 @@
       "annotation" : "Send a bad packet"
     },
     {
-      "name" : "cmdSeq.CS_MANUAL",
+      "name" : "Ref.cmdSeq.CS_MANUAL",
       "commandKind" : "async",
       "opcode" : 1542,
       "formalParams" : [
@@ -2112,7 +2112,7 @@
       "annotation" : "Set the run mode to MANUAL."
     },
     {
-      "name" : "dpCat.STOP_XMIT_CATALOG",
+      "name" : "Ref.dpCat.STOP_XMIT_CATALOG",
       "commandKind" : "async",
       "opcode" : 3586,
       "formalParams" : [
@@ -2121,7 +2121,7 @@
       "annotation" : "Stop transmitting catalog"
     },
     {
-      "name" : "cmdDisp.CMD_TEST_CMD_1",
+      "name" : "Ref.cmdDisp.CMD_TEST_CMD_1",
       "commandKind" : "async",
       "opcode" : 1282,
       "formalParams" : [
@@ -2162,7 +2162,7 @@
       "annotation" : "No-op command"
     },
     {
-      "name" : "typeDemo.GLUTTON_OF_CHOICE_PRM_PARAM_SET",
+      "name" : "Ref.typeDemo.GLUTTON_OF_CHOICE_PRM_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 4369,
       "formalParams" : [
@@ -2178,7 +2178,7 @@
       "annotation" : "Multiple enumeration parameter via Complex Structure"
     },
     {
-      "name" : "fileManager.RemoveFile",
+      "name" : "Ref.fileManager.RemoveFile",
       "commandKind" : "async",
       "opcode" : 2051,
       "formalParams" : [
@@ -2207,7 +2207,7 @@
       "annotation" : "Remove a file"
     },
     {
-      "name" : "sendBuffComp.PARAMETER4_PARAM_SAVE",
+      "name" : "Ref.sendBuffComp.PARAMETER4_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 9741,
       "formalParams" : [
@@ -2215,7 +2215,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "typeDemo.SEND_SCALARS",
+      "name" : "Ref.typeDemo.SEND_SCALARS",
       "commandKind" : "sync",
       "opcode" : 4373,
       "formalParams" : [
@@ -2231,7 +2231,7 @@
       "annotation" : "Send scalars"
     },
     {
-      "name" : "typeDemo.EXTRA_CHOICES_PRM_PARAM_SAVE",
+      "name" : "Ref.typeDemo.EXTRA_CHOICES_PRM_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 4362,
       "formalParams" : [
@@ -2239,7 +2239,7 @@
       "annotation" : "Too many enumeration parameter via Array"
     },
     {
-      "name" : "sendBuffComp.PARAMETER4_PARAM_SET",
+      "name" : "Ref.sendBuffComp.PARAMETER4_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 9740,
       "formalParams" : [
@@ -2256,7 +2256,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "fileManager.FileSize",
+      "name" : "Ref.fileManager.FileSize",
       "commandKind" : "async",
       "opcode" : 2054,
       "formalParams" : [
@@ -2274,7 +2274,7 @@
       "queueFullBehavior" : "assert"
     },
     {
-      "name" : "eventLogger.SET_EVENT_FILTER",
+      "name" : "Ref.eventLogger.SET_EVENT_FILTER",
       "commandKind" : "sync",
       "opcode" : 2816,
       "formalParams" : [
@@ -2300,7 +2300,7 @@
       "annotation" : "Set filter for reporting events. Events are not stored in component."
     },
     {
-      "name" : "typeDemo.CHOICES",
+      "name" : "Ref.typeDemo.CHOICES",
       "commandKind" : "sync",
       "opcode" : 4355,
       "formalParams" : [
@@ -2317,7 +2317,7 @@
       "annotation" : "Multiple choice command via Array"
     },
     {
-      "name" : "health.HLTH_CHNG_PING",
+      "name" : "Ref.health.HLTH_CHNG_PING",
       "commandKind" : "async",
       "opcode" : 8194,
       "formalParams" : [
@@ -2358,7 +2358,7 @@
       "annotation" : "Change ping value"
     },
     {
-      "name" : "typeDemo.EXTRA_CHOICES_WITH_FRIENDS",
+      "name" : "Ref.typeDemo.EXTRA_CHOICES_WITH_FRIENDS",
       "commandKind" : "sync",
       "opcode" : 4360,
       "formalParams" : [
@@ -2397,7 +2397,7 @@
       "annotation" : "Too many choices command via Array with a preceding and following argument"
     },
     {
-      "name" : "SG2.SignalGen_Dp",
+      "name" : "Ref.SG2.SignalGen_Dp",
       "commandKind" : "async",
       "opcode" : 8707,
       "formalParams" : [
@@ -2416,7 +2416,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "typeDemo.CHOICE_PAIR_PRM_PARAM_SAVE",
+      "name" : "Ref.typeDemo.CHOICE_PAIR_PRM_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 4366,
       "formalParams" : [
@@ -2424,7 +2424,7 @@
       "annotation" : "Multiple enumeration parameter via Structure"
     },
     {
-      "name" : "SG5.SignalGen_Toggle",
+      "name" : "Ref.SG5.SignalGen_Toggle",
       "commandKind" : "async",
       "opcode" : 9473,
       "formalParams" : [
@@ -2433,7 +2433,7 @@
       "annotation" : "Toggle Signal Generator On/Off."
     },
     {
-      "name" : "cmdSeq.CS_JOIN_WAIT",
+      "name" : "Ref.cmdSeq.CS_JOIN_WAIT",
       "commandKind" : "async",
       "opcode" : 1543,
       "formalParams" : [
@@ -2442,7 +2442,7 @@
       "annotation" : "Wait for sequences that are running to finish. Allow user to run multiple seq files in SEQ_NO_BLOCK mode then wait for them to finish before allowing more seq run request."
     },
     {
-      "name" : "SG1.SignalGen_Settings",
+      "name" : "Ref.SG1.SignalGen_Settings",
       "commandKind" : "async",
       "opcode" : 8448,
       "formalParams" : [
@@ -2487,7 +2487,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "cmdSeq.CS_RUN",
+      "name" : "Ref.cmdSeq.CS_RUN",
       "commandKind" : "async",
       "opcode" : 1536,
       "formalParams" : [
@@ -2515,7 +2515,7 @@
       "annotation" : "Run a command sequence file"
     },
     {
-      "name" : "SG1.SignalGen_Toggle",
+      "name" : "Ref.SG1.SignalGen_Toggle",
       "commandKind" : "async",
       "opcode" : 8449,
       "formalParams" : [
@@ -2524,7 +2524,7 @@
       "annotation" : "Toggle Signal Generator On/Off."
     },
     {
-      "name" : "dpCat.BUILD_CATALOG",
+      "name" : "Ref.dpCat.BUILD_CATALOG",
       "commandKind" : "async",
       "opcode" : 3584,
       "formalParams" : [
@@ -2533,7 +2533,7 @@
       "annotation" : "Build catalog from data product directory"
     },
     {
-      "name" : "eventLogger.SET_ID_FILTER",
+      "name" : "Ref.eventLogger.SET_ID_FILTER",
       "commandKind" : "async",
       "opcode" : 2818,
       "formalParams" : [
@@ -2561,7 +2561,7 @@
       "annotation" : "Filter a particular ID"
     },
     {
-      "name" : "SG4.SignalGen_Dp",
+      "name" : "Ref.SG4.SignalGen_Dp",
       "commandKind" : "async",
       "opcode" : 9219,
       "formalParams" : [
@@ -2580,7 +2580,7 @@
       "annotation" : "Signal Generator Settings"
     },
     {
-      "name" : "recvBuffComp.PARAMETER2_PARAM_SAVE",
+      "name" : "Ref.recvBuffComp.PARAMETER2_PARAM_SAVE",
       "commandKind" : "save",
       "opcode" : 18179,
       "formalParams" : [
@@ -2588,7 +2588,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "SG3.SignalGen_Skip",
+      "name" : "Ref.SG3.SignalGen_Skip",
       "commandKind" : "async",
       "opcode" : 8962,
       "formalParams" : [
@@ -2597,7 +2597,7 @@
       "annotation" : "Skip next sample"
     },
     {
-      "name" : "dpCat.START_XMIT_CATALOG",
+      "name" : "Ref.dpCat.START_XMIT_CATALOG",
       "commandKind" : "async",
       "opcode" : 3585,
       "formalParams" : [
@@ -2615,7 +2615,7 @@
       "annotation" : "Start transmitting catalog"
     },
     {
-      "name" : "typeDemo.DUMP_FLOATS",
+      "name" : "Ref.typeDemo.DUMP_FLOATS",
       "commandKind" : "sync",
       "opcode" : 4372,
       "formalParams" : [
@@ -2623,7 +2623,7 @@
       "annotation" : "Dump the float values"
     },
     {
-      "name" : "cmdDisp.CMD_NO_OP",
+      "name" : "Ref.cmdDisp.CMD_NO_OP",
       "commandKind" : "async",
       "opcode" : 1280,
       "formalParams" : [
@@ -2632,7 +2632,7 @@
       "annotation" : "No-op command"
     },
     {
-      "name" : "fileManager.RemoveDirectory",
+      "name" : "Ref.fileManager.RemoveDirectory",
       "commandKind" : "async",
       "opcode" : 2050,
       "formalParams" : [
@@ -2651,7 +2651,7 @@
       "annotation" : "Remove a directory, which must be empty"
     },
     {
-      "name" : "typeDemo.CHOICES_PRM_PARAM_SET",
+      "name" : "Ref.typeDemo.CHOICES_PRM_PARAM_SET",
       "commandKind" : "set",
       "opcode" : 4357,
       "formalParams" : [
@@ -2667,7 +2667,7 @@
       "annotation" : "Multiple enumeration parameter via Array"
     },
     {
-      "name" : "sendBuffComp.SB_START_PKTS",
+      "name" : "Ref.sendBuffComp.SB_START_PKTS",
       "commandKind" : "async",
       "opcode" : 9728,
       "formalParams" : [
@@ -2676,7 +2676,7 @@
       "annotation" : "Command to start sending packets"
     },
     {
-      "name" : "typeDemo.GLUTTON_OF_CHOICE",
+      "name" : "Ref.typeDemo.GLUTTON_OF_CHOICE",
       "commandKind" : "sync",
       "opcode" : 4367,
       "formalParams" : [
@@ -2693,7 +2693,7 @@
       "annotation" : "Multiple choice command via Complex Structure"
     },
     {
-      "name" : "typeDemo.CHOICES_WITH_FRIENDS",
+      "name" : "Ref.typeDemo.CHOICES_WITH_FRIENDS",
       "commandKind" : "sync",
       "opcode" : 4356,
       "formalParams" : [
@@ -2732,7 +2732,7 @@
       "annotation" : "Multiple choice command via Array with a preceding and following argument"
     },
     {
-      "name" : "health.HLTH_PING_ENABLE",
+      "name" : "Ref.health.HLTH_PING_ENABLE",
       "commandKind" : "async",
       "opcode" : 8193,
       "formalParams" : [
@@ -2760,7 +2760,7 @@
       "annotation" : "Ignore a particular ping entry"
     },
     {
-      "name" : "prmDb.PRM_SAVE_FILE",
+      "name" : "Ref.prmDb.PRM_SAVE_FILE",
       "commandKind" : "async",
       "opcode" : 3328,
       "formalParams" : [
@@ -2769,7 +2769,7 @@
       "annotation" : "Command to save parameter image to file. Uses file name passed to constructor"
     },
     {
-      "name" : "systemResources.ENABLE",
+      "name" : "Ref.systemResources.ENABLE",
       "commandKind" : "guarded",
       "opcode" : 19200,
       "formalParams" : [
@@ -2786,7 +2786,7 @@
       "annotation" : "A command to enable or disable system resource telemetry"
     },
     {
-      "name" : "SG2.SignalGen_Skip",
+      "name" : "Ref.SG2.SignalGen_Skip",
       "commandKind" : "async",
       "opcode" : 8706,
       "formalParams" : [
@@ -2795,7 +2795,7 @@
       "annotation" : "Skip next sample"
     },
     {
-      "name" : "cmdSeq.CS_VALIDATE",
+      "name" : "Ref.cmdSeq.CS_VALIDATE",
       "commandKind" : "async",
       "opcode" : 1537,
       "formalParams" : [
@@ -2814,7 +2814,7 @@
       "annotation" : "Validate a command sequence file"
     },
     {
-      "name" : "SG5.SignalGen_Skip",
+      "name" : "Ref.SG5.SignalGen_Skip",
       "commandKind" : "async",
       "opcode" : 9474,
       "formalParams" : [
@@ -2823,7 +2823,7 @@
       "annotation" : "Skip next sample"
     },
     {
-      "name" : "typeDemo.CHOICE_PAIR",
+      "name" : "Ref.typeDemo.CHOICE_PAIR",
       "commandKind" : "sync",
       "opcode" : 4363,
       "formalParams" : [
@@ -2842,7 +2842,7 @@
   ],
   "parameters" : [
     {
-      "name" : "typeDemo.CHOICES_PRM",
+      "name" : "Ref.typeDemo.CHOICES_PRM",
       "type" : {
         "name" : "Ref.ManyChoices",
         "kind" : "qualifiedIdentifier"
@@ -2851,7 +2851,7 @@
       "annotation" : "Multiple enumeration parameter via Array"
     },
     {
-      "name" : "recvBuffComp.parameter2",
+      "name" : "Ref.recvBuffComp.parameter2",
       "type" : {
         "name" : "I16",
         "kind" : "integer",
@@ -2863,7 +2863,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "recvBuffComp.parameter1",
+      "name" : "Ref.recvBuffComp.parameter1",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -2875,7 +2875,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "typeDemo.CHOICE_PRM",
+      "name" : "Ref.typeDemo.CHOICE_PRM",
       "type" : {
         "name" : "Ref.Choice",
         "kind" : "qualifiedIdentifier"
@@ -2884,7 +2884,7 @@
       "annotation" : "Single enumeration parameter"
     },
     {
-      "name" : "typeDemo.EXTRA_CHOICES_PRM",
+      "name" : "Ref.typeDemo.EXTRA_CHOICES_PRM",
       "type" : {
         "name" : "Ref.ManyChoices",
         "kind" : "qualifiedIdentifier"
@@ -2893,7 +2893,7 @@
       "annotation" : "Too many enumeration parameter via Array"
     },
     {
-      "name" : "sendBuffComp.parameter4",
+      "name" : "Ref.sendBuffComp.parameter4",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -2904,7 +2904,7 @@
       "annotation" : "A test parameter"
     },
     {
-      "name" : "typeDemo.CHOICE_PAIR_PRM",
+      "name" : "Ref.typeDemo.CHOICE_PAIR_PRM",
       "type" : {
         "name" : "Ref.ChoicePair",
         "kind" : "qualifiedIdentifier"
@@ -2913,7 +2913,7 @@
       "annotation" : "Multiple enumeration parameter via Structure"
     },
     {
-      "name" : "typeDemo.GLUTTON_OF_CHOICE_PRM",
+      "name" : "Ref.typeDemo.GLUTTON_OF_CHOICE_PRM",
       "type" : {
         "name" : "Ref.ChoiceSlurry",
         "kind" : "qualifiedIdentifier"
@@ -2922,7 +2922,7 @@
       "annotation" : "Multiple enumeration parameter via Complex Structure"
     },
     {
-      "name" : "sendBuffComp.parameter3",
+      "name" : "Ref.sendBuffComp.parameter3",
       "type" : {
         "name" : "U8",
         "kind" : "integer",
@@ -2936,7 +2936,7 @@
   ],
   "events" : [
     {
-      "name" : "SG3.SignalGen_SettingsChanged",
+      "name" : "Ref.SG3.SignalGen_SettingsChanged",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -2981,7 +2981,7 @@
       "annotation" : "Signal Generator Settings Changed"
     },
     {
-      "name" : "rateGroup3Comp.RateGroupStarted",
+      "name" : "Ref.rateGroup3Comp.RateGroupStarted",
       "severity" : "DIAGNOSTIC",
       "formalParams" : [
       ],
@@ -2990,7 +2990,7 @@
       "annotation" : "Informational event that rate group has started"
     },
     {
-      "name" : "cmdSeq.CS_JoinWaiting",
+      "name" : "Ref.cmdSeq.CS_JoinWaiting",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3031,7 +3031,7 @@
       "annotation" : "Wait for the current running sequence file complete"
     },
     {
-      "name" : "sendBuffComp.SendBuffFatal",
+      "name" : "Ref.sendBuffComp.SendBuffFatal",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -3073,7 +3073,7 @@
       "annotation" : "A test FATAL"
     },
     {
-      "name" : "cmdSeq.CS_TimeBaseMismatch",
+      "name" : "Ref.cmdSeq.CS_TimeBaseMismatch",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3114,7 +3114,7 @@
       "annotation" : "The running time base doesn't match the time base in the sequence files"
     },
     {
-      "name" : "cmdSeq.CS_NoSequenceActive",
+      "name" : "Ref.cmdSeq.CS_NoSequenceActive",
       "severity" : "WARNING_LO",
       "formalParams" : [
       ],
@@ -3123,7 +3123,7 @@
       "annotation" : "A sequence related command came with no active sequence"
     },
     {
-      "name" : "fileUplink.FileReceived",
+      "name" : "Ref.fileUplink.FileReceived",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3142,7 +3142,7 @@
       "annotation" : "The File Uplink component successfully received a file"
     },
     {
-      "name" : "dpWriter.FileOpenError",
+      "name" : "Ref.dpWriter.FileOpenError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3173,7 +3173,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fatalAdapter.AF_ASSERT_2",
+      "name" : "Ref.fatalAdapter.AF_ASSERT_2",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -3225,7 +3225,7 @@
       "annotation" : "An assert happened"
     },
     {
-      "name" : "fileUplink.PacketOutOfBounds",
+      "name" : "Ref.fileUplink.PacketOutOfBounds",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3256,7 +3256,7 @@
       "throttle" : 5
     },
     {
-      "name" : "SG1.SignalGen_DpComplete",
+      "name" : "Ref.SG1.SignalGen_DpComplete",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -3284,7 +3284,7 @@
       "format" : "Writing {} DP records {} bytes total"
     },
     {
-      "name" : "cmdDisp.OpCodeReregistered",
+      "name" : "Ref.cmdDisp.OpCodeReregistered",
       "severity" : "DIAGNOSTIC",
       "formalParams" : [
         {
@@ -3315,7 +3315,7 @@
       "annotation" : "Op code reregistered event"
     },
     {
-      "name" : "fileManager.CreateDirectoryStarted",
+      "name" : "Ref.fileManager.CreateDirectoryStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3334,7 +3334,7 @@
       "annotation" : "The File System component began creating a new directory"
     },
     {
-      "name" : "cmdSeq.CS_CommandComplete",
+      "name" : "Ref.cmdSeq.CS_CommandComplete",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -3375,7 +3375,7 @@
       "annotation" : "The Command Sequencer issued a command and received a success status in return."
     },
     {
-      "name" : "fileDownlink.FileReadError",
+      "name" : "Ref.fileDownlink.FileReadError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3405,7 +3405,7 @@
       "annotation" : "An error occurred reading a file"
     },
     {
-      "name" : "recvBuffComp.BuffRecvParameterUpdated",
+      "name" : "Ref.recvBuffComp.BuffRecvParameterUpdated",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -3425,7 +3425,7 @@
       "annotation" : "Report parameter update"
     },
     {
-      "name" : "SG3.SignalGen_DpRecordFull",
+      "name" : "Ref.SG3.SignalGen_DpRecordFull",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -3453,7 +3453,7 @@
       "format" : "DP container full with {} records and {} bytes. Closing DP."
     },
     {
-      "name" : "prmDb.PrmFileWriteError",
+      "name" : "Ref.prmDb.PrmFileWriteError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3493,7 +3493,7 @@
       "annotation" : "Failed to write parameter file"
     },
     {
-      "name" : "dpWriter.BufferTooSmallForPacket",
+      "name" : "Ref.dpWriter.BufferTooSmallForPacket",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3525,7 +3525,7 @@
       "throttle" : 10
     },
     {
-      "name" : "SG4.SignalGen_DpComplete",
+      "name" : "Ref.SG4.SignalGen_DpComplete",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -3553,7 +3553,7 @@
       "format" : "Writing {} DP records {} bytes total"
     },
     {
-      "name" : "prmDb.PrmFileLoadComplete",
+      "name" : "Ref.prmDb.PrmFileLoadComplete",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3573,7 +3573,7 @@
       "annotation" : "Load of parameter file completed"
     },
     {
-      "name" : "SG5.SignalGen_DpsNotConnected",
+      "name" : "Ref.SG5.SignalGen_DpsNotConnected",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -3581,7 +3581,7 @@
       "format" : "DP Ports not connected!"
     },
     {
-      "name" : "SG2.SignalGen_DpStarted",
+      "name" : "Ref.SG2.SignalGen_DpStarted",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -3599,7 +3599,7 @@
       "format" : "Writing {} DP records"
     },
     {
-      "name" : "fileManager.FileSizeError",
+      "name" : "Ref.fileManager.FileSizeError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3629,7 +3629,7 @@
       "annotation" : "Failed to get file size"
     },
     {
-      "name" : "eventLogger.ID_FILTER_REMOVED",
+      "name" : "Ref.eventLogger.ID_FILTER_REMOVED",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3649,7 +3649,7 @@
       "annotation" : "Removed an ID from the filter"
     },
     {
-      "name" : "dpCat.SendingProduct",
+      "name" : "Ref.dpCat.SendingProduct",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -3690,7 +3690,7 @@
       "annotation" : "Sending product"
     },
     {
-      "name" : "cmdDisp.NoOpReceived",
+      "name" : "Ref.cmdDisp.NoOpReceived",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
       ],
@@ -3699,7 +3699,7 @@
       "annotation" : "The command dispatcher has successfully received a NO-OP command"
     },
     {
-      "name" : "fileDownlink.FileOpenError",
+      "name" : "Ref.fileDownlink.FileOpenError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3718,7 +3718,7 @@
       "annotation" : "An error occurred opening a file"
     },
     {
-      "name" : "SG4.SignalGen_SettingsChanged",
+      "name" : "Ref.SG4.SignalGen_SettingsChanged",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -3763,7 +3763,7 @@
       "annotation" : "Signal Generator Settings Changed"
     },
     {
-      "name" : "dpCat.DpDuplicate",
+      "name" : "Ref.dpCat.DpDuplicate",
       "severity" : "DIAGNOSTIC",
       "formalParams" : [
         {
@@ -3782,7 +3782,7 @@
       "throttle" : 10
     },
     {
-      "name" : "cmdSeq.CS_SequenceComplete",
+      "name" : "Ref.cmdSeq.CS_SequenceComplete",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3801,7 +3801,7 @@
       "annotation" : "A command sequence successfully completed."
     },
     {
-      "name" : "fileDownlink.SendStarted",
+      "name" : "Ref.fileDownlink.SendStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3841,7 +3841,7 @@
       "annotation" : "The File Downlink component started a file download."
     },
     {
-      "name" : "dpMgr.BufferAllocationFailed",
+      "name" : "Ref.dpMgr.BufferAllocationFailed",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3862,7 +3862,7 @@
       "throttle" : 10
     },
     {
-      "name" : "typeDemo.ChoicesEv",
+      "name" : "Ref.typeDemo.ChoicesEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3879,7 +3879,7 @@
       "annotation" : "Multiple choice event via Array"
     },
     {
-      "name" : "SG5.SignalGen_DpRecordFull",
+      "name" : "Ref.SG5.SignalGen_DpRecordFull",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -3907,7 +3907,7 @@
       "format" : "DP container full with {} records and {} bytes. Closing DP."
     },
     {
-      "name" : "typeDemo.ChoicesPrmEv",
+      "name" : "Ref.typeDemo.ChoicesPrmEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -3932,7 +3932,7 @@
       "annotation" : "Multiple choice parameter event via Array"
     },
     {
-      "name" : "fileManager.DirectoryRemoveError",
+      "name" : "Ref.fileManager.DirectoryRemoveError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -3962,7 +3962,7 @@
       "annotation" : "An error occurred while attempting to remove a directory"
     },
     {
-      "name" : "systemResources.PROJECT_VERSION",
+      "name" : "Ref.systemResources.PROJECT_VERSION",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -3981,7 +3981,7 @@
       "annotation" : "Version of the git repository."
     },
     {
-      "name" : "fatalAdapter.AF_ASSERT_1",
+      "name" : "Ref.fatalAdapter.AF_ASSERT_1",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -4022,7 +4022,7 @@
       "annotation" : "An assert happened"
     },
     {
-      "name" : "health.HLTH_CHECK_PING",
+      "name" : "Ref.health.HLTH_CHECK_PING",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -4050,7 +4050,7 @@
       "annotation" : "Report a particular entry on or off"
     },
     {
-      "name" : "cmdDisp.OpCodeError",
+      "name" : "Ref.cmdDisp.OpCodeError",
       "severity" : "COMMAND",
       "formalParams" : [
         {
@@ -4079,7 +4079,7 @@
       "annotation" : "Op code completed with error event"
     },
     {
-      "name" : "fileManager.MoveFileSucceeded",
+      "name" : "Ref.fileManager.MoveFileSucceeded",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -4108,7 +4108,7 @@
       "annotation" : "The File System component moved a file to a new location without error"
     },
     {
-      "name" : "fatalAdapter.AF_ASSERT_6",
+      "name" : "Ref.fatalAdapter.AF_ASSERT_6",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -4204,7 +4204,7 @@
       "annotation" : "An assert happened"
     },
     {
-      "name" : "fileDownlink.DownlinkTimeout",
+      "name" : "Ref.fileDownlink.DownlinkTimeout",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4233,7 +4233,7 @@
       "annotation" : "The File Downlink component has detected a timeout. Downlink has been canceled."
     },
     {
-      "name" : "dpCat.CatalogBuildComplete",
+      "name" : "Ref.dpCat.CatalogBuildComplete",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
       ],
@@ -4242,7 +4242,7 @@
       "annotation" : "Catalog processing complete"
     },
     {
-      "name" : "dpCat.CatalogFull",
+      "name" : "Ref.dpCat.CatalogFull",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4262,7 +4262,7 @@
       "throttle" : 10
     },
     {
-      "name" : "SG5.SignalGen_SettingsChanged",
+      "name" : "Ref.SG5.SignalGen_SettingsChanged",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -4307,7 +4307,7 @@
       "annotation" : "Signal Generator Settings Changed"
     },
     {
-      "name" : "rateGroup1Comp.RateGroupStarted",
+      "name" : "Ref.rateGroup1Comp.RateGroupStarted",
       "severity" : "DIAGNOSTIC",
       "formalParams" : [
       ],
@@ -4316,7 +4316,7 @@
       "annotation" : "Informational event that rate group has started"
     },
     {
-      "name" : "recvBuffComp.PacketChecksumError",
+      "name" : "Ref.recvBuffComp.PacketChecksumError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4336,7 +4336,7 @@
       "annotation" : "Packet checksum error"
     },
     {
-      "name" : "fileUplink.FileWriteError",
+      "name" : "Ref.fileUplink.FileWriteError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4356,7 +4356,7 @@
       "throttle" : 5
     },
     {
-      "name" : "dpWriter.BufferTooSmallForData",
+      "name" : "Ref.dpWriter.BufferTooSmallForData",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4388,7 +4388,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fileManager.ShellCommandStarted",
+      "name" : "Ref.fileManager.ShellCommandStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -4407,7 +4407,7 @@
       "annotation" : "The File System component began executing a shell command"
     },
     {
-      "name" : "pingRcvr.PR_PingsDisabled",
+      "name" : "Ref.pingRcvr.PR_PingsDisabled",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
       ],
@@ -4416,7 +4416,7 @@
       "annotation" : "Disabled ping responses"
     },
     {
-      "name" : "health.HLTH_PING_INVALID_VALUES",
+      "name" : "Ref.health.HLTH_PING_INVALID_VALUES",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4457,7 +4457,7 @@
       "annotation" : "Report changed ping"
     },
     {
-      "name" : "dpCat.FileHdrDesError",
+      "name" : "Ref.dpCat.FileHdrDesError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4487,7 +4487,7 @@
       "throttle" : 10
     },
     {
-      "name" : "cmdSeq.CS_JoinWaitingNotComplete",
+      "name" : "Ref.cmdSeq.CS_JoinWaitingNotComplete",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -4496,7 +4496,7 @@
       "annotation" : "Cannot run new sequence when current sequence file is still running."
     },
     {
-      "name" : "SG4.SignalGen_DpStarted",
+      "name" : "Ref.SG4.SignalGen_DpStarted",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -4514,7 +4514,7 @@
       "format" : "Writing {} DP records"
     },
     {
-      "name" : "fileManager.FileSizeStarted",
+      "name" : "Ref.fileManager.FileSizeStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -4533,7 +4533,7 @@
       "annotation" : "Checking file size"
     },
     {
-      "name" : "SG3.SignalGen_DpsNotConnected",
+      "name" : "Ref.SG3.SignalGen_DpsNotConnected",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -4541,7 +4541,7 @@
       "format" : "DP Ports not connected!"
     },
     {
-      "name" : "cmdDisp.OpCodeDispatched",
+      "name" : "Ref.cmdDisp.OpCodeDispatched",
       "severity" : "COMMAND",
       "formalParams" : [
         {
@@ -4572,7 +4572,7 @@
       "annotation" : "Op code dispatched event"
     },
     {
-      "name" : "dpCat.CatalogXmitStopped",
+      "name" : "Ref.dpCat.CatalogXmitStopped",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -4592,7 +4592,7 @@
       "annotation" : "Catalog transmission stopped"
     },
     {
-      "name" : "fatalAdapter.AF_ASSERT_3",
+      "name" : "Ref.fatalAdapter.AF_ASSERT_3",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -4655,7 +4655,7 @@
       "annotation" : "An assert happened"
     },
     {
-      "name" : "cmdSeq.CS_SequenceValid",
+      "name" : "Ref.cmdSeq.CS_SequenceValid",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -4674,7 +4674,7 @@
       "annotation" : "A sequence passed validation"
     },
     {
-      "name" : "eventLogger.ID_FILTER_NOT_FOUND",
+      "name" : "Ref.eventLogger.ID_FILTER_NOT_FOUND",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -4694,7 +4694,7 @@
       "annotation" : "ID not in filter"
     },
     {
-      "name" : "sendBuffComp.BuffSendParameterUpdated",
+      "name" : "Ref.sendBuffComp.BuffSendParameterUpdated",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -4714,7 +4714,7 @@
       "annotation" : "Report parameter update"
     },
     {
-      "name" : "fileDownlink.FileSent",
+      "name" : "Ref.fileDownlink.FileSent",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -4743,7 +4743,7 @@
       "annotation" : "The File Downlink component successfully sent a file"
     },
     {
-      "name" : "dpCat.FileSizeError",
+      "name" : "Ref.dpCat.FileSizeError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4773,7 +4773,7 @@
       "throttle" : 10
     },
     {
-      "name" : "cmdSeq.CS_FileSizeError",
+      "name" : "Ref.cmdSeq.CS_FileSizeError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4803,7 +4803,7 @@
       "annotation" : "The sequence file was too large."
     },
     {
-      "name" : "SG1.SignalGen_DpRecordFull",
+      "name" : "Ref.SG1.SignalGen_DpRecordFull",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -4831,7 +4831,7 @@
       "format" : "DP container full with {} records and {} bytes. Closing DP."
     },
     {
-      "name" : "cmdSeq.CS_RecordInvalid",
+      "name" : "Ref.cmdSeq.CS_RecordInvalid",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4872,7 +4872,7 @@
       "annotation" : "The format of a command record was invalid."
     },
     {
-      "name" : "SG2.SignalGen_SettingsChanged",
+      "name" : "Ref.SG2.SignalGen_SettingsChanged",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -4917,7 +4917,7 @@
       "annotation" : "Signal Generator Settings Changed"
     },
     {
-      "name" : "pingRcvr.PR_PingReceived",
+      "name" : "Ref.pingRcvr.PR_PingReceived",
       "severity" : "DIAGNOSTIC",
       "formalParams" : [
         {
@@ -4937,7 +4937,7 @@
       "annotation" : "Got ping"
     },
     {
-      "name" : "dpCat.CatalogXmitCompleted",
+      "name" : "Ref.dpCat.CatalogXmitCompleted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -4957,7 +4957,7 @@
       "annotation" : "Catalog transmission completed"
     },
     {
-      "name" : "fileUplink.DecodeError",
+      "name" : "Ref.fileUplink.DecodeError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -4977,7 +4977,7 @@
       "annotation" : "Error decoding file packet"
     },
     {
-      "name" : "fatalAdapter.AF_UNEXPECTED_ASSERT",
+      "name" : "Ref.fatalAdapter.AF_UNEXPECTED_ASSERT",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -5018,7 +5018,7 @@
       "annotation" : "An unexpected assert happened"
     },
     {
-      "name" : "fileManager.AppendFileFailed",
+      "name" : "Ref.fileManager.AppendFileFailed",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5058,7 +5058,7 @@
       "annotation" : "The File System component returned status non-zero when trying to append 2 files together"
     },
     {
-      "name" : "dpCat.DpInsertError",
+      "name" : "Ref.dpCat.DpInsertError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5077,7 +5077,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fileUplink.BadChecksum",
+      "name" : "Ref.fileUplink.BadChecksum",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5118,7 +5118,7 @@
       "annotation" : "During receipt of a file, the computed checksum value did not match the stored value"
     },
     {
-      "name" : "cmdSeq.CS_FileInvalid",
+      "name" : "Ref.cmdSeq.CS_FileInvalid",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5157,7 +5157,7 @@
       "annotation" : "The sequence file format was invalid."
     },
     {
-      "name" : "cmdSeq.CS_UnexpectedCompletion",
+      "name" : "Ref.cmdSeq.CS_UnexpectedCompletion",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5177,7 +5177,7 @@
       "annotation" : "A command status came back when no sequence was running"
     },
     {
-      "name" : "recvBuffComp.FirstPacketReceived",
+      "name" : "Ref.recvBuffComp.FirstPacketReceived",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -5197,7 +5197,7 @@
       "annotation" : "First packet received"
     },
     {
-      "name" : "fileDownlink.SendDataFail",
+      "name" : "Ref.fileDownlink.SendDataFail",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5227,7 +5227,7 @@
       "annotation" : "The File Downlink component generated an error when trying to send a data packet."
     },
     {
-      "name" : "fileManager.ShellCommandFailed",
+      "name" : "Ref.fileManager.ShellCommandFailed",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5257,7 +5257,7 @@
       "annotation" : "The File System component executed a shell command that returned status non-zero"
     },
     {
-      "name" : "prmDb.PrmFileSaveComplete",
+      "name" : "Ref.prmDb.PrmFileSaveComplete",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5277,7 +5277,7 @@
       "annotation" : "Save of parameter file completed"
     },
     {
-      "name" : "typeDemo.ChoiceSlurryPrmEv",
+      "name" : "Ref.typeDemo.ChoiceSlurryPrmEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5302,7 +5302,7 @@
       "annotation" : "Multiple choice parameter event via Complex Structure"
     },
     {
-      "name" : "typeDemo.ChoiceEv",
+      "name" : "Ref.typeDemo.ChoiceEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5319,7 +5319,7 @@
       "annotation" : "Single choice event"
     },
     {
-      "name" : "dpCat.ProcessingDirectoryComplete",
+      "name" : "Ref.dpCat.ProcessingDirectoryComplete",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5371,7 +5371,7 @@
       "annotation" : "Directory Processing complete"
     },
     {
-      "name" : "fileManager.RemoveDirectorySucceeded",
+      "name" : "Ref.fileManager.RemoveDirectorySucceeded",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5390,7 +5390,7 @@
       "annotation" : "The File System component deleted and existing directory without error"
     },
     {
-      "name" : "cmdDisp.TooManyCommands",
+      "name" : "Ref.cmdDisp.TooManyCommands",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5410,7 +5410,7 @@
       "annotation" : "Exceeded the number of commands that can be simultaneously executed"
     },
     {
-      "name" : "SG2.SignalGen_DpsNotConnected",
+      "name" : "Ref.SG2.SignalGen_DpsNotConnected",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -5418,7 +5418,7 @@
       "format" : "DP Ports not connected!"
     },
     {
-      "name" : "rateGroup1Comp.RateGroupCycleSlip",
+      "name" : "Ref.rateGroup1Comp.RateGroupCycleSlip",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5438,7 +5438,7 @@
       "annotation" : "Warning event that rate group has had a cycle slip"
     },
     {
-      "name" : "typeDemo.ExtraChoicesEv",
+      "name" : "Ref.typeDemo.ExtraChoicesEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5455,7 +5455,7 @@
       "annotation" : "Too many choice event via Array"
     },
     {
-      "name" : "cmdSeq.CS_RecordMismatch",
+      "name" : "Ref.cmdSeq.CS_RecordMismatch",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5496,7 +5496,7 @@
       "annotation" : "Number of records in header doesn't match number in file"
     },
     {
-      "name" : "typeDemo.ExtraChoicesPrmEv",
+      "name" : "Ref.typeDemo.ExtraChoicesPrmEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5521,7 +5521,7 @@
       "annotation" : "Too many choice parameter event via Array"
     },
     {
-      "name" : "health.HLTH_CHECK_ENABLE",
+      "name" : "Ref.health.HLTH_CHECK_ENABLE",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5539,7 +5539,7 @@
       "annotation" : "Report checking turned on or off"
     },
     {
-      "name" : "dpCat.FileOpenError",
+      "name" : "Ref.dpCat.FileOpenError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5570,7 +5570,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fileManager.DirectoryCreateError",
+      "name" : "Ref.fileManager.DirectoryCreateError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5600,7 +5600,7 @@
       "annotation" : "An error occurred while attempting to create a directory"
     },
     {
-      "name" : "dpCat.FileHdrError",
+      "name" : "Ref.dpCat.FileHdrError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5651,7 +5651,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fileDownlink.DownlinkCanceled",
+      "name" : "Ref.fileDownlink.DownlinkCanceled",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5680,7 +5680,7 @@
       "annotation" : "The File Downlink component canceled downlink of a file"
     },
     {
-      "name" : "dpCat.ComponentNotInitialized",
+      "name" : "Ref.dpCat.ComponentNotInitialized",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -5690,7 +5690,7 @@
       "throttle" : 10
     },
     {
-      "name" : "eventLogger.ID_FILTER_ENABLED",
+      "name" : "Ref.eventLogger.ID_FILTER_ENABLED",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5710,7 +5710,7 @@
       "annotation" : "Indicate ID is filtered"
     },
     {
-      "name" : "dpWriter.InvalidBuffer",
+      "name" : "Ref.dpWriter.InvalidBuffer",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -5720,7 +5720,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fileUplink.InvalidReceiveMode",
+      "name" : "Ref.fileUplink.InvalidReceiveMode",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5752,7 +5752,7 @@
       "throttle" : 5
     },
     {
-      "name" : "dpCat.CatalogXmitStarted",
+      "name" : "Ref.dpCat.CatalogXmitStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
       ],
@@ -5761,7 +5761,7 @@
       "annotation" : "Catalog transmission started"
     },
     {
-      "name" : "fatalAdapter.AF_ASSERT_0",
+      "name" : "Ref.fatalAdapter.AF_ASSERT_0",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -5791,7 +5791,7 @@
       "annotation" : "An assert happened"
     },
     {
-      "name" : "fileManager.ShellCommandSucceeded",
+      "name" : "Ref.fileManager.ShellCommandSucceeded",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -5810,7 +5810,7 @@
       "annotation" : "The File System component executed a shell command that returned status zero"
     },
     {
-      "name" : "sendBuffComp.PacketErrorInserted",
+      "name" : "Ref.sendBuffComp.PacketErrorInserted",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5830,7 +5830,7 @@
       "annotation" : "Packet checksum error"
     },
     {
-      "name" : "dpWriter.InvalidHeader",
+      "name" : "Ref.dpWriter.InvalidHeader",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -5862,7 +5862,7 @@
       "throttle" : 10
     },
     {
-      "name" : "prmDb.PrmDbFull",
+      "name" : "Ref.prmDb.PrmDbFull",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -5882,7 +5882,7 @@
       "annotation" : "Parameter database is full"
     },
     {
-      "name" : "fatalAdapter.AF_ASSERT_4",
+      "name" : "Ref.fatalAdapter.AF_ASSERT_4",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -5956,7 +5956,7 @@
       "annotation" : "An assert happened"
     },
     {
-      "name" : "fileUplink.UplinkCanceled",
+      "name" : "Ref.fileUplink.UplinkCanceled",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
       ],
@@ -5965,7 +5965,7 @@
       "annotation" : "The File Uplink component received a CANCEL packet"
     },
     {
-      "name" : "SG1.SignalGen_DpsNotConnected",
+      "name" : "Ref.SG1.SignalGen_DpsNotConnected",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -5973,7 +5973,7 @@
       "format" : "DP Ports not connected!"
     },
     {
-      "name" : "cmdDisp.OpCodeCompleted",
+      "name" : "Ref.cmdDisp.OpCodeCompleted",
       "severity" : "COMMAND",
       "formalParams" : [
         {
@@ -5993,7 +5993,7 @@
       "annotation" : "Op code completed event"
     },
     {
-      "name" : "cmdSeq.CS_FileNotFound",
+      "name" : "Ref.cmdSeq.CS_FileNotFound",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6012,7 +6012,7 @@
       "annotation" : "The sequence file was not found"
     },
     {
-      "name" : "dpCat.ProcessingFile",
+      "name" : "Ref.dpCat.ProcessingFile",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -6031,7 +6031,7 @@
       "annotation" : "Processing directory"
     },
     {
-      "name" : "fileManager.RemoveFileStarted",
+      "name" : "Ref.fileManager.RemoveFileStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6050,7 +6050,7 @@
       "annotation" : "The File System component began deleting an existing file"
     },
     {
-      "name" : "health.HLTH_PING_WARN",
+      "name" : "Ref.health.HLTH_PING_WARN",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6069,7 +6069,7 @@
       "annotation" : "Warn that a ping target is longer than the warning value"
     },
     {
-      "name" : "dpCat.DpXmitInProgress",
+      "name" : "Ref.dpCat.DpXmitInProgress",
       "severity" : "WARNING_LO",
       "formalParams" : [
       ],
@@ -6079,7 +6079,7 @@
       "throttle" : 10
     },
     {
-      "name" : "health.HLTH_PING_UPDATED",
+      "name" : "Ref.health.HLTH_PING_UPDATED",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6120,7 +6120,7 @@
       "annotation" : "Report changed ping"
     },
     {
-      "name" : "dpWriter.FileWritten",
+      "name" : "Ref.dpWriter.FileWritten",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -6150,7 +6150,7 @@
       "annotation" : "File written"
     },
     {
-      "name" : "cmdSeq.CS_CmdStepped",
+      "name" : "Ref.cmdSeq.CS_CmdStepped",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6180,7 +6180,7 @@
       "annotation" : "A command in a sequence was stepped through"
     },
     {
-      "name" : "cmdSeq.CS_SequenceTimeout",
+      "name" : "Ref.cmdSeq.CS_SequenceTimeout",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6210,7 +6210,7 @@
       "annotation" : "A sequence passed validation"
     },
     {
-      "name" : "rateGroup2Comp.RateGroupCycleSlip",
+      "name" : "Ref.rateGroup2Comp.RateGroupCycleSlip",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6230,7 +6230,7 @@
       "annotation" : "Warning event that rate group has had a cycle slip"
     },
     {
-      "name" : "rateGroup2Comp.RateGroupStarted",
+      "name" : "Ref.rateGroup2Comp.RateGroupStarted",
       "severity" : "DIAGNOSTIC",
       "formalParams" : [
       ],
@@ -6239,7 +6239,7 @@
       "annotation" : "Informational event that rate group has started"
     },
     {
-      "name" : "fileManager.FileRemoveError",
+      "name" : "Ref.fileManager.FileRemoveError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6269,7 +6269,7 @@
       "annotation" : "An error occurred while attempting to remove a file"
     },
     {
-      "name" : "fileManager.MoveFileStarted",
+      "name" : "Ref.fileManager.MoveFileStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6298,7 +6298,7 @@
       "annotation" : "The File System component began moving a file to a new location"
     },
     {
-      "name" : "typeDemo.FloatEv",
+      "name" : "Ref.typeDemo.FloatEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6342,7 +6342,7 @@
       "annotation" : "A set of floats in an event"
     },
     {
-      "name" : "fileManager.AppendFileSucceeded",
+      "name" : "Ref.fileManager.AppendFileSucceeded",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6371,7 +6371,7 @@
       "annotation" : "The File System component appended 2 files without error"
     },
     {
-      "name" : "eventLogger.SEVERITY_FILTER_STATE",
+      "name" : "Ref.eventLogger.SEVERITY_FILTER_STATE",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -6398,7 +6398,7 @@
       "annotation" : "Dump severity filter state"
     },
     {
-      "name" : "typeDemo.ChoicePairEv",
+      "name" : "Ref.typeDemo.ChoicePairEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6415,7 +6415,7 @@
       "annotation" : "Multiple choice event via Structure"
     },
     {
-      "name" : "health.HLTH_PING_WRONG_KEY",
+      "name" : "Ref.health.HLTH_PING_WRONG_KEY",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -6445,7 +6445,7 @@
       "annotation" : "Declare FATAL since task is no longer responding"
     },
     {
-      "name" : "cmdSeq.CS_PortSequenceStarted",
+      "name" : "Ref.cmdSeq.CS_PortSequenceStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6464,7 +6464,7 @@
       "annotation" : "A local port request to run a sequence was started"
     },
     {
-      "name" : "cmdSeq.CS_InvalidMode",
+      "name" : "Ref.cmdSeq.CS_InvalidMode",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -6473,7 +6473,7 @@
       "annotation" : "The Command Sequencer received a command that was invalid for its current mode."
     },
     {
-      "name" : "fileDownlink.DownlinkPartialFail",
+      "name" : "Ref.fileDownlink.DownlinkPartialFail",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6524,7 +6524,7 @@
       "annotation" : "The File Downlink component has detected a timeout. Downlink has been canceled."
     },
     {
-      "name" : "SG2.SignalGen_DpRecordFull",
+      "name" : "Ref.SG2.SignalGen_DpRecordFull",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -6552,7 +6552,7 @@
       "format" : "DP container full with {} records and {} bytes. Closing DP."
     },
     {
-      "name" : "fileManager.AppendFileStarted",
+      "name" : "Ref.fileManager.AppendFileStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6581,7 +6581,7 @@
       "annotation" : "The File System component appended 2 files without error"
     },
     {
-      "name" : "dpCat.FileReadError",
+      "name" : "Ref.dpCat.FileReadError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6612,7 +6612,7 @@
       "throttle" : 10
     },
     {
-      "name" : "SG5.SignalGen_DpStarted",
+      "name" : "Ref.SG5.SignalGen_DpStarted",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -6630,7 +6630,7 @@
       "format" : "Writing {} DP records"
     },
     {
-      "name" : "typeDemo.ChoicePairPrmEv",
+      "name" : "Ref.typeDemo.ChoicePairPrmEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6655,7 +6655,7 @@
       "annotation" : "Multiple choice parameter event via Structure"
     },
     {
-      "name" : "rateGroup3Comp.RateGroupCycleSlip",
+      "name" : "Ref.rateGroup3Comp.RateGroupCycleSlip",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6675,7 +6675,7 @@
       "annotation" : "Warning event that rate group has had a cycle slip"
     },
     {
-      "name" : "prmDb.PrmFileReadError",
+      "name" : "Ref.prmDb.PrmFileReadError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6715,7 +6715,7 @@
       "annotation" : "Failed to read parameter file"
     },
     {
-      "name" : "cmdSeq.CS_FileReadError",
+      "name" : "Ref.cmdSeq.CS_FileReadError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6734,7 +6734,7 @@
       "annotation" : "The Sequence File Loader could not read the sequence file."
     },
     {
-      "name" : "prmDb.PrmIdUpdated",
+      "name" : "Ref.prmDb.PrmIdUpdated",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6754,7 +6754,7 @@
       "annotation" : "Parameter ID updated in database"
     },
     {
-      "name" : "cmdDisp.InvalidCommand",
+      "name" : "Ref.cmdDisp.InvalidCommand",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6774,7 +6774,7 @@
       "annotation" : "Received an invalid opcode"
     },
     {
-      "name" : "SG4.SignalGen_DpsNotConnected",
+      "name" : "Ref.SG4.SignalGen_DpsNotConnected",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -6782,7 +6782,7 @@
       "format" : "DP Ports not connected!"
     },
     {
-      "name" : "fileManager.CreateDirectorySucceeded",
+      "name" : "Ref.fileManager.CreateDirectorySucceeded",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -6801,7 +6801,7 @@
       "annotation" : "The File System component created a new directory without error"
     },
     {
-      "name" : "cmdSeq.CS_FileCrcFailure",
+      "name" : "Ref.cmdSeq.CS_FileCrcFailure",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6842,7 +6842,7 @@
       "annotation" : "The sequence file validation failed"
     },
     {
-      "name" : "SG1.SignalGen_SettingsChanged",
+      "name" : "Ref.SG1.SignalGen_SettingsChanged",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -6887,7 +6887,7 @@
       "annotation" : "Signal Generator Settings Changed"
     },
     {
-      "name" : "cmdSeq.CS_SequenceLoaded",
+      "name" : "Ref.cmdSeq.CS_SequenceLoaded",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -6906,7 +6906,7 @@
       "annotation" : "Sequence file was successfully loaded."
     },
     {
-      "name" : "cmdDisp.MalformedCommand",
+      "name" : "Ref.cmdDisp.MalformedCommand",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -6924,7 +6924,7 @@
       "annotation" : "Received a malformed command packet"
     },
     {
-      "name" : "SG1.SignalGen_DpStarted",
+      "name" : "Ref.SG1.SignalGen_DpStarted",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -6942,7 +6942,7 @@
       "format" : "Writing {} DP records"
     },
     {
-      "name" : "fileDownlink.DownlinkPartialWarning",
+      "name" : "Ref.fileDownlink.DownlinkPartialWarning",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -7004,7 +7004,7 @@
       "annotation" : "The File Downlink component has detected a timeout. Downlink has been canceled."
     },
     {
-      "name" : "dpCat.DirectoryOpenError",
+      "name" : "Ref.dpCat.DirectoryOpenError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7034,7 +7034,7 @@
       "annotation" : "Error opening directory"
     },
     {
-      "name" : "eventLogger.ID_FILTER_LIST_FULL",
+      "name" : "Ref.eventLogger.ID_FILTER_LIST_FULL",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -7054,7 +7054,7 @@
       "annotation" : "Attempted to add ID to full ID filter ID"
     },
     {
-      "name" : "SG4.SignalGen_DpRecordFull",
+      "name" : "Ref.SG4.SignalGen_DpRecordFull",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -7082,7 +7082,7 @@
       "format" : "DP container full with {} records and {} bytes. Closing DP."
     },
     {
-      "name" : "cmdSeq.CS_ModeSwitched",
+      "name" : "Ref.cmdSeq.CS_ModeSwitched",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7100,7 +7100,7 @@
       "annotation" : "Switched step mode"
     },
     {
-      "name" : "dpBufferManager.NoBuffsAvailable",
+      "name" : "Ref.dpBufferManager.NoBuffsAvailable",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7121,7 +7121,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fileUplinkBufferManager.NoBuffsAvailable",
+      "name" : "Ref.fileUplinkBufferManager.NoBuffsAvailable",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7142,7 +7142,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fileUplink.PacketOutOfOrder",
+      "name" : "Ref.fileUplink.PacketOutOfOrder",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7174,7 +7174,7 @@
       "throttle" : 20
     },
     {
-      "name" : "SG3.SignalGen_DpComplete",
+      "name" : "Ref.SG3.SignalGen_DpComplete",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -7202,7 +7202,7 @@
       "format" : "Writing {} DP records {} bytes total"
     },
     {
-      "name" : "dpWriter.FileWriteError",
+      "name" : "Ref.dpWriter.FileWriteError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7255,7 +7255,7 @@
       "throttle" : 10
     },
     {
-      "name" : "fileUplink.FileOpenError",
+      "name" : "Ref.fileUplink.FileOpenError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7274,7 +7274,7 @@
       "annotation" : "An error occurred opening a file"
     },
     {
-      "name" : "cmdDisp.TestCmd1Args",
+      "name" : "Ref.cmdDisp.TestCmd1Args",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7315,7 +7315,7 @@
       "annotation" : "This log event message returns the TEST_CMD_1 arguments."
     },
     {
-      "name" : "dpCat.DpCatalogFull",
+      "name" : "Ref.dpCat.DpCatalogFull",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7334,7 +7334,7 @@
       "throttle" : 10
     },
     {
-      "name" : "health.HLTH_CHECK_LOOKUP_ERROR",
+      "name" : "Ref.health.HLTH_CHECK_LOOKUP_ERROR",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -7353,7 +7353,7 @@
       "annotation" : "Entry was not found"
     },
     {
-      "name" : "prmDb.PrmIdAdded",
+      "name" : "Ref.prmDb.PrmIdAdded",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7373,7 +7373,7 @@
       "annotation" : "Parameter ID added to database"
     },
     {
-      "name" : "cmdSeq.CS_CmdStarted",
+      "name" : "Ref.cmdSeq.CS_CmdStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7392,7 +7392,7 @@
       "annotation" : "A manual sequence was started"
     },
     {
-      "name" : "dpCat.ProcessingDirectory",
+      "name" : "Ref.dpCat.ProcessingDirectory",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -7411,7 +7411,7 @@
       "annotation" : "Processing directory"
     },
     {
-      "name" : "dpCat.ProductComplete",
+      "name" : "Ref.dpCat.ProductComplete",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -7430,7 +7430,7 @@
       "annotation" : "Product send complete"
     },
     {
-      "name" : "fileManager.FileSizeSucceeded",
+      "name" : "Ref.fileManager.FileSizeSucceeded",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7460,7 +7460,7 @@
       "annotation" : "File size response"
     },
     {
-      "name" : "dpWriter.InvalidHeaderHash",
+      "name" : "Ref.dpWriter.InvalidHeaderHash",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7503,7 +7503,7 @@
       "throttle" : 10
     },
     {
-      "name" : "cmdDisp.OpCodeRegistered",
+      "name" : "Ref.cmdDisp.OpCodeRegistered",
       "severity" : "DIAGNOSTIC",
       "formalParams" : [
         {
@@ -7544,7 +7544,7 @@
       "format" : "Opcode 0x{x} registered to port {} slot {}"
     },
     {
-      "name" : "cmdSeq.CS_CommandError",
+      "name" : "Ref.cmdSeq.CS_CommandError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7596,7 +7596,7 @@
       "annotation" : "The Command Sequencer issued a command and received an error status in return."
     },
     {
-      "name" : "fileManager.FileMoveError",
+      "name" : "Ref.fileManager.FileMoveError",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7636,7 +7636,7 @@
       "annotation" : "An error occurred while attempting to move a file"
     },
     {
-      "name" : "typeDemo.ChoicePrmEv",
+      "name" : "Ref.typeDemo.ChoicePrmEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7661,7 +7661,7 @@
       "annotation" : "Single choice parameter event"
     },
     {
-      "name" : "sendBuffComp.FirstPacketSent",
+      "name" : "Ref.sendBuffComp.FirstPacketSent",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7681,7 +7681,7 @@
       "annotation" : "First packet send"
     },
     {
-      "name" : "typeDemo.ChoiceSlurryEv",
+      "name" : "Ref.typeDemo.ChoiceSlurryEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7698,7 +7698,7 @@
       "annotation" : "Multiple choice event via Complex Structure"
     },
     {
-      "name" : "health.HLTH_PING_LATE",
+      "name" : "Ref.health.HLTH_PING_LATE",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -7717,7 +7717,7 @@
       "annotation" : "Declare FATAL since task is no longer responding"
     },
     {
-      "name" : "dpBufferManager.ZeroSizeBuffer",
+      "name" : "Ref.dpBufferManager.ZeroSizeBuffer",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -7727,7 +7727,7 @@
       "throttle" : 10
     },
     {
-      "name" : "prmDb.PrmIdNotFound",
+      "name" : "Ref.prmDb.PrmIdNotFound",
       "severity" : "WARNING_LO",
       "formalParams" : [
         {
@@ -7748,7 +7748,7 @@
       "throttle" : 5
     },
     {
-      "name" : "systemResources.FRAMEWORK_VERSION",
+      "name" : "Ref.systemResources.FRAMEWORK_VERSION",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -7767,7 +7767,7 @@
       "annotation" : "Version of the git repository."
     },
     {
-      "name" : "fatalAdapter.AF_ASSERT_5",
+      "name" : "Ref.fatalAdapter.AF_ASSERT_5",
       "severity" : "FATAL",
       "formalParams" : [
         {
@@ -7852,7 +7852,7 @@
       "annotation" : "An assert happened"
     },
     {
-      "name" : "cmdDisp.NoOpStringReceived",
+      "name" : "Ref.cmdDisp.NoOpStringReceived",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7871,7 +7871,7 @@
       "annotation" : "The command dispatcher has successfully received a NO-OP command from GUI with a string"
     },
     {
-      "name" : "SG2.SignalGen_DpComplete",
+      "name" : "Ref.SG2.SignalGen_DpComplete",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -7899,7 +7899,7 @@
       "format" : "Writing {} DP records {} bytes total"
     },
     {
-      "name" : "fileManager.RemoveDirectoryStarted",
+      "name" : "Ref.fileManager.RemoveDirectoryStarted",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -7918,7 +7918,7 @@
       "annotation" : "The File System component began deleting a directory"
     },
     {
-      "name" : "fileUplinkBufferManager.ZeroSizeBuffer",
+      "name" : "Ref.fileUplinkBufferManager.ZeroSizeBuffer",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -7928,7 +7928,7 @@
       "throttle" : 10
     },
     {
-      "name" : "SG5.SignalGen_DpComplete",
+      "name" : "Ref.SG5.SignalGen_DpComplete",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -7956,7 +7956,7 @@
       "format" : "Writing {} DP records {} bytes total"
     },
     {
-      "name" : "cmdSeq.CS_TimeContextMismatch",
+      "name" : "Ref.cmdSeq.CS_TimeContextMismatch",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -7997,7 +7997,7 @@
       "annotation" : "The running time base doesn't match the time base in the sequence files"
     },
     {
-      "name" : "typeDemo.ScalarStructEv",
+      "name" : "Ref.typeDemo.ScalarStructEv",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -8014,7 +8014,7 @@
       "annotation" : "Event for scalar struct"
     },
     {
-      "name" : "dpCat.ComponentNoMemory",
+      "name" : "Ref.dpCat.ComponentNoMemory",
       "severity" : "WARNING_HI",
       "formalParams" : [
       ],
@@ -8024,7 +8024,7 @@
       "throttle" : 10
     },
     {
-      "name" : "cmdSeq.CS_SequenceCanceled",
+      "name" : "Ref.cmdSeq.CS_SequenceCanceled",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -8043,7 +8043,7 @@
       "annotation" : "A command sequence was successfully canceled."
     },
     {
-      "name" : "fileManager.RemoveFileSucceeded",
+      "name" : "Ref.fileManager.RemoveFileSucceeded",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -8062,7 +8062,7 @@
       "annotation" : "The File System component deleted an existing file without error"
     },
     {
-      "name" : "SG3.SignalGen_DpStarted",
+      "name" : "Ref.SG3.SignalGen_DpStarted",
       "severity" : "ACTIVITY_LO",
       "formalParams" : [
         {
@@ -8082,7 +8082,7 @@
   ],
   "telemetryChannels" : [
     {
-      "name" : "pingRcvr.PR_NumPings",
+      "name" : "Ref.pingRcvr.PR_NumPings",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8094,7 +8094,7 @@
       "annotation" : "Number of pings received"
     },
     {
-      "name" : "SG1.PairHistory",
+      "name" : "Ref.SG1.PairHistory",
       "type" : {
         "name" : "Ref.SignalPairSet",
         "kind" : "qualifiedIdentifier"
@@ -8104,7 +8104,7 @@
       "annotation" : "Last 10 (time, value) pairs of the signal"
     },
     {
-      "name" : "recvBuffComp.Parameter2",
+      "name" : "Ref.recvBuffComp.Parameter2",
       "type" : {
         "name" : "I16",
         "kind" : "integer",
@@ -8128,7 +8128,7 @@
       }
     },
     {
-      "name" : "systemResources.CPU",
+      "name" : "Ref.systemResources.CPU",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8140,7 +8140,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "SG3.Type",
+      "name" : "Ref.SG3.Type",
       "type" : {
         "name" : "Ref.SignalType",
         "kind" : "qualifiedIdentifier"
@@ -8150,7 +8150,7 @@
       "annotation" : "Type of the output signal: SINE, TRIANGLE, etc."
     },
     {
-      "name" : "rateGroup3Comp.RgMaxTime",
+      "name" : "Ref.rateGroup3Comp.RgMaxTime",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8163,7 +8163,7 @@
       "annotation" : "Max execution time rate group"
     },
     {
-      "name" : "fileUplink.Warnings",
+      "name" : "Ref.fileUplink.Warnings",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8175,7 +8175,7 @@
       "annotation" : "The total number of warnings issued"
     },
     {
-      "name" : "sendBuffComp.Parameter4",
+      "name" : "Ref.sendBuffComp.Parameter4",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8186,7 +8186,7 @@
       "annotation" : "Readback of Parameter4"
     },
     {
-      "name" : "SG4.DpBytes",
+      "name" : "Ref.SG4.DpBytes",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8198,7 +8198,7 @@
       "annotation" : "DP bytes written"
     },
     {
-      "name" : "SG1.PairOutput",
+      "name" : "Ref.SG1.PairOutput",
       "type" : {
         "name" : "Ref.SignalPair",
         "kind" : "qualifiedIdentifier"
@@ -8208,7 +8208,7 @@
       "annotation" : "Single (time, value) pair of the signal"
     },
     {
-      "name" : "SG2.Info",
+      "name" : "Ref.SG2.Info",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -8218,7 +8218,7 @@
       "annotation" : "Composite field of signal information, containing histories, pairs etc"
     },
     {
-      "name" : "fileDownlink.PacketsSent",
+      "name" : "Ref.fileDownlink.PacketsSent",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8230,7 +8230,7 @@
       "annotation" : "The total number of packets sent"
     },
     {
-      "name" : "systemResources.CPU_08",
+      "name" : "Ref.systemResources.CPU_08",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8242,7 +8242,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "fileUplinkBufferManager.NoBuffs",
+      "name" : "Ref.fileUplinkBufferManager.NoBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8259,7 +8259,7 @@
       }
     },
     {
-      "name" : "recvBuffComp.Sensor2",
+      "name" : "Ref.recvBuffComp.Sensor2",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8270,7 +8270,7 @@
       "annotation" : "Value of Sensor3"
     },
     {
-      "name" : "SG3.History",
+      "name" : "Ref.SG3.History",
       "type" : {
         "name" : "Ref.SignalSet",
         "kind" : "qualifiedIdentifier"
@@ -8280,7 +8280,7 @@
       "annotation" : "Last 10 Y values of the signal"
     },
     {
-      "name" : "dpWriter.NumBytesWritten",
+      "name" : "Ref.dpWriter.NumBytesWritten",
       "type" : {
         "name" : "U64",
         "kind" : "integer",
@@ -8292,7 +8292,7 @@
       "annotation" : "The number of bytes written"
     },
     {
-      "name" : "SG4.PairOutput",
+      "name" : "Ref.SG4.PairOutput",
       "type" : {
         "name" : "Ref.SignalPair",
         "kind" : "qualifiedIdentifier"
@@ -8302,7 +8302,7 @@
       "annotation" : "Single (time, value) pair of the signal"
     },
     {
-      "name" : "SG5.PairHistory",
+      "name" : "Ref.SG5.PairHistory",
       "type" : {
         "name" : "Ref.SignalPairSet",
         "kind" : "qualifiedIdentifier"
@@ -8312,7 +8312,7 @@
       "annotation" : "Last 10 (time, value) pairs of the signal"
     },
     {
-      "name" : "systemResources.CPU_14",
+      "name" : "Ref.systemResources.CPU_14",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8324,7 +8324,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "dpBufferManager.HiBuffs",
+      "name" : "Ref.dpBufferManager.HiBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8336,7 +8336,7 @@
       "annotation" : "The high water mark of allocated buffers"
     },
     {
-      "name" : "SG2.Output",
+      "name" : "Ref.SG2.Output",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8348,7 +8348,7 @@
       "annotation" : "Single Y value of the output"
     },
     {
-      "name" : "systemResources.CPU_04",
+      "name" : "Ref.systemResources.CPU_04",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8360,7 +8360,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "fileDownlink.FilesSent",
+      "name" : "Ref.fileDownlink.FilesSent",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8372,7 +8372,7 @@
       "annotation" : "The total number of files sent"
     },
     {
-      "name" : "SG3.DpRecords",
+      "name" : "Ref.SG3.DpRecords",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8384,7 +8384,7 @@
       "annotation" : "DP records written"
     },
     {
-      "name" : "SG4.Type",
+      "name" : "Ref.SG4.Type",
       "type" : {
         "name" : "Ref.SignalType",
         "kind" : "qualifiedIdentifier"
@@ -8394,7 +8394,7 @@
       "annotation" : "Type of the output signal: SINE, TRIANGLE, etc."
     },
     {
-      "name" : "dpMgr.NumSuccessfulAllocations",
+      "name" : "Ref.dpMgr.NumSuccessfulAllocations",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8406,7 +8406,7 @@
       "annotation" : "The number of successful buffer allocations"
     },
     {
-      "name" : "typeDemo.ChoicesCh",
+      "name" : "Ref.typeDemo.ChoicesCh",
       "type" : {
         "name" : "Ref.ManyChoices",
         "kind" : "qualifiedIdentifier"
@@ -8416,7 +8416,7 @@
       "annotation" : "Multiple choice channel via Array"
     },
     {
-      "name" : "SG5.History",
+      "name" : "Ref.SG5.History",
       "type" : {
         "name" : "Ref.SignalSet",
         "kind" : "qualifiedIdentifier"
@@ -8426,7 +8426,7 @@
       "annotation" : "Last 10 Y values of the signal"
     },
     {
-      "name" : "typeDemo.Float2Ch",
+      "name" : "Ref.typeDemo.Float2Ch",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8437,7 +8437,7 @@
       "annotation" : "Float output channel 2"
     },
     {
-      "name" : "fileManager.Errors",
+      "name" : "Ref.fileManager.Errors",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8449,7 +8449,7 @@
       "annotation" : "The total number of errors"
     },
     {
-      "name" : "systemResources.CPU_01",
+      "name" : "Ref.systemResources.CPU_01",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8461,7 +8461,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "fileUplinkBufferManager.HiBuffs",
+      "name" : "Ref.fileUplinkBufferManager.HiBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8473,7 +8473,7 @@
       "annotation" : "The high water mark of allocated buffers"
     },
     {
-      "name" : "systemResources.MEMORY_USED",
+      "name" : "Ref.systemResources.MEMORY_USED",
       "type" : {
         "name" : "U64",
         "kind" : "integer",
@@ -8486,7 +8486,7 @@
       "annotation" : "System memory used in KB"
     },
     {
-      "name" : "systemResources.CPU_11",
+      "name" : "Ref.systemResources.CPU_11",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8498,7 +8498,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "SG1.DpBytes",
+      "name" : "Ref.SG1.DpBytes",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8510,7 +8510,7 @@
       "annotation" : "DP bytes written"
     },
     {
-      "name" : "SG5.Type",
+      "name" : "Ref.SG5.Type",
       "type" : {
         "name" : "Ref.SignalType",
         "kind" : "qualifiedIdentifier"
@@ -8520,7 +8520,7 @@
       "annotation" : "Type of the output signal: SINE, TRIANGLE, etc."
     },
     {
-      "name" : "rateGroup1Comp.RgMaxTime",
+      "name" : "Ref.rateGroup1Comp.RgMaxTime",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8533,7 +8533,7 @@
       "annotation" : "Max execution time rate group"
     },
     {
-      "name" : "SG4.Info",
+      "name" : "Ref.SG4.Info",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -8543,7 +8543,7 @@
       "annotation" : "Composite field of signal information, containing histories, pairs etc"
     },
     {
-      "name" : "recvBuffComp.Sensor1",
+      "name" : "Ref.recvBuffComp.Sensor1",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8555,7 +8555,7 @@
       "annotation" : "Value of Sensor1"
     },
     {
-      "name" : "dpWriter.NumErrors",
+      "name" : "Ref.dpWriter.NumErrors",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8567,7 +8567,7 @@
       "annotation" : "The number of errors"
     },
     {
-      "name" : "systemResources.CPU_13",
+      "name" : "Ref.systemResources.CPU_13",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8579,7 +8579,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "SG4.Output",
+      "name" : "Ref.SG4.Output",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8591,7 +8591,7 @@
       "annotation" : "Single Y value of the output"
     },
     {
-      "name" : "systemResources.CPU_09",
+      "name" : "Ref.systemResources.CPU_09",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8603,7 +8603,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "SG3.PairHistory",
+      "name" : "Ref.SG3.PairHistory",
       "type" : {
         "name" : "Ref.SignalPairSet",
         "kind" : "qualifiedIdentifier"
@@ -8613,7 +8613,7 @@
       "annotation" : "Last 10 (time, value) pairs of the signal"
     },
     {
-      "name" : "cmdDisp.CommandErrors",
+      "name" : "Ref.cmdDisp.CommandErrors",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8625,7 +8625,7 @@
       "annotation" : "Number of command errors"
     },
     {
-      "name" : "sendBuffComp.Parameter3",
+      "name" : "Ref.sendBuffComp.Parameter3",
       "type" : {
         "name" : "U8",
         "kind" : "integer",
@@ -8637,7 +8637,7 @@
       "annotation" : "Readback of Parameter3"
     },
     {
-      "name" : "fileDownlink.Warnings",
+      "name" : "Ref.fileDownlink.Warnings",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8649,7 +8649,7 @@
       "annotation" : "The total number of warnings"
     },
     {
-      "name" : "fileUplinkBufferManager.EmptyBuffs",
+      "name" : "Ref.fileUplinkBufferManager.EmptyBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8666,7 +8666,7 @@
       }
     },
     {
-      "name" : "systemResources.NON_VOLATILE_FREE",
+      "name" : "Ref.systemResources.NON_VOLATILE_FREE",
       "type" : {
         "name" : "U64",
         "kind" : "integer",
@@ -8679,7 +8679,7 @@
       "annotation" : "System non-volatile available in KB"
     },
     {
-      "name" : "SG1.History",
+      "name" : "Ref.SG1.History",
       "type" : {
         "name" : "Ref.SignalSet",
         "kind" : "qualifiedIdentifier"
@@ -8689,7 +8689,7 @@
       "annotation" : "Last 10 Y values of the signal"
     },
     {
-      "name" : "cmdSeq.CS_SequencesCompleted",
+      "name" : "Ref.cmdSeq.CS_SequencesCompleted",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8701,7 +8701,7 @@
       "annotation" : "The number of sequences completed."
     },
     {
-      "name" : "blockDrv.BD_Cycles",
+      "name" : "Ref.blockDrv.BD_Cycles",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8713,7 +8713,7 @@
       "annotation" : "Driver cycle count"
     },
     {
-      "name" : "SG2.Type",
+      "name" : "Ref.SG2.Type",
       "type" : {
         "name" : "Ref.SignalType",
         "kind" : "qualifiedIdentifier"
@@ -8723,7 +8723,7 @@
       "annotation" : "Type of the output signal: SINE, TRIANGLE, etc."
     },
     {
-      "name" : "systemResources.CPU_05",
+      "name" : "Ref.systemResources.CPU_05",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8735,7 +8735,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "SG5.Info",
+      "name" : "Ref.SG5.Info",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -8745,7 +8745,7 @@
       "annotation" : "Composite field of signal information, containing histories, pairs etc"
     },
     {
-      "name" : "fileUplink.FilesReceived",
+      "name" : "Ref.fileUplink.FilesReceived",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8757,7 +8757,7 @@
       "annotation" : "The total number of complete files received"
     },
     {
-      "name" : "cmdSeq.CS_CommandsExecuted",
+      "name" : "Ref.cmdSeq.CS_CommandsExecuted",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8769,7 +8769,7 @@
       "annotation" : "The number of commands executed across all sequences."
     },
     {
-      "name" : "recvBuffComp.PktState",
+      "name" : "Ref.recvBuffComp.PktState",
       "type" : {
         "name" : "Ref.PacketStat",
         "kind" : "qualifiedIdentifier"
@@ -8779,7 +8779,7 @@
       "annotation" : "Packet Statistics"
     },
     {
-      "name" : "SG1.DpRecords",
+      "name" : "Ref.SG1.DpRecords",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8791,7 +8791,7 @@
       "annotation" : "DP records written"
     },
     {
-      "name" : "dpBufferManager.NoBuffs",
+      "name" : "Ref.dpBufferManager.NoBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8808,7 +8808,7 @@
       }
     },
     {
-      "name" : "systemResources.PROJECT_VERSION",
+      "name" : "Ref.systemResources.PROJECT_VERSION",
       "type" : {
         "name" : "string",
         "kind" : "string",
@@ -8819,7 +8819,7 @@
       "annotation" : "Software project version"
     },
     {
-      "name" : "typeDemo.ChoiceCh",
+      "name" : "Ref.typeDemo.ChoiceCh",
       "type" : {
         "name" : "Ref.Choice",
         "kind" : "qualifiedIdentifier"
@@ -8829,7 +8829,7 @@
       "annotation" : "Single choice channel"
     },
     {
-      "name" : "dpMgr.NumFailedAllocations",
+      "name" : "Ref.dpMgr.NumFailedAllocations",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8841,7 +8841,7 @@
       "annotation" : "The number of failed buffer allocations"
     },
     {
-      "name" : "SG2.PairHistory",
+      "name" : "Ref.SG2.PairHistory",
       "type" : {
         "name" : "Ref.SignalPairSet",
         "kind" : "qualifiedIdentifier"
@@ -8851,7 +8851,7 @@
       "annotation" : "Last 10 (time, value) pairs of the signal"
     },
     {
-      "name" : "rateGroup1Comp.RgCycleSlips",
+      "name" : "Ref.rateGroup1Comp.RgCycleSlips",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8863,7 +8863,7 @@
       "annotation" : "Cycle slips for rate group"
     },
     {
-      "name" : "typeDemo.ExtraChoicesCh",
+      "name" : "Ref.typeDemo.ExtraChoicesCh",
       "type" : {
         "name" : "Ref.TooManyChoices",
         "kind" : "qualifiedIdentifier"
@@ -8873,7 +8873,7 @@
       "annotation" : "Too many choice channel via Array"
     },
     {
-      "name" : "typeDemo.Float3Ch",
+      "name" : "Ref.typeDemo.Float3Ch",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8884,7 +8884,7 @@
       "annotation" : "Float output channel 3"
     },
     {
-      "name" : "fileManager.CommandsExecuted",
+      "name" : "Ref.fileManager.CommandsExecuted",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8896,7 +8896,7 @@
       "annotation" : "The total number of commands successfully executed"
     },
     {
-      "name" : "systemResources.CPU_10",
+      "name" : "Ref.systemResources.CPU_10",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8908,7 +8908,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "systemResources.CPU_12",
+      "name" : "Ref.systemResources.CPU_12",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8920,7 +8920,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "SG2.DpRecords",
+      "name" : "Ref.SG2.DpRecords",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8932,7 +8932,7 @@
       "annotation" : "DP records written"
     },
     {
-      "name" : "systemResources.NON_VOLATILE_TOTAL",
+      "name" : "Ref.systemResources.NON_VOLATILE_TOTAL",
       "type" : {
         "name" : "U64",
         "kind" : "integer",
@@ -8945,7 +8945,7 @@
       "annotation" : "System non-volatile available in KB"
     },
     {
-      "name" : "dpWriter.NumBuffersReceived",
+      "name" : "Ref.dpWriter.NumBuffersReceived",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8957,7 +8957,7 @@
       "annotation" : "The number of buffers received"
     },
     {
-      "name" : "dpWriter.NumFailedWrites",
+      "name" : "Ref.dpWriter.NumFailedWrites",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8969,7 +8969,7 @@
       "annotation" : "The number of failed writes"
     },
     {
-      "name" : "sendBuffComp.NumErrorsInjected",
+      "name" : "Ref.sendBuffComp.NumErrorsInjected",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -8981,7 +8981,7 @@
       "annotation" : "Number of errors injected"
     },
     {
-      "name" : "systemResources.CPU_03",
+      "name" : "Ref.systemResources.CPU_03",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -8993,7 +8993,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "health.PingLateWarnings",
+      "name" : "Ref.health.PingLateWarnings",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9005,7 +9005,7 @@
       "annotation" : "Number of overrun warnings"
     },
     {
-      "name" : "rateGroup2Comp.RgCycleSlips",
+      "name" : "Ref.rateGroup2Comp.RgCycleSlips",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9017,7 +9017,7 @@
       "annotation" : "Cycle slips for rate group"
     },
     {
-      "name" : "SG5.DpBytes",
+      "name" : "Ref.SG5.DpBytes",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9029,7 +9029,7 @@
       "annotation" : "DP bytes written"
     },
     {
-      "name" : "rateGroup2Comp.RgMaxTime",
+      "name" : "Ref.rateGroup2Comp.RgMaxTime",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9042,7 +9042,7 @@
       "annotation" : "Max execution time rate group"
     },
     {
-      "name" : "SG3.Info",
+      "name" : "Ref.SG3.Info",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -9052,7 +9052,7 @@
       "annotation" : "Composite field of signal information, containing histories, pairs etc"
     },
     {
-      "name" : "typeDemo.ChoicePairCh",
+      "name" : "Ref.typeDemo.ChoicePairCh",
       "type" : {
         "name" : "Ref.ChoicePair",
         "kind" : "qualifiedIdentifier"
@@ -9062,7 +9062,7 @@
       "annotation" : "Multiple choice channel via Structure"
     },
     {
-      "name" : "dpMgr.NumDataProducts",
+      "name" : "Ref.dpMgr.NumDataProducts",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9074,7 +9074,7 @@
       "annotation" : "Number of data products handled"
     },
     {
-      "name" : "dpBufferManager.EmptyBuffs",
+      "name" : "Ref.dpBufferManager.EmptyBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9091,7 +9091,7 @@
       }
     },
     {
-      "name" : "systemResources.CPU_06",
+      "name" : "Ref.systemResources.CPU_06",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9103,7 +9103,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "SG5.Output",
+      "name" : "Ref.SG5.Output",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9115,7 +9115,7 @@
       "annotation" : "Single Y value of the output"
     },
     {
-      "name" : "typeDemo.FloatSet",
+      "name" : "Ref.typeDemo.FloatSet",
       "type" : {
         "name" : "Ref.FloatSet",
         "kind" : "qualifiedIdentifier"
@@ -9125,7 +9125,7 @@
       "annotation" : "Float set output channel"
     },
     {
-      "name" : "rateGroup3Comp.RgCycleSlips",
+      "name" : "Ref.rateGroup3Comp.RgCycleSlips",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9137,7 +9137,7 @@
       "annotation" : "Cycle slips for rate group"
     },
     {
-      "name" : "systemResources.FRAMEWORK_VERSION",
+      "name" : "Ref.systemResources.FRAMEWORK_VERSION",
       "type" : {
         "name" : "string",
         "kind" : "string",
@@ -9148,7 +9148,7 @@
       "annotation" : "Software framework version"
     },
     {
-      "name" : "SG2.History",
+      "name" : "Ref.SG2.History",
       "type" : {
         "name" : "Ref.SignalSet",
         "kind" : "qualifiedIdentifier"
@@ -9158,7 +9158,7 @@
       "annotation" : "Last 10 Y values of the signal"
     },
     {
-      "name" : "cmdSeq.CS_Errors",
+      "name" : "Ref.cmdSeq.CS_Errors",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9170,7 +9170,7 @@
       "annotation" : "The number of errors that have occurred"
     },
     {
-      "name" : "SG4.PairHistory",
+      "name" : "Ref.SG4.PairHistory",
       "type" : {
         "name" : "Ref.SignalPairSet",
         "kind" : "qualifiedIdentifier"
@@ -9180,7 +9180,7 @@
       "annotation" : "Last 10 (time, value) pairs of the signal"
     },
     {
-      "name" : "SG1.Type",
+      "name" : "Ref.SG1.Type",
       "type" : {
         "name" : "Ref.SignalType",
         "kind" : "qualifiedIdentifier"
@@ -9190,7 +9190,7 @@
       "annotation" : "Type of the output signal: SINE, TRIANGLE, etc."
     },
     {
-      "name" : "cmdSeq.CS_LoadCommands",
+      "name" : "Ref.cmdSeq.CS_LoadCommands",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9202,7 +9202,7 @@
       "annotation" : "The number of Load commands executed"
     },
     {
-      "name" : "SG1.Output",
+      "name" : "Ref.SG1.Output",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9214,7 +9214,7 @@
       "annotation" : "Single Y value of the output"
     },
     {
-      "name" : "sendBuffComp.SendState",
+      "name" : "Ref.sendBuffComp.SendState",
       "type" : {
         "name" : "Ref.SendBuff.ActiveState",
         "kind" : "qualifiedIdentifier"
@@ -9224,7 +9224,7 @@
       "annotation" : "Readback of Parameter4"
     },
     {
-      "name" : "dpCat.CatalogDps",
+      "name" : "Ref.dpCat.CatalogDps",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9236,7 +9236,7 @@
       "annotation" : "Number of data products in catalog"
     },
     {
-      "name" : "SG4.History",
+      "name" : "Ref.SG4.History",
       "type" : {
         "name" : "Ref.SignalSet",
         "kind" : "qualifiedIdentifier"
@@ -9246,7 +9246,7 @@
       "annotation" : "Last 10 Y values of the signal"
     },
     {
-      "name" : "dpBufferManager.TotalBuffs",
+      "name" : "Ref.dpBufferManager.TotalBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9258,7 +9258,7 @@
       "annotation" : "The total buffers allocated"
     },
     {
-      "name" : "SG3.PairOutput",
+      "name" : "Ref.SG3.PairOutput",
       "type" : {
         "name" : "Ref.SignalPair",
         "kind" : "qualifiedIdentifier"
@@ -9268,7 +9268,7 @@
       "annotation" : "Single (time, value) pair of the signal"
     },
     {
-      "name" : "fileUplink.PacketsReceived",
+      "name" : "Ref.fileUplink.PacketsReceived",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9280,7 +9280,7 @@
       "annotation" : "The total number of packets received"
     },
     {
-      "name" : "systemResources.CPU_15",
+      "name" : "Ref.systemResources.CPU_15",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9292,7 +9292,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "recvBuffComp.Parameter1",
+      "name" : "Ref.recvBuffComp.Parameter1",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9304,7 +9304,7 @@
       "annotation" : "Readback of Parameter1"
     },
     {
-      "name" : "fileUplinkBufferManager.TotalBuffs",
+      "name" : "Ref.fileUplinkBufferManager.TotalBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9316,7 +9316,7 @@
       "annotation" : "The total buffers allocated"
     },
     {
-      "name" : "dpCat.DpsSent",
+      "name" : "Ref.dpCat.DpsSent",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9328,7 +9328,7 @@
       "annotation" : "Number of data products sent"
     },
     {
-      "name" : "SG4.DpRecords",
+      "name" : "Ref.SG4.DpRecords",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9340,7 +9340,7 @@
       "annotation" : "DP records written"
     },
     {
-      "name" : "dpWriter.NumSuccessfulWrites",
+      "name" : "Ref.dpWriter.NumSuccessfulWrites",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9352,7 +9352,7 @@
       "annotation" : "The number of successful writes"
     },
     {
-      "name" : "SG2.DpBytes",
+      "name" : "Ref.SG2.DpBytes",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9364,7 +9364,7 @@
       "annotation" : "DP bytes written"
     },
     {
-      "name" : "cmdDisp.CommandsDispatched",
+      "name" : "Ref.cmdDisp.CommandsDispatched",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9376,7 +9376,7 @@
       "annotation" : "Number of commands dispatched"
     },
     {
-      "name" : "typeDemo.ChoiceSlurryCh",
+      "name" : "Ref.typeDemo.ChoiceSlurryCh",
       "type" : {
         "name" : "Ref.ChoiceSlurry",
         "kind" : "qualifiedIdentifier"
@@ -9386,7 +9386,7 @@
       "annotation" : "Multiple choice channel via Complex Structure"
     },
     {
-      "name" : "systemResources.CPU_00",
+      "name" : "Ref.systemResources.CPU_00",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9398,7 +9398,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "systemResources.CPU_02",
+      "name" : "Ref.systemResources.CPU_02",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9410,7 +9410,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "typeDemo.Float1Ch",
+      "name" : "Ref.typeDemo.Float1Ch",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9421,7 +9421,7 @@
       "annotation" : "Float output channel 1"
     },
     {
-      "name" : "sendBuffComp.PacketsSent",
+      "name" : "Ref.sendBuffComp.PacketsSent",
       "type" : {
         "name" : "U64",
         "kind" : "integer",
@@ -9433,7 +9433,7 @@
       "annotation" : "Number of packets sent"
     },
     {
-      "name" : "dpBufferManager.CurrBuffs",
+      "name" : "Ref.dpBufferManager.CurrBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9445,7 +9445,7 @@
       "annotation" : "The current number of allocated buffers"
     },
     {
-      "name" : "systemResources.CPU_07",
+      "name" : "Ref.systemResources.CPU_07",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9457,7 +9457,7 @@
       "annotation" : "System's CPU Percentage"
     },
     {
-      "name" : "systemResources.MEMORY_TOTAL",
+      "name" : "Ref.systemResources.MEMORY_TOTAL",
       "type" : {
         "name" : "U64",
         "kind" : "integer",
@@ -9470,7 +9470,7 @@
       "annotation" : "Total system memory in KB"
     },
     {
-      "name" : "SG2.PairOutput",
+      "name" : "Ref.SG2.PairOutput",
       "type" : {
         "name" : "Ref.SignalPair",
         "kind" : "qualifiedIdentifier"
@@ -9480,7 +9480,7 @@
       "annotation" : "Single (time, value) pair of the signal"
     },
     {
-      "name" : "dpMgr.NumBytes",
+      "name" : "Ref.dpMgr.NumBytes",
       "type" : {
         "name" : "U64",
         "kind" : "integer",
@@ -9492,7 +9492,7 @@
       "annotation" : "Number of bytes handled"
     },
     {
-      "name" : "fileUplinkBufferManager.CurrBuffs",
+      "name" : "Ref.fileUplinkBufferManager.CurrBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9504,7 +9504,7 @@
       "annotation" : "The current number of allocated buffers"
     },
     {
-      "name" : "cmdSeq.CS_CancelCommands",
+      "name" : "Ref.cmdSeq.CS_CancelCommands",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9516,7 +9516,7 @@
       "annotation" : "The number of Cancel commands executed"
     },
     {
-      "name" : "SG5.PairOutput",
+      "name" : "Ref.SG5.PairOutput",
       "type" : {
         "name" : "Ref.SignalPair",
         "kind" : "qualifiedIdentifier"
@@ -9526,7 +9526,7 @@
       "annotation" : "Single (time, value) pair of the signal"
     },
     {
-      "name" : "SG1.Info",
+      "name" : "Ref.SG1.Info",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -9536,7 +9536,7 @@
       "annotation" : "Composite field of signal information, containing histories, pairs etc"
     },
     {
-      "name" : "SG3.Output",
+      "name" : "Ref.SG3.Output",
       "type" : {
         "name" : "F32",
         "kind" : "float",
@@ -9548,7 +9548,7 @@
       "annotation" : "Single Y value of the output"
     },
     {
-      "name" : "SG5.DpRecords",
+      "name" : "Ref.SG5.DpRecords",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9560,7 +9560,7 @@
       "annotation" : "DP records written"
     },
     {
-      "name" : "SG3.DpBytes",
+      "name" : "Ref.SG3.DpBytes",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -9574,7 +9574,7 @@
   ],
   "records" : [
     {
-      "name" : "SG3.DataRecord",
+      "name" : "Ref.SG3.DataRecord",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -9584,7 +9584,7 @@
       "annotation" : "Signal generation data product record"
     },
     {
-      "name" : "SG4.DataRecord",
+      "name" : "Ref.SG4.DataRecord",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -9594,7 +9594,7 @@
       "annotation" : "Signal generation data product record"
     },
     {
-      "name" : "SG5.DataRecord",
+      "name" : "Ref.SG5.DataRecord",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -9604,7 +9604,7 @@
       "annotation" : "Signal generation data product record"
     },
     {
-      "name" : "SG2.DataRecord",
+      "name" : "Ref.SG2.DataRecord",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -9614,7 +9614,7 @@
       "annotation" : "Signal generation data product record"
     },
     {
-      "name" : "SG1.DataRecord",
+      "name" : "Ref.SG1.DataRecord",
       "type" : {
         "name" : "Ref.SignalInfo",
         "kind" : "qualifiedIdentifier"
@@ -9626,31 +9626,31 @@
   ],
   "containers" : [
     {
-      "name" : "SG3.DataContainer",
+      "name" : "Ref.SG3.DataContainer",
       "id" : 8960,
       "defaultPriority" : 10,
       "annotation" : "Data product container"
     },
     {
-      "name" : "SG4.DataContainer",
+      "name" : "Ref.SG4.DataContainer",
       "id" : 9216,
       "defaultPriority" : 10,
       "annotation" : "Data product container"
     },
     {
-      "name" : "SG5.DataContainer",
+      "name" : "Ref.SG5.DataContainer",
       "id" : 9472,
       "defaultPriority" : 10,
       "annotation" : "Data product container"
     },
     {
-      "name" : "SG2.DataContainer",
+      "name" : "Ref.SG2.DataContainer",
       "id" : 8704,
       "defaultPriority" : 10,
       "annotation" : "Data product container"
     },
     {
-      "name" : "SG1.DataContainer",
+      "name" : "Ref.SG1.DataContainer",
       "id" : 8448,
       "defaultPriority" : 10,
       "annotation" : "Data product container"
