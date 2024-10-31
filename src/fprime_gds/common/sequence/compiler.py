@@ -446,7 +446,6 @@ def main():
 
 
 def compile(node: ast.Module, dictionary: Path):
-    print(ast.dump(node, indent=4))
 
     cmd_json_dict_loader = CmdJsonLoader(dictionary)
     (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
@@ -460,21 +459,17 @@ def compile(node: ast.Module, dictionary: Path):
     (ch_id_dict, ch_name_dict, versions) = ch_json_dict_loader.construct_dicts(
         dictionary
     )
-    print("RESOLVING NAMES")
     name_resolver = ResolveNames(
         cmd_name_dict, type_name_dict, ch_name_dict, seq_directive_name_dict
     )
     node = name_resolver.visit(node)
 
-    print(ast.dump(node, indent=4))
     if not check_for_errors(node):
         return 1
 
-    print("CHECKING CALLS")
     call_checker = CheckCalls(type_name_dict)
     node = call_checker.visit(node)
 
-    print(ast.dump(node, indent=4))
     if not check_for_errors(node):
         return 1
 
