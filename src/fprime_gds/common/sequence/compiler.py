@@ -74,7 +74,7 @@ class FpyCmd(ast.AST):
     cmd_template: CmdTemplate
 
 
-FpyCmd._fields = ["namespace", "name", "fprime_cmd"]
+FpyCmd._fields = ["namespace", "name", "cmd_template"]
 
 
 @dataclass
@@ -84,7 +84,7 @@ class FpyCh(ast.AST):
     ch_template: ChTemplate
 
 
-FpyCh._fields = ["namespace", "name", "fprime_ch"]
+FpyCh._fields = ["namespace", "name", "ch_template"]
 
 
 class ResolveNames(ast.NodeTransformer):
@@ -142,8 +142,13 @@ class ResolveNames(ast.NodeTransformer):
                 node.error = "Invalid syntax"
                 return node
 
+            enum_const_name = node.attr
+            if enum_const_name not in resolved_fprime_enum_type.ENUM_DICT:
+                node.error = "Unknown enum constant '" + str(enum_const_name) + "'"
+                return node
+
             # this is a python integer
-            enum_value_py = resolved_fprime_enum_type.ENUM_DICT[node.attr]
+            enum_value_py = resolved_fprime_enum_type.ENUM_DICT[enum_const_name]
             # this is a string
             enum_repr_type_name = resolved_fprime_enum_type.REP_TYPE
             # this is a subclass of ValueType
@@ -170,7 +175,7 @@ class ResolveNames(ast.NodeTransformer):
         return node
 
 
-class ParseCalls(ast.NodeTransformer):
+class CheckCalls(ast.NodeTransformer):
 
     def __init__(self, type_name_dict: dict[str, type[ValueType]]):
         self.type_name_dict = type_name_dict
@@ -182,37 +187,64 @@ class ParseCalls(ast.NodeTransformer):
             node.error = "Invalid syntax"
             return node
 
-        # okay, now map the args to the nodes
-        
-        if isinstance(node.func, FpyType) and not issubclass(node.func.fprime_type, DictionaryType):
-            # unknown how to construct this type
-
+        # get the list of args
+        args: list[FpyArgTemplate] = []
         if isinstance(node.func, FpyCmd):
-
-            mapped_args = self.map_cmd_args(node.func.cmd_template, node)
-
-            for cmd_template_arg, ast_node in mapped_args.items():
-                # get the type name of the arg from the fprime type
-                fprime_type_name = [
-                    k for k, v in self.type_name_dict if v == cmd_template_arg[2]
-                ]
-                # the type should be in the dict and there should only be one of it
-                assert len(fprime_type_name) == 1
-                fprime_type_name = fprime_type_name[0]
-                fprime_value = self.cmd_template_arg_and_node_to_fprime_value(
-                    node.func.cmd_template, cmd_template_arg, fprime_type_name, ast_node
+            args = node.func.cmd_template.arguments
+        else:
+            # it's an FpyType
+            if not self.check_has_ctor(node.func.fprime_type):
+                node.error = (
+                    "Type "
+                    + str(node.func.fprime_type.__name__)
+                    + " cannot be directly constructed"
                 )
+                return node
+            args = self.get_args_list_from_fprime_type_ctor(node.func.fprime_type)
 
-    def map_cmd_args(
-        self, template: CmdTemplate, node: ast.Call
+        # okay, now map the args to the nodes
+        mapped_args = self.map_args(args, node)
+
+        # okay, now type check the args
+        for arg_template, arg_node in mapped_args.items():
+            # this func will add an error if it finds one
+            if not self.check_node_converts_to_fprime_type(arg_node, arg_template[2]):
+                # don't traverse the tree if we fail
+                return node
+
+        return super().generic_visit(node)
+
+    def check_has_ctor(self, type: type[ValueType]) -> bool:
+        # only serializables (i.e. structs) and arrays can be directly constructed in fpy syntax
+        return issubclass(type, (SerializableType, ArrayType))
+
+    def get_args_list_from_fprime_type_ctor(
+        self, type: type[ValueType]
+    ) -> list[FpyArgTemplate]:
+        args = []
+        if issubclass(type, SerializableType):
+            for member in type.MEMBER_LIST:
+                (member_name, member_type, member_format_str, member_desc) = member
+                args.append(FpyArgTemplate((member_name, member_desc, member_type)))
+        elif issubclass(type, ArrayType):
+            for i in range(type.LENGTH):
+                args.append(FpyArgTemplate(("e" + str(i), "", type.MEMBER_TYPE)))
+        else:
+            raise RuntimeError(
+                "FPrime type " + str(type.__name__) + " has no constructor"
+            )
+        return args
+
+    def map_args(
+        self, args: list[FpyArgTemplate], node: ast.Call
     ) -> dict[FpyArgTemplate, ast.AST]:
         """
-        Maps arguments from a command template to an ast node by position and name. Does not perform type checking.
+        Maps arguments from a list of arg templates to an ast node by position and name. Does not perform type checking.
         """
 
         mapping = dict()
 
-        for idx, arg_template in enumerate(template.arguments):
+        for idx, arg_template in enumerate(args):
             arg_name, arg_desc, arg_type = arg_template
 
             arg_node = None
@@ -223,7 +255,7 @@ class ParseCalls(ast.NodeTransformer):
             else:
                 # if we're in kwargs
                 # find a matching node from keywords
-                arg_node = [n for n in node.keywords if n.arg == arg_name]
+                arg_node = [n.value for n in node.keywords if n.arg == arg_name]
                 if len(arg_node) != 1:
                     if len(arg_node) == 0:
                         # unable to find a matching kwarg for this arg template
@@ -240,115 +272,87 @@ class ParseCalls(ast.NodeTransformer):
 
         return mapping
 
-    def cmd_template_arg_and_node_to_fprime_value(
-        self,
-        cmd_template: CmdTemplate,
-        cmd_arg_template: FpyArgTemplate,
-        cmd_template_arg_type_name: str,
-        ast_node: ast.AST,
-    ) -> ValueType:
+    def check_node_converts_to_fprime_type(
+        self, node: ast.AST, fprime_type: type[ValueType]
+    ) -> bool:
         """
-        Ensure the fpy node can be turned into the desired FPrime type
+        Ensure the ast node can be turned into the desired FPrime type
         """
-
-        arg_name = cmd_arg_template[0]
-        fprime_type = cmd_arg_template[2]
-        fprime_type_instance = fprime_type()
 
         def error(node, msg):
-            node.error = (
-                "In command "
-                + str(cmd_template.get_comp_name())
-                + "."
-                + str(cmd_template.get_name())
-                + ", argument "
-                + str(arg_name)
-                + ": "
-                + msg
-            )
+            node.error = msg
 
         if issubclass(fprime_type, BoolType):
-            if not isinstance(ast_node, ast.Constant):
-                error(ast_node, "Invalid syntax")
-                return fprime_type_instance
-            if not isinstance(ast_node.value, bool):
+            if not isinstance(node, ast.Constant):
+                error(node, "Invalid syntax")
+                return False
+            if not isinstance(node.value, bool):
                 error(
-                    ast_node,
-                    "Expected a boolean literal, found "
-                    + str(type(ast_node.value)),
+                    node,
+                    "Expected a boolean literal, found " + str(type(node.value)),
                 )
-                return fprime_type_instance
-            fprime_type_instance._val = ast_node.value
+                return False
         elif issubclass(fprime_type, (F64Type, F32Type)):
-            if not isinstance(ast_node, ast.Constant):
-                error(ast_node, "Invalid syntax")
-                return fprime_type_instance
-            if not isinstance(ast_node.value, float):
+            if not isinstance(node, ast.Constant):
+                error(node, "Invalid syntax")
+                return False
+            if not isinstance(node.value, float):
                 error(
-                    ast_node,
-                    "Expected a floating point literal, found "
-                    + str(type(ast_node.value)),
+                    node,
+                    "Expected a floating point literal, found " + str(type(node.value)),
                 )
-                return fprime_type_instance
-            fprime_type_instance._val = ast_node.value
+                return False
         elif issubclass(
             fprime_type,
             (I64Type, U64Type, I32Type, U32Type, I16Type, U16Type, I8Type, U8Type),
         ):
-            if not isinstance(ast_node, ast.Constant):
-                error(ast_node, "Invalid syntax")
-                return fprime_type_instance
-            if not isinstance(ast_node.value, float):
+            if not isinstance(node, ast.Constant):
+                error(node, "Invalid syntax")
+                return False
+            if not isinstance(node.value, float):
                 error(
-                    ast_node,
-                    "Expected an integer literal, found "
-                    + str(type(ast_node.value)),
+                    node,
+                    "Expected an integer literal, found " + str(type(node.value)),
                 )
-                return fprime_type_instance
-            fprime_type_instance._val = ast_node.value
+                return False
         elif issubclass(fprime_type, StringType):
-            if not isinstance(ast_node, ast.Constant):
-                error(ast_node, "Invalid syntax")
-                return fprime_type_instance
-            if not isinstance(ast_node.value, float):
+            if not isinstance(node, ast.Constant):
+                error(node, "Invalid syntax")
+                return False
+            if not isinstance(node.value, str):
                 error(
-                    ast_node,
-                    "Expected an integer literal, found "
-                    + str(type(ast_node.value)),
+                    node,
+                    "Expected a string literal, found " + str(type(node.value)),
                 )
-                return fprime_type_instance
-            fprime_type_instance._val = ast_node.value
+                return False
         elif issubclass(fprime_type, EnumType):
-            if not isinstance(ast_node, FpyEnumConstant):
-                error(ast_node, "Invalid syntax")
-                return fprime_type_instance
-            assert fprime_type == ast_node.enum_type
-            fprime_type_instance._val = ast_node.value
+            if not isinstance(node, FpyEnumConstant):
+                if isinstance(node, ast.Constant):
+                    error(node, "Expecting an enum constant, found '" + str(type(node.value).__name__) + "'")
+                else:
+                    error(node, "Invalid syntax")
+                return False
+            assert fprime_type == node.enum_type
         elif issubclass(fprime_type, (ArrayType, SerializableType)):
+            if not isinstance(node, ast.Call):
+                # must be a ctor call
+                error(node, "Invalid syntax")
+                return False
+            if not isinstance(node.func, FpyType):
+                # must be a ctor call
+                error(node, "Invalid syntax")
+                return False
+            if fprime_type != node.func.fprime_type:
+                error(
+                    node,
+                    "Expected "
+                    + str(fprime_type.__name__)
+                    + " but found "
+                    + str(node.func.fprime_type.__name__),
+                )
+                return False
 
-            if not isinstance(ast_node, FpyType):
-
-
-    def node_to_fprime_type(self, node: ast.Expression, into_type: ValueType) -> bool:
-        """
-        Turn the node into an instance of the desired FPrime type
-        """
-        return False
-
-    def process_args(self, input_values):
-        """Process input arguments"""
-        errors = []
-        args = []
-        for val, arg_tuple in zip(input_values, self.template.arguments):
-            try:
-                _, _, arg_type = arg_tuple
-                arg_value = arg_type()
-                self.convert_arg_value(val, arg_value)
-                args.append(arg_value)
-                errors.append("")
-            except Exception as exc:
-                errors.append(str(exc))
-        return args, errors
+        return True
 
 
 def check_for_errors(node: ast.Module):
@@ -364,9 +368,13 @@ def check_for_errors(node: ast.Module):
             if isinstance(value, list):
                 for item in value:
                     if isinstance(item, ast.AST):
-                        return visit(item)
+                        ret = visit(item)
+                        if not ret:
+                            return False
             elif isinstance(value, ast.AST):
-                return visit(value)
+                ret = visit(value)
+                if not ret:
+                    return False
         return True
 
     return visit(node)
@@ -408,8 +416,17 @@ def compile(node: ast.Module, dictionary: Path):
     (ch_id_dict, ch_name_dict, versions) = ch_json_dict_loader.construct_dicts(
         dictionary
     )
+    print("RESOLVING NAMES")
     name_resolver = ResolveNames(cmd_name_dict, type_name_dict, ch_name_dict)
     node = name_resolver.visit(node)
+
+    print(ast.dump(node, indent=4))
+    if not check_for_errors(node):
+        return 1
+
+    print("CHECKING CALLS")
+    call_checker = CheckCalls(type_name_dict)
+    node = call_checker.visit(node)
 
     print(ast.dump(node, indent=4))
     if not check_for_errors(node):
