@@ -6,6 +6,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 import sys
 import logging
+import datetime
 
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.executables.data_product_writer import IntegerType
@@ -32,59 +33,20 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.enum_type import EnumType, REPRESENTATION_TYPE_MAP
-from fprime.common.models.serialize.type_base import BaseType, ValueType, DictionaryType
-
-# name, desc, type
-FpyArgTemplate = tuple[str, str, type[ValueType]]
-
-
-# just for pretty-printing
-def value_type_repr(self: ValueType):
-    return str(self.val)
-
-
-ValueType.__repr__ = value_type_repr
-
-
-@dataclass
-class FpyType(ast.AST):
-    namespace: str
-    name: str
-    fprime_type: type[ValueType]
-
-
-# this just helps the ast find what fields to pretty-print
-FpyType._fields = ["namespace", "name", "fprime_type"]
-
-
-@dataclass
-class FpyEnumConstant(ast.AST):
-    enum_type: type[EnumType]
-    repr_type: type[ValueType]
-    value: int
-
-
-FpyEnumConstant._fields = ["enum_type", "repr_type", "value"]
-
-
-@dataclass
-class FpyCmd(ast.AST):
-    namespace: str
-    name: str
-    cmd_template: CmdTemplate
-
-
-FpyCmd._fields = ["namespace", "name", "cmd_template"]
-
-
-@dataclass
-class FpyCh(ast.AST):
-    namespace: str
-    name: str
-    ch_template: ChTemplate
-
-
-FpyCh._fields = ["namespace", "name", "ch_template"]
+from fprime.common.models.serialize.type_base import BaseType, BaseType, DictionaryType
+from fprime.common.models.serialize.time_type import TimeType
+from fprime_gds.common.sequence.fpy_type import (
+    FpySeqDirective,
+    FpyArgTemplate,
+    FpyCh,
+    FpyCmd,
+    FpyEnumConstant,
+    FpyType,
+)
+from fprime_gds.common.sequence.directive import (
+    SeqDirectiveTemplate,
+    seq_directive_name_dict,
+)
 
 
 class ResolveNames(ast.NodeTransformer):
@@ -92,13 +54,15 @@ class ResolveNames(ast.NodeTransformer):
     def __init__(
         self,
         cmd_name_dict: dict[str, CmdTemplate],
-        type_name_dict: dict[str, type[ValueType]],
+        type_name_dict: dict[str, type[BaseType]],
         ch_name_dict: dict[str, ChTemplate],
+        seq_directive_name_dict: dict[str, SeqDirectiveTemplate],
     ) -> None:
         super().__init__()
         self.cmd_name_dict = cmd_name_dict
         self.type_name_dict = type_name_dict
         self.ch_name_dict = ch_name_dict
+        self.seq_directive_name_dict = seq_directive_name_dict
 
     def visit_Module(self, node: ast.Module):
         for statement in node.body:
@@ -130,19 +94,24 @@ class ResolveNames(ast.NodeTransformer):
             namespace.insert(0, namespace_node.id)
 
         namespace_str = ".".join(namespace)
+        return self.resolve_name(node, namespace_str, node.attr)
 
-        fq_name = node.attr
-        if namespace_str != "":
-            fq_name = namespace_str + "." + fq_name
+    def visit_Name(self, node: ast.Name):
+        return self.resolve_name(node, "", node.id)
 
-        # now look up this namespace string. resolve enum consts, then types, then telemetry, then commands
-        resolved_fprime_enum_type = self.type_name_dict.get(namespace_str, None)
+    def resolve_name(self, node, namespace: str, name: str) -> ast.AST:
+        fq_name = name
+        if namespace != "":
+            fq_name = namespace + "." + fq_name
+
+        # now look up this namespace string. resolve enum consts, then types, then telemetry, then seq directives, then commands
+        resolved_fprime_enum_type = self.type_name_dict.get(namespace, None)
         if resolved_fprime_enum_type is not None:
             if not issubclass(resolved_fprime_enum_type, EnumType):
                 node.error = "Invalid syntax"
                 return node
 
-            enum_const_name = node.attr
+            enum_const_name = name
             if enum_const_name not in resolved_fprime_enum_type.ENUM_DICT:
                 node.error = "Unknown enum constant '" + str(enum_const_name) + "'"
                 return node
@@ -151,7 +120,7 @@ class ResolveNames(ast.NodeTransformer):
             enum_value_py = resolved_fprime_enum_type.ENUM_DICT[enum_const_name]
             # this is a string
             enum_repr_type_name = resolved_fprime_enum_type.REP_TYPE
-            # this is a subclass of ValueType
+            # this is a subclass of BaseType
             enum_repr_type = REPRESENTATION_TYPE_MAP.get(enum_repr_type_name, None)
             assert enum_repr_type is not None
 
@@ -161,15 +130,19 @@ class ResolveNames(ast.NodeTransformer):
 
         resolved_fprime_type = self.type_name_dict.get(fq_name, None)
         if resolved_fprime_type is not None:
-            return FpyType(namespace_str, node.attr, resolved_fprime_type)
+            return FpyType(namespace, name, resolved_fprime_type)
 
         resolved_fprime_ch = self.ch_name_dict.get(fq_name, None)
         if resolved_fprime_ch is not None:
-            return FpyCh(namespace_str, node.attr, resolved_fprime_ch)
+            return FpyCh(namespace, name, resolved_fprime_ch)
+
+        resolved_seq_directive = self.seq_directive_name_dict.get(fq_name, None)
+        if resolved_seq_directive is not None:
+            return FpySeqDirective(namespace, name, resolved_seq_directive)
 
         resolved_fprime_cmd = self.cmd_name_dict.get(fq_name, None)
         if resolved_fprime_cmd is not None:
-            return FpyCmd(namespace_str, node.attr, resolved_fprime_cmd)
+            return FpyCmd(namespace, name, resolved_fprime_cmd)
 
         node.error = "Unknown identifier " + str(fq_name)
         return node
@@ -177,13 +150,13 @@ class ResolveNames(ast.NodeTransformer):
 
 class CheckCalls(ast.NodeTransformer):
 
-    def __init__(self, type_name_dict: dict[str, type[ValueType]]):
+    def __init__(self, type_name_dict: dict[str, type[BaseType]]):
         self.type_name_dict = type_name_dict
 
     def visit_Call(self, node: ast.Call):
 
-        # only valid calls right now are commands and dict type instantiations
-        if not isinstance(node.func, (FpyCmd, FpyType)):
+        # only valid calls right now are commands, seq directives and type instantiations
+        if not isinstance(node.func, (FpyCmd, FpySeqDirective, FpyType)):
             node.error = "Invalid syntax"
             return node
 
@@ -191,7 +164,9 @@ class CheckCalls(ast.NodeTransformer):
         args: list[FpyArgTemplate] = []
         if isinstance(node.func, FpyCmd):
             args = node.func.cmd_template.arguments
-        else:
+        elif isinstance(node.func, FpySeqDirective):
+            args = node.func.seq_directive_template.args
+        elif isinstance(node.func, FpyType):
             # it's an FpyType
             if not self.check_has_ctor(node.func.fprime_type):
                 node.error = (
@@ -201,6 +176,8 @@ class CheckCalls(ast.NodeTransformer):
                 )
                 return node
             args = self.get_args_list_from_fprime_type_ctor(node.func.fprime_type)
+        else:
+            assert False, node.func
 
         # okay, now map the args to the nodes
         mapped_args = self.map_args(args, node)
@@ -214,12 +191,12 @@ class CheckCalls(ast.NodeTransformer):
 
         return super().generic_visit(node)
 
-    def check_has_ctor(self, type: type[ValueType]) -> bool:
+    def check_has_ctor(self, type: type[BaseType]) -> bool:
         # only serializables (i.e. structs) and arrays can be directly constructed in fpy syntax
-        return issubclass(type, (SerializableType, ArrayType))
+        return issubclass(type, (SerializableType, ArrayType, TimeType))
 
     def get_args_list_from_fprime_type_ctor(
-        self, type: type[ValueType]
+        self, type: type[BaseType]
     ) -> list[FpyArgTemplate]:
         args = []
         if issubclass(type, SerializableType):
@@ -229,6 +206,25 @@ class CheckCalls(ast.NodeTransformer):
         elif issubclass(type, ArrayType):
             for i in range(type.LENGTH):
                 args.append(FpyArgTemplate(("e" + str(i), "", type.MEMBER_TYPE)))
+        elif issubclass(type, TimeType):
+            args.append(
+                (
+                    "time_base",
+                    "Time base index for the time tag. Must be a valid integer for a TimeBase Enum value.",
+                    I32Type,
+                )
+            )
+            args.append(("time_context", "Time context for the time tag", I32Type))
+            args.append(
+                ("seconds", "Seconds elapsed since specified time base", I32Type)
+            )
+            args.append(
+                (
+                    "useconds",
+                    "Microseconds since start of current second. Must be in range [0, 999999] inclusive",
+                    I32Type,
+                )
+            )
         else:
             raise RuntimeError(
                 "FPrime type " + str(type.__name__) + " has no constructor"
@@ -273,7 +269,7 @@ class CheckCalls(ast.NodeTransformer):
         return mapping
 
     def check_node_converts_to_fprime_type(
-        self, node: ast.AST, fprime_type: type[ValueType]
+        self, node: ast.AST, fprime_type: type[BaseType]
     ) -> bool:
         """
         Ensure the ast node can be turned into the desired FPrime type
@@ -289,7 +285,7 @@ class CheckCalls(ast.NodeTransformer):
             if not isinstance(node.value, bool):
                 error(
                     node,
-                    "Expected a boolean literal, found " + str(type(node.value)),
+                    "Expected a boolean literal, found '" + str(type(node.value)) + "'",
                 )
                 return False
         elif issubclass(fprime_type, (F64Type, F32Type)):
@@ -299,7 +295,9 @@ class CheckCalls(ast.NodeTransformer):
             if not isinstance(node.value, float):
                 error(
                     node,
-                    "Expected a floating point literal, found " + str(type(node.value)),
+                    "Expected a floating point literal, found '"
+                    + str(type(node.value))
+                    + "'",
                 )
                 return False
         elif issubclass(
@@ -309,10 +307,12 @@ class CheckCalls(ast.NodeTransformer):
             if not isinstance(node, ast.Constant):
                 error(node, "Invalid syntax")
                 return False
-            if not isinstance(node.value, float):
+            if not isinstance(node.value, int):
                 error(
                     node,
-                    "Expected an integer literal, found " + str(type(node.value)),
+                    "Expected an integer literal, found '"
+                    + str(type(node.value))
+                    + "'",
                 )
                 return False
         elif issubclass(fprime_type, StringType):
@@ -322,21 +322,41 @@ class CheckCalls(ast.NodeTransformer):
             if not isinstance(node.value, str):
                 error(
                     node,
-                    "Expected a string literal, found " + str(type(node.value)),
+                    "Expected a string literal, found '" + str(type(node.value)) + "'",
                 )
                 return False
         elif issubclass(fprime_type, EnumType):
             if not isinstance(node, FpyEnumConstant):
                 if isinstance(node, ast.Constant):
-                    error(node, "Expecting an enum constant, found '" + str(type(node.value).__name__) + "'")
+                    error(
+                        node,
+                        "Expecting a value from "
+                        + str(fprime_type.__name__)
+                        + ", found '"
+                        + str(type(node.value).__name__)
+                        + "'",
+                    )
                 else:
-                    error(node, "Invalid syntax")
+                    error(node, "Expecting an enum constant")
                 return False
             assert fprime_type == node.enum_type
-        elif issubclass(fprime_type, (ArrayType, SerializableType)):
+        elif issubclass(fprime_type, (ArrayType, SerializableType, TimeType)):
             if not isinstance(node, ast.Call):
                 # must be a ctor call
-                error(node, "Invalid syntax")
+                if isinstance(node, ast.Constant):
+                    error(
+                        node,
+                        "Expecting a value of type "
+                        + str(fprime_type.__name__)
+                        + ", found '"
+                        + str(type(node.value).__name__)
+                        + "'",
+                    )
+                else:
+                    error(
+                        node, "Expecting a value of type " + str(fprime_type.__name__)
+                    )
+
                 return False
             if not isinstance(node.func, FpyType):
                 # must be a ctor call
@@ -351,8 +371,29 @@ class CheckCalls(ast.NodeTransformer):
                     + str(node.func.fprime_type.__name__),
                 )
                 return False
+        else:
+            if isinstance(node, ast.Constant):
+                error(
+                    node,
+                    "Can't convert '"
+                    + str(type(node.value).__name__)
+                    + "' to "
+                    + str(fprime_type),
+                )
+            else:
+                error(node, "Can't convert argument to " + str(fprime_type))
+            return False
 
         return True
+
+
+class AddTimestamps(ast.NodeTransformer):
+    def __init__(self):
+        self.next_wait_absolute_time: datetime.datetime | None = None
+        self.next_wait_relative_time: datetime.timedelta | None = None
+
+    def visit_Call(self, node: ast.Call) -> bytes:
+        pass
 
 
 def check_for_errors(node: ast.Module):
@@ -412,12 +453,17 @@ def compile(node: ast.Module, dictionary: Path):
         dictionary
     )
     type_name_dict = cmd_json_dict_loader.parsed_types
+    # insert the implicit TimeType into the dict
+    type_name_dict["Time"] = TimeType
+
     ch_json_dict_loader = ChJsonLoader(dictionary)
     (ch_id_dict, ch_name_dict, versions) = ch_json_dict_loader.construct_dicts(
         dictionary
     )
     print("RESOLVING NAMES")
-    name_resolver = ResolveNames(cmd_name_dict, type_name_dict, ch_name_dict)
+    name_resolver = ResolveNames(
+        cmd_name_dict, type_name_dict, ch_name_dict, seq_directive_name_dict
+    )
     node = name_resolver.visit(node)
 
     print(ast.dump(node, indent=4))
