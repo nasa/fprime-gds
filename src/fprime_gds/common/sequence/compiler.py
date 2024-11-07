@@ -33,17 +33,20 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.enum_type import EnumType, REPRESENTATION_TYPE_MAP
-from fprime.common.models.serialize.type_base import BaseType, BaseType, DictionaryType
+from fprime.common.models.serialize.type_base import BaseType, BaseType, ValueType
 from fprime.common.models.serialize.time_type import TimeType
 from fprime_gds.common.sequence.fpy_type import (
+    FpyArg,
     FpySeqDirective,
     FpyArgTemplate,
     FpyCh,
     FpyCmd,
     FpyEnumConstant,
     FpyType,
+    FpyCall,
 )
 from fprime_gds.common.sequence.directive import (
+    SeqDirectiveId,
     SeqDirectiveTemplate,
     seq_directive_name_dict,
 )
@@ -65,12 +68,15 @@ class ResolveNames(ast.NodeTransformer):
         self.seq_directive_name_dict = seq_directive_name_dict
 
     def visit_Module(self, node: ast.Module):
+        if len(node.body) == 0:
+            # no statements in sequence file
+            node.error = "Sequence files cannot be empty"
         for statement in node.body:
             statement: ast.stmt
             if not isinstance(statement, ast.Expr) or not isinstance(
                 statement.value, ast.Call
             ):
-                statement.error = "Invalid syntax: Sequences can only contain commands"
+                statement.error = "Sequences can only contain commands"
         return self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute):
@@ -125,7 +131,10 @@ class ResolveNames(ast.NodeTransformer):
             assert enum_repr_type is not None
 
             return FpyEnumConstant(
-                resolved_fprime_enum_type, enum_repr_type, enum_value_py
+                resolved_fprime_enum_type,
+                enum_repr_type,
+                enum_const_name,
+                enum_value_py,
             )
 
         resolved_fprime_type = self.type_name_dict.get(fq_name, None)
@@ -182,17 +191,23 @@ class CheckCalls(ast.NodeTransformer):
         # okay, now map the args to the nodes
         mapped_args = self.map_args(args, node)
 
+        if hasattr(node, "error"):
+            # if something went wrong, don't traverse the tree
+            return node
+
         # okay, now type check the args
-        for arg_template, arg_node in mapped_args.items():
+        for arg in mapped_args:
             # this func will add an error if it finds one
-            if not self.check_node_converts_to_fprime_type(arg_node, arg_template[2]):
+            if not self.check_node_converts_to_fprime_type(arg.node, arg.type):
                 # don't traverse the tree if we fail
                 return node
 
-        return super().generic_visit(node)
+        fpy_call = FpyCall(node.func, mapped_args)
+
+        return super().generic_visit(fpy_call)
 
     def check_has_ctor(self, type: type[BaseType]) -> bool:
-        # only serializables (i.e. structs) and arrays can be directly constructed in fpy syntax
+        # only serializables (i.e. structs), time objects and arrays can be directly constructed in fpy syntax. enums and literals cannot
         return issubclass(type, (SerializableType, ArrayType, TimeType))
 
     def get_args_list_from_fprime_type_ctor(
@@ -231,14 +246,12 @@ class CheckCalls(ast.NodeTransformer):
             )
         return args
 
-    def map_args(
-        self, args: list[FpyArgTemplate], node: ast.Call
-    ) -> dict[FpyArgTemplate, ast.AST]:
+    def map_args(self, args: list[FpyArgTemplate], node: ast.Call) -> list[FpyArg]:
         """
         Maps arguments from a list of arg templates to an ast node by position and name. Does not perform type checking.
         """
 
-        mapping = dict()
+        mapping = []
 
         for idx, arg_template in enumerate(args):
             arg_name, arg_desc, arg_type = arg_template
@@ -258,13 +271,12 @@ class CheckCalls(ast.NodeTransformer):
                         node.error = "Missing argument " + str(arg_name)
                         continue
                     else:
-                        for arg_n in arg_node:
-                            arg_n.error = "Multiple values for " + str(arg_name)
+                        node.error = "Multiple values for " + str(arg_name)
                         continue
 
                 arg_node = arg_node[0]
 
-            mapping[arg_template] = arg_node
+            mapping.append(FpyArg(arg_name, arg_type, arg_node))
 
         return mapping
 
@@ -337,9 +349,17 @@ class CheckCalls(ast.NodeTransformer):
                         + "'",
                     )
                 else:
-                    error(node, "Expecting an enum constant")
+                    error(node, "Expecting a value from " + str(fprime_type.__name__))
                 return False
-            assert fprime_type == node.enum_type
+            if fprime_type != node.enum_type:
+                error(
+                    node,
+                    "Expecting a value from "
+                    + str(fprime_type.__name__)
+                    + ", found a value from "
+                    + str(node.enum_type.__name__),
+                )
+                return False
         elif issubclass(fprime_type, (ArrayType, SerializableType, TimeType)):
             if not isinstance(node, ast.Call):
                 # must be a ctor call
@@ -387,13 +407,167 @@ class CheckCalls(ast.NodeTransformer):
         return True
 
 
-class AddTimestamps(ast.NodeTransformer):
-    def __init__(self):
-        self.next_wait_absolute_time: datetime.datetime | None = None
-        self.next_wait_relative_time: datetime.timedelta | None = None
+class ConstructFpyTypes(ast.NodeVisitor):
+    """
+    Turn all FpyTypes/FpyEnumConstants/constants argument of each command into an instance of a subclass of BaseType
+    """
 
-    def visit_Call(self, node: ast.Call) -> bytes:
-        pass
+    def visit_FpyCall(self, node: FpyCall):
+        super().generic_visit(node)
+        # okay, all args to args should be collapsed into a BaseType
+
+        # now do that for the args
+        for arg in node.args:
+            instantiated_type = self.construct_arg_type(arg)
+            arg.type_instance = instantiated_type
+
+    def construct_arg_type(self, arg: FpyArg) -> BaseType:
+        # type checking has already happened in a previous step. we'll do a minimum of checking ourselves
+        fprime_type = arg.type
+        node = arg.node
+
+        type_instance = None
+        if issubclass(fprime_type, ValueType):
+            type_instance = fprime_type()
+
+        # if it should be a constant
+        if issubclass(
+            fprime_type,
+            (
+                BoolType,
+                F32Type,
+                F64Type,
+                U16Type,
+                U32Type,
+                U64Type,
+                U8Type,
+                I16Type,
+                I32Type,
+                I64Type,
+                I8Type,
+                StringType,
+            ),
+        ):
+
+            # make sure the value is a constant
+            assert isinstance(node, ast.Constant)
+
+            # make sure the constant's type matches
+            if issubclass(fprime_type, BoolType):
+                assert isinstance(node.value, bool)
+            elif issubclass(fprime_type, (F64Type, F32Type)):
+                assert isinstance(node.value, float)
+            elif issubclass(
+                fprime_type,
+                (I64Type, U64Type, I32Type, U32Type, I16Type, U16Type, I8Type, U8Type),
+            ):
+                assert isinstance(node.value, int)
+            elif issubclass(fprime_type, StringType):
+                assert isinstance(node.value, str)
+
+            try:
+                type_instance._val = node.value
+            except BaseException as e:
+                arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+
+        elif issubclass(fprime_type, EnumType):
+            assert isinstance(node, FpyEnumConstant)
+            try:
+                type_instance.val = node.const_name
+            except BaseException as e:
+                arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+        elif issubclass(fprime_type, (ArrayType, SerializableType, TimeType)):
+            # should be a ctor call
+            assert (
+                isinstance(node, FpyCall)
+                and isinstance(node.func, FpyType)
+                and node.func.fprime_type == fprime_type
+            )
+            if issubclass(fprime_type, SerializableType):
+                try:
+                    type_instance.val = {a.name: a.type_instance.val for a in node.args}
+                except BaseException as e:
+                    arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+            elif issubclass(fprime_type, ArrayType):
+                val = []
+                for a in node.args:
+                    val.append(a.type_instance.val)
+                try:
+                    type_instance.val = val
+                except BaseException as e:
+                    arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+            elif issubclass(fprime_type, TimeType):
+                assert len(node.args) == 4
+                try:
+                    type_instance = TimeType(*[a.type_instance.val for a in node.args])
+                except BaseException as e:
+                    arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+        else:
+            assert False, fprime_type
+        return type_instance
+
+
+class AddTimestamps(ast.NodeVisitor):
+    def __init__(self):
+
+        self.next_command_has_time = False
+        """Whether or not the next command coming up will have a specific runtime"""
+        self.next_wait_absolute_time: TimeType | None = None
+        """The absolute time to wait for before the next command"""
+        self.next_wait_relative_time: TimeType | None = None
+        """The relative time to wait before the next command"""
+
+    def visit_Module(self, node: ast.Module):
+        for statement in node.body:
+            # just make sure our checks above worked
+            assert (
+                isinstance(statement, ast.Expr)
+                and isinstance(statement.value, FpyCall)
+                and isinstance(statement.value.func, (FpyCmd, FpySeqDirective))
+            )
+            func = statement.value.func
+            # okay, is this a sleep seq dir?
+            if isinstance(func, FpySeqDirective) and func.seq_directive_template.id in [
+                SeqDirectiveId.SLEEP_ABS,
+                SeqDirectiveId.SLEEP_REL,
+            ]:
+                if self.next_command_has_time:
+                    # the next command already has a time. can't specify two sleeps or more next to each other
+                    # this is just a temporary limitation due to not using a new bytecode
+                    statement.error = (
+                        "Can only have one sleep directive before running a command"
+                    )
+                    return
+
+                # get the first arg of the directive
+                time = statement.value.get_arg(func.seq_directive_template.args[0][0])
+
+                if func.seq_directive_template == SeqDirectiveId.SLEEP_ABS:
+                    self.next_wait_absolute_time = time
+                else:
+                    self.next_wait_relative_time = time
+
+                self.next_command_has_time = True
+            elif isinstance(func, FpyCmd):
+                # do we have a time waiting to be applied to this cmd?
+                if not self.next_command_has_time:
+                    # no, give it a relative time of 0
+                    func.is_time_relative = True
+                    # TB_DONT_CARE
+                    func.time = TimeType(0xFFFF, 0, 0, 0)
+                else:
+                    # has a time
+                    if self.next_wait_absolute_time is not None:
+                        func.time = self.next_wait_absolute_time
+                        func.is_time_relative = False
+                    elif self.next_wait_relative_time is not None:
+                        func.time = self.next_wait_relative_time
+                        func.is_time_relative = True
+
+                    # reset internal state
+                    self.next_wait_absolute_time = None
+                    self.next_wait_relative_time = None
+                    self.next_command_has_time = False
 
 
 def check_for_errors(node: ast.Module):
@@ -421,6 +595,19 @@ def check_for_errors(node: ast.Module):
     return visit(node)
 
 
+def module_to_bytes(node: ast.Module):
+    output_bytes = bytes()
+    for statement in node.body:
+        # sorry another sanity check
+        assert (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, FpyCall)
+            and isinstance(statement.value.func, (FpySeqDirective, FpyCmd))
+        )
+
+    return output_bytes
+
+
 def main():
     arg_parser = ArgumentParser(
         description="A compiler for the FPrime advanced sequencing language"
@@ -442,10 +629,10 @@ def main():
 
     node = ast.parse(input_text)
 
-    compile(node, args.dictionary)
+    return compile(node, args.dictionary)
 
 
-def compile(node: ast.Module, dictionary: Path):
+def compile(node: ast.Module, dictionary: Path) -> bytes:
 
     cmd_json_dict_loader = CmdJsonLoader(dictionary)
     (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
@@ -465,15 +652,26 @@ def compile(node: ast.Module, dictionary: Path):
     node = name_resolver.visit(node)
 
     if not check_for_errors(node):
-        return 1
+        return None
 
     call_checker = CheckCalls(type_name_dict)
     node = call_checker.visit(node)
-
     if not check_for_errors(node):
-        return 1
+        return None
 
-    return 0
+    type_constructor = ConstructFpyTypes()
+    type_constructor.visit(node)
+    if not check_for_errors(node):
+        return None
+
+    timestamp_adder = AddTimestamps()
+    timestamp_adder.visit(node)
+    if not check_for_errors(node):
+        return None
+
+    output_bytes = module_to_bytes(node)
+
+    return output_bytes
 
 
 if __name__ == "__main__":

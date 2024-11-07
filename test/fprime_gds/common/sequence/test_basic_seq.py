@@ -4,9 +4,13 @@ from fprime_gds.common.sequence.compiler import compile
 
 
 def run_seq(seq: str, should_succeed: bool):
-    assert compile(
+    result = compile(
         ast.parse(seq), Path(__file__).parent / "RefTopologyDictionary.json"
-    ) == (0 if should_succeed else 1)
+    )
+    if should_succeed:
+        assert result is not None
+    else:
+        assert result is None
 
 
 def test_basic_seq():
@@ -45,6 +49,13 @@ Ref.typeDemo.CHOICE(Ref.Choice.ONE)
     run_seq(seq, True)
 
 
+def test_wrong_enum_arg():
+    seq = """
+Ref.typeDemo.CHOICE(Fw.Wait.WAIT)
+"""
+    run_seq(seq, False)
+
+
 def test_struct_arg():
     seq = """
 Ref.typeDemo.CHOICE_PAIR(Ref.ChoicePair(Ref.Choice.ONE, Ref.Choice.TWO))
@@ -52,7 +63,14 @@ Ref.typeDemo.CHOICE_PAIR(Ref.ChoicePair(Ref.Choice.ONE, Ref.Choice.TWO))
     run_seq(seq, True)
 
 
-def test_struct_arg_wrong_type():
+def test_wrong_struct_arg():
+    seq = """
+Ref.typeDemo.CHOICE_PAIR(Ref.SignalPair(0.0, 0.0))
+"""
+    run_seq(seq, False)
+
+
+def test_struct_ctor_arg_wrong_type():
     seq = """
 Ref.typeDemo.CHOICE_PAIR(Ref.ChoicePair(1, Ref.Choice.TWO))
 """
@@ -89,27 +107,61 @@ Ref.typeDemo.CHOICES(Ref.typeDemo.CHOICES(Ref.ManyChoices(Ref.Choice.TWO, Ref.Ch
 
 def test_rel_sleep():
     seq = """
-seq.sleep(Time(55,55,55,55))
+sleep_rel(Time(0, 55,55,55))
 """
     run_seq(seq, True)
 
 
 def test_abs_sleep():
     seq = """
-seq.sleep_until(Time(0,1,2,3))
+sleep_abs(Time(0,1,2,3))
 """
     run_seq(seq, True)
 
 
+def test_timebase_fail():
+    seq = """
+sleep_abs(Time(1231,1,2,3))
+"""
+    run_seq(seq, False)
+
+
+def test_int_out_of_bounds():
+    seq = """
+sleep_abs(Time(0,1,2,123123123123123123))
+"""
+    run_seq(seq, False)
+
+
 def test_seq_dir_bad_args():
     seq = """
-seq.sleep_until(1)
+sleep_abs(1)
 """
     run_seq(seq, False)
 
 
 def test_bad_seq_directive():
     seq = """
-seq.fail()
+fail()
+"""
+    run_seq(seq, False)
+
+
+def test_empty_seq():
+    run_seq("", False)
+
+
+def test_two_sleeps_fail_1():
+    seq = """
+sleep_abs(Time(0,1,2,3))
+sleep_abs(Time(0,1,2,3))
+"""
+    run_seq(seq, False)
+
+
+def test_two_sleeps_fail_2():
+    seq = """
+sleep_abs(Time(0,1,2,3))
+sleep_rel(Time(0,1,2,3))
 """
     run_seq(seq, False)

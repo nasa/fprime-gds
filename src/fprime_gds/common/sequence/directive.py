@@ -13,7 +13,6 @@ class SeqDirectiveId(Enum):
 @dataclass
 class SeqDirectiveTemplate:
     id: SeqDirectiveId
-    namespace: str
     name: str
     # name, desc, arg type
     args: list[tuple[str, str, type[BaseType]]]
@@ -22,20 +21,18 @@ class SeqDirectiveTemplate:
 seq_directive_templates = [
     SeqDirectiveTemplate(
         SeqDirectiveId.SLEEP_ABS,
-        "seq",
-        "sleep_until",
+        "sleep_abs",
         [("time", "The absolute time to sleep until", TimeType)],
     ),
     SeqDirectiveTemplate(
         SeqDirectiveId.SLEEP_REL,
-        "seq",
-        "sleep",
+        "sleep_rel",
         [("timeDelta", "The time to sleep for", TimeType)],
     ),
 ]
 
 # convert it to a fqn: directive dict
 seq_directive_name_dict = {
-    seq_dir.namespace + "." + seq_dir.name: seq_dir
+    seq_dir.name: seq_dir
     for seq_dir in seq_directive_templates
 }
