@@ -7,9 +7,12 @@ from argparse import ArgumentParser
 import sys
 import logging
 import datetime
+import zlib
 
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.executables.data_product_writer import IntegerType
+from fprime_gds.common.models.common.command import Descriptor
+from fprime_gds.common.utils.data_desc_type import DataDescType
 
 logging.basicConfig()
 logger = logging.getLogger(__file__)
@@ -468,14 +471,18 @@ class ConstructFpyTypes(ast.NodeVisitor):
             try:
                 type_instance._val = node.value
             except BaseException as e:
-                arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+                arg.node.error = (
+                    "Error while constructing argument " + str(arg.name) + ": " + str(e)
+                )
 
         elif issubclass(fprime_type, EnumType):
             assert isinstance(node, FpyEnumConstant)
             try:
                 type_instance.val = node.const_name
             except BaseException as e:
-                arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+                arg.node.error = (
+                    "Error while constructing argument " + str(arg.name) + ": " + str(e)
+                )
         elif issubclass(fprime_type, (ArrayType, SerializableType, TimeType)):
             # should be a ctor call
             assert (
@@ -487,7 +494,12 @@ class ConstructFpyTypes(ast.NodeVisitor):
                 try:
                     type_instance.val = {a.name: a.type_instance.val for a in node.args}
                 except BaseException as e:
-                    arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+                    arg.node.error = (
+                        "Error while constructing argument "
+                        + str(arg.name)
+                        + ": "
+                        + str(e)
+                    )
             elif issubclass(fprime_type, ArrayType):
                 val = []
                 for a in node.args:
@@ -495,13 +507,23 @@ class ConstructFpyTypes(ast.NodeVisitor):
                 try:
                     type_instance.val = val
                 except BaseException as e:
-                    arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+                    arg.node.error = (
+                        "Error while constructing argument "
+                        + str(arg.name)
+                        + ": "
+                        + str(e)
+                    )
             elif issubclass(fprime_type, TimeType):
                 assert len(node.args) == 4
                 try:
                     type_instance = TimeType(*[a.type_instance.val for a in node.args])
                 except BaseException as e:
-                    arg.node.error = "Error while constructing argument " + str(arg.name) + ": " + str(e)
+                    arg.node.error = (
+                        "Error while constructing argument "
+                        + str(arg.name)
+                        + ": "
+                        + str(e)
+                    )
         else:
             assert False, fprime_type
         return type_instance
@@ -595,8 +617,35 @@ def check_for_errors(node: ast.Module):
     return visit(node)
 
 
+def cmd_to_bytes(cmd: FpyCmd, args: list[FpyArg]) -> bytes:
+
+    # command format is descriptor + time + command length + command packet descriptor + command opcode + command args
+
+    # the "descriptor" is just whether this is abs or rel
+    descriptor = Descriptor.RELATIVE if cmd.is_time_relative else Descriptor.ABSOLUTE
+    # subtract one because this enum starts at 1
+    descriptor = U8Type(descriptor.value - 1).serialize()
+    time = (
+        U32Type(cmd.time.seconds).serialize() + U32Type(cmd.time.useconds).serialize()
+    )
+    header = descriptor + time
+
+    command = bytes()
+    packet_descriptor_val = DataDescType["FW_PACKET_COMMAND"].value
+    opcode_val = cmd.cmd_template.get_id()
+    command += U32Type(packet_descriptor_val).serialize()
+    command += U32Type(opcode_val).serialize()
+    for arg in args:
+        command += arg.type_instance.serialize()
+
+    length = U32Type(len(command)).serialize()
+
+    return header + length + command
+
+
 def module_to_bytes(node: ast.Module):
     output_bytes = bytes()
+    num_cmds = 0
     for statement in node.body:
         # sorry another sanity check
         assert (
@@ -604,8 +653,43 @@ def module_to_bytes(node: ast.Module):
             and isinstance(statement.value, FpyCall)
             and isinstance(statement.value.func, (FpySeqDirective, FpyCmd))
         )
+        if isinstance(statement.value.func, FpySeqDirective):
+            assert statement.value.func.seq_directive_template.id in [
+                SeqDirectiveId.SLEEP_ABS,
+                SeqDirectiveId.SLEEP_REL,
+            ]
+            # have already dealt with these by adding timestamps to cmds
+            continue
+        # okay, serialize the command
+        output_bytes += cmd_to_bytes(statement.value.func, statement.value.args)
+        num_cmds += 1
+
+    size = len(output_bytes)
+    tb_txt = "ANY"
+
+    print(f"Sequence is {size} bytes with timebase {tb_txt}")
+
+    header = b""
+    header += U32Type(
+        size + 4
+    ).serialize()  # Write out size of the sequence file in bytes here
+    header += U32Type(num_cmds).serialize()  # Write number of records
+    header += U16Type(0xFFFF).serialize()  # Write time base
+    header += U8Type(0xFF).serialize()  # write time context
+    output_bytes = header + output_bytes  # Write the list of command records here
+    # compute CRC. Ported from Utils/Hash/libcrc/libcrc.h (update_crc_32)
+    crc = compute_crc(output_bytes)
+
+    print("CRC: %d (0x%04X)" % (crc, crc))
+    output_bytes += U32Type(crc).serialize()
 
     return output_bytes
+
+
+def compute_crc(buff):
+    # See http://stackoverflow.com/questions/30092226/how-to-calculate-crc32-with-python-to-match-online-results
+    # RE: signed to unsigned CRC
+    return zlib.crc32(buff) % (1 << 32)
 
 
 def main():
@@ -622,6 +706,7 @@ def main():
         type=Path,
         help="The JSON topology dictionary to compile against",
     )
+    arg_parser.add_argument("-o", "--output", type=Path, help="The output .bin file path. Defaults to the input file path", default=None)
 
     args = arg_parser.parse_args()
 
@@ -629,7 +714,12 @@ def main():
 
     node = ast.parse(input_text)
 
-    return compile(node, args.dictionary)
+    output_bytes = compile(node, args.dictionary)
+    output_path: Path = args.output
+    if output_path is None:
+        output_path = args.input.with_suffix(".bin")
+    
+    output_path.write_bytes(output_bytes)
 
 
 def compile(node: ast.Module, dictionary: Path) -> bytes:
