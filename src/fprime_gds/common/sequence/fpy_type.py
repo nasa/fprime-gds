@@ -5,7 +5,6 @@ from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.type_base import (
     BaseType,
     BaseType,
-    DictionaryType,
     ValueType,
 )
 

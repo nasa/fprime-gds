@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.time_type import TimeType
 from enum import Enum
