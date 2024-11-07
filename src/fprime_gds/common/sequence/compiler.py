@@ -1,18 +1,22 @@
-import numbers
-from dataclasses import dataclass
-import inspect
 import ast
 from pathlib import Path
 from argparse import ArgumentParser
 import sys
 import logging
-import datetime
 import zlib
 
 from fprime_gds.common.templates.ch_template import ChTemplate
-from fprime_gds.executables.data_product_writer import IntegerType
 from fprime_gds.common.models.common.command import Descriptor
 from fprime_gds.common.utils.data_desc_type import DataDescType
+from fprime.common.models.serialize.type_exceptions import (
+    StringSizeException,
+    TypeMismatchException,
+    EnumMismatchException,
+    TypeRangeException,
+    ArrayLengthException,
+    IncorrectMembersException,
+    MissingMemberException,
+)
 
 logging.basicConfig()
 logger = logging.getLogger(__file__)
@@ -470,7 +474,7 @@ class ConstructFpyTypes(ast.NodeVisitor):
 
             try:
                 type_instance._val = node.value
-            except BaseException as e:
+            except (StringSizeException, TypeMismatchException, TypeMismatchException) as e:
                 arg.node.error = (
                     "Error while constructing argument " + str(arg.name) + ": " + str(e)
                 )
@@ -479,7 +483,7 @@ class ConstructFpyTypes(ast.NodeVisitor):
             assert isinstance(node, FpyEnumConstant)
             try:
                 type_instance.val = node.const_name
-            except BaseException as e:
+            except (TypeMismatchException, EnumMismatchException) as e:
                 arg.node.error = (
                     "Error while constructing argument " + str(arg.name) + ": " + str(e)
                 )
@@ -493,7 +497,11 @@ class ConstructFpyTypes(ast.NodeVisitor):
             if issubclass(fprime_type, SerializableType):
                 try:
                     type_instance.val = {a.name: a.type_instance.val for a in node.args}
-                except BaseException as e:
+                except (
+                    IncorrectMembersException,
+                    MissingMemberException,
+                    TypeMismatchException,
+                ) as e:
                     arg.node.error = (
                         "Error while constructing argument "
                         + str(arg.name)
@@ -506,7 +514,7 @@ class ConstructFpyTypes(ast.NodeVisitor):
                     val.append(a.type_instance.val)
                 try:
                     type_instance.val = val
-                except BaseException as e:
+                except (TypeMismatchException, ArrayLengthException) as e:
                     arg.node.error = (
                         "Error while constructing argument "
                         + str(arg.name)
@@ -517,7 +525,7 @@ class ConstructFpyTypes(ast.NodeVisitor):
                 assert len(node.args) == 4
                 try:
                     type_instance = TimeType(*[a.type_instance.val for a in node.args])
-                except BaseException as e:
+                except TypeRangeException as e:
                     arg.node.error = (
                         "Error while constructing argument "
                         + str(arg.name)
@@ -706,7 +714,13 @@ def main():
         type=Path,
         help="The JSON topology dictionary to compile against",
     )
-    arg_parser.add_argument("-o", "--output", type=Path, help="The output .bin file path. Defaults to the input file path", default=None)
+    arg_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        help="The output .bin file path. Defaults to the input file path",
+        default=None,
+    )
 
     args = arg_parser.parse_args()
 
@@ -715,11 +729,16 @@ def main():
     node = ast.parse(input_text)
 
     output_bytes = compile(node, args.dictionary)
+    if output_bytes is None:
+        return 1
+
     output_path: Path = args.output
     if output_path is None:
         output_path = args.input.with_suffix(".bin")
-    
+
     output_path.write_bytes(output_bytes)
+
+    return 0
 
 
 def compile(node: ast.Module, dictionary: Path) -> bytes:

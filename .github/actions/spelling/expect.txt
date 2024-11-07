@@ -103,6 +103,7 @@ config
 configparser
 configs
 Consolas
+consts
 cpp
 CPython
 creatingdocsetswithdoxygen
@@ -110,6 +111,7 @@ css
 csum
 csv
 ctime
+ctor
 CTORS
 curateable
 curated
@@ -218,6 +220,7 @@ evt
 exe
 executables
 expanduser
+Expr
 extlinks
 extns
 exts
@@ -249,6 +252,8 @@ FONTSIZE
 fpp
 fprime
 fptable
+fpy
+Fpy
 frac
 framerate
 fromtimestamp
@@ -623,6 +628,7 @@ staticmethod
 stderr
 Stdio
 stdout
+stmt
 strftime
 stringified
 stringify
