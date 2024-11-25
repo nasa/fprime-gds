@@ -354,6 +354,7 @@ Vue.component("fp-table", {
          */
         saveView: function() {
             this.editing = false;
+            this.matching = "";
             setTimeout(this.send, 10); // Force refresh when no data is available
         },
         /**
@@ -361,6 +362,7 @@ Vue.component("fp-table", {
          */
         editViews: function () {
             this.editing = true;
+            this.matching = "";
             setTimeout(this.send, 10); // Force refresh when no data is available
         },
         /**
