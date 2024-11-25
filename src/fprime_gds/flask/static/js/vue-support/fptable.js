@@ -354,12 +354,14 @@ Vue.component("fp-table", {
          */
         saveView: function() {
             this.editing = false;
+            setTimeout(this.send, 10); // Force refresh when no data is available
         },
         /**
          * Puts the user into view-edit mode. Thus allowing the user to set channels.
          */
         editViews: function () {
             this.editing = true;
+            setTimeout(this.send, 10); // Force refresh when no data is available
         },
         /**
          * Adds everything into the view
