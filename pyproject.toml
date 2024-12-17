@@ -31,6 +31,8 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
+    "spacepackets>=0.23.0",
+    "pluggy>=1.3.0",
     "flask>=3.0.0",
     "flask_compress>=1.11",
     "pyzmq>=24.0.1",
@@ -61,6 +63,12 @@ fprime-cli = "fprime_gds.executables.fprime_cli:main"
 fprime-seqgen = "fprime_gds.common.tools.seqgen:main"
 fprime-dp-write = "fprime_gds.executables.data_product_writer:main"
 fprime-gds = "fprime_gds.executables.run_deployment:main"
+
+# Automatically provided plugins
+[project.entry-points.fprime_gds]
+space_packet = "fprime_gds.plugins.framing.ccsds:SpacePacketFramerDeframer"
+space_data_link = "fprime_gds.plugins.framing.ccsds:SpaceDataLinkFramerDeframer"
+space_packet_space_data_link = "fprime_gds.plugins.framing.ccsds:SpacePacketSpaceDataLinkFramerDeframer"
 
 # For Pytest fixtures
 [project.entry-points."pytest11"]

@@ -17,6 +17,7 @@ amsmath
 ANamespace
 Anps
 api
+apid
 argcomplete
 argdesc
 arglist
@@ -69,6 +70,7 @@ cata
 cbl
 CCB
 CCFF
+ccsds
 Cdioux
 cdn
 cdxoefg
@@ -105,6 +107,7 @@ configs
 Consolas
 cpp
 CPython
+crcmod
 creatingdocsetswithdoxygen
 css
 csum
@@ -577,6 +580,7 @@ rtd
 rtf
 saba
 savefig
+scid
 scm
 scrollable
 scrollbar
@@ -608,6 +612,7 @@ Smath
 SNDHWM
 socketserver
 sorttable
+spacepacket
 spam
 sphinxcontrib
 splitext
@@ -734,6 +739,7 @@ validator
 vals
 valuemin
 valuenow
+vcid
 Vcs
 venv
 versionchanged
