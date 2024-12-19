@@ -161,7 +161,7 @@ class ChronologicalHistory(History):
         """
         for i, item in reversed(list(enumerate(ordered))):
             # Note: for events with the exact same time, this should default to the order received from downlink
-            #       and as such the data item should be treated as older.
+            #       and as such the data item should be treated as newer because it was received later.
             if item.get_time() <= data_object.get_time():
                 ordered.insert(i + 1, data_object)
                 return i
