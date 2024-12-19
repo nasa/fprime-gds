@@ -160,7 +160,9 @@ class ChronologicalHistory(History):
             the index that the item was inserted at (int)
         """
         for i, item in reversed(list(enumerate(ordered))):
-            if item.get_time() < data_object.get_time():
+            # Note: for events with the exact same time, this should default to the order received from downlink
+            #       and as such the data item should be treated as older.
+            if item.get_time() <= data_object.get_time():
                 ordered.insert(i + 1, data_object)
                 return i
         # If the data object is the earliest in the list or the list was empty
