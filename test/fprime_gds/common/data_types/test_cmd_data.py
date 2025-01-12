@@ -34,7 +34,7 @@ class CmdDataTest(unittest.TestCase):
         Tests CmdData::get_str() for a command with several numerical arguments
         """
         opcode = 43
-        mnemonic = "TEST_CMD_NUMS"
+        mnemonic = "TEST_CMD_NUMERICS"
         component = "PythonTests"
         arguments = [("just_int", None, numerical_types.U32Type),
                      ("just_float", None, numerical_types.F64Type),
@@ -51,7 +51,7 @@ class CmdDataTest(unittest.TestCase):
         Tests CmdData::get_str() for a command with one string argument
         """
         opcode = 44
-        mnemonic = "TEST_CMD_NUMS"
+        mnemonic = "TEST_CMD_STR"
         component = "PythonTests"
         arguments = [("just_string", None, StringType.construct_type(f"String_{128}", 128))]
         command_template = CmdTemplate(opcode, mnemonic, component, arguments)
