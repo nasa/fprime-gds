@@ -241,7 +241,7 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
         assert self.dest is not None, "Cannot send data before connect call"
         self.sock.send(b"A5A5 %s %s" % (self.dest, data))
 
-    def recv(self, timeout=100):
+    def recv(self, timeout=0.1):
         """Receives data from the threaded tcp server
 
         Receives raw data from the threaded tcp server. This data is expected to have no headers and will be passed as
