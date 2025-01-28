@@ -61,6 +61,7 @@ fprime-cli = "fprime_gds.executables.fprime_cli:main"
 fprime-seqgen = "fprime_gds.common.tools.seqgen:main"
 fprime-dp-write = "fprime_gds.executables.data_product_writer:main"
 fprime-gds = "fprime_gds.executables.run_deployment:main"
+fprime-params = "fprime_gds.common.tools.params:main"
 
 # For Pytest fixtures
 [project.entry-points."pytest11"]
