@@ -100,6 +100,16 @@ def test_construct_serializable_type(loader):
     assert ref_choice_pair.MEMBER_LIST[1][2] == "{}"
 
 
+def test_struct_with_unordered_members(loader):
+    misordered_member = loader.parse_type(
+        {"name": "Ref.TestMisorderedStructIndexes", "kind": "qualifiedIdentifier"}
+    )
+    assert issubclass(misordered_member, SerializableType)
+    assert misordered_member.MEMBER_LIST[0][0] == "ThisIsZero"
+    assert misordered_member.MEMBER_LIST[1][0] == "ThisIsOne"
+    assert misordered_member.MEMBER_LIST[2][0] == "ThisIsTwo"
+
+
 def test_construct_primitive_types(loader):
     i32_type = loader.parse_type(
         {"name": "I32", "kind": "integer", "size": 32, "signed": True}
