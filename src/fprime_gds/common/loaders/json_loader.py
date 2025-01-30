@@ -210,7 +210,7 @@ class JsonLoader(dict_loader.DictLoader):
         # Construct the serializable type with list of members sorted by index
         ser_type = SerializableType.construct_type(
             type_name,
-            [struct_members[i] for i in sorted(struct_members)],
+            [struct_members[i] for i in sorted(struct_members.keys())],
         )
         self.parsed_types[type_name] = ser_type
         return ser_type
