@@ -240,7 +240,6 @@ passthrough
 pb
 pdflatex
 PERLMOD
-Pkts
 pkts
 plainnat
 plantuml
