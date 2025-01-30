@@ -9,6 +9,7 @@ ALOG
 amsmath
 ANamespace
 Anps
+argcomplete
 argdesc
 argname
 argtype
@@ -36,6 +37,7 @@ cata
 CCB
 CCFF
 Cdioux
+cdn
 cdxoefg
 CFDG
 CFDP
