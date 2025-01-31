@@ -10,6 +10,38 @@
   "typeDefinitions" : [
     {
       "kind" : "struct",
+      "qualifiedName" : "Ref.TestMisorderedStructIndexes",
+      "members" : {
+        "ThisIsOne" : {
+          "type" : {
+            "name" : "U32",
+            "kind" : "integer",
+            "size" : 32,
+            "signed" : false
+          },
+          "index" : 1
+        },
+        "ThisIsZero" : {
+          "type" : {
+            "name" : "U32",
+            "kind" : "integer",
+            "size" : 32,
+            "signed" : false
+          },
+          "index" : 0
+        },
+        "ThisIsTwo" : {
+          "type" : {
+            "name" : "Ref.PacketRecvStatus",
+            "kind" : "qualifiedIdentifier"
+          },
+          "index" : 2
+        }
+      },
+      "annotation" : "This type does not exist in Ref and is only used for GDS internal testing"
+    },
+    {
+      "kind" : "struct",
       "qualifiedName" : "Ref.PacketStat",
       "members" : {
         "BuffRecv" : {
