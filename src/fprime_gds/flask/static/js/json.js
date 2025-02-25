@@ -30,7 +30,7 @@ class RegExLexer {
         // NaN token
         ["NAN", /^NaN/],
         // boolean token
-        ["BOOLEAN", /^(true)|(false)/],
+        ["BOOLEAN", /^(true)|^(false)/],
         // Open object token
         ["OPEN_OBJECT", /^\{/],
         // Close object token
@@ -55,6 +55,8 @@ class RegExLexer {
     static tokenize(original_string) {
         let tokens = [];
         let input_string = original_string;
+        let total_length = 0;
+        let last_token_type = "--NONE--"
         // Consume the whole string
         while (input_string !== "") {
             let matched_something = false;
@@ -62,18 +64,23 @@ class RegExLexer {
                 let match = token_matcher.exec(input_string)
 
                 // Token detected
-                if (match != null) {
+                if (match != null && match.index == 0 ) {
                     matched_something = true;
                     let matched = match[0];
                     tokens.push([token_type, matched]);
                     // Consume the string
                     input_string = input_string.substring(matched.length);
+                    total_length += matched.length;
+                    last_token_type = token_type;
                     break;
                 }
             }
             // Check for no token match
             if (!matched_something) {
-                throw SyntaxError("Failed to match valid token: '" + input_string.substring(0, 20) + "'...");
+                let say = "Failed to match valid token: '" + input_string.substring(0, 20);
+                say += "' Context: '" + original_string.substring(Math.max(total_length - 20, 0), total_length + 20);
+                say += "' Last token's type: " + last_token_type + ".";
+                throw SyntaxError(say);
             }
         }
         return tokens;
