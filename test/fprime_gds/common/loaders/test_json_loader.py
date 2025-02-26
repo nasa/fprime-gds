@@ -56,6 +56,23 @@ def test_construct_enum_type(loader):
     }
     assert ref_signal_type.REP_TYPE == "I32"
 
+def test_construct_alias_type(loader):
+    ref_alias_frequency_type = loader.parse_type(
+        {"name" : "Ref.SignalGen.FrequencyType", "kind" : "qualifiedIdentifier"}
+    )
+    assert ref_alias_frequency_type == numerical_types.U32Type
+    ref_alias_phase_type = loader.parse_type(
+        {"name" : "Ref.SignalGen.PhaseType", "kind" : "qualifiedIdentifier"}
+    )
+    assert ref_alias_phase_type == numerical_types.F32Type
+    ref_alias_buff_recv_type = loader.parse_type(
+        {"name" : "Ref.BuffRecvType", "kind" : "qualifiedIdentifier"}
+    )
+    assert ref_alias_buff_recv_type == numerical_types.U32Type
+    ref_alias_u32_type = loader.parse_type(
+        {"name" : "Ref.AliasU32", "kind" : "qualifiedIdentifier"}
+    )
+    assert ref_alias_u32_type == numerical_types.U32Type
 
 def test_construct_array_type(loader):
     ref_many_choices = loader.parse_type(

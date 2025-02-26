@@ -102,6 +102,9 @@ class JsonLoader(dict_loader.DictLoader):
                 f"Dictionary type name has no corresponding type definition: {type_name}"
             )
 
+        if qualified_type.get("kind") == "alias":
+            return self.parse_type(qualified_type.get("underlyingType"))
+        
         if qualified_type.get("kind") == "array":
             return self.construct_array_type(type_name, qualified_type)
 
