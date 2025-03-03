@@ -131,9 +131,8 @@ class CmdData(sys_data.SysData):
         else:
             # The arguments are currently serializable objects which cannot be
             # used to fill in a format string. Convert them to values that can be
-            arg_val_list = [arg_obj.val for arg_obj in self.args]
-
-            arg_str = " ".join(str(arg_val_list))
+            arg_val_list = self.get_arg_vals()
+            arg_str = str(arg_val_list)
 
         if verbose and csv:
             return f"{time_str},{raw_time_str},{name},{self.id},{arg_str}"
@@ -149,13 +148,13 @@ class CmdData(sys_data.SysData):
         args = []
         for val, arg_tuple in zip(input_values, self.template.arguments):
             try:
-                _, _, arg_type = arg_tuple
+                arg_name, _, arg_type = arg_tuple
                 arg_value = arg_type()
                 self.convert_arg_value(val, arg_value)
                 args.append(arg_value)
                 errors.append("")
             except Exception as exc:
-                errors.append(str(exc))
+                errors.append(f"{arg_name}[{arg_type.__name__}]: {exc}")
         return args, errors
 
     @staticmethod

@@ -74,7 +74,7 @@ export function command_argument_assignment_helper(argument, squashed_argument_v
         command_argument_array_serializable_assignment_helper(argument, squashed_argument_value);
     } else {
         let is_not_string = typeof(argument.type.MAX_LENGTH) === "undefined";
-        argument.value = (is_not_string && (squashed_argument_value === FILL_NEEDED)) ? null : squashed_argument_value;
+        argument.value = (is_not_string && (squashed_argument_value === FILL_NEEDED)) ? null : squashed_argument_value.toString();
     }
 }
 
@@ -119,7 +119,21 @@ export function squashify_argument(argument) {
             let field = argument.type.MEMBER_LIST[i][0];
             value[field] = squashify_argument(argument.value[field]);
         }
-    } else if (["U64Type", "U32Type", "U16Type", "U8Type"].indexOf(argument.type.name) != -1) {
+    } else if (["U64Type"].indexOf(argument.type.name) !== -1) {
+        if (argument.value.startsWith("0x")) {
+            // Hexadecimal
+            value = BigInt(argument.value, 16);
+        } else if (argument.value.startsWith("0b")) {
+            // Binary
+            value = BigInt(argument.value.slice(2), 2);
+        } else if (argument.value.startsWith("0o")) {
+            // Octal
+            value = BigInt(argument.value.slice(2), 8);
+        } else {
+            // Decimal
+            value = BigInt(argument.value, 10);
+        }
+    } else if (["U32Type", "U16Type", "U8Type"].indexOf(argument.type.name) !== -1) {
         if (argument.value.startsWith("0x")) {
             // Hexadecimal
             value = parseInt(argument.value, 16);
@@ -134,10 +148,13 @@ export function squashify_argument(argument) {
             value = parseInt(argument.value, 10);
         }
     }
-    else if (["I64Type", "I32Type", "I16Type", "I8Type"].indexOf(argument.type.name) != -1) {
+    else if (["I64Type"].indexOf(argument.type.name) !== -1) {
+        value = BigInt(argument.value, 10);
+    }
+    else if (["I32Type", "I16Type", "I8Type"].indexOf(argument.type.name) !== -1) {
         value = parseInt(argument.value, 10);
     }
-    else if (["F64Type", "F32Type"].indexOf(argument.type.name) != -1) {
+    else if (["F64Type", "F32Type"].indexOf(argument.type.name) !== -1) {
         value = parseFloat(argument.value);
     }
     else if (argument.type.name == "BoolType") {
@@ -160,22 +177,35 @@ export function squashify_argument(argument) {
  * @returns: string to display
  */
 export function argument_display_string(argument) {
-    // Base assignment of the value
-    let string = `${(argument.value == null || argument.value === "") ? FILL_NEEDED: argument.value}`;
-
-    if (argument.type.LENGTH) {
-        string = `[${argument.value.map((argument) => argument_display_string(argument)).join(", ")}]`;
-    } else if (argument.type.MEMBER_LIST) {
-        let fields = [];
-        for (let i = 0; i < argument.type.MEMBER_LIST.length; i++) {
-            let field = argument.type.MEMBER_LIST[i][0];
-            fields.push(`${field}: ${argument_display_string(argument.value[field])}`);
+    let string = FILL_NEEDED;
+    try {
+        // Check for array
+        if (argument.type.LENGTH) {
+            string = `[${argument.value.map((argument) => argument_display_string(argument)).join(", ")}]`;
         }
-        string = `{${fields.join(", ")}}`
-    } else if (argument.type.MAX_LENGTH) {
-        let value = (argument.value == null) ? "" : argument.value;
-        value = value.replace(/"/g, '\\\"');
-        string = `"${value}"`
+        // Serializable
+        else if (argument.type.MEMBER_LIST) {
+            let fields = [];
+            for (let i = 0; i < argument.type.MEMBER_LIST.length; i++) {
+                let field = argument.type.MEMBER_LIST[i][0];
+                fields.push(`${field}: ${argument_display_string(argument.value[field])}`);
+            }
+            string = `{${fields.join(", ")}}`
+        }
+        // String type
+        else if (argument.type.MAX_LENGTH) {
+            let value = (argument.value == null) ? "" : argument.value;
+            value = value.replace(/"/g, '\\\"');
+            string = `"${value}"`
+        }
+        // Unassigned values
+        else if (argument.value == null || argument.value === "") {
+            string = FILL_NEEDED;
+        } else {
+            string = squashify_argument(argument);
+        }
+    } catch (e) {
+        string = FILL_NEEDED;
     }
     return string;
 }
@@ -291,7 +321,7 @@ Vue.component("command-scalar-argument", {
                 return ["text", "0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F]+|[1-9]\\d*|0", ""];
             }
             else if (["I64Type", "I32Type", "I16Type", "I8Type"].indexOf(this.argument.type.name) != -1) {
-                return ["number", null, "1"];
+                return ["text", "-?[1-9]\\d*|0", ""];
             }
             else if (["F64Type", "F32Type"].indexOf(this.argument.type.name) != -1) {
                 return ["number", null, "any"];

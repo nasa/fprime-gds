@@ -15,6 +15,8 @@ import {
 } from "../../addons/commanding/arguments.js";
 import {_settings} from "../../js/settings.js";
 import {command_input_template} from "./command-input-template.js";
+import { SaferParser } from "../../js/json.js";
+SaferParser.register();
 
 /**
  * This helper will help assign command and values in a safe manner by searching the command store, finding a reference,
@@ -38,6 +40,7 @@ function command_assignment_helper(desired_command_name, desired_command_args, p
         return null;
     }
     let selected = _datastore.commands[command_name];
+
     // Set arguments here
     for (let i = 0; i < selected.args.length; i++) {
         let assign_value = (desired_command_args.length > i)? desired_command_args[i] : null;
@@ -147,6 +150,7 @@ Vue.component("command-input", {
          * command reaches the ground system.
          */
         sendCommand() {
+
             // Validate the command before sending anything
             if (!this.validate()) {
                 return;
@@ -158,8 +162,9 @@ Vue.component("command-input", {
             let _self = this;
             _self.active = true;
             let command = this.selected;
+            let squashed_args = command.args.map(serialize_arg);
             this.loader.load("/commands/" + command.full_name, "PUT",
-                {"key":0xfeedcafe, "arguments": command.args.map(serialize_arg)})
+                {"key":0xfeedcafe, "arguments": squashed_args})
                 .then(function() {
                     _self.active = false;
                     // Clear errors, as there is not a problem further

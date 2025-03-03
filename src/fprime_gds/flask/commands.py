@@ -49,7 +49,7 @@ class CommandArgumentsInvalidException(werkzeug.exceptions.BadRequest):
     """Command arguments failed to validate properly"""
 
     def __init__(self, errors):
-        super().__init__("Failed to validate all arguments")
+        super().__init__(f"Failed to validate all arguments: {', '.join(errors)}")
         self.args = errors
 
 

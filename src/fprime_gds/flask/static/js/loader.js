@@ -13,7 +13,8 @@
  */
 import {config} from "./config.js";
 import {_settings} from "./settings.js";
-import {_validator} from "./validate.js";
+import {SaferParser} from "./json.js";
+SaferParser.register();
 
 /**
  * Function allowing for the saving of some data to a downloadable file.
@@ -48,118 +49,6 @@ export function loadTextFileInputData(event) {
             error("[ERROR] File too large: " + (file.size / 1024 / 1024).toLocaleString(undefined) + " MiB > 1MiB");
         }
     });
-}
-
-/**
- * Parser to safely handle potential JSON object from Python. Python can produce some non-standard values (infinities,
- * NaNs, etc.) These values then break on the JS Javascript parser. To localize these faults, they are replaced before
- * processing with strings and then formally set during parsing.
- *
- * This is done by looking for tokens in unquoted text and replacing them with string representations.
- *
- */
-class SaferParser {
-    /**
-     * Set up the parser
-     */
-    constructor() {
-        this.STATES = {
-            UNQUOTED: 0,
-            QUOTED: 1
-        };
-        this.FLAG = "-_-您好"; // Extended character usage make collisions less-likely
-        this.MAPPINGS = [
-            ["-Infinity", this.FLAG + "-inf", -Infinity],
-            ["Infinity", this.FLAG + "inf", Infinity],
-            ["NaN", this.FLAG + "nan", NaN],
-            ["null", this.FLAG + "null", null]
-        ];
-        this.state = this.STATES.UNQUOTED;
-    }
-
-    /**
-     * Parse method that will replace JSON.parse. This handles known bad cases and also prints better error messages
-     * including the working snippets of text.
-     * @param rawData: string data
-     * @return {{}|any}: Javascript Object representation of data.
-     */
-    parse(rawData) {
-        let converted_data = this.convert(rawData);
-        try {
-            return JSON.parse(converted_data, this.revert.bind(this));
-        } catch (e) {
-            let message = e.toString();
-            const matcher = /line (\d+) column (\d+)/
-
-            // Process the match
-            let snippet = "";
-            let match = message.match(matcher);
-            if (match != null) {
-                let lines = converted_data.split("\n");
-                let line = lines[Number.parseInt(match[1]) - 1]
-                snippet = line.substring(Number.parseInt(match[2]) - 6, Number.parseInt(match[2]) + 5);
-                message += ". Offending snippet: " + snippet;
-            }
-            _validator.updateErrors([message]);
-        }
-        return {};
-    }
-
-    /**
-     * Convert data from invalid form to strings.
-     * @param rawData: raw data including potentially invalid data
-     * @return {string}: string data in correct JSON format
-     */
-    convert(rawData) {
-        let unprocessed = rawData;
-        let transformed_data = "";
-
-        while (unprocessed.length > 0) {
-            let next_quote = unprocessed.indexOf("\"");
-            let section = (next_quote !== -1) ? unprocessed.substring(0, next_quote + 1) : unprocessed.substring(0);
-            unprocessed = unprocessed.substring(section.length);
-            transformed_data += this.processChunk(section);
-            this.state = (this.state === this.STATES.QUOTED) ? this.STATES.UNQUOTED : this.STATES.QUOTED;
-        }
-        return transformed_data;
-    }
-
-    /**
-     * Inverse of convert removing string and replacing back invalid JSON tokens.
-     * @param key: JSON key
-     * @param value: JSON value search for the converted value.
-     * @return {*}: reverted value or value
-     */
-    revert(key, value) {
-        for (let i = 0; i < this.MAPPINGS.length; i++) {
-            if ((this.MAPPINGS[i][1]) === value) {
-                return this.MAPPINGS[i][2];
-            }
-        }
-        return value;
-    }
-
-    /**
-     * Process a section of the JSON string looking for values to convert. This is intended to handle a section of
-     * quoted or unquoted text but should never handle quoted and unquoted data in one call.
-     * @param section: section of the data
-     * @return {*}: converted data
-     */
-    processChunk(section) {
-        // Replaces all the above mappings with a flagged value
-        let replace_all = (section) => {
-            for (let i = 0; i < this.MAPPINGS.length; i++) {
-                section = section.replace(this.MAPPINGS[i][0], "\"" + this.MAPPINGS[i][1] + "\"");
-            }
-            return section;
-        }
-
-        // When out of quoted space,
-        if (this.state === this.STATES.UNQUOTED) {
-            return replace_all(section);
-        }
-        return section;
-    }
 }
 
 /**
@@ -308,7 +197,7 @@ class Loader {
                 if (this.readyState === 4 && this.status === 200 && raw) {
                     resolve(this.responseText);
                 } else if (this.readyState === 4 && this.status === 200) {
-                    let dataObj = new SaferParser().parse(this.responseText);
+                    let dataObj = JSON.parse(this.responseText);
                     resolve(dataObj);
                 } else if(this.readyState === 4) {
                     reject(this.responseText);

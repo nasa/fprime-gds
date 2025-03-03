@@ -3,7 +3,8 @@
  *
  * Contains the templates used to render the command string input box.
  */
-export let COMMAND_FORMAT_SPEC = "FULL_COMMAND_NAME[[[, ARG1], ARG2], ...]";
+export let COMMAND_FORMAT_SPEC = "FULL_COMMAND_NAME[[[, ARG1], ARG2], ...] " +
+    "where ARGN is a decimal number, quoted string, or an enumerated constant";
 
 export let command_string_template = `
 <div class="fp-flex-repeater">
