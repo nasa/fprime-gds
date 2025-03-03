@@ -5,8 +5,8 @@ from enum import Enum
 
 
 class SeqDirectiveId(Enum):
-    SLEEP_ABS = 0
-    SLEEP_REL = 1
+    WAIT_ABS = 0
+    WAIT_REL = 1
 
 
 @dataclass
@@ -19,14 +19,14 @@ class SeqDirectiveTemplate:
 
 seq_directive_templates = [
     SeqDirectiveTemplate(
-        SeqDirectiveId.SLEEP_ABS,
+        SeqDirectiveId.WAIT_ABS,
         "sleep_abs",
-        [("time", "The absolute time to sleep until", TimeType)],
+        [("time", "The absolute time to wait until", TimeType)],
     ),
     SeqDirectiveTemplate(
-        SeqDirectiveId.SLEEP_REL,
+        SeqDirectiveId.WAIT_REL,
         "sleep_rel",
-        [("timeDelta", "The time to sleep for", TimeType)],
+        [("timeDelta", "The time to wait for", TimeType)],
     ),
 ]
 

@@ -1,0 +1,165 @@
+from __future__ import annotations
+import json
+from pathlib import Path
+from argparse import ArgumentParser
+from fprime_gds.common.fpy.statement import StatementTemplate, StatementData
+from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
+from fprime.common.models.serialize.array_type import ArrayType
+from fprime.common.models.serialize.bool_type import BoolType
+from fprime.common.models.serialize.enum_type import EnumType
+from fprime.common.models.serialize.numerical_types import (
+    F32Type,
+    F64Type,
+    I8Type,
+    I16Type,
+    I32Type,
+    I64Type,
+    U8Type,
+    U16Type,
+    U32Type,
+    U64Type,
+)
+from fprime.common.models.serialize.serializable_type import SerializableType
+from fprime.common.models.serialize.string_type import StringType
+from fprime.common.models.serialize.time_type import TimeBase, TimeType
+from fprime.common.models.serialize.type_base import BaseType, ValueType
+
+
+def get_type_obj_for(type: str) -> type[ValueType]:
+    if type == "FwOpcodeType":
+        return U32Type
+    elif type == "FwSizeStoreType":
+        return U16Type
+
+    raise RuntimeError("Unknown FPrime type alias " + str(type))
+
+
+def serialize_statement(stmt: StatementData) -> bytes:
+    # see https://github.com/nasa/fprime/issues/3023#issuecomment-2693051677
+    # TODO replace this with actual documentation
+
+    # opcode: FwOpcodeType (default U32)
+    # argBufSize: FwSizeStoreType (default U16)
+    # argBuf: X bytes
+
+    output = bytes()
+    output += get_type_obj_for("FwOpcodeType")(stmt.template.opcode).serialize()
+
+    arg_bytes = bytes()
+    for arg in stmt.arg_values:
+        arg_bytes += arg.serialize()
+
+    output += get_type_obj_for("FwSizeStoreType")(len(arg_bytes)).serialize()
+    output += arg_bytes
+
+    return output
+
+
+def parse_str_as_statement(
+    stmt: str, templates: list[StatementTemplate]
+) -> StatementData:
+    name = stmt.split()[0]
+    args = stmt[len(name) :]
+
+    args = json.loads("[" + args + "]")
+
+    matching_template = [t for t in templates if t.name == name]
+    if len(matching_template) != 1:
+        # no unique match
+        if len(matching_template) == 0:
+            raise RuntimeError("Could not find command or directive " + str(name))
+        raise RuntimeError(
+            "Found multiple commands or directives with name " + str(name)
+        )
+    matching_template = matching_template[0]
+
+    arg_values = []
+    if len(args) < len(matching_template.args):
+        raise RuntimeError(
+            "Missing arguments for statement "
+            + str(matching_template.name)
+            + ": "
+            + str(matching_template.args[len(args) :])
+        )
+    if len(args) > len(matching_template.args):
+        raise RuntimeError(
+            "Extra arguments for"
+            + str(matching_template.name)
+            + ": "
+            + str(args[len(matching_template.args) :])
+        )
+    for index, arg_json in enumerate(args):
+        arg_type = matching_template.args[index]
+        arg_value = arg_type(arg_json)
+        arg_values.append(arg_value)
+
+    return StatementData(matching_template, arg_values)
+
+
+def main():
+    arg_parser = ArgumentParser()
+    arg_parser.add_argument(
+        "input", type=Path, help="The path to the input .fpybc file"
+    )
+
+    arg_parser.add_argument(
+        "-d",
+        "--dictionary",
+        type=Path,
+        help="The JSON topology dictionary to compile against",
+    )
+
+    arg_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        help="The output .bin file path. Defaults to the input file path with a .bin extension",
+        default=None,
+    )
+
+    args = arg_parser.parse_args()
+
+    if not args.input.exists():
+        print("Input file", args.input, "does not exist")
+        exit(1)
+
+    if not args.dictionary.exists():
+        print("Dictionary file", args.dictionary, "does not exist")
+        exit(1)
+
+    cmd_json_dict_loader = CmdJsonLoader(str(args.dictionary))
+    (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
+        str(args.dictionary)
+    )
+
+    stmt_templates = []
+    for cmd_template in cmd_name_dict.values():
+        stmt_template = StatementTemplate(
+            cmd_template.opcode,
+            cmd_template.get_full_name(),
+            [arg[2] for arg in cmd_template.arguments],
+        )
+        stmt_templates.append(stmt_template)
+
+    output_bytes = bytes()
+    for line_idx, line in enumerate(args.input.read_text().splitlines()):
+        if line.startswith(";"):
+            # ignore comments
+            continue
+        try:
+            stmt_data = parse_str_as_statement(line, stmt_templates)
+            output_bytes += serialize_statement(stmt_data)
+        except BaseException as e:
+            raise RuntimeError(
+                "Exception while parsing line " + str(line_idx + 1)
+            ) from e
+
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix(".bin")
+
+    output.write_bytes(output_bytes)
+
+
+if __name__ == "__main__":
+    main()

@@ -558,8 +558,8 @@ class AddTimestamps(ast.NodeVisitor):
             func = statement.value.func
             # okay, is this a sleep seq dir?
             if isinstance(func, FpySeqDirective) and func.seq_directive_template.id in [
-                SeqDirectiveId.SLEEP_ABS,
-                SeqDirectiveId.SLEEP_REL,
+                SeqDirectiveId.WAIT_ABS,
+                SeqDirectiveId.WAIT_REL,
             ]:
                 if self.next_command_has_time:
                     # the next command already has a time. can't specify two sleeps or more next to each other
@@ -572,7 +572,7 @@ class AddTimestamps(ast.NodeVisitor):
                 # get the first arg of the directive
                 time = statement.value.get_arg(func.seq_directive_template.args[0][0])
 
-                if func.seq_directive_template == SeqDirectiveId.SLEEP_ABS:
+                if func.seq_directive_template == SeqDirectiveId.WAIT_ABS:
                     self.next_wait_absolute_time = time
                 else:
                     self.next_wait_relative_time = time
@@ -663,8 +663,8 @@ def module_to_bytes(node: ast.Module):
         )
         if isinstance(statement.value.func, FpySeqDirective):
             assert statement.value.func.seq_directive_template.id in [
-                SeqDirectiveId.SLEEP_ABS,
-                SeqDirectiveId.SLEEP_REL,
+                SeqDirectiveId.WAIT_ABS,
+                SeqDirectiveId.WAIT_REL,
             ]
             # have already dealt with these by adding timestamps to cmds
             continue
