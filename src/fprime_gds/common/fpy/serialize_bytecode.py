@@ -1,8 +1,18 @@
 from __future__ import annotations
+from dataclasses import astuple
 import json
 from pathlib import Path
 from argparse import ArgumentParser
-from fprime_gds.common.fpy.statement import StatementTemplate, StatementData
+import struct
+import zlib
+from fprime_gds.common.fpy.types import (
+    StatementTemplate,
+    StatementData,
+    Header,
+    Footer,
+    HEADER_FORMAT,
+    FOOTER_FORMAT,
+)
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.bool_type import BoolType
@@ -107,6 +117,7 @@ def main():
         "--dictionary",
         type=Path,
         help="The JSON topology dictionary to compile against",
+        required=True
     )
 
     arg_parser.add_argument(
@@ -141,18 +152,31 @@ def main():
         )
         stmt_templates.append(stmt_template)
 
-    output_bytes = bytes()
+    stmts = []
+
     for line_idx, line in enumerate(args.input.read_text().splitlines()):
         if line.startswith(";"):
             # ignore comments
             continue
         try:
             stmt_data = parse_str_as_statement(line, stmt_templates)
-            output_bytes += serialize_statement(stmt_data)
+            stmts.append(stmt_data)
         except BaseException as e:
             raise RuntimeError(
                 "Exception while parsing line " + str(line_idx + 1)
             ) from e
+
+    output_bytes = bytes()
+
+    for stmt in stmts:
+        output_bytes += serialize_statement(stmt)
+
+    header = Header(0, 0, 0, 0, 0, len(stmts), len(output_bytes))
+    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
+
+    crc = zlib.crc32(output_bytes) % (1 << 32)
+    footer = Footer(crc)
+    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
 
     output = args.output
     if output is None:
