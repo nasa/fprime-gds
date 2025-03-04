@@ -62,6 +62,7 @@ fprime-seqgen = "fprime_gds.common.tools.seqgen:main"
 fprime-dp-write = "fprime_gds.executables.data_product_writer:main"
 fprime-gds = "fprime_gds.executables.run_deployment:main"
 fprime-seq = "fprime_gds.common.sequence.compiler:main"
+fpy-bytecode = "fprime_gds.common.fpy.serialize_bytecode:main"
 
 # For Pytest fixtures
 [project.entry-points."pytest11"]

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 import struct
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.numerical_types import (
@@ -14,9 +15,14 @@ from fprime.common.models.serialize.numerical_types import (
     U64Type,
 )
 
+class StatementType(Enum):
+    DIRECTIVE = 0
+    CMD = 1
+
 
 @dataclass
 class StatementTemplate:
+    statement_type: StatementType
     opcode: int
     name: str
     args: list[type[BaseType]]
