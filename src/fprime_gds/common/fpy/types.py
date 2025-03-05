@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 import struct
 from fprime.common.models.serialize.type_base import BaseType
+from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.numerical_types import (
     F32Type,
     F64Type,
@@ -15,6 +16,7 @@ from fprime.common.models.serialize.numerical_types import (
     U64Type,
 )
 
+
 class StatementType(Enum):
     DIRECTIVE = 0
     CMD = 1
@@ -27,6 +29,7 @@ class StatementTemplate:
     name: str
     args: list[type[BaseType]]
 
+
 @dataclass
 class StatementData:
     template: StatementTemplate
@@ -35,6 +38,8 @@ class StatementData:
 
 HEADER_FORMAT = "!BBBBBHI"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+
+
 @dataclass
 class Header:
     majorVersion: int
@@ -49,13 +54,33 @@ class Header:
 FOOTER_FORMAT = "!I"
 FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
 
+
 @dataclass
 class Footer:
     crc: int
 
-# enum DirectiveId : FwOpcodeType {
-#     INVALID = 0x00000000,
-#     WAIT_REL = 0x00000001,
-#     WAIT_ABS = 0x00000002,
-#     MAX_DIRECTIVE_ID = 0x00000040
-# };
+
+class DirectiveOpcode(Enum):
+    INVALID = 0
+    WAIT_REL = 0x00000001
+    WAIT_ABS = 0x00000002
+
+
+def time_type_from_json(js):
+    return TimeType(js["time_base"], js["time_context"], js["seconds"], js["useconds"])
+
+
+directives: list[StatementTemplate] = [
+    StatementTemplate(
+        StatementType.DIRECTIVE,
+        DirectiveOpcode.WAIT_REL.value,
+        "WAIT_REL",
+        [time_type_from_json],
+    ),
+    StatementTemplate(
+        StatementType.DIRECTIVE,
+        DirectiveOpcode.WAIT_ABS.value,
+        "WAIT_ABS",
+        [time_type_from_json],
+    ),
+]

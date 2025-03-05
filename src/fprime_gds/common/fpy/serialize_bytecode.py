@@ -13,6 +13,7 @@ from fprime_gds.common.fpy.types import (
     HEADER_FORMAT,
     FOOTER_FORMAT,
     StatementType,
+    directives
 )
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime.common.models.serialize.array_type import ArrayType
@@ -141,12 +142,17 @@ def main():
         print("Dictionary file", args.dictionary, "does not exist")
         exit(1)
 
-    cmd_json_dict_loader = CmdJsonLoader(str(args.dictionary))
+    serialize_bytecode(args.input, args.dictionary, args.output)
+
+def serialize_bytecode(input: Path, dictionary: Path, output: Path=None):
+
+    cmd_json_dict_loader = CmdJsonLoader(str(dictionary))
     (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
-        str(args.dictionary)
+        str(dictionary)
     )
 
     stmt_templates = []
+    stmt_templates.extend(directives)
     for cmd_template in cmd_name_dict.values():
         stmt_template = StatementTemplate(
             StatementType.CMD,
@@ -158,9 +164,10 @@ def main():
 
     stmts = []
 
-    for line_idx, line in enumerate(args.input.read_text().splitlines()):
-        if line.startswith(";"):
-            # ignore comments
+    for line_idx, line in enumerate(input.read_text().splitlines()):
+        line = line.strip()
+        if line.startswith(";") or len(line) == 0:
+            # ignore comments, empty lines
             continue
         try:
             stmt_data = parse_str_as_statement(line, stmt_templates)
@@ -182,9 +189,8 @@ def main():
     footer = Footer(crc)
     output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
 
-    output = args.output
     if output is None:
-        output = args.input.with_suffix(".bin")
+        output = input.with_suffix(".bin")
 
     output.write_bytes(output_bytes)
 
