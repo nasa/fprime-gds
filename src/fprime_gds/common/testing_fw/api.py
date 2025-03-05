@@ -61,7 +61,7 @@ class IntegrationTestAPI(DataHandler):
         self.latest_time = TimeType()
 
         # Initialize the logger
-        self.logger = TestLogger(logpath) if logpath is not None else None
+        self.logger = TestLogger(logpath) if logpath else None
 
         # A predicate used as a filter to choose which events to log automatically
         self.event_log_filter = self.get_event_pred()

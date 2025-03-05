@@ -6,7 +6,11 @@ from fprime.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.fpy.serialize_bytecode import serialize_bytecode
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
+import fprime_gds.common.logger.test_logger
 
+# disable excel logging.... wtf ew
+fprime_gds.common.logger.test_logger.MODULE_INSTALLED = False
+SEQ_MAX_STATEMENT_COUNT = 1024
 
 def compile_seq(fprime_test_api, seq: str) -> Path:
     with tempfile.NamedTemporaryFile(suffix=".seq", delete=False) as fp:
@@ -63,7 +67,12 @@ def assert_seq(
         runtime = time.time() - run_start
         assert runtime > min_runtime, "Sequence only ran for " + str(runtime) + " seconds"
     else:
-        raise RuntimeError("Not implemented")
+        try:
+            assert_run_succeeds(fprime_test_api, bin, max_runtime)
+        except BaseException as e:
+            # it failed... successfully
+            return
+        raise RuntimeError("Sequence was expected to fail but did not")
 
 
 def get_dispatched_count(fprime_test_api: IntegrationTestAPI) -> int:
@@ -104,6 +113,23 @@ def test_no_op(fprime_test_api: IntegrationTestAPI):
         3, ["Ref.cmdDisp.NoOpReceived", "Ref.cmdDisp.NoOpStringReceived"]
     )
 
+def test_largest_possible_seq(fprime_test_api: IntegrationTestAPI):
+    seq = """
+    Ref.cmdDisp.CMD_NO_OP
+    """
+    seq = "\n".join([seq] * SEQ_MAX_STATEMENT_COUNT)
+    assert_seq(fprime_test_api, seq, True, True)
+
+    fprime_test_api.assert_event_count(
+        SEQ_MAX_STATEMENT_COUNT, ["Ref.cmdDisp.NoOpReceived"]
+    )
+
+def test_too_big_seq(fprime_test_api: IntegrationTestAPI):
+    seq = """
+    Ref.cmdDisp.CMD_NO_OP
+    """
+    seq = "\n".join([seq] * (SEQ_MAX_STATEMENT_COUNT + 1))
+    assert_seq(fprime_test_api, seq, True, False)
 
 def test_wait_rel(fprime_test_api: IntegrationTestAPI):
     seq = """
@@ -122,7 +148,9 @@ def test_wait_abs(fprime_test_api: IntegrationTestAPI):
     seq = f"""
     WAIT_ABS {{ "time_base": 2, "time_context": 0, "seconds": {time.seconds + 5}, "useconds": 0 }}
     """
-    assert_seq(fprime_test_api, seq, True, True, min_runtime=4.5, max_runtime=6.1)
+    # i see a lot of variability in this depending on tlm rates. cuz latest time just returns latest tlm timestamp
+    # so it might be somewhat in the past
+    assert_seq(fprime_test_api, seq, True, True, min_runtime=4, max_runtime=6.1)
 
 
 def test_wait_abs_past(fprime_test_api: IntegrationTestAPI):
@@ -134,10 +162,29 @@ def test_wait_abs_past(fprime_test_api: IntegrationTestAPI):
     assert_seq(fprime_test_api, seq, True, True, min_runtime=0, max_runtime=2)
 
 
-def test_wait_abs_past(fprime_test_api: IntegrationTestAPI):
-    time = fprime_test_api.get_latest_time()
-
-    seq = f"""
-    WAIT_ABS {{ "time_base": 2, "time_context": 0, "seconds": {time.seconds - 8}, "useconds": 0 }}
+def test_wait_bad_base(fprime_test_api: IntegrationTestAPI):
+    # timebase dont match, should fail
+    seq = """
+    WAIT_REL { "time_base": 0, "time_context": 0, "seconds": 1, "useconds": 0 }
     """
-    assert_seq(fprime_test_api, seq, True, True, min_runtime=0, max_runtime=2)
+    assert_seq(fprime_test_api, seq, True, False, min_runtime=0, max_runtime=2)
+
+    time = fprime_test_api.get_latest_time()
+    seq = f"""
+    WAIT_ABS {{ "time_base": 0, "time_context": 0, "seconds": {time.seconds + 5}, "useconds": 0 }}
+    """
+    assert_seq(fprime_test_api, seq, True, False, min_runtime=0, max_runtime=2)
+
+
+def test_wait_bad_context(fprime_test_api: IntegrationTestAPI):
+    # timectx dont match, should fail
+    seq = """
+    WAIT_REL { "time_base": 2, "time_context": 123, "seconds": 1, "useconds": 0 }
+    """
+    assert_seq(fprime_test_api, seq, True, False, min_runtime=0, max_runtime=2)
+
+    time = fprime_test_api.get_latest_time()
+    seq = f"""
+    WAIT_ABS {{ "time_base": 2, "time_context": 123, "seconds": {time.seconds + 5}, "useconds": 0 }}
+    """
+    assert_seq(fprime_test_api, seq, True, False, min_runtime=0, max_runtime=2)
