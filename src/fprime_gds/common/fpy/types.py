@@ -75,7 +75,7 @@ directives: list[StatementTemplate] = [
         StatementType.DIRECTIVE,
         DirectiveOpcode.WAIT_REL.value,
         "WAIT_REL",
-        [time_type_from_json],
+        [U32Type, U32Type],
     ),
     StatementTemplate(
         StatementType.DIRECTIVE,
