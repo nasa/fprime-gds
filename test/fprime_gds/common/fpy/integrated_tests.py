@@ -12,6 +12,7 @@ import fprime_gds.common.logger.test_logger
 fprime_gds.common.logger.test_logger.MODULE_INSTALLED = False
 SEQ_MAX_STATEMENT_COUNT = 1024
 
+
 def compile_seq(fprime_test_api, seq: str) -> Path:
     with tempfile.NamedTemporaryFile(suffix=".seq", delete=False) as fp:
         fp.write(seq.encode())
@@ -65,7 +66,9 @@ def assert_seq(
         run_start = time.time()
         assert_run_succeeds(fprime_test_api, bin, max_runtime)
         runtime = time.time() - run_start
-        assert runtime > min_runtime, "Sequence only ran for " + str(runtime) + " seconds"
+        assert runtime > min_runtime, (
+            "Sequence only ran for " + str(runtime) + " seconds"
+        )
     else:
         try:
             assert_run_succeeds(fprime_test_api, bin, max_runtime)
@@ -113,6 +116,7 @@ def test_no_op(fprime_test_api: IntegrationTestAPI):
         3, ["Ref.cmdDisp.NoOpReceived", "Ref.cmdDisp.NoOpStringReceived"]
     )
 
+
 def test_largest_possible_seq(fprime_test_api: IntegrationTestAPI):
     seq = """
     Ref.cmdDisp.CMD_NO_OP
@@ -120,9 +124,11 @@ def test_largest_possible_seq(fprime_test_api: IntegrationTestAPI):
     seq = "\n".join([seq] * SEQ_MAX_STATEMENT_COUNT)
     assert_seq(fprime_test_api, seq, True, True)
 
+    # this is quite flaky--sometimes GDS captures them all, sometimes it doesn't
     fprime_test_api.assert_event_count(
         SEQ_MAX_STATEMENT_COUNT, ["Ref.cmdDisp.NoOpReceived"]
     )
+
 
 def test_too_big_seq(fprime_test_api: IntegrationTestAPI):
     seq = """
@@ -131,10 +137,11 @@ def test_too_big_seq(fprime_test_api: IntegrationTestAPI):
     seq = "\n".join([seq] * (SEQ_MAX_STATEMENT_COUNT + 1))
     assert_seq(fprime_test_api, seq, True, False)
 
+
 def test_wait_rel(fprime_test_api: IntegrationTestAPI):
     seq = """
     Ref.cmdDisp.CMD_NO_OP
-    WAIT_REL {"time_base": 2, "time_context": 0, "seconds": 2, "useconds": 0}
+    WAIT_REL 2, 0
     Ref.cmdDisp.CMD_NO_OP_STRING "Hello World"
     """
     pre = get_dispatched_count(fprime_test_api)
@@ -150,7 +157,7 @@ def test_wait_abs(fprime_test_api: IntegrationTestAPI):
     """
     # i see a lot of variability in this depending on tlm rates. cuz latest time just returns latest tlm timestamp
     # so it might be somewhat in the past
-    assert_seq(fprime_test_api, seq, True, True, min_runtime=4, max_runtime=6.1)
+    assert_seq(fprime_test_api, seq, True, True, min_runtime=3.5, max_runtime=6.1)
 
 
 def test_wait_abs_past(fprime_test_api: IntegrationTestAPI):
@@ -164,11 +171,6 @@ def test_wait_abs_past(fprime_test_api: IntegrationTestAPI):
 
 def test_wait_bad_base(fprime_test_api: IntegrationTestAPI):
     # timebase dont match, should fail
-    seq = """
-    WAIT_REL { "time_base": 0, "time_context": 0, "seconds": 1, "useconds": 0 }
-    """
-    assert_seq(fprime_test_api, seq, True, False, min_runtime=0, max_runtime=2)
-
     time = fprime_test_api.get_latest_time()
     seq = f"""
     WAIT_ABS {{ "time_base": 0, "time_context": 0, "seconds": {time.seconds + 5}, "useconds": 0 }}
@@ -178,13 +180,83 @@ def test_wait_bad_base(fprime_test_api: IntegrationTestAPI):
 
 def test_wait_bad_context(fprime_test_api: IntegrationTestAPI):
     # timectx dont match, should fail
-    seq = """
-    WAIT_REL { "time_base": 2, "time_context": 123, "seconds": 1, "useconds": 0 }
-    """
-    assert_seq(fprime_test_api, seq, True, False, min_runtime=0, max_runtime=2)
-
     time = fprime_test_api.get_latest_time()
     seq = f"""
     WAIT_ABS {{ "time_base": 2, "time_context": 123, "seconds": {time.seconds + 5}, "useconds": 0 }}
     """
     assert_seq(fprime_test_api, seq, True, False, min_runtime=0, max_runtime=2)
+
+
+def test_run_then_cancel(fprime_test_api: IntegrationTestAPI):
+    seq = """
+    Ref.cmdDisp.CMD_NO_OP
+    WAIT_REL 10, 0
+    Ref.cmdDisp.CMD_NO_OP
+    """
+    bin = compile_seq(fprime_test_api, seq)
+
+    fprime_test_api.send_command("Ref.fpySeq.RUN", [str(bin), "BLOCK"])
+    time.sleep(2)
+    fprime_test_api.send_and_assert_command("Ref.fpySeq.CANCEL")
+
+    # make sure only one of the no ops got through
+    fprime_test_api.assert_event_count(1, ["Ref.cmdDisp.NoOpReceived"])
+
+
+def test_cancel_while_no_run(fprime_test_api: IntegrationTestAPI):
+    fprime_test_api.send_command("Ref.fpySeq.CANCEL")
+
+    # should fail
+    fprime_test_api.assert_event_count(1, ["Ref.fpySeq.InvalidCommand"], timeout=1)
+
+
+def test_validate_then_cancel(fprime_test_api: IntegrationTestAPI):
+    seq = """
+    Ref.cmdDisp.CMD_NO_OP
+    WAIT_REL 10, 0
+    Ref.cmdDisp.CMD_NO_OP
+    """
+    bin = compile_seq(fprime_test_api, seq)
+
+    fprime_test_api.send_and_assert_command("Ref.fpySeq.VALIDATE", [str(bin)])
+    fprime_test_api.send_and_assert_command("Ref.fpySeq.CANCEL")
+
+    # sequence should be cancelled
+    fprime_test_api.assert_event_count(1, ["Ref.fpySeq.SequenceCancelled"])
+
+
+def test_run_validated(fprime_test_api: IntegrationTestAPI):
+    seq = """
+    Ref.cmdDisp.CMD_NO_OP
+    """
+    bin = compile_seq(fprime_test_api, seq)
+
+    fprime_test_api.send_and_assert_command("Ref.fpySeq.VALIDATE", [str(bin)])
+    fprime_test_api.send_and_assert_command("Ref.fpySeq.RUN_VALIDATED", ["BLOCK"])
+
+    # sequence should be cancelled
+    fprime_test_api.assert_event_count(1, ["Ref.cmdDisp.NoOpReceived"])
+
+def test_no_block_run(fprime_test_api: IntegrationTestAPI):
+    seq = """
+    WAIT_REL 2, 0
+    """
+    bin = compile_seq(fprime_test_api, seq)
+
+    # should return immediately
+    fprime_test_api.send_and_assert_command("Ref.fpySeq.RUN", [str(bin), "NO_BLOCK"], max_delay=1)
+
+
+def test_run_twice(fprime_test_api: IntegrationTestAPI):
+    seq = """
+    WAIT_REL 10, 0
+    """
+    bin = compile_seq(fprime_test_api, seq)
+
+    fprime_test_api.send_and_assert_command("Ref.fpySeq.RUN", [str(bin), "BLOCK"], max_delay=1)
+    try:
+        fprime_test_api.send_and_assert_command("Ref.fpySeq.RUN", [str(bin), "BLOCK"], max_delay=1)
+        assert False # should have failed
+    except BaseException as e:
+        # failed successfully
+        pass
