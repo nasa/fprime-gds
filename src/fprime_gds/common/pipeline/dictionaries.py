@@ -77,7 +77,7 @@ class Dictionaries:
             self._channel_id_dict = json_channel_loader.get_id_dict(None)
             # Metadata
             self._versions = json_event_loader.get_versions()
-            self._metadata = json_event_loader.get_metadata()
+            self._metadata = json_event_loader.get_metadata().copy()
             self._metadata["dictionary_type"] = "json"
             # Each loaders should agree on metadata and versions
             assert (
