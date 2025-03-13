@@ -170,7 +170,7 @@ class Dictionaries:
         return self._versions[0]
 
     @property
-    def metatdata(self):
+    def metadata(self):
         """Dictionary metadata.
 
         Note: framework_version and project_version are also available as separate properties

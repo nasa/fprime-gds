@@ -84,7 +84,7 @@ def construct_app():
             pipeline.dictionaries.command_name,
             pipeline.dictionaries.project_version,
             pipeline.dictionaries.framework_version,
-            pipeline.dictionaries.metatdata,
+            pipeline.dictionaries.metadata,
         ],
     )
     api.add_resource(
@@ -104,7 +104,7 @@ def construct_app():
             pipeline.dictionaries.event_id,
             pipeline.dictionaries.project_version,
             pipeline.dictionaries.framework_version,
-            pipeline.dictionaries.metatdata,
+            pipeline.dictionaries.metadata,
         ],
     )
     api.add_resource(
@@ -119,7 +119,7 @@ def construct_app():
             pipeline.dictionaries.channel_id,
             pipeline.dictionaries.project_version,
             pipeline.dictionaries.framework_version,
-            pipeline.dictionaries.metatdata,
+            pipeline.dictionaries.metadata,
         ],
     )
     api.add_resource(
