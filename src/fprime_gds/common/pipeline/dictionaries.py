@@ -9,9 +9,9 @@ class called "Dictionaries".
 
 from pathlib import Path
 
-import fprime_gds.common.loaders.ch_xml_loader
 
 # XML Loaders
+import fprime_gds.common.loaders.ch_xml_loader
 import fprime_gds.common.loaders.cmd_xml_loader
 import fprime_gds.common.loaders.event_xml_loader
 import fprime_gds.common.loaders.pkt_xml_loader
@@ -45,6 +45,7 @@ class Dictionaries:
         self._channel_name_dict = None
         self._packet_dict = None
         self._versions = None
+        self._dictionary_type = None
 
     def load_dictionaries(self, dictionary, packet_spec):
         """
@@ -80,6 +81,7 @@ class Dictionaries:
             assert (
                 self._versions == json_channel_loader.get_versions()
             ), "Version mismatch while loading"
+            self._dictionary_type = "json"
         # XML dictionaries
         elif Path(dictionary).is_file():
             # Events
@@ -101,6 +103,7 @@ class Dictionaries:
             assert (
                 self._versions == channel_loader.get_versions()
             ), "Version mismatch while loading"
+            self._dictionary_type = "xml"
         else:
             msg = f"[ERROR] Dictionary '{dictionary}' does not exist."
             raise Exception(msg)
@@ -152,6 +155,18 @@ class Dictionaries:
     def framework_version(self):
         """Framework version in dictionary"""
         return self._versions[0]
+
+    @property
+    def metatdata(self):
+        """Dictionary metadata.
+
+        Note: framework_version and project_version are also available as separate properties 
+        for legacy reasons. New code should use the metadata property."""
+        return {
+            "framework_version": self._versions[0],
+            "project_version": self._versions[1],
+            "dictionary_type": self._dictionary_type
+        }
 
     @property
     def packet(self):
