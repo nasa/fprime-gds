@@ -15,6 +15,7 @@ import fprime_gds.common.loaders.ch_xml_loader
 import fprime_gds.common.loaders.cmd_xml_loader
 import fprime_gds.common.loaders.event_xml_loader
 import fprime_gds.common.loaders.pkt_xml_loader
+
 # JSON Loaders
 import fprime_gds.common.loaders.ch_json_loader
 import fprime_gds.common.loaders.cmd_json_loader
@@ -45,7 +46,7 @@ class Dictionaries:
         self._channel_name_dict = None
         self._packet_dict = None
         self._versions = None
-        self._dictionary_type = None
+        self._metadata = None
 
     def load_dictionaries(self, dictionary, packet_spec):
         """
@@ -62,26 +63,33 @@ class Dictionaries:
             )
             self._event_name_dict = json_event_loader.get_name_dict(None)
             self._event_id_dict = json_event_loader.get_id_dict(None)
-            self._versions = json_event_loader.get_versions()
             # Commands
             json_command_loader = (
                 fprime_gds.common.loaders.cmd_json_loader.CmdJsonLoader(dictionary)
             )
             self._command_name_dict = json_command_loader.get_name_dict(None)
             self._command_id_dict = json_command_loader.get_id_dict(None)
-            assert (
-                self._versions == json_command_loader.get_versions()
-            ), "Version mismatch while loading"
             # Channels
             json_channel_loader = fprime_gds.common.loaders.ch_json_loader.ChJsonLoader(
                 dictionary
             )
             self._channel_name_dict = json_channel_loader.get_name_dict(None)
             self._channel_id_dict = json_channel_loader.get_id_dict(None)
+            # Metadata
+            self._versions = json_event_loader.get_versions()
+            self._metadata = json_event_loader.get_metadata()
+            self._metadata["dictionary_type"] = "json"
+            # Each loaders should agree on metadata and versions
             assert (
-                self._versions == json_channel_loader.get_versions()
+                json_command_loader.get_metadata()
+                == json_channel_loader.get_metadata()
+                == json_event_loader.get_metadata()
+            ), "Metadata mismatch while loading"
+            assert (
+                json_command_loader.get_versions()
+                == json_channel_loader.get_versions()
+                == json_event_loader.get_versions()
             ), "Version mismatch while loading"
-            self._dictionary_type = "json"
         # XML dictionaries
         elif Path(dictionary).is_file():
             # Events
@@ -103,7 +111,12 @@ class Dictionaries:
             assert (
                 self._versions == channel_loader.get_versions()
             ), "Version mismatch while loading"
-            self._dictionary_type = "xml"
+            # versions are camelCase to match the metadata field of the JSON dictionaries
+            self._metadata = {
+                "frameworkVersion": self._versions[0],
+                "projectVersion": self._versions[1],
+                "dictionary_type": "xml",
+            }
         else:
             msg = f"[ERROR] Dictionary '{dictionary}' does not exist."
             raise Exception(msg)
@@ -160,13 +173,9 @@ class Dictionaries:
     def metatdata(self):
         """Dictionary metadata.
 
-        Note: framework_version and project_version are also available as separate properties 
+        Note: framework_version and project_version are also available as separate properties
         for legacy reasons. New code should use the metadata property."""
-        return {
-            "framework_version": self._versions[0],
-            "project_version": self._versions[1],
-            "dictionary_type": self._dictionary_type
-        }
+        return self._metadata
 
     @property
     def packet(self):

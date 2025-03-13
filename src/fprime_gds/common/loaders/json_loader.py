@@ -71,6 +71,18 @@ class JsonLoader(dict_loader.DictLoader):
             self.json_dict["metadata"].get("projectVersion", "unknown"),
         )
 
+    def get_metadata(self):
+        """Get the metadata field of the JSON dictionary
+
+        Raises:
+            GdsDictionaryParsingException: if the dictionary has no metadata field
+        """
+        if "metadata" not in self.json_dict:
+            raise GdsDictionaryParsingException(
+                f"Dictionary has no metadata field: {self.json_file}"
+            )
+        return self.json_dict["metadata"]
+
     def parse_type(self, type_dict: dict) -> BaseType:
         type_name: str = type_dict.get("name", None)
 
