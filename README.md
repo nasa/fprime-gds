@@ -72,7 +72,7 @@ the descriptor receives should be of the form:
 
 ```mermaid
 ---
-title: "Default F Prime Frame Format"
+title: "Binary format received by Distributors"
 ---
 packet-beta
   0-31: "Length [4 bytes]"
