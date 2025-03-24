@@ -6,6 +6,7 @@ from __future__ import annotations
 import json as js
 from pathlib import Path
 from argparse import ArgumentParser
+from typing import Any
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime.common.models.serialize.type_base import BaseType
@@ -27,8 +28,12 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
 
+FW_PRM_ID_TYPE_SIZE = 4 # serialized size of the FwPrmIdType
 
-def instantiate_prm_type(prm_val_json, prm_type):
+
+def instantiate_prm_type(prm_val_json, prm_type: type[BaseType]):
+    """given a parameter type and its value in json form, instantiate the type
+    with the value, or raise an exception if the json is not compatible"""
     prm_instance = prm_type()
     if isinstance(prm_instance, BoolType):
         value = str(prm_val_json).lower().strip()
@@ -59,7 +64,8 @@ def instantiate_prm_type(prm_val_json, prm_type):
     return prm_instance
 
 
-def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, dict]]) -> bytes:
+def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, Any]]) -> bytes:
+    """convert a list of (PrmTemplate, prm value json) to serialized bytes for a PrmDb"""
     serialized = bytes()
     for template_and_value in templates_and_values:
         template, json_value = template_and_value
@@ -67,10 +73,13 @@ def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, dict]]) -> 
 
         prm_instance_bytes = prm_instance.serialize()
 
+        # see https://github.com/nasa/fprime/blob/devel/Svc/PrmDb/docs/sdd.md#32-functional-description
+        # for an explanation of the binary format of parameters in the .dat file
+
         # delimiter
         serialized += b"\xA5"
 
-        record_size = 4 + len(prm_instance_bytes)
+        record_size = FW_PRM_ID_TYPE_SIZE + len(prm_instance_bytes)
 
         # size of following data
         serialized += record_size.to_bytes(length=4, byteorder="big")
@@ -82,31 +91,33 @@ def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, dict]]) -> 
 
 
 def parsed_json_to_seq(templates_and_values: list[tuple[PrmTemplate, dict]], include_save=False) -> list[str]:
+    """convert a list of (PrmTemplate, prm value json) to a command sequence for the CmdSequencer.
+    Returns a list of lines in the sequence."""
     cmds = []
     cmds.append("; Autocoded sequence file from JSON")
     for template_and_value in templates_and_values:
         template, json_value = template_and_value
-        set_cmd_name = template.comp_name + "." + template.prm_name.upper() + "_PARAM_SET"
+        set_cmd_name = template.comp_name + "." + template.prm_name.upper() + "_PRM_SET"
         cmd = "R00:00:00 " + set_cmd_name + " " + str(json_value)
         cmds.append(cmd)
         if include_save:
-            save_cmd = template.comp_name + "." + template.prm_name.upper() + "_PARAM_SAVE"
+            save_cmd = template.comp_name + "." + template.prm_name.upper() + "_PRM_SAVE"
             cmds.append(save_cmd)
     return cmds
 
 
 
-def parse_json(json, name_dict: dict[str, PrmTemplate], include_implicit_defaults=False) -> list[tuple[PrmTemplate, dict]]:
+def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_implicit_defaults=False) -> list[tuple[PrmTemplate, dict]]:
     """
-    json: the json object read from the .json file
+    param_value_json: the json object read from the .json file
     name_dict: a dictionary of (fqn param name, PrmTemplate) pairs
     include_implicit_defaults: whether or not to also include default values from the name dict
                                if no value was specified in the json
     @return a list of tuple of param template and the intended param value (in form of json dict)
     """
     # first, check the json for errors
-    for component_name in json:
-        for param_name in json[component_name]:
+    for component_name in param_value_json:
+        for param_name in param_value_json[component_name]:
             fqn_param_name = component_name + "." + param_name
             param_temp: PrmTemplate = name_dict.get(fqn_param_name, None)
             if not param_temp:
@@ -126,7 +137,7 @@ def parse_json(json, name_dict: dict[str, PrmTemplate], include_implicit_default
             # there is a default value
             prm_val = prm_template.prm_default_val
         
-        comp_json = json.get(prm_template.comp_name, None)
+        comp_json = param_value_json.get(prm_template.comp_name, None)
         if comp_json:
             # if there is an entry for the component
             if prm_template.prm_name in comp_json:
@@ -227,6 +238,8 @@ def convert_json(json_file: Path, dictionary: Path, output: Path, output_format:
         sequence_cmds = parsed_json_to_seq(templates_to_values, include_save_cmd)
         print("Done, writing to", output.resolve())
         output.write_text("\n".join(sequence_cmds))
+    else:
+        raise RuntimeError("Invalid output format " + str(output_format))
 
 
 if __name__ == "__main__":
