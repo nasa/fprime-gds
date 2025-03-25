@@ -144,12 +144,13 @@ def test_wait_rel(fprime_test_api: IntegrationTestAPI):
     WAIT_REL 2, 0
     Ref.cmdDisp.CMD_NO_OP_STRING "Hello World"
     """
-    pre = get_dispatched_count(fprime_test_api)
     assert_seq(fprime_test_api, seq, True, True, min_runtime=2, max_runtime=4)
-    assert get_dispatched_count(fprime_test_api) - pre == 3
+    fprime_test_api.assert_event_count(1, ["Ref.cmdDisp.NoOpReceived"])
+    fprime_test_api.assert_event_count(1, ["Ref.cmdDisp.NoOpStringReceived"])
 
 
 def test_wait_abs(fprime_test_api: IntegrationTestAPI):
+    fprime_test_api.send_command("Ref.cmdDisp.CMD_NO_OP")
     time = fprime_test_api.get_latest_time()
 
     seq = f"""
@@ -253,7 +254,7 @@ def test_run_twice(fprime_test_api: IntegrationTestAPI):
     """
     bin = compile_seq(fprime_test_api, seq)
 
-    fprime_test_api.send_and_assert_command("Ref.fpySeq.RUN", [str(bin), "BLOCK"], max_delay=1)
+    fprime_test_api.send_and_assert_command("Ref.fpySeq.RUN", [str(bin), "NO_BLOCK"], max_delay=1)
     try:
         fprime_test_api.send_and_assert_command("Ref.fpySeq.RUN", [str(bin), "BLOCK"], max_delay=1)
         assert False # should have failed
