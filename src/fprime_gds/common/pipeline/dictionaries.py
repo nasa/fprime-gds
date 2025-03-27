@@ -14,6 +14,7 @@ from pathlib import Path
 import fprime_gds.common.loaders.ch_xml_loader
 import fprime_gds.common.loaders.cmd_xml_loader
 import fprime_gds.common.loaders.event_xml_loader
+import fprime_gds.common.loaders.pkt_json_loader
 import fprime_gds.common.loaders.pkt_xml_loader
 
 # JSON Loaders
@@ -48,7 +49,7 @@ class Dictionaries:
         self._versions = None
         self._metadata = None
 
-    def load_dictionaries(self, dictionary, packet_spec):
+    def load_dictionaries(self, dictionary, packet_spec, packet_set_name):
         """
         Loads the dictionaries based on the dictionary path supplied. Optional packet_spec is allowed to specify the
         definitions of packets.
@@ -121,8 +122,13 @@ class Dictionaries:
             msg = f"[ERROR] Dictionary '{dictionary}' does not exist."
             raise Exception(msg)
         # Check for packet specification
-        if packet_spec is not None:
-            packet_loader = fprime_gds.common.loaders.pkt_xml_loader.PktXmlLoader()
+        if packet_set_name is not None:
+            packet_loader = fprime_gds.common.loaders.pkt_json_loader.PktJsonLoader(dictionary)
+            self._packet_dict = packet_loader.get_id_dict(
+                None, packet_set_name, self._channel_name_dict
+            )
+        elif packet_spec is not None:
+            packet_loader = fprime_gds.common.loaders.pkt_xml_loader.PktXmlLoader(dictionary)
             self._packet_dict = packet_loader.get_id_dict(
                 packet_spec, self._channel_name_dict
             )

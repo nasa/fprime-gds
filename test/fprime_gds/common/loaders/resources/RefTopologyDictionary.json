@@ -10237,7 +10237,7 @@
       "annotation" : "Readback of Parameter4"
     },
     {
-      "name" : "Ref.fileUplinkBufferManager.TotalBuffs",
+      "name" : "Ref.commsBufferManager.TotalBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -10249,7 +10249,7 @@
       "annotation" : "The total buffers allocated"
     },
     {
-      "name" : "Ref.fileUplinkBufferManager.CurrBuffs",
+      "name" : "Ref.commsBufferManager.CurrBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -10261,7 +10261,7 @@
       "annotation" : "The current number of allocated buffers"
     },
     {
-      "name" : "Ref.fileUplinkBufferManager.HiBuffs",
+      "name" : "Ref.commsBufferManager.HiBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -10273,7 +10273,7 @@
       "annotation" : "The high water mark of allocated buffers"
     },
     {
-      "name" : "Ref.fileUplinkBufferManager.NoBuffs",
+      "name" : "Ref.commsBufferManager.NoBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -10290,7 +10290,7 @@
       }
     },
     {
-      "name" : "Ref.fileUplinkBufferManager.EmptyBuffs",
+      "name" : "Ref.commsBufferManager.EmptyBuffs",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
@@ -10376,6 +10376,220 @@
       }
     },
     {
+      "name" : "Ref.version.FrameworkVersion",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18432,
+      "telemetryUpdate" : "always",
+      "annotation" : "Software framework version"
+    },
+    {
+      "name" : "Ref.version.ProjectVersion",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18433,
+      "telemetryUpdate" : "always",
+      "annotation" : "Software project version"
+    },
+    {
+      "name" : "Ref.version.CustomVersion01",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18434,
+      "telemetryUpdate" : "always",
+      "annotation" : "Custom Versions"
+    },
+    {
+      "name" : "Ref.version.CustomVersion02",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18435,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.CustomVersion03",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18436,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.CustomVersion04",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18437,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.CustomVersion05",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18438,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.CustomVersion06",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18439,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.CustomVersion07",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18440,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.CustomVersion08",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18441,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.CustomVersion09",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18442,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.CustomVersion10",
+      "type" : {
+        "name" : "Svc.CustomVersionDb",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 18443,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion01",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18444,
+      "telemetryUpdate" : "always",
+      "annotation" : "Library Versions"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion02",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18445,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion03",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18446,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion04",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18447,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion05",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18448,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion06",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18449,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion07",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18450,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion08",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18451,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion09",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18452,
+      "telemetryUpdate" : "always"
+    },
+    {
+      "name" : "Ref.version.LibraryVersion10",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 40
+      },
+      "id" : 18453,
+      "telemetryUpdate" : "always"
+    },
+    {
       "name" : "Ref.systemResources.MEMORY_TOTAL",
       "type" : {
         "name" : "U64",
@@ -10383,7 +10597,7 @@
         "size" : 64,
         "signed" : false
       },
-      "id" : 19200,
+      "id" : 18944,
       "telemetryUpdate" : "always",
       "format" : "{} KB",
       "annotation" : "Total system memory in KB"
@@ -10396,7 +10610,7 @@
         "size" : 64,
         "signed" : false
       },
-      "id" : 19201,
+      "id" : 18945,
       "telemetryUpdate" : "always",
       "format" : "{} KB",
       "annotation" : "System memory used in KB"
@@ -10409,7 +10623,7 @@
         "size" : 64,
         "signed" : false
       },
-      "id" : 19202,
+      "id" : 18946,
       "telemetryUpdate" : "always",
       "format" : "{} KB",
       "annotation" : "System non-volatile available in KB"
@@ -10422,7 +10636,7 @@
         "size" : 64,
         "signed" : false
       },
-      "id" : 19203,
+      "id" : 18947,
       "telemetryUpdate" : "always",
       "format" : "{} KB",
       "annotation" : "System non-volatile available in KB"
@@ -10434,7 +10648,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19204,
+      "id" : 18948,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10446,7 +10660,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19205,
+      "id" : 18949,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10458,7 +10672,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19206,
+      "id" : 18950,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10470,7 +10684,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19207,
+      "id" : 18951,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10482,7 +10696,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19208,
+      "id" : 18952,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10494,7 +10708,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19209,
+      "id" : 18953,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10506,7 +10720,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19210,
+      "id" : 18954,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10518,7 +10732,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19211,
+      "id" : 18955,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10530,7 +10744,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19212,
+      "id" : 18956,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10542,7 +10756,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19213,
+      "id" : 18957,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10554,7 +10768,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19214,
+      "id" : 18958,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10566,7 +10780,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19215,
+      "id" : 18959,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10578,7 +10792,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19216,
+      "id" : 18960,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10590,7 +10804,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19217,
+      "id" : 18961,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10602,7 +10816,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19218,
+      "id" : 18962,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10614,7 +10828,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19219,
+      "id" : 18963,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10626,7 +10840,7 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 19220,
+      "id" : 18964,
       "telemetryUpdate" : "always",
       "format" : "{.2f} percent",
       "annotation" : "System's CPU Percentage"
@@ -10639,7 +10853,7 @@
         "size" : 32,
         "signed" : false
       },
-      "id" : 19456,
+      "id" : 19200,
       "telemetryUpdate" : "on change",
       "annotation" : "The total buffers allocated"
     },
@@ -10651,7 +10865,7 @@
         "size" : 32,
         "signed" : false
       },
-      "id" : 19457,
+      "id" : 19201,
       "telemetryUpdate" : "on change",
       "annotation" : "The current number of allocated buffers"
     },
@@ -10663,7 +10877,7 @@
         "size" : 32,
         "signed" : false
       },
-      "id" : 19458,
+      "id" : 19202,
       "telemetryUpdate" : "on change",
       "annotation" : "The high water mark of allocated buffers"
     },
@@ -10675,7 +10889,7 @@
         "size" : 32,
         "signed" : false
       },
-      "id" : 19459,
+      "id" : 19203,
       "telemetryUpdate" : "on change",
       "annotation" : "The number of requests that couldn't return a buffer",
       "limits" : {
@@ -10692,7 +10906,7 @@
         "size" : 32,
         "signed" : false
       },
-      "id" : 19460,
+      "id" : 19204,
       "telemetryUpdate" : "on change",
       "annotation" : "The number of empty buffers returned",
       "limits" : {
@@ -10702,218 +10916,16 @@
       }
     },
     {
-      "name" : "Ref.version.FrameworkVersion",
+      "name" : "Ref.tlmSend.SendLevel",
       "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
+        "name" : "U32",
+        "kind" : "integer",
+        "size" : 32,
+        "signed" : false
       },
-      "id" : 19712,
+      "id" : 3072,
       "telemetryUpdate" : "always",
-      "annotation" : "Software framework version"
-    },
-    {
-      "name" : "Ref.version.ProjectVersion",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19713,
-      "telemetryUpdate" : "always",
-      "annotation" : "Software project version"
-    },
-    {
-      "name" : "Ref.version.CustomVersion01",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19714,
-      "telemetryUpdate" : "always",
-      "annotation" : "Custom Versions"
-    },
-    {
-      "name" : "Ref.version.CustomVersion02",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19715,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.CustomVersion03",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19716,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.CustomVersion04",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19717,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.CustomVersion05",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19718,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.CustomVersion06",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19719,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.CustomVersion07",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19720,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.CustomVersion08",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19721,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.CustomVersion09",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19722,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.CustomVersion10",
-      "type" : {
-        "name" : "Svc.CustomVersionDb",
-        "kind" : "qualifiedIdentifier"
-      },
-      "id" : 19723,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion01",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19724,
-      "telemetryUpdate" : "always",
-      "annotation" : "Library Versions"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion02",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19725,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion03",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19726,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion04",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19727,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion05",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19728,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion06",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19729,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion07",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19730,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion08",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19731,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion09",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19732,
-      "telemetryUpdate" : "always"
-    },
-    {
-      "name" : "Ref.version.LibraryVersion10",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 40
-      },
-      "id" : 19733,
-      "telemetryUpdate" : "always"
+      "annotation" : "Telemetry send level"
     }
   ],
   "records" : [
@@ -11001,5 +11013,583 @@
     }
   ],
   "telemetryPacketSets" : [
+    {
+      "name" : "PacketSet1",
+      "members" : [
+        {
+          "name" : "SystemRes1",
+          "id" : 5,
+          "group" : 2,
+          "members" : [
+            "Ref.systemResources.MEMORY_TOTAL",
+            "Ref.systemResources.MEMORY_USED",
+            "Ref.systemResources.NON_VOLATILE_TOTAL",
+            "Ref.systemResources.NON_VOLATILE_FREE"
+          ]
+        },
+        {
+          "name" : "SigGen1Info",
+          "id" : 10,
+          "group" : 2,
+          "members" : [
+            "Ref.SG1.Info"
+          ]
+        },
+        {
+          "name" : "SigGen5Info",
+          "id" : 14,
+          "group" : 2,
+          "members" : [
+            "Ref.SG5.Info"
+          ]
+        },
+        {
+          "name" : "CHD",
+          "id" : 1,
+          "group" : 1,
+          "members" : [
+            "Ref.cmdDisp.CommandsDispatched",
+            "Ref.rateGroup1Comp.RgMaxTime",
+            "Ref.rateGroup2Comp.RgMaxTime",
+            "Ref.rateGroup3Comp.RgMaxTime",
+            "Ref.cmdSeq.CS_LoadCommands",
+            "Ref.cmdSeq.CS_CancelCommands",
+            "Ref.cmdSeq.CS_CommandsExecuted",
+            "Ref.cmdSeq.CS_SequencesCompleted",
+            "Ref.fileUplink.FilesReceived",
+            "Ref.fileUplink.PacketsReceived",
+            "Ref.commsBufferManager.TotalBuffs",
+            "Ref.commsBufferManager.CurrBuffs",
+            "Ref.commsBufferManager.HiBuffs",
+            "Ref.fileDownlink.FilesSent",
+            "Ref.fileDownlink.PacketsSent",
+            "Ref.fileManager.CommandsExecuted",
+            "Ref.tlmSend.SendLevel"
+          ]
+        },
+        {
+          "name" : "SystemRes3",
+          "id" : 6,
+          "group" : 2,
+          "members" : [
+            "Ref.systemResources.CPU",
+            "Ref.systemResources.CPU_00",
+            "Ref.systemResources.CPU_01",
+            "Ref.systemResources.CPU_02",
+            "Ref.systemResources.CPU_03",
+            "Ref.systemResources.CPU_04",
+            "Ref.systemResources.CPU_05",
+            "Ref.systemResources.CPU_06",
+            "Ref.systemResources.CPU_07",
+            "Ref.systemResources.CPU_08",
+            "Ref.systemResources.CPU_09",
+            "Ref.systemResources.CPU_10",
+            "Ref.systemResources.CPU_11",
+            "Ref.systemResources.CPU_12",
+            "Ref.systemResources.CPU_13",
+            "Ref.systemResources.CPU_14",
+            "Ref.systemResources.CPU_15"
+          ]
+        },
+        {
+          "name" : "SigGen4Info",
+          "id" : 13,
+          "group" : 2,
+          "members" : [
+            "Ref.SG4.Info"
+          ]
+        },
+        {
+          "name" : "CDHErrors",
+          "id" : 2,
+          "group" : 1,
+          "members" : [
+            "Ref.rateGroup1Comp.RgCycleSlips",
+            "Ref.rateGroup2Comp.RgCycleSlips",
+            "Ref.rateGroup3Comp.RgCycleSlips",
+            "Ref.cmdSeq.CS_Errors",
+            "Ref.fileUplink.Warnings",
+            "Ref.fileDownlink.Warnings",
+            "Ref.health.PingLateWarnings",
+            "Ref.fileManager.Errors",
+            "Ref.commsBufferManager.NoBuffs",
+            "Ref.commsBufferManager.EmptyBuffs",
+            "Ref.fileManager.Errors"
+          ]
+        },
+        {
+          "name" : "SigGen3Info",
+          "id" : 12,
+          "group" : 2,
+          "members" : [
+            "Ref.SG3.Info"
+          ]
+        },
+        {
+          "name" : "SigGen4",
+          "id" : 18,
+          "group" : 3,
+          "members" : [
+            "Ref.SG4.PairOutput",
+            "Ref.SG4.History",
+            "Ref.SG4.PairHistory",
+            "Ref.SG4.DpBytes",
+            "Ref.SG4.DpRecords"
+          ]
+        },
+        {
+          "name" : "SigGen2Info",
+          "id" : 11,
+          "group" : 2,
+          "members" : [
+            "Ref.SG2.Info"
+          ]
+        },
+        {
+          "name" : "SigGenSum",
+          "id" : 4,
+          "group" : 1,
+          "members" : [
+            "Ref.SG1.Output",
+            "Ref.SG1.Type",
+            "Ref.SG2.Output",
+            "Ref.SG2.Type",
+            "Ref.SG3.Output",
+            "Ref.SG3.Type",
+            "Ref.SG4.Output",
+            "Ref.SG4.Type",
+            "Ref.SG5.Output",
+            "Ref.SG5.Type"
+          ]
+        },
+        {
+          "name" : "SigGen1",
+          "id" : 15,
+          "group" : 3,
+          "members" : [
+            "Ref.SG1.PairOutput",
+            "Ref.SG1.History",
+            "Ref.SG1.PairHistory",
+            "Ref.SG1.DpBytes",
+            "Ref.SG1.DpRecords"
+          ]
+        },
+        {
+          "name" : "Version_Library2",
+          "id" : 24,
+          "group" : 2,
+          "members" : [
+            "Ref.version.LibraryVersion03",
+            "Ref.version.LibraryVersion04"
+          ]
+        },
+        {
+          "name" : "Version_Custom10",
+          "id" : 37,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion10"
+          ]
+        },
+        {
+          "name" : "Version_Library3",
+          "id" : 25,
+          "group" : 2,
+          "members" : [
+            "Ref.version.LibraryVersion05",
+            "Ref.version.LibraryVersion06"
+          ]
+        },
+        {
+          "name" : "TypeDemo",
+          "id" : 20,
+          "group" : 3,
+          "members" : [
+            "Ref.typeDemo.ChoiceCh",
+            "Ref.typeDemo.ChoicesCh",
+            "Ref.typeDemo.ExtraChoicesCh",
+            "Ref.typeDemo.ChoicePairCh",
+            "Ref.typeDemo.ChoiceSlurryCh",
+            "Ref.typeDemo.Float1Ch",
+            "Ref.typeDemo.Float2Ch",
+            "Ref.typeDemo.Float3Ch",
+            "Ref.typeDemo.FloatSet",
+            "Ref.typeDemo.ScalarStructCh",
+            "Ref.typeDemo.ScalarU8Ch",
+            "Ref.typeDemo.ScalarU16Ch",
+            "Ref.typeDemo.ScalarU32Ch",
+            "Ref.typeDemo.ScalarU64Ch",
+            "Ref.typeDemo.ScalarI8Ch",
+            "Ref.typeDemo.ScalarI16Ch",
+            "Ref.typeDemo.ScalarI32Ch",
+            "Ref.typeDemo.ScalarI64Ch",
+            "Ref.typeDemo.ScalarF32Ch",
+            "Ref.typeDemo.ScalarF64Ch"
+          ]
+        },
+        {
+          "name" : "Version_Custom2",
+          "id" : 29,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion02"
+          ]
+        },
+        {
+          "name" : "Version_Custom1",
+          "id" : 28,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion01"
+          ]
+        },
+        {
+          "name" : "DataProducts",
+          "id" : 21,
+          "group" : 3,
+          "members" : [
+            "Ref.dpCat.CatalogDps",
+            "Ref.dpCat.DpsSent",
+            "Ref.dpMgr.NumSuccessfulAllocations",
+            "Ref.dpMgr.NumFailedAllocations",
+            "Ref.dpMgr.NumDataProducts",
+            "Ref.dpMgr.NumBytes",
+            "Ref.dpWriter.NumBuffersReceived",
+            "Ref.dpWriter.NumBytesWritten",
+            "Ref.dpWriter.NumSuccessfulWrites",
+            "Ref.dpWriter.NumFailedWrites",
+            "Ref.dpWriter.NumErrors",
+            "Ref.dpBufferManager.TotalBuffs",
+            "Ref.dpBufferManager.CurrBuffs",
+            "Ref.dpBufferManager.HiBuffs",
+            "Ref.dpBufferManager.NoBuffs",
+            "Ref.dpBufferManager.EmptyBuffs"
+          ]
+        },
+        {
+          "name" : "Version_Custom6",
+          "id" : 33,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion06"
+          ]
+        },
+        {
+          "name" : "SigGen3",
+          "id" : 17,
+          "group" : 3,
+          "members" : [
+            "Ref.SG3.PairOutput",
+            "Ref.SG3.History",
+            "Ref.SG3.PairHistory",
+            "Ref.SG3.DpBytes",
+            "Ref.SG3.DpRecords"
+          ]
+        },
+        {
+          "name" : "Version_Custom5",
+          "id" : 32,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion05"
+          ]
+        },
+        {
+          "name" : "Version_Custom7",
+          "id" : 34,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion07"
+          ]
+        },
+        {
+          "name" : "Version1",
+          "id" : 22,
+          "group" : 2,
+          "members" : [
+            "Ref.version.FrameworkVersion",
+            "Ref.version.ProjectVersion"
+          ]
+        },
+        {
+          "name" : "Version_Library5",
+          "id" : 27,
+          "group" : 2,
+          "members" : [
+            "Ref.version.LibraryVersion09",
+            "Ref.version.LibraryVersion10"
+          ]
+        },
+        {
+          "name" : "DriveTlm",
+          "id" : 3,
+          "group" : 1,
+          "members" : [
+            "Ref.pingRcvr.PR_NumPings",
+            "Ref.sendBuffComp.PacketsSent",
+            "Ref.sendBuffComp.NumErrorsInjected",
+            "Ref.sendBuffComp.Parameter3",
+            "Ref.sendBuffComp.Parameter4",
+            "Ref.sendBuffComp.SendState",
+            "Ref.recvBuffComp.PktState",
+            "Ref.recvBuffComp.Sensor1",
+            "Ref.recvBuffComp.Sensor2",
+            "Ref.recvBuffComp.Parameter1",
+            "Ref.recvBuffComp.Parameter2",
+            "Ref.blockDrv.BD_Cycles"
+          ]
+        },
+        {
+          "name" : "Version_Custom8",
+          "id" : 35,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion08"
+          ]
+        },
+        {
+          "name" : "SigGen2",
+          "id" : 16,
+          "group" : 3,
+          "members" : [
+            "Ref.SG2.PairOutput",
+            "Ref.SG2.History",
+            "Ref.SG2.PairHistory",
+            "Ref.SG2.DpBytes",
+            "Ref.SG2.DpRecords"
+          ]
+        },
+        {
+          "name" : "Version_Custom4",
+          "id" : 31,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion04"
+          ]
+        },
+        {
+          "name" : "Version_Library4",
+          "id" : 26,
+          "group" : 2,
+          "members" : [
+            "Ref.version.LibraryVersion07",
+            "Ref.version.LibraryVersion08"
+          ]
+        },
+        {
+          "name" : "Version_Library1",
+          "id" : 23,
+          "group" : 2,
+          "members" : [
+            "Ref.version.LibraryVersion01",
+            "Ref.version.LibraryVersion02"
+          ]
+        },
+        {
+          "name" : "Version_Custom9",
+          "id" : 36,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion09"
+          ]
+        },
+        {
+          "name" : "Version_Custom3",
+          "id" : 30,
+          "group" : 2,
+          "members" : [
+            "Ref.version.CustomVersion03"
+          ]
+        },
+        {
+          "name" : "SigGen5",
+          "id" : 19,
+          "group" : 3,
+          "members" : [
+            "Ref.SG5.PairOutput",
+            "Ref.SG5.History",
+            "Ref.SG5.PairHistory",
+            "Ref.SG5.DpBytes",
+            "Ref.SG5.DpRecords"
+          ]
+        }
+      ],
+      "omitted" : [
+        "Ref.cmdDisp.CommandErrors"
+      ]
+    },
+    {
+      "name" : "PacketSet2",
+      "members" : [
+        {
+          "name" : "TypeDemo",
+          "id" : 21,
+          "group" : 3,
+          "members" : [
+            "Ref.typeDemo.ChoiceCh",
+            "Ref.typeDemo.ChoicesCh",
+            "Ref.typeDemo.ExtraChoicesCh",
+            "Ref.typeDemo.ChoicePairCh",
+            "Ref.typeDemo.ChoiceSlurryCh",
+            "Ref.typeDemo.Float1Ch",
+            "Ref.typeDemo.Float2Ch",
+            "Ref.typeDemo.Float3Ch",
+            "Ref.typeDemo.FloatSet",
+            "Ref.typeDemo.ScalarStructCh",
+            "Ref.typeDemo.ScalarU8Ch",
+            "Ref.typeDemo.ScalarU16Ch",
+            "Ref.typeDemo.ScalarU32Ch",
+            "Ref.typeDemo.ScalarU64Ch",
+            "Ref.typeDemo.ScalarI8Ch",
+            "Ref.typeDemo.ScalarI16Ch",
+            "Ref.typeDemo.ScalarI32Ch",
+            "Ref.typeDemo.ScalarI64Ch",
+            "Ref.typeDemo.ScalarF32Ch",
+            "Ref.typeDemo.ScalarF64Ch"
+          ]
+        }
+      ],
+      "omitted" : [
+        "Ref.SG1.DpBytes",
+        "Ref.SG1.DpRecords",
+        "Ref.SG1.History",
+        "Ref.SG1.Info",
+        "Ref.SG1.Output",
+        "Ref.SG1.PairHistory",
+        "Ref.SG1.PairOutput",
+        "Ref.SG1.Type",
+        "Ref.SG2.DpBytes",
+        "Ref.SG2.DpRecords",
+        "Ref.SG2.History",
+        "Ref.SG2.Info",
+        "Ref.SG2.Output",
+        "Ref.SG2.PairHistory",
+        "Ref.SG2.PairOutput",
+        "Ref.SG2.Type",
+        "Ref.SG3.DpBytes",
+        "Ref.SG3.DpRecords",
+        "Ref.SG3.History",
+        "Ref.SG3.Info",
+        "Ref.SG3.Output",
+        "Ref.SG3.PairHistory",
+        "Ref.SG3.PairOutput",
+        "Ref.SG3.Type",
+        "Ref.SG4.DpBytes",
+        "Ref.SG4.DpRecords",
+        "Ref.SG4.History",
+        "Ref.SG4.Info",
+        "Ref.SG4.Output",
+        "Ref.SG4.PairHistory",
+        "Ref.SG4.PairOutput",
+        "Ref.SG4.Type",
+        "Ref.SG5.DpBytes",
+        "Ref.SG5.DpRecords",
+        "Ref.SG5.History",
+        "Ref.SG5.Info",
+        "Ref.SG5.Output",
+        "Ref.SG5.PairHistory",
+        "Ref.SG5.PairOutput",
+        "Ref.SG5.Type",
+        "Ref.blockDrv.BD_Cycles",
+        "Ref.cmdDisp.CommandErrors",
+        "Ref.cmdDisp.CommandsDispatched",
+        "Ref.cmdSeq.CS_CancelCommands",
+        "Ref.cmdSeq.CS_CommandsExecuted",
+        "Ref.cmdSeq.CS_Errors",
+        "Ref.cmdSeq.CS_LoadCommands",
+        "Ref.cmdSeq.CS_SequencesCompleted",
+        "Ref.commsBufferManager.CurrBuffs",
+        "Ref.commsBufferManager.EmptyBuffs",
+        "Ref.commsBufferManager.HiBuffs",
+        "Ref.commsBufferManager.NoBuffs",
+        "Ref.commsBufferManager.TotalBuffs",
+        "Ref.dpBufferManager.CurrBuffs",
+        "Ref.dpBufferManager.EmptyBuffs",
+        "Ref.dpBufferManager.HiBuffs",
+        "Ref.dpBufferManager.NoBuffs",
+        "Ref.dpBufferManager.TotalBuffs",
+        "Ref.dpCat.CatalogDps",
+        "Ref.dpCat.DpsSent",
+        "Ref.dpMgr.NumBytes",
+        "Ref.dpMgr.NumDataProducts",
+        "Ref.dpMgr.NumFailedAllocations",
+        "Ref.dpMgr.NumSuccessfulAllocations",
+        "Ref.dpWriter.NumBuffersReceived",
+        "Ref.dpWriter.NumBytesWritten",
+        "Ref.dpWriter.NumErrors",
+        "Ref.dpWriter.NumFailedWrites",
+        "Ref.dpWriter.NumSuccessfulWrites",
+        "Ref.fileDownlink.FilesSent",
+        "Ref.fileDownlink.PacketsSent",
+        "Ref.fileDownlink.Warnings",
+        "Ref.fileManager.CommandsExecuted",
+        "Ref.fileManager.Errors",
+        "Ref.fileUplink.FilesReceived",
+        "Ref.fileUplink.PacketsReceived",
+        "Ref.fileUplink.Warnings",
+        "Ref.health.PingLateWarnings",
+        "Ref.pingRcvr.PR_NumPings",
+        "Ref.rateGroup1Comp.RgCycleSlips",
+        "Ref.rateGroup1Comp.RgMaxTime",
+        "Ref.rateGroup2Comp.RgCycleSlips",
+        "Ref.rateGroup2Comp.RgMaxTime",
+        "Ref.rateGroup3Comp.RgCycleSlips",
+        "Ref.rateGroup3Comp.RgMaxTime",
+        "Ref.recvBuffComp.Parameter1",
+        "Ref.recvBuffComp.Parameter2",
+        "Ref.recvBuffComp.PktState",
+        "Ref.recvBuffComp.Sensor1",
+        "Ref.recvBuffComp.Sensor2",
+        "Ref.sendBuffComp.NumErrorsInjected",
+        "Ref.sendBuffComp.PacketsSent",
+        "Ref.sendBuffComp.Parameter3",
+        "Ref.sendBuffComp.Parameter4",
+        "Ref.sendBuffComp.SendState",
+        "Ref.systemResources.CPU",
+        "Ref.systemResources.CPU_00",
+        "Ref.systemResources.CPU_01",
+        "Ref.systemResources.CPU_02",
+        "Ref.systemResources.CPU_03",
+        "Ref.systemResources.CPU_04",
+        "Ref.systemResources.CPU_05",
+        "Ref.systemResources.CPU_06",
+        "Ref.systemResources.CPU_07",
+        "Ref.systemResources.CPU_08",
+        "Ref.systemResources.CPU_09",
+        "Ref.systemResources.CPU_10",
+        "Ref.systemResources.CPU_11",
+        "Ref.systemResources.CPU_12",
+        "Ref.systemResources.CPU_13",
+        "Ref.systemResources.CPU_14",
+        "Ref.systemResources.CPU_15",
+        "Ref.systemResources.MEMORY_TOTAL",
+        "Ref.systemResources.MEMORY_USED",
+        "Ref.systemResources.NON_VOLATILE_FREE",
+        "Ref.systemResources.NON_VOLATILE_TOTAL",
+        "Ref.tlmSend.SendLevel",
+        "Ref.version.CustomVersion01",
+        "Ref.version.CustomVersion02",
+        "Ref.version.CustomVersion03",
+        "Ref.version.CustomVersion04",
+        "Ref.version.CustomVersion05",
+        "Ref.version.CustomVersion06",
+        "Ref.version.CustomVersion07",
+        "Ref.version.CustomVersion08",
+        "Ref.version.CustomVersion09",
+        "Ref.version.CustomVersion10",
+        "Ref.version.FrameworkVersion",
+        "Ref.version.LibraryVersion01",
+        "Ref.version.LibraryVersion02",
+        "Ref.version.LibraryVersion03",
+        "Ref.version.LibraryVersion04",
+        "Ref.version.LibraryVersion05",
+        "Ref.version.LibraryVersion06",
+        "Ref.version.LibraryVersion07",
+        "Ref.version.LibraryVersion08",
+        "Ref.version.LibraryVersion09",
+        "Ref.version.LibraryVersion10",
+        "Ref.version.ProjectVersion"
+      ]
+    }
   ]
 }

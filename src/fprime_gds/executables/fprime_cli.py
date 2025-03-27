@@ -230,7 +230,7 @@ class CommandSubparserInjector(CliSubparserInjectorBase):
         from fprime_gds.common.pipeline.dictionaries import Dictionaries
 
         dictionary = Dictionaries()
-        dictionary.load_dictionaries(dict_path, None)
+        dictionary.load_dictionaries(dict_path, None, None)
         command_names = dictionary.command_name.keys()
         return [name for name in command_names if name.startswith(prefix)]
 

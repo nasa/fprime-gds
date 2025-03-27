@@ -651,6 +651,14 @@ class DictionaryParser(DetectionParser):
                     "type": str,
                     "help": "Path to packet specification.",
                 },
+                ("--packet-set-name",): {
+                    "dest": "packet_set_name",
+                    "action": "store",
+                    "default": None,
+                    "required": False,
+                    "type": str,
+                    "help": "Packet set name",
+                },
             },
         }
 
@@ -730,6 +738,7 @@ class StandardPipelineParser(CompositeParser):
             "dictionary": args_ns.dictionary,
             "file_store": args_ns.files_storage_directory,
             "packet_spec": args_ns.packet_spec,
+            "packet_set_name": args_ns.packet_set_name,
             "logging_prefix": args_ns.logs,
         }
         pipeline = pipeline if pipeline else StandardPipeline()
