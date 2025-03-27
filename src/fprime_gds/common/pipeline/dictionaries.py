@@ -122,7 +122,7 @@ class Dictionaries:
             msg = f"[ERROR] Dictionary '{dictionary}' does not exist."
             raise Exception(msg)
         # Check for packet specification
-        if packet_set_name is not None:
+        if self._metadata["dictionary_type"] == "json" and packet_set_name is not None:
             packet_loader = fprime_gds.common.loaders.pkt_json_loader.PktJsonLoader(dictionary)
             self._packet_dict = packet_loader.get_id_dict(
                 None, packet_set_name, self._channel_name_dict
