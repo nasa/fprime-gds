@@ -649,7 +649,7 @@ class DictionaryParser(DetectionParser):
                     "default": None,
                     "required": False,
                     "type": str,
-                    "help": "Path to packet specification.",
+                    "help": "Path to packet XML specification (should not be used if JSON packet definitions are used).",
                 },
                 ("--packet-set-name",): {
                     "dest": "packet_set_name",
@@ -657,7 +657,7 @@ class DictionaryParser(DetectionParser):
                     "default": None,
                     "required": False,
                     "type": str,
-                    "help": "Packet set name",
+                    "help": "Name of packet set defined in the JSON dictionary.",
                 },
             },
         }
