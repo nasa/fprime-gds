@@ -110,7 +110,7 @@ class PktJsonLoader(JsonLoader):
             
         except KeyError as e:
             raise GdsDictionaryParsingException(
-                f"{str(e)} key missing from telemtry packet member or member is not a channel in the dictionary: {str(group_name)}"
+                f"{str(e)} key missing from telemetry packet member or member is not a channel in the dictionary: {str(group_name)}"
             )
         
         return PktTemplate(
