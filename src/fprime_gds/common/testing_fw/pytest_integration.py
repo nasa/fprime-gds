@@ -15,6 +15,7 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 @author lestarch
 """
 import sys
+import os
 
 import pytest
 
@@ -38,7 +39,19 @@ def pytest_addoption(parser):
         # Reduce flags to only the long option (i.e. --something) form
         flags = [flag for flag in flags if flag.startswith("--")]
         parser.addoption(*flags, **specifiers)
+        
+    # Add an option to specify JUnit XML report file
+    parser.addoption(
+        "--junit-xml-file",
+        action="store",
+        default="report.xml",
+        help="File to store JUnit XML report. [default: %(default)s]",
+    )
 
+def pytest_configure(config):
+    """ Create a JUnit XML report file to capture the test result """
+    config.option.xmlpath = os.path.join(config.getoption("--logs"),
+                                         config.getoption("--junit-xml-file"))
 
 @pytest.fixture(scope='session')
 def fprime_test_api_session(request):
