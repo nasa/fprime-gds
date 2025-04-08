@@ -9,6 +9,9 @@ telemetry and dictionaries.
 """
 import signal
 import time
+import os
+from pathlib import Path
+import shutil
 
 from fprime.common.models.serialize.time_type import TimeType
 
@@ -62,6 +65,13 @@ class IntegrationTestAPI(DataHandler):
 
         # Initialize the logger
         self.logger = TestLogger(logpath) if logpath is not None else None
+
+        # Copy dictionaries and binary file to output directory
+        base_dir = Path(self.pipeline.dictionary_path).parents[1]
+        for subdir in ['bin', 'dict']:
+            shutil.copytree(os.path.join(str(base_dir), subdir),
+                            os.path.join(logpath, subdir),
+                            dirs_exist_ok=True)
 
         # A predicate used as a filter to choose which events to log automatically
         self.event_log_filter = self.get_event_pred()
@@ -214,6 +224,14 @@ class IntegrationTestAPI(DataHandler):
             time_pred: an optional predicate to specify the flight software timestamp
         """
         self.event_log_filter = self.get_event_pred(event, args, severity, time_pred)
+
+    def get_deployment(self):
+        """
+        Get the deployment of the target using the loaded FSW dictionary path
+        Returns:
+            The name of the deployment (str)
+        """
+        return os.path.basename(str(Path(self.pipeline.dictionary_path).parents[1]))
 
     ######################################################################################
     #   History Functions
