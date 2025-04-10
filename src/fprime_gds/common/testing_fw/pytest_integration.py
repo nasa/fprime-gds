@@ -15,8 +15,7 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 @author lestarch
 """
 import sys
-import os
-
+from pathlib import Path
 import pytest
 
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
@@ -49,9 +48,14 @@ def pytest_addoption(parser):
     )
 
 def pytest_configure(config):
-    """ Create a JUnit XML report file to capture the test result """
-    config.option.xmlpath = os.path.join(config.getoption("--logs"),
-                                         config.getoption("--junit-xml-file"))
+    """ This is a hook to allow plugins and conftest files to perform initial configuration
+    
+    This hook is called for every initial conftest file after command line options have been parsed. After that, the 
+    hook is called for other conftest files as they are registered.
+    """
+    # Create a JUnit XML report file to capture the test result
+    config.option.xmlpath = Path(config.getoption("--logs")) / config.getoption("--junit-xml-file")
+    config.option.junitxml = True
 
 @pytest.fixture(scope='session')
 def fprime_test_api_session(request):
