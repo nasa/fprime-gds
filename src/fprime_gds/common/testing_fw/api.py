@@ -9,7 +9,6 @@ telemetry and dictionaries.
 """
 import signal
 import time
-import os
 from pathlib import Path
 import shutil
 
@@ -69,8 +68,7 @@ class IntegrationTestAPI(DataHandler):
         # Copy dictionaries and binary file to output directory
         base_dir = Path(self.pipeline.dictionary_path).parents[1]
         for subdir in ['bin', 'dict']:
-            shutil.copytree(os.path.join(str(base_dir), subdir),
-                            os.path.join(logpath, subdir),
+            shutil.copytree(base_dir / subdir, Path(logpath) / subdir,
                             dirs_exist_ok=True)
 
         # A predicate used as a filter to choose which events to log automatically
@@ -231,7 +229,7 @@ class IntegrationTestAPI(DataHandler):
         Returns:
             The name of the deployment (str)
         """
-        return os.path.basename(str(Path(self.pipeline.dictionary_path).parents[1]))
+        return Path(self.pipeline.dictionary_path).parent.parent.name
 
     ######################################################################################
     #   History Functions
