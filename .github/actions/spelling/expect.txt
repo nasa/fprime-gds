@@ -139,6 +139,7 @@ fptable
 fsw
 gdiplus
 getbootstrap
+getoption
 github
 grayscales
 gse
@@ -181,6 +182,7 @@ JSO
 jsonable
 jsonified
 jsonify
+junitxml
 keepalive
 keyify
 kinda
@@ -376,6 +378,7 @@ xapian
 xhttp
 xl
 xmit
+xmlpath
 xy
 zeromq
 zmq
