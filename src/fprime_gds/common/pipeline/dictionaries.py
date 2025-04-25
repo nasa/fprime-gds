@@ -14,6 +14,7 @@ from pathlib import Path
 import fprime_gds.common.loaders.ch_xml_loader
 import fprime_gds.common.loaders.cmd_xml_loader
 import fprime_gds.common.loaders.event_xml_loader
+import fprime_gds.common.loaders.fw_type_json_loader
 import fprime_gds.common.loaders.pkt_json_loader
 import fprime_gds.common.loaders.pkt_xml_loader
 
@@ -22,6 +23,7 @@ import fprime_gds.common.loaders.ch_json_loader
 import fprime_gds.common.loaders.cmd_json_loader
 import fprime_gds.common.loaders.event_json_loader
 
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 class Dictionaries:
     """
@@ -46,10 +48,11 @@ class Dictionaries:
         self._event_name_dict = None
         self._channel_name_dict = None
         self._packet_dict = None
+        self._fw_type_name_dict = None
         self._versions = None
         self._metadata = None
 
-    def load_dictionaries(self, dictionary, packet_spec, packet_set_name):
+    def load_dictionaries(self, dictionary, packet_spec, packet_set_name, config: ConfigManager):
         """
         Loads the dictionaries based on the dictionary path supplied. Optional packet_spec is allowed to specify the
         definitions of packets.
@@ -76,6 +79,14 @@ class Dictionaries:
             )
             self._channel_name_dict = json_channel_loader.get_name_dict(None)
             self._channel_id_dict = json_channel_loader.get_id_dict(None)
+            # Fw Types
+            fw_types_loader = fprime_gds.common.loaders.fw_type_json_loader.FwTypeJsonLoader(
+                dictionary
+            )
+            self._fw_type_name_dict = fw_types_loader.get_name_dict(None)
+            # Update config to use Fw types defined in the JSON dictionary
+            for fw_type_name, fw_type in self._fw_type_name_dict.items():
+                config.set("types", fw_type_name, fw_type)
             # Metadata
             self._versions = json_event_loader.get_versions()
             self._metadata = json_event_loader.get_metadata().copy()

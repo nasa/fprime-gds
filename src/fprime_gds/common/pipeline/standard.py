@@ -84,7 +84,7 @@ class StandardPipeline:
         self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
         self.client_socket = self.__transport_type()
         # Setup dictionaries encoders and decoders
-        self.dictionaries.load_dictionaries(self.dictionary_path, packet_spec, packet_set_name)
+        self.dictionaries.load_dictionaries(self.dictionary_path, packet_spec, packet_set_name, config)
         self.coders.setup_coders(
             self.dictionaries, self.distributor, self.client_socket, config
         )

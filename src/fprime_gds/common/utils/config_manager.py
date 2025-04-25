@@ -114,7 +114,7 @@ class ConfigManager(configparser.ConfigParser):
             return U16Type()
         if type_str == "U32":
             return U32Type()
-        if type_str == "u64":
+        if type_str == "U64":
             return U64Type()
         if type_str == "I8":
             return I8Type()
