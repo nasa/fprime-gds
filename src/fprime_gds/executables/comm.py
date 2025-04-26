@@ -78,7 +78,7 @@ def main():
 
     # Set the framing class used and pass it to the uplink and downlink component constructions giving each a separate
     # instantiation
-    framer_instance =  Plugins.system().get_selected_class("framing")()
+    framer_instance = Plugins.system().get_selected_class("framing")()
     LOGGER.info(
         "Starting uplinker/downlinker connecting to FSW using %s with %s",
         args.communication_selection,

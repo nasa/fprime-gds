@@ -8,6 +8,7 @@ below.
 
 :author: lestarch
 """
+
 import datetime
 import os.path
 from pathlib import Path
@@ -23,9 +24,6 @@ from fprime_gds.plugin.system import Plugins
 
 # Local imports for the sake of composition
 from . import dictionaries, encoding, files, histories
-
-
-
 
 
 class StandardPipeline:
@@ -58,7 +56,13 @@ class StandardPipeline:
         self.__transport_type = ThreadedTCPSocketClient
 
     def setup(
-        self, config, dictionary, file_store, logging_prefix=None, packet_spec=None, packet_set_name=None
+        self,
+        config,
+        dictionary,
+        file_store,
+        logging_prefix=None,
+        packet_spec=None,
+        packet_set_name=None,
     ):
         """
         Setup the standard pipeline for moving data from the middleware layer through the GDS layers using the standard
@@ -88,7 +92,9 @@ class StandardPipeline:
         self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
         self.client_socket = self.__transport_type()
         # Setup dictionaries encoders and decoders
-        self.dictionaries.load_dictionaries(self.dictionary_path, packet_spec, packet_set_name)
+        self.dictionaries.load_dictionaries(
+            self.dictionary_path, packet_spec, packet_set_name
+        )
         self.coders.setup_coders(
             self.dictionaries, self.distributor, self.client_socket, config
         )

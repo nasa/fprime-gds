@@ -6,6 +6,7 @@ and decoding into a single component that the be composed into the standard pipe
 
 @mstarch
 """
+
 import fprime_gds.common.decoders.ch_decoder
 import fprime_gds.common.decoders.event_decoder
 import fprime_gds.common.decoders.file_decoder
@@ -129,7 +130,7 @@ class EncodingDecoding:
         :return: a boolean indicating if the consumer was removed.
         """
         return self.channel_decoder.deregister(consumer)
-    
+
     def register_file_consumer(self, consumer):
         """
         Registers a consumer with the file decoder.

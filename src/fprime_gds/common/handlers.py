@@ -6,6 +6,7 @@ defines the "DataHandler" base class for handling data.
 
 @author mstarch
 """
+
 import abc
 from typing import List, Type
 from fprime_gds.plugin.definitions import gds_plugin_specification, gds_plugin
@@ -28,16 +29,18 @@ class DataHandler(abc.ABC):
         :param sender: (optional) id of sender, otherwise None
         """
 
+
 class DataHandlerPlugin(DataHandler, abc.ABC):
-    """ PLugin class allowing for custom data handlers
-    
+    """PLugin class allowing for custom data handlers
+
     This class acts as a DataHandler class with the addition that it can be used as a plugin and thus self reports the
     data types it handles (whereas DataHandler leaves that up to the registration call). Users shall concretely subclass
     this class with their own data handling functionality.
     """
+
     @abc.abstractmethod
     def get_handled_descriptors() -> List[str]:
-        """ Return a list of data descriptor names this plugin handles """
+        """Return a list of data descriptor names this plugin handles"""
         raise NotImplementedError()
 
     @classmethod

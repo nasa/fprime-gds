@@ -82,10 +82,10 @@ class ParserBase(ABC):
         )
         self.fill_parser(parser)
         return parser
-    
+
     @staticmethod
     def safe_add_argument(parser, *flags, **keywords):
-        """ Add an argument allowing duplicates
+        """Add an argument allowing duplicates
 
         Add arguments to the parser (passes through *flags and **keywords) to the supplied parser. This method traps
         errors to prevent duplicates from crashing the system when two plugins use the same flags.
@@ -103,8 +103,8 @@ class ParserBase(ABC):
 
     @classmethod
     def add_arguments_from_specification(cls, parser, arguments):
-        """ Safely add arguments to parser
-        
+        """Safely add arguments to parser
+
         In parsers and plugins, arguments are represented as a map of flag tuples to argparse keyword arguments. This
         function will add arguments of that representation supplied as `arguments` to the supplied parser in a safe
         collision-avoidant manner.
@@ -118,7 +118,7 @@ class ParserBase(ABC):
             cls.safe_add_argument(parser, *flags, **keywords)
 
     def fill_parser(self, parser):
-        """ Fill supplied parser with arguments
+        """Fill supplied parser with arguments
 
         Fills the supplied parser with the arguments returned via the `get_arguments` method invocation. This
         implementation adds the arguments directly to the parser.
@@ -284,9 +284,10 @@ class DetectionParser(ParserBase):
         args.deployment = child_directories[0]
         return args
 
+
 class BareArgumentParser(ParserBase):
-    """ Takes in the argument specification (used in plugins and get_arguments) to parse args
-    
+    """Takes in the argument specification (used in plugins and get_arguments) to parse args
+
     This parser takes in and uses a raw specification of arguments as seen in plugins and arguments to perform argument
     parsing. The spec is a map of flag tuples to argparse kwargs.
 
@@ -294,27 +295,28 @@ class BareArgumentParser(ParserBase):
     each cli argument specified. This function will be called as such: `checking_function(**args)`. Use None to skip
     argument checking.  checking_function should raise ValueError to indicate an error with an argument.
     """
+
     def __init__(self, specification, checking_function=None):
-        """ Initialize this parser with the provided specification """
+        """Initialize this parser with the provided specification"""
         self.specification = specification
         self.checking_function = checking_function
-    
+
     def get_arguments(self):
-        """ Raw specification is returned immediately """
+        """Raw specification is returned immediately"""
         return self.specification
-    
+
     def handle_arguments(self, args, **kwargs):
-        """ Handle argument calls checking function to validate """
+        """Handle argument calls checking function to validate"""
         if self.checking_function is not None:
             self.checking_function(**self.extract_arguments(args))
         return args
-    
+
     def extract_arguments(self, args) -> Dict[str, Any]:
         """Extract argument values from the args namespace into a map matching the original specification
 
         This function extracts arguments matching the original specification and returns them as a dictionary of key-
         value pairs.
-       
+
         Return:
             filled arguments dictionary
         """
@@ -333,68 +335,82 @@ class BareArgumentParser(ParserBase):
         }
         return filled_arguments
 
+
 class IndividualPluginParser(BareArgumentParser):
-    """ Parser for an individual plugin's command line
-    
+    """Parser for an individual plugin's command line
+
     A CLI parser for an individual plugin. This handles all the functions and arguments that apply to the parsing of a
     single plugin's arguments. It also handles FEATURE plugin disable flags.
     """
+
     def __init__(self, plugin_system: Plugins, plugin_class: type):
-        """ Initialize the plugin parser
-        
+        """Initialize the plugin parser
+
         Args:
             plugin_system: Plugins object used to work with the plugin system
             plugin_class: plugin class used for this specific parser
         """
         # Add disable flags for feature type plugins
         super().__init__(plugin_class.get_arguments(), plugin_class.check_arguments)
-        self.disable_flag_destination = f"disable-{plugin_class.get_name()}".lower().replace("-", "_")
+        self.disable_flag_destination = (
+            f"disable-{plugin_class.get_name()}".lower().replace("-", "_")
+        )
         self.plugin_class = plugin_class
         self.plugin_system = plugin_system
 
     def get_arguments(self):
-        """ Get the arguments for this plugin
-        
+        """Get the arguments for this plugin
+
         The individual plugin parser will read the arguments from the supplied plugin class. Additionally, if the
         plugin_class's plugin_type is FEATURE then this parser will add an disable flag to allow users to turn disable
         the plugin feature.
         """
         arguments = {}
         if self.plugin_class.type == PluginType.FEATURE:
-            arguments.update({
-                (f"--disable-{self.plugin_class.get_name()}", ): {
-                    "action": "store_true",
-                    "default": False,
-                    "dest": self.disable_flag_destination,
-                    "help": f"Disable the {self.plugin_class.category} plugin '{self.plugin_class.get_name()}'"
+            arguments.update(
+                {
+                    (f"--disable-{self.plugin_class.get_name()}",): {
+                        "action": "store_true",
+                        "default": False,
+                        "dest": self.disable_flag_destination,
+                        "help": f"Disable the {self.plugin_class.category} plugin '{self.plugin_class.get_name()}'",
+                    }
                 }
-            })
+            )
         arguments.update(super().get_arguments())
         return arguments
-    
+
     def handle_arguments(self, args, **kwargs):
-        """ Handle the given arguments for a plugin
-        
+        """Handle the given arguments for a plugin
+
         This will process the arguments for a given plugin. Additionally, it will construct the plugin object and
         supply the constructed object to the plugin system if the plugin is a selection or is enabled.
 
         Args:
             args: argparse namespace
         """
-        arguments = super().handle_arguments(args, **kwargs) # Perform argument checking first
+        arguments = super().handle_arguments(
+            args, **kwargs
+        )  # Perform argument checking first
         if not getattr(args, self.disable_flag_destination, False):
             # Remove the disable flag from the arguments
             plugin_arguments = {
-                key: value for key, value in self.extract_arguments(arguments).items()
+                key: value
+                for key, value in self.extract_arguments(arguments).items()
                 if key != self.disable_flag_destination
             }
-            plugin_instance = functools.partial(self.plugin_class.get_implementor(), **plugin_arguments)
-            self.plugin_system.add_bound_class(self.plugin_class.category, plugin_instance)
+            plugin_instance = functools.partial(
+                self.plugin_class.get_implementor(), **plugin_arguments
+            )
+            self.plugin_system.add_bound_class(
+                self.plugin_class.category, plugin_instance
+            )
         return arguments
 
     def get_plugin_class(self):
-        """ Plugin class accessor """
+        """Plugin class accessor"""
         return self.plugin_class
+
 
 class PluginArgumentParser(ParserBase):
     """Parser for arguments coming from plugins"""
@@ -407,7 +423,7 @@ class PluginArgumentParser(ParserBase):
 
     def __init__(self, plugin_system: Plugins = None):
         """Initialize the plugin information for this parser
-        
+
         This will initialize this plugin argument parser with the supplied plugin system. If not supplied this will use
         the system plugin singleton, which is configured elsewhere.
         """
@@ -422,7 +438,7 @@ class PluginArgumentParser(ParserBase):
         }
 
     def fill_parser(self, parser):
-        """ Fill supplied parser with grouped arguments
+        """Fill supplied parser with grouped arguments
 
         Fill the supplied parser with arguments from the `get_arguments` method invocation. This implementation groups
         arguments based on the constituent parser that the argument comes from. Category specific arguments are also
@@ -433,28 +449,37 @@ class PluginArgumentParser(ParserBase):
         """
         for category, plugin_parsers in self._plugin_map.items():
             # Add category specific flags (selection flags, etc)
-            argument_group = parser.add_argument_group(title=f"{category.title()} Plugin Options")
-            self.add_arguments_from_specification(argument_group, self.get_category_arguments(category))
+            argument_group = parser.add_argument_group(
+                title=f"{category.title()} Plugin Options"
+            )
+            self.add_arguments_from_specification(
+                argument_group, self.get_category_arguments(category)
+            )
 
             # Handle the individual plugin parsers
             for plugin_parser in plugin_parsers:
                 plugin = plugin_parser.get_plugin_class()
-                argument_group = parser.add_argument_group(title=f"{category.title()} Plugin '{plugin.get_name()}' Options")
+                argument_group = parser.add_argument_group(
+                    title=f"{category.title()} Plugin '{plugin.get_name()}' Options"
+                )
                 plugin_parser.fill_parser(argument_group)
 
     def get_category_arguments(self, category):
-        """ Get category arguments for a given plugin category
-        
+        """Get category arguments for a given plugin category
+
         This function will generate category arguments for the supplied category. These arguments will follow the
         standard argument specification of a dictionary of flag tuples to argparse keyword arguments.
 
         Currently category specific arguments are just selection flags for SELECTION type plugins.
-        
+
         Args:
             category: category arguments
         """
         plugin_type = self.plugin_system.get_category_plugin_type(category)
-        plugins = [plugin_parser.get_plugin_class() for plugin_parser in self._plugin_map[category]]
+        plugins = [
+            plugin_parser.get_plugin_class()
+            for plugin_parser in self._plugin_map[category]
+        ]
 
         arguments: Dict[Tuple[str, ...], Dict[str, Any]] = {}
 
@@ -484,12 +509,15 @@ class PluginArgumentParser(ParserBase):
         arguments: Dict[Tuple[str, ...], Dict[str, Any]] = {}
         for category, plugin_parsers in self._plugin_map.items():
             arguments.update(self.get_category_arguments(category))
-            [arguments.update(plugin_parser.get_arguments()) for plugin_parser in plugin_parsers]
+            [
+                arguments.update(plugin_parser.get_arguments())
+                for plugin_parser in plugin_parsers
+            ]
         return arguments
 
     def handle_arguments(self, args, **kwargs):
-        """ Handle the plugin arguments
-        
+        """Handle the plugin arguments
+
         This will handle the plugin arguments delegating each to the IndividualPluginParser. For SELECTION plugins this
         will bind a single instance of the selected plugin to its arguments. For FEATURE plugins it will bind arguments
         to every enabled plugin. Bound plugins are registered with the plugin system.
@@ -504,16 +532,21 @@ class PluginArgumentParser(ParserBase):
                 except PluginsNotLoadedException:
                     selection_string = getattr(args, f"{category}_selection")
                     matching_plugin_parsers = [
-                        plugin_parser for plugin_parser in plugin_parsers
-                        if plugin_parser.get_plugin_class().get_name() == selection_string
+                        plugin_parser
+                        for plugin_parser in plugin_parsers
+                        if plugin_parser.get_plugin_class().get_name()
+                        == selection_string
                     ]
-                    assert len(matching_plugin_parsers) == 1, "Plugin selection system failed"
+                    assert (
+                        len(matching_plugin_parsers) == 1
+                    ), "Plugin selection system failed"
                     args = matching_plugin_parsers[0].handle_arguments(args, **kwargs)
             # Feature plugins instantiate all enabled plugins
             elif plugin_type == PluginType.FEATURE:
                 for plugin_parsers in plugin_parsers:
                     args = plugin_parsers.handle_arguments(args, **kwargs)
         return args
+
 
 class CompositeParser(ParserBase):
     """Composite parser handles parsing as a composition of multiple other parsers"""
@@ -524,8 +557,8 @@ class CompositeParser(ParserBase):
         constructed = [
             constituent if isinstance(constituent, ParserBase) else constituent()
             for constituent in constituents
-            if (inspect.isclass(constituent) and issubclass(constituent, ParserBase)) or
-               isinstance(constituent, ParserBase)
+            if (inspect.isclass(constituent) and issubclass(constituent, ParserBase))
+            or isinstance(constituent, ParserBase)
         ]
         flattened = [
             item.constituents if isinstance(item, CompositeParser) else [item]
@@ -534,7 +567,7 @@ class CompositeParser(ParserBase):
         self.constituent_parsers = {*itertools.chain.from_iterable(flattened)}
 
     def fill_parser(self, parser):
-        """ File supplied parser with grouped arguments
+        """File supplied parser with grouped arguments
 
         Fill the supplied parser with arguments from the `get_arguments` method invocation. This implementation groups
         arguments based on the constituent that sources the argument.
@@ -546,7 +579,9 @@ class CompositeParser(ParserBase):
             if isinstance(constituent, (PluginArgumentParser, CompositeParser)):
                 constituent.fill_parser(parser)
             else:
-                argument_group = parser.add_argument_group(title=constituent.description)
+                argument_group = parser.add_argument_group(
+                    title=constituent.description
+                )
                 constituent.fill_parser(argument_group)
 
     @property
@@ -878,7 +913,9 @@ class CommParser(CompositeParser):
     def __init__(self):
         """Initialization"""
         # Added here to ensure the call to Plugins does not interfere with the full plugin system
-        comm_plugin_parser_instance = PluginArgumentParser(Plugins(["communication", "framing"]))
+        comm_plugin_parser_instance = PluginArgumentParser(
+            Plugins(["communication", "framing"])
+        )
         super().__init__(
             constituents=self.CONSTITUENTS + [comm_plugin_parser_instance],
             description="Communications bridge application",
@@ -988,9 +1025,7 @@ class BinaryDeployment(DetectionParser):
 class SearchArgumentsParser(ParserBase):
     """Parser for search arguments"""
 
-    DESCRIPTION = (
-        "Searching and filtering options"
-    )
+    DESCRIPTION = "Searching and filtering options"
 
     def __init__(self, command_name: str) -> None:
         self.command_name = command_name
