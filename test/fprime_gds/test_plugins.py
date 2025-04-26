@@ -271,14 +271,16 @@ def test_plugin_validation(plugins):
 
 def test_plugin_arguments(plugins):
     """ Tests that arguments can be parsed and supplied to a plugin """
+    plugin_system = Plugins("framing")
     a_string = "a_string"
     a_number = "201"
     to_parse = ["--framing", "good-with-args", "--my-fancy-arg", a_string, "--my-fancy-arg-with-dest", a_number]
-    args, _ = ParserBase.parse_args([PluginArgumentParser,], arguments=to_parse)
+    args, _ = ParserBase.parse_args([PluginArgumentParser(plugin_system),], arguments=to_parse)
     assert args.framing_selection == GoodWithArgs.NAMED_PLUGIN_NAME, "Improper framing selection"
-    assert isinstance(args.framing_selection_instance, GoodWithArgs), "Invalid instance created"
-    assert args.framing_selection_instance.my_fancy_arg == a_string, "String argument did not process"
-    assert args.framing_selection_instance.fancy_2 == int(a_number), "Integer argument did not process"
+    instance = plugin_system.get_selected_class("framing")()
+    assert isinstance(instance, GoodWithArgs), "Invalid instance created"
+    assert instance.my_fancy_arg == a_string, "String argument did not bind"
+    assert instance.fancy_2 == int(a_number), "Integer argument did not bind"
 
 
 def test_plugin_check_arguments(plugins):

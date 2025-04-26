@@ -11,10 +11,16 @@ command line that will be spun into its own process.
 @author lestarch
 """
 import subprocess
+import sys
 from abc import ABC, abstractmethod
-from typing import List, Type
+from argparse import Namespace
+from typing import final, List, Dict, Tuple, Type
 
-from fprime_gds.plugin.definitions import gds_plugin_specification
+from fprime_gds.plugin.definitions import gds_plugin_specification, gds_plugin
+from fprime_gds.plugin.system import Plugins
+from fprime_gds.executables.cli import CompositeParser, ParserBase, BareArgumentParser, StandardPipelineParser, PluginArgumentParser
+from fprime_gds.common.pipeline.standard import StandardPipeline
+from fprime_gds.plugin.system import Plugins
 
 
 class GdsBaseFunction(ABC):
@@ -148,3 +154,143 @@ class GdsApp(GdsBaseFunction):
             GdsApp subclass
         """
         raise NotImplementedError()
+   
+
+class GdsStandardApp(GdsApp):
+    """ Standard GDS application that is built upon the StandardPipeline
+    
+    Use this class to help build a GdsApp plugin that has a known invocation and starts up the standard pipeline to
+    enable standard GDS processes. 
+
+    Developers should implement a concrete subclass with the `start(pipeline)` function to run the application with the
+    supplied pipeline. The subclass must supply **kwargs parent class constructor and extend a GdsApp plugin:
+
+    ```
+    @gds_plugin(GdsApp)
+    class MyStandardApp(GdsStandardApp):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+        ...
+    ```
+
+    If the plugin requires more arguments beyond the standard pipeline arguments, supply those additional arguments via
+    the `get_additional_arguments` method.
+    """
+    
+    def __init__(self, **kwargs):
+        """ Take all arguments and store them """
+        super().__init__(**kwargs)
+
+    @classmethod
+    def get_additional_arguments(cls) -> Dict[Tuple, Dict[str, str]]:
+        """ Function to provide additional command line arguments beyond the standard pipeline
+        
+        Override this function to provide additional arguments. The form of the arguments are the same as returned by
+        standard plugins: a dictionary of tuple flags to argparse kwargs inputs.
+
+        Return:
+            dictionary of flag tuple to argparse kwargs
+        """
+        return {}
+    
+    def init(cls):
+        """ Allows standard application plugins to initialize before argument parsing is performed
+        """
+        pass
+
+    @final
+    @classmethod
+    def get_arguments(cls):
+        """ Get the arguments for this plugin
+        
+        This will return the combined arguments needed for the standard pipeline, and those returned from
+        `get_additional_arguments()`.
+        """
+        return {**cls.get_additional_arguments(), **StandardPipelineParser().get_arguments()}
+
+    @classmethod
+    def get_cli_parser(cls):
+        """ Helper to get a parser for this applications' additional arguments """
+        return BareArgumentParser(cls.get_additional_arguments(), getattr(cls, "check_arguments", None))
+
+    @abstractmethod
+    def start(pipeline: StandardPipeline):
+        """ Start function to contain behavior based in standard pipeline
+        """
+        raise NotImplementedError()
+    
+    def get_process_invocation(self):
+        """ Return the process invocation for this class' main
+        
+        The process invocation of this application is to run cls.main and supply it a reproduced version of the
+        arguments needed for the given parsers.  When main is loaded, it will dispatch to the sub-classing plugin's
+        start method. The subclassing plugin will already have had the arguments supplied via the PluginParser's
+        construction of plugin objects.
+        """
+        cls = self.__class__.__name__
+        module = self.__class__.__module__
+
+        namespace = Namespace(**self.arguments)
+        args = CompositeParser([self.get_cli_parser(), StandardPipelineParser]).reproduce_cli_args(namespace)
+        return [sys.executable, "-c", f"import {module}\n{module}.{cls}.main()"] + args
+
+    @classmethod
+    def main(cls):
+        """ Main function used as a generic entrypoint for GdsStandardApp derived GdsApp plugins """
+        try:
+            cls.init()
+            try:
+                Plugins.system([]) # Disable plugin system unless specified through init
+            except AssertionError:
+                pass
+            parsed_arguments, _ = ParserBase.parse_args([cls.get_cli_parser(), StandardPipelineParser, PluginArgumentParser],
+                                                        f"{cls.get_name()}: a standard app plugin")
+            pipeline = StandardPipeline()
+            # Turn off history and filing
+            pipeline.histories.implementation = None
+            pipeline.filing = None
+            pipeline = StandardPipelineParser.pipeline_factory(parsed_arguments, pipeline)
+            application = cls(**cls.get_cli_parser().extract_arguments(parsed_arguments))
+            application.start(pipeline)
+            sys.exit(0)
+        except Exception as e:
+            print(f"[ERROR] Error launching {cls.__name__}: {e}", file=sys.stderr)
+            raise
+            sys.exit(148)
+
+@gds_plugin(GdsApp)
+class CustomDataHandlers(GdsStandardApp):
+    """ Run an app that registers all custom data handlers
+    
+    A GdsApp plugin, built using the GdsStandardApp helper, that uses the provided standard pipeline to register each
+    custom DataHandler plugin as a consumer of the appropriate type.
+    """
+    def __init__(self, **kwargs):
+        """ Required __init__ implementation"""
+        super().__init__(**kwargs)
+    
+    @classmethod
+    def init(cls):
+        """ Set up the system to use only data_handler plugins """
+        Plugins.system(["data_handler"])
+
+    def start(self, pipeline: StandardPipeline):
+        """ Iterates over each data handler, registering to the producing decoder """
+        DESCRIPTOR_TO_FUNCTION = {
+            "FW_PACKET_TELEM": pipeline.coders.register_channel_consumer,
+            "FW_PACKET_LOG": pipeline.coders.register_event_consumer,
+            "FW_PACKET_FILE": pipeline.coders.register_file_consumer,
+            "FW_PACKET_PACKETIZED_TLM": pipeline.coders.register_packet_consumer,
+        }
+
+        data_handlers = Plugins.system().get_feature_classes("data_handler")
+        for data_handler_class in data_handlers:
+            data_handler = data_handler_class()
+            descriptors = data_handler.get_handled_descriptors() 
+            for descriptor in descriptors:
+                DESCRIPTOR_TO_FUNCTION.get(descriptor, lambda discard: discard)(data_handler)
+
+    @classmethod
+    def get_name(cls):
+        """ Return the name of this application """
+        return "custom-data-handlers-app"

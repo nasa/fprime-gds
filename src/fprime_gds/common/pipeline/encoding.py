@@ -129,6 +129,24 @@ class EncodingDecoding:
         :return: a boolean indicating if the consumer was removed.
         """
         return self.channel_decoder.deregister(consumer)
+    
+    def register_file_consumer(self, consumer):
+        """
+        Registers a consumer with the file decoder.
+
+        :param consumer: consumer of file packets
+        """
+        self.file_decoder.register(consumer)
+
+    def remove_file_consumer(self, consumer):
+        """
+        Removes a consumer from the file decoder. Will raise an error if the history was not
+        previously registered.
+
+        :param consumer: consumer of channels
+        :return: a boolean indicating if the consumer was removed.
+        """
+        return self.file_decoder.deregister(consumer)
 
     def register_command_consumer(self, consumer):
         """

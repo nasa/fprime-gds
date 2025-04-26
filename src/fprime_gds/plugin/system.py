@@ -18,44 +18,9 @@ import pluggy
 
 from fprime_gds.plugin.definitions import Plugin, PluginType, PROJECT_NAME
 
-# For automatic validation of plugins, each plugin class type must be imported here
-from fprime_gds.executables.apps import GdsFunction, GdsApp
-from fprime_gds.common.communication.framing import FramerDeframer, FpFramerDeframer
-from fprime_gds.common.communication.adapters.base import BaseAdapter, NoneAdapter
-from fprime_gds.common.communication.adapters.ip import IpAdapter
-
-try:
-    from fprime_gds.common.communication.adapters.uart import SerialAdapter
-except ImportError:
-    SerialAdapter = None
 
 # Handy constants
 LOGGER = logging.getLogger(__name__)
-
-
-# Metadata regarding each plugin:
-_PLUGIN_METADATA = {
-    "framing": {
-        "class": FramerDeframer,
-        "type": PluginType.SELECTION,
-        "built-in": [FpFramerDeframer]
-    },
-    "communication": {
-        "class": BaseAdapter,
-        "type": PluginType.SELECTION,
-        "built-in": [adapter for adapter in [NoneAdapter, IpAdapter, SerialAdapter] if adapter is not None]
-    },
-    "gds_function": {
-        "class": GdsFunction,
-        "type": PluginType.FEATURE,
-        "built-in": []
-    },
-    "gds_app": {
-        "class": GdsApp,
-        "type": PluginType.FEATURE,
-        "built-in": []
-    }
-}
 
 
 class PluginException(Exception):
@@ -65,6 +30,8 @@ class PluginException(Exception):
 class InvalidCategoryException(PluginException):
     pass
 
+class PluginsNotLoadedException(PluginException):
+    pass
 
 class Plugins(object):
     """GDS plugin system providing a plugin Singleton for use across the GDS
@@ -73,6 +40,7 @@ class Plugins(object):
     application will support and load the plugins for a given category.
     """
     PLUGIN_ENVIRONMENT_VARIABLE = "FPRIME_GDS_EXTRA_PLUGINS"
+    PLUGIN_METADATA = None
     _singleton = None
 
     def __init__(self, categories: Union[None, List] = None):
@@ -84,17 +52,20 @@ class Plugins(object):
         Args:
             categories: None for all categories otherwise a list of categories
         """
+        self.get_plugin_metadata() # Preload the data
         categories = self.get_all_categories() if categories is None else categories
         self.categories = categories
         self.manager = pluggy.PluginManager(PROJECT_NAME)
 
         # Load hook specifications from only the configured categories
         for category in categories:
-            self.manager.add_hookspecs(_PLUGIN_METADATA[category]["class"])
+            self.manager.add_hookspecs(self.get_plugin_metadata(category)["class"])
 
         # Load plugins from setuptools entrypoints and the built-in plugins (limited to category)
-        self.manager.load_setuptools_entrypoints(PROJECT_NAME)
-
+        try:
+            self.manager.load_setuptools_entrypoints(PROJECT_NAME)
+        except Exception as e:
+            LOGGER.warning("Failed to load entrypoint plugins: %s", e)
         # Load plugins from environment variable specified modules
         for token in [token for token in os.environ.get(self.PLUGIN_ENVIRONMENT_VARIABLE, "").split(";") if token]:
             module, class_token = token.split(":")
@@ -107,7 +78,7 @@ class Plugins(object):
 
         # Load built-in plugins
         for category in categories:
-            for built_in in _PLUGIN_METADATA[category]["built-in"]:
+            for built_in in self.get_plugin_metadata(category)["built-in"]:
                 self.register_plugin(built_in)
 
     def get_plugins(self, category) -> Iterable:
@@ -132,6 +103,53 @@ class Plugins(object):
             for plugin_class in plugin_classes
             if self.validate_selection(category, plugin_class)
         ]
+    
+    def start_loading(self, category: str):
+        """ Start a category loading
+        
+        When loading plugins via the CLI, it is imperative to distinguish between the no loaded implementors case, and
+        the case where loading was never attempted. This sets the variable in metadata to [] to indicate the loading
+        was attempted.
+        """
+        metadata = self.get_plugin_metadata(category)
+        metadata["bound_classes"] = metadata["bound_classes"] if "bound_classes" in metadata else []
+    
+    def add_bound_class(self, category: str, bound_class: List[object]):
+        """ Add class for plugin category with constructor arguments bound
+        
+        Called from the plugin cli parser, this will add a class ready for zero-argument construction to the categories'
+        list of classes. This is the plugin class with constructor arguments bound to the cli arguments that fill those
+        values. For SELECTION plugins, only a single instance is allowed. For FEATURE plugins, multiple bound classes
+        are  allowed.
+
+        Args:
+            category: category to set
+            bound_class: constructor argument bound class
+        """
+        self.start_loading(category)
+        metadata = self.get_plugin_metadata(category)
+        metadata["bound_classes"].append(bound_class)
+        assert metadata["type"] == PluginType.FEATURE or len(metadata["bound_classes"]) == 1, \
+            f"Multiple selections for: {category}"
+    
+    def get_selected_class(self, category: str) -> object:
+        """ Get the selected constructor-bound class for the category """
+        metadata = self.get_plugin_metadata(category)
+        assert metadata["type"] == PluginType.SELECTION, "Features allow multiple plugins"
+        try:
+            return metadata["bound_classes"][0]
+        except (KeyError, IndexError):
+            raise PluginsNotLoadedException(f"Plugins not loaded for category: {category}")
+    
+    def get_feature_classes(self, category: str) -> object:
+        """ Get the selected instance for the category """
+        metadata = self.get_plugin_metadata(category)
+        assert metadata["type"] == PluginType.FEATURE, "Selections have single instances"
+        try:
+            return metadata["bound_classes"]
+        except KeyError:
+            raise PluginsNotLoadedException(f"Plugins not loaded for category: {category}")
+
 
     def register_plugin(self, module_or_class):
         """Register a plugin directly
@@ -147,15 +165,69 @@ class Plugins(object):
         """ Get plugin categories """
         return self.categories
 
-    @staticmethod
-    def get_all_categories():
+    @classmethod
+    def get_all_categories(cls):
         """ Get all plugin categories """
-        return _PLUGIN_METADATA.keys()
+        return cls.get_plugin_metadata().keys()
 
-    @staticmethod
-    def get_plugin_metadata(category):
-        """ Get the plugin metadata for a given plugin category """
-        return _PLUGIN_METADATA[category]
+    @classmethod
+    def get_plugin_metadata(cls, category: str = None):
+        """Get the metadata describing a given category
+
+        F Prime supports certain plugin types that break down into categories. Each category has a set of built-in
+        plugins class type, and plugin type. This function will load that metadata for the supplied category. If no
+        category is supplied then the complete metadata block is returned.
+        
+        On first invocation, the method will load plugin types and construct the metadata object.
+        
+        Warning:
+            Since the loaded plugins may use features of the plugin system, these plugins must be imported at call time
+            instead of imported at the top of the module to prevent circular imports.
+        
+        Return:
+            plugin metadata definitions
+        """
+        # Load on the first time only
+        if cls.PLUGIN_METADATA is None:
+            from fprime_gds.executables.apps import GdsFunction, GdsApp
+            from fprime_gds.common.handlers import DataHandlerPlugin
+            from fprime_gds.common.communication.framing import FramerDeframer, FpFramerDeframer
+            from fprime_gds.common.communication.adapters.base import BaseAdapter, NoneAdapter
+            from fprime_gds.common.communication.adapters.ip import IpAdapter
+            from fprime_gds.executables.apps import CustomDataHandlers
+            try:
+                from fprime_gds.common.communication.adapters.uart import SerialAdapter
+            except ImportError:
+                SerialAdapter = None
+            cls.PLUGIN_METADATA = {
+                "framing": {
+                    "class": FramerDeframer,
+                    "type": PluginType.SELECTION,
+                    "built-in": [FpFramerDeframer]
+                },
+                "communication": {
+                    "class": BaseAdapter,
+                    "type": PluginType.SELECTION,
+                    "built-in": [adapter for adapter in [NoneAdapter, IpAdapter, SerialAdapter] if adapter is not None]
+                },
+                "gds_function": {
+                    "class": GdsFunction,
+                    "type": PluginType.FEATURE,
+                    "built-in": []
+                },
+                "gds_app": {
+                    "class": GdsApp,
+                    "type": PluginType.FEATURE,
+                    "built-in": [CustomDataHandlers]
+                },
+                "data_handler": {
+                    "class": DataHandlerPlugin,
+                    "type": PluginType.FEATURE,
+                    "built-in": []
+                }
+            }
+            assert cls.PLUGIN_METADATA is not None, "Failed to set plugin metadata"
+        return cls.PLUGIN_METADATA[category] if category is not None else cls.PLUGIN_METADATA
 
     @classmethod
     def get_category_plugin_type(cls, category):
@@ -220,6 +292,6 @@ class Plugins(object):
         if cls._singleton is None:
             cls._singleton = cls(cls.get_all_categories() if categories is None else categories)
         # Ensure categories was unspecified or matches the singleton
-        assert categories is None or cls._singleton.categories == categories, "Inconsistent plugin categories"
+        assert categories is None or cls._singleton.categories == categories, f"Inconsistent plugin categories: {categories} vs {cls._singleton.categories}"
         return cls._singleton
 
