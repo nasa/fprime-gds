@@ -649,7 +649,15 @@ class DictionaryParser(DetectionParser):
                     "default": None,
                     "required": False,
                     "type": str,
-                    "help": "Path to packet specification.",
+                    "help": "Path to packet XML specification (should not be used if JSON packet definitions are used).",
+                },
+                ("--packet-set-name",): {
+                    "dest": "packet_set_name",
+                    "action": "store",
+                    "default": None,
+                    "required": False,
+                    "type": str,
+                    "help": "Name of packet set defined in the JSON dictionary.",
                 },
             },
         }
@@ -730,6 +738,7 @@ class StandardPipelineParser(CompositeParser):
             "dictionary": args_ns.dictionary,
             "file_store": args_ns.files_storage_directory,
             "packet_spec": args_ns.packet_spec,
+            "packet_set_name": args_ns.packet_set_name,
             "logging_prefix": args_ns.logs,
         }
         pipeline = pipeline if pipeline else StandardPipeline()

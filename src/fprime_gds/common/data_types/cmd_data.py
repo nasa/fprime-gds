@@ -148,13 +148,13 @@ class CmdData(sys_data.SysData):
         args = []
         for val, arg_tuple in zip(input_values, self.template.arguments):
             try:
-                _, _, arg_type = arg_tuple
+                arg_name, _, arg_type = arg_tuple
                 arg_value = arg_type()
                 self.convert_arg_value(val, arg_value)
                 args.append(arg_value)
                 errors.append("")
             except Exception as exc:
-                errors.append(str(exc))
+                errors.append(f"{arg_name}[{arg_type.__name__}]: {exc}")
         return args, errors
 
     @staticmethod

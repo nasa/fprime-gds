@@ -197,12 +197,17 @@ Vue.component("chart-display", {
             if (this.selected == null || this.chart == null) {
                 return;
             }
-            // Get channel name assuming the string is in component.channel format.
+            // Get channel name assuming the string is in either of these format:
+            // - component.channel format for XML dictionaries
+            // - deployment.component.channel for JSON dictionaries
+            // Can't just slice by last '.' because channel name can include complex types
+            // which are in the form of 'component.channel.fieldName'
+            let SLICE_INDEX = _dictionaries.metadata.dictionary_type == "xml" ? 2 : 3;
             let channel_full_name = this.selected
                 .split(".")
-                .slice(0, 2)
+                .slice(0, SLICE_INDEX)
                 .join(".");
-            let serial_path = this.selected.split(".").slice(2).join(".");
+            let serial_path = this.selected.split(".").slice(SLICE_INDEX).join(".");
 
             // Filter channels down to the graphed channel
             let new_channels = channels.filter((channel) => {

@@ -71,6 +71,18 @@ class JsonLoader(dict_loader.DictLoader):
             self.json_dict["metadata"].get("projectVersion", "unknown"),
         )
 
+    def get_metadata(self):
+        """Get the metadata field of the JSON dictionary
+
+        Raises:
+            GdsDictionaryParsingException: if the dictionary has no metadata field
+        """
+        if "metadata" not in self.json_dict:
+            raise GdsDictionaryParsingException(
+                f"Dictionary has no metadata field: {self.json_file}"
+            )
+        return self.json_dict["metadata"]
+
     def parse_type(self, type_dict: dict) -> BaseType:
         type_name: str = type_dict.get("name", None)
 
@@ -102,6 +114,9 @@ class JsonLoader(dict_loader.DictLoader):
                 f"Dictionary type name has no corresponding type definition: {type_name}"
             )
 
+        if qualified_type.get("kind") == "alias":
+            return self.parse_type(qualified_type.get("underlyingType"))
+        
         if qualified_type.get("kind") == "array":
             return self.construct_array_type(type_name, qualified_type)
 
@@ -178,7 +193,10 @@ class JsonLoader(dict_loader.DictLoader):
             SerializableType: The constructed serializable type.
 
         """
-        struct_members = []
+        # Note on struct_members: the order of the members list matter when calling construct_type() below.
+        # It should be ordered by incrementing index which corresponds to the order in the FPP declaration
+        # The JSON dictionary ordering is not guaranteed, so we use a dict() to sort by index below.
+        struct_members = {}
         for name, member_dict in qualified_type.get("members").items():
             member_type_dict = member_dict["type"]
             member_type_obj = self.parse_type(member_type_dict)
@@ -197,11 +215,17 @@ class JsonLoader(dict_loader.DictLoader):
                 member_type_obj.FORMAT if hasattr(member_type_obj, "FORMAT") else "{}"
             )
             description = member_type_dict.get("annotation", "")
-            struct_members.append((name, member_type_obj, fmt_str, description))
+            member_index = member_dict["index"]
+            if member_index in struct_members:
+                raise KeyError(
+                    f"Invalid dictionary: Duplicate index {member_index} in serializable type {type_name}"
+                )
+            struct_members[member_index] = (name, member_type_obj, fmt_str, description)
 
+        # Construct the serializable type with list of members sorted by index
         ser_type = SerializableType.construct_type(
             type_name,
-            struct_members,
+            [struct_members[i] for i in sorted(struct_members.keys())],
         )
         self.parsed_types[type_name] = ser_type
         return ser_type

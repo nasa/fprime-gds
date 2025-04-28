@@ -16,6 +16,8 @@ import {_datastore} from "../../js/datastore.js";
 import {basicSetup, EditorState, EditorView, linter} from "./third/code-mirror.es.js"
 import {sequenceLanguageSupport} from "./autocomplete.js"
 import {processResponse} from "./lint.js";
+import { SaferParser } from "../../js/json.js";
+SaferParser.register();
 
 /**
  * Sequence sender function used to uplink the sequence and return a promise of how to handle the server's return.

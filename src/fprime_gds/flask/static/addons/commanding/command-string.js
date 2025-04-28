@@ -10,6 +10,8 @@ import {
     command_string_template
 } from "./command-string-template.js";
 import {argument_display_string, FILL_NEEDED} from "./arguments.js"
+import {SaferParser} from "../../js/json.js";
+SaferParser.register();
 
 let STRING_PREPROCESSOR = new RegExp(`(?:"((?:[^\"]|\\\")*)")|([a-zA-Z_][a-zA-Z_0-9.]*)|(${FILL_NEEDED})`, "g");
 
@@ -61,7 +63,9 @@ Vue.component("command-text", {
                 } catch (e) {
                     // JSON parsing exceptions
                     if (e instanceof SyntaxError) {
-                        this.error = `Expected command string of the form: ${COMMAND_FORMAT_SPEC}`;
+                        this.error = `Expected command string of the form: ${COMMAND_FORMAT_SPEC}.`;
+                    } else {
+                        throw e;
                     }
                 }
             }

@@ -130,7 +130,7 @@ class BaseCommand(abc.ABC):
             passes the given filter
         """
         project_dictionary = Dictionaries()
-        project_dictionary.load_dictionaries(dictionary_path, packet_spec=None)
+        project_dictionary.load_dictionaries(dictionary_path, packet_spec=None, packet_set_name=None)
         items = cls._get_item_list(project_dictionary, search_filter)
         return cls._get_item_list_string(items, json)
 

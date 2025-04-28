@@ -10,7 +10,8 @@ import {command_argument_assignment_helper} from "./arguments.js";
 import {listExistsAndItemNameNotInList, timeToString} from "../../js/vue-support/utils.js";
 import {command_history_template} from "./command-history-template.js";
 import {command_display_string} from "./command-string.js";
-
+import { SaferParser } from "../../js/json.js";
+SaferParser.register();
 
 /**
  * command-history:
@@ -103,27 +104,7 @@ Vue.component("command-history", {
             // Can only set command if it is a child of a command input
             if (this.$parent.selectCmd) {
                 // command-input expects an array of strings as arguments
-                this.$parent.selectCmd(cmd.full_name, this.preprocess_args(cmd.args));
-            }
-        },
-        /**
-         * Process the arguments for a command. If the argument is (or contains) a number, it
-         * is converted to a string. Other types that should be pre-processed can be added here.
-         * 
-         * @param {*} args 
-         * @returns args processed for command input (numbers converted to strings)
-         */
-        preprocess_args(args) {
-            if (Array.isArray(args)) {
-                return args.map(el => this.preprocess_args(el));
-            } else if (typeof args === 'object' && args !== null) {
-                return Object.fromEntries(
-                    Object.entries(args).map(([key, value]) => [key, this.preprocess_args(value)])
-                );
-            } else if (typeof args === 'number') {
-                return args.toString();
-            } else {
-                return args;
+                this.$parent.selectCmd(cmd.full_name, cmd.args);
             }
         }
     }

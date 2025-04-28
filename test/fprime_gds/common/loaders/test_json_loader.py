@@ -2,6 +2,7 @@ from fprime_gds.common.loaders.json_loader import JsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.event_json_loader import EventJsonLoader
+from fprime_gds.common.loaders.pkt_json_loader import PktJsonLoader
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.enum_type import EnumType
 import fprime.common.models.serialize.numerical_types as numerical_types
@@ -11,9 +12,11 @@ from fprime.common.models.serialize.string_type import StringType
 from pathlib import Path
 import pytest
 import json
+from typing import List
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.event_template import EventTemplate
+from fprime_gds.common.templates.pkt_template import PktTemplate
 
 
 REF_JSON_DICTIONARY = (
@@ -37,6 +40,10 @@ def ch_loader():
     return ChJsonLoader(REF_JSON_DICTIONARY)
 
 @pytest.fixture
+def pkt_loader():
+    return PktJsonLoader(REF_JSON_DICTIONARY)
+
+@pytest.fixture
 def json_dict_obj():
     with open(REF_JSON_DICTIONARY, "r") as f:
         return json.load(f)
@@ -56,6 +63,23 @@ def test_construct_enum_type(loader):
     }
     assert ref_signal_type.REP_TYPE == "I32"
 
+def test_construct_alias_type(loader):
+    ref_alias_frequency_type = loader.parse_type(
+        {"name" : "Ref.SignalGen.FrequencyType", "kind" : "qualifiedIdentifier"}
+    )
+    assert ref_alias_frequency_type == numerical_types.U32Type
+    ref_alias_phase_type = loader.parse_type(
+        {"name" : "Ref.SignalGen.PhaseType", "kind" : "qualifiedIdentifier"}
+    )
+    assert ref_alias_phase_type == numerical_types.F32Type
+    ref_alias_buff_recv_type = loader.parse_type(
+        {"name" : "Ref.BuffRecvType", "kind" : "qualifiedIdentifier"}
+    )
+    assert ref_alias_buff_recv_type == numerical_types.U32Type
+    ref_alias_u32_type = loader.parse_type(
+        {"name" : "Ref.AliasU32", "kind" : "qualifiedIdentifier"}
+    )
+    assert ref_alias_u32_type == numerical_types.U32Type
 
 def test_construct_array_type(loader):
     ref_many_choices = loader.parse_type(
@@ -98,6 +122,16 @@ def test_construct_serializable_type(loader):
     }
     assert ref_choice_pair.MEMBER_LIST[1][1].REP_TYPE == "I32"
     assert ref_choice_pair.MEMBER_LIST[1][2] == "{}"
+
+
+def test_struct_with_unordered_members(loader):
+    misordered_member = loader.parse_type(
+        {"name": "Ref.TestMisorderedStructIndexes", "kind": "qualifiedIdentifier"}
+    )
+    assert issubclass(misordered_member, SerializableType)
+    assert misordered_member.MEMBER_LIST[0][0] == "ThisIsZero"
+    assert misordered_member.MEMBER_LIST[1][0] == "ThisIsOne"
+    assert misordered_member.MEMBER_LIST[2][0] == "ThisIsTwo"
 
 
 def test_construct_primitive_types(loader):
@@ -150,3 +184,29 @@ def test_construct_ch_dict(ch_loader, json_dict_obj):
     assert ch_choice.get_ch_desc() == "Multiple choice channel via Array"
     assert ch_choice.ch_type_obj.__name__ == "Ref.ManyChoices"
     assert ch_choice.ch_type_obj.LENGTH == 2
+
+
+def test_construct_pkt_dict(ch_loader, pkt_loader):
+    _, ch_name_dict, _ = ch_loader.construct_dicts(None)
+    _, pkt_name_dict, _ = pkt_loader.construct_dicts("PacketSet1", ch_name_dict)
+    sig_gen_pkt: PktTemplate = pkt_name_dict["SigGen1"]
+    sig_gen_pkt_ch_list: List[ChTemplate] = sig_gen_pkt.get_ch_list()
+
+    assert sig_gen_pkt.get_id() == 15
+    assert len(sig_gen_pkt_ch_list) == 5
+    assert sig_gen_pkt_ch_list[0].get_full_name() == "Ref.SG1.PairOutput"
+    assert sig_gen_pkt_ch_list[1].get_full_name() == "Ref.SG1.History"
+    assert sig_gen_pkt_ch_list[2].get_full_name() == "Ref.SG1.PairHistory"
+    assert sig_gen_pkt_ch_list[3].get_full_name() == "Ref.SG1.DpBytes"
+    assert sig_gen_pkt_ch_list[4].get_full_name() == "Ref.SG1.DpRecords"
+
+    _, pkt_name_dict, _ = pkt_loader.construct_dicts("PacketSet2", ch_name_dict)
+    type_demo_pkt: PktTemplate = pkt_name_dict["TypeDemo"]
+    type_demo_pkt_ch_list: List[ChTemplate] = type_demo_pkt.get_ch_list()
+
+    assert type_demo_pkt.get_id() == 21
+    assert len(type_demo_pkt_ch_list) == 20
+    assert type_demo_pkt_ch_list[0].get_full_name() == "Ref.typeDemo.ChoiceCh"
+    assert type_demo_pkt_ch_list[1].get_full_name() == "Ref.typeDemo.ChoicesCh"
+    assert type_demo_pkt_ch_list[-1].get_full_name() == "Ref.typeDemo.ScalarF64Ch"
+
