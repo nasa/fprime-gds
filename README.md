@@ -1,6 +1,6 @@
 # F´ GDS
 
-**Note:** This README describes GDS internals. Refer to the [user's guide](https://nasa.github.io/fprime/UsersGuide/gds/gds-introduction.html) for instructions on how to use the GDS.
+**Note:** This README describes GDS internals. Refer to the [F´ Documentation](https://fprime.jpl.nasa.gov/latest/docs/user-manual/overview/gds-introduction/) for instructions on how to use the GDS.
 
 Issues should be reported here: [File an issue](https://github.com/nasa/fprime/issues/new/choose)
 
@@ -25,7 +25,8 @@ output data type included. Command data objects are created in the command panel
 the command encoder registered to that panel. Encoders take a data object and turn it into binary
 data that can be sent to the F´ deployment. The binary data is then passed to the TCP client
 which is registered to the encoder. Finally, the TCP client send the data back to the TCP server and
-the F´ deployment. ![The layout of the GDS](https://github.com/nasa/fprime/blob/devel/docs/UsersGuide/media/gds_layout.jpg)
+the F´ deployment.  
+![The layout of the GDS](https://raw.githubusercontent.com/nasa/fprime/refs/heads/devel/docs/img/gds_layout.jpg)
 
 All of these objects are created and registered to other objects when the GDS
 is initialized. Thus, all of the structure of the GDS is created in one place,
@@ -42,15 +43,11 @@ commands and registering consumers to the GDS decoders. The Standard Pipeline ca
 [here](src/fprime_gds/common/pipeline/standard.py).
 
 ### GDS Integration Test API
-The Integration Test API is a tool that provides the ability to write integration-level tests for an
-F´ deployment using the GDS. The tool provides history searches/asserts, command sending, a
-detailed test log, sub-histories and convenient access to GDS data objects. The test API comes with
-separate [documentation](https://github.com/nasa/fprime/blob/master/docs/UsersGuide/dev/testAPI/markdown/contents.md) and its own [user
-guide](https://github.com/nasa/fprime/blob/master/docs/UsersGuide/dev/testAPI/user_guide.md) and is built on top of the Standard Pipeline.
+The Integration Test API is a tool that provides the ability to write integration-level tests for an F´ deployment using the GDS. The tool provides history searches/asserts, command sending, a detailed test log, sub-histories and convenient access to GDS data objects. The test API comes with its own [user guide](https://fprime.jpl.nasa.gov/latest/docs/user-manual/gds/gds-test-api-guide/) and is built on top of the Standard Pipeline.
 
 ## GDS GUI Usage
 
-A guide for how to use the GDS is available in the [fprime documentation](https://nasa.github.io/fprime/UsersGuide/gds/gds-introduction.html)
+A guide for how to use the GDS is available in the [F Prime documentation](https://fprime.jpl.nasa.gov/latest/docs/user-manual/overview/gds-introduction)
 
 ## Classes
 The GDS back end is composed of several different data processing units. For 
@@ -73,8 +70,15 @@ that descriptor. Descriptor types include events, channels, packets, etc (a full
 enumeration can be found in (src/utils/data_desc_type.py). The binary data that 
 the descriptor receives should be of the form:
 
-| Length (4 bytes) | Type Descriptor (4 bytes) | Message Data |
-| ---------------- | ------------------------- | ------------ |
+```mermaid
+---
+title: "Binary format received by Distributors"
+---
+packet-beta
+  0-31: "Length [4 bytes]"
+  32-63: "Type Descriptor [4 bytes]"
+  64-95: "Message Data [variable length]"
+```
 
 The distributor should then pass only the message data along to the decoders. 
 
@@ -190,10 +194,3 @@ pip install doxypypy
 
 Next, make `docs/py_filter` available in your system path however you see fit.
 Now you can run `doxygen Doxyfile` in the root directory to generate documentation in `docs/doxy/index.html`
-
-## Notes
- - Currently, the models/common directory has command.py, event.py, and
-   channel.py. These files must be present in order for the python dictionaries
-   to be properly imported. However, they are empty and not used in the GDS. 
-   When we switch fully to XML dictionaries, these can go away. 
-

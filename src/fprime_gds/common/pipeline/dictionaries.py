@@ -7,20 +7,17 @@ class called "Dictionaries".
 @author mstarch
 """
 
-import os
 from pathlib import Path
 
-import fprime_gds.common.loaders.ch_py_loader
-import fprime_gds.common.loaders.ch_xml_loader
-
-# Py Loaders
-import fprime_gds.common.loaders.cmd_py_loader
 
 # XML Loaders
+import fprime_gds.common.loaders.ch_xml_loader
 import fprime_gds.common.loaders.cmd_xml_loader
-import fprime_gds.common.loaders.event_py_loader
 import fprime_gds.common.loaders.event_xml_loader
+import fprime_gds.common.loaders.pkt_json_loader
 import fprime_gds.common.loaders.pkt_xml_loader
+
+# JSON Loaders
 import fprime_gds.common.loaders.ch_json_loader
 import fprime_gds.common.loaders.cmd_json_loader
 import fprime_gds.common.loaders.event_json_loader
@@ -50,8 +47,9 @@ class Dictionaries:
         self._channel_name_dict = None
         self._packet_dict = None
         self._versions = None
+        self._metadata = None
 
-    def load_dictionaries(self, dictionary, packet_spec):
+    def load_dictionaries(self, dictionary, packet_spec, packet_set_name):
         """
         Loads the dictionaries based on the dictionary path supplied. Optional packet_spec is allowed to specify the
         definitions of packets.
@@ -59,57 +57,39 @@ class Dictionaries:
         :param dictionary: dictionary path used for loading dictionaries
         :param packet_spec: specification for packets, or None, for packetized telemetry
         """
-        # Loading the dictionaries from a directory. A directory indicates heritage python dicts.
-        if os.path.isdir(dictionary):
-            # Events
-            event_loader = fprime_gds.common.loaders.event_py_loader.EventPyLoader()
-            self._event_id_dict = event_loader.get_id_dict(
-                os.path.join(dictionary, "events")
-            )
-            self._event_name_dict = event_loader.get_name_dict(
-                os.path.join(dictionary, "events")
-            )
-            # Commands
-            command_loader = fprime_gds.common.loaders.cmd_py_loader.CmdPyLoader()
-            self._command_id_dict = command_loader.get_id_dict(
-                os.path.join(dictionary, "commands")
-            )
-            self._command_name_dict = command_loader.get_name_dict(
-                os.path.join(dictionary, "commands")
-            )
-            # Channels
-            channel_loader = fprime_gds.common.loaders.ch_py_loader.ChPyLoader()
-            self._channel_id_dict = channel_loader.get_id_dict(
-                os.path.join(dictionary, "channels")
-            )
-            self._channel_name_dict = channel_loader.get_name_dict(
-                os.path.join(dictionary, "channels")
-            )
-        elif Path(dictionary).is_file() and ".json" in Path(dictionary).suffixes:
+        if Path(dictionary).is_file() and ".json" in Path(dictionary).suffixes:
             # Events
             json_event_loader = (
                 fprime_gds.common.loaders.event_json_loader.EventJsonLoader(dictionary)
             )
             self._event_name_dict = json_event_loader.get_name_dict(None)
             self._event_id_dict = json_event_loader.get_id_dict(None)
-            self._versions = json_event_loader.get_versions()
             # Commands
             json_command_loader = (
                 fprime_gds.common.loaders.cmd_json_loader.CmdJsonLoader(dictionary)
             )
             self._command_name_dict = json_command_loader.get_name_dict(None)
             self._command_id_dict = json_command_loader.get_id_dict(None)
-            assert (
-                self._versions == json_command_loader.get_versions()
-            ), "Version mismatch while loading"
             # Channels
             json_channel_loader = fprime_gds.common.loaders.ch_json_loader.ChJsonLoader(
                 dictionary
             )
             self._channel_name_dict = json_channel_loader.get_name_dict(None)
             self._channel_id_dict = json_channel_loader.get_id_dict(None)
+            # Metadata
+            self._versions = json_event_loader.get_versions()
+            self._metadata = json_event_loader.get_metadata().copy()
+            self._metadata["dictionary_type"] = "json"
+            # Each loaders should agree on metadata and versions
             assert (
-                self._versions == json_channel_loader.get_versions()
+                json_command_loader.get_metadata()
+                == json_channel_loader.get_metadata()
+                == json_event_loader.get_metadata()
+            ), "Metadata mismatch while loading"
+            assert (
+                json_command_loader.get_versions()
+                == json_channel_loader.get_versions()
+                == json_event_loader.get_versions()
             ), "Version mismatch while loading"
         # XML dictionaries
         elif Path(dictionary).is_file():
@@ -132,12 +112,23 @@ class Dictionaries:
             assert (
                 self._versions == channel_loader.get_versions()
             ), "Version mismatch while loading"
+            # versions are camelCase to match the metadata field of the JSON dictionaries
+            self._metadata = {
+                "frameworkVersion": self._versions[0],
+                "projectVersion": self._versions[1],
+                "dictionary_type": "xml",
+            }
         else:
             msg = f"[ERROR] Dictionary '{dictionary}' does not exist."
             raise Exception(msg)
         # Check for packet specification
-        if packet_spec is not None:
-            packet_loader = fprime_gds.common.loaders.pkt_xml_loader.PktXmlLoader()
+        if self._metadata["dictionary_type"] == "json" and packet_set_name is not None:
+            packet_loader = fprime_gds.common.loaders.pkt_json_loader.PktJsonLoader(dictionary)
+            self._packet_dict = packet_loader.get_id_dict(
+                None, packet_set_name, self._channel_name_dict
+            )
+        elif packet_spec is not None:
+            packet_loader = fprime_gds.common.loaders.pkt_xml_loader.PktXmlLoader(dictionary)
             self._packet_dict = packet_loader.get_id_dict(
                 packet_spec, self._channel_name_dict
             )
@@ -183,6 +174,14 @@ class Dictionaries:
     def framework_version(self):
         """Framework version in dictionary"""
         return self._versions[0]
+
+    @property
+    def metadata(self):
+        """Dictionary metadata.
+
+        Note: framework_version and project_version are also available as separate properties
+        for legacy reasons. New code should use the metadata property."""
+        return self._metadata
 
     @property
     def packet(self):

@@ -253,6 +253,7 @@ class DataStore {
             commands_by_id: Object.fromEntries(Object.values(_loader.endpoints["command-dict"].data.dictionary).map((value) => [value.id, value])),
             framework_version: _loader.endpoints["command-dict"].data.framework_version,
             project_version: _loader.endpoints["command-dict"].data.project_version,
+            metadata: _loader.endpoints["command-dict"].data.metadata,
         });
         // Setup channels object in preparation for updates. Channel object need to be well formed, even if blank,
         // because rendering of edit-views is still possible.

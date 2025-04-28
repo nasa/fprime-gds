@@ -17,17 +17,19 @@ class DictionaryResource(Resource):
     should be flask compatible. Errors with the dictionary are a 500 server error and may not be recovered.
     """
 
-    def __init__(self, dictionary, project_version, framework_version):
+    def __init__(self, dictionary, project_version, framework_version, metadata):
         """Constructor used to setup for dictionary
 
         Args:
             dictionary: dictionary to serve when GET is called
             project_version: project version for the dictionary
             framework_version: project version for the dictionary
+            metadata (dict): additional metadata to serve with the dictionary
         """
         self.dictionary = dictionary
         self.project_version = project_version
         self.framework_version = framework_version
+        self.metadata = metadata
 
     def get(self):
         """HTTP GET method handler for dictionary resource
@@ -38,7 +40,8 @@ class DictionaryResource(Resource):
         return {
             "dictionary": self.dictionary,
             "project_version": self.project_version,
-            "framework_version": self.framework_version
+            "framework_version": self.framework_version,
+            "metadata": self.metadata
         }
 
 
