@@ -70,7 +70,7 @@ def time_type_from_json(js):
     return TimeType(js["time_base"], js["time_context"], js["seconds"], js["useconds"])
 
 
-directives: list[StatementTemplate] = [
+FPY_DIRECTIVES: list[StatementTemplate] = [
     StatementTemplate(
         StatementType.DIRECTIVE,
         DirectiveOpcode.WAIT_REL.value,

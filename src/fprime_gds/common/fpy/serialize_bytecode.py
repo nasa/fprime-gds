@@ -13,7 +13,7 @@ from fprime_gds.common.fpy.types import (
     HEADER_FORMAT,
     FOOTER_FORMAT,
     StatementType,
-    directives
+    FPY_DIRECTIVES
 )
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime.common.models.serialize.numerical_types import (
@@ -34,6 +34,7 @@ def get_type_obj_for(type: str) -> type[ValueType]:
 
 
 def serialize_statement(stmt: StatementData) -> bytes:
+    """"""
     # see https://github.com/nasa/fprime/issues/3023#issuecomment-2693051677
     # TODO replace this with actual documentation
 
@@ -139,7 +140,7 @@ def serialize_bytecode(input: Path, dictionary: Path, output: Path=None):
     )
 
     stmt_templates = []
-    stmt_templates.extend(directives)
+    stmt_templates.extend(FPY_DIRECTIVES)
     for cmd_template in cmd_name_dict.values():
         stmt_template = StatementTemplate(
             StatementType.CMD,
