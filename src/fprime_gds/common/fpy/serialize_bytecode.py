@@ -25,6 +25,7 @@ from fprime.common.models.serialize.type_base import ValueType
 
 
 def get_type_obj_for(type: str) -> type[ValueType]:
+    """returns a type object representing the ValueType that corresponds to a type alias"""
     if type == "FwOpcodeType":
         return U32Type
     elif type == "FwSizeStoreType":
@@ -34,7 +35,7 @@ def get_type_obj_for(type: str) -> type[ValueType]:
 
 
 def serialize_statement(stmt: StatementData) -> bytes:
-    """"""
+    """converts a StatementData object into bytes that the FpySequencer can read"""
     # see https://github.com/nasa/fprime/issues/3023#issuecomment-2693051677
     # TODO replace this with actual documentation
 
@@ -60,6 +61,8 @@ def serialize_statement(stmt: StatementData) -> bytes:
 def parse_str_as_statement(
     stmt: str, templates: list[StatementTemplate]
 ) -> StatementData:
+    """Converts a human-readable line of bytecode into a StatementData instance, given a list of
+    possible statement templates"""
     name = stmt.split()[0]
     args = stmt[len(name) :]
 
@@ -133,7 +136,9 @@ def main():
     serialize_bytecode(args.input, args.dictionary, args.output)
 
 def serialize_bytecode(input: Path, dictionary: Path, output: Path=None):
-
+    """Given an input .fpybc file, and a dictionary .json file, converts the 
+    bytecode file into binary and writes it to the output file. If the output file 
+    is None, writes it to the input file with a .bin extension"""
     cmd_json_dict_loader = CmdJsonLoader(str(dictionary))
     (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
         str(dictionary)

@@ -4,16 +4,7 @@ import struct
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.numerical_types import (
-    F32Type,
-    F64Type,
-    I8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    U8Type,
-    U16Type,
     U32Type,
-    U64Type,
 )
 
 
@@ -24,10 +15,13 @@ class StatementType(Enum):
 
 @dataclass
 class StatementTemplate:
+    """a statement with unspecified argument values"""
     statement_type: StatementType
     opcode: int
     name: str
+    """fully qualified statement name"""
     args: list[type[BaseType]]
+    """list of argument types of this statement"""
 
 
 @dataclass
@@ -67,6 +61,7 @@ class DirectiveOpcode(Enum):
 
 
 def time_type_from_json(js):
+    """converts a json object into a TimeType object"""
     return TimeType(js["time_base"], js["time_context"], js["seconds"], js["useconds"])
 
 
