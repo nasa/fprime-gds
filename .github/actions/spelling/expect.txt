@@ -249,6 +249,7 @@ FONTSIZE
 fpp
 fprime
 fptable
+fqn
 frac
 framerate
 fromtimestamp
@@ -370,6 +371,7 @@ keyframes
 keyify
 kinda
 kwargs
+leisher
 len
 lestarch
 levelname
@@ -477,6 +479,7 @@ outputfile
 packetized
 Paetz
 PARAMDOC
+paramdb
 params
 passthrough
 pathlib
@@ -504,6 +507,7 @@ posixpath
 PREDEF
 preds
 prm
+prmdb
 procs
 PROGRAMLISTING
 progressbar
@@ -629,6 +633,7 @@ stringify
 strptime
 structs
 stylesheet
+subcmd
 subdir
 subfolder
 subgrouping
@@ -786,3 +791,4 @@ yml
 zeromq
 zlib
 zmq
+zimri
