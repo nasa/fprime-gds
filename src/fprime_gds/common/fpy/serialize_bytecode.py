@@ -16,25 +16,12 @@ from fprime_gds.common.fpy.types import (
     directives
 )
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
-from fprime.common.models.serialize.array_type import ArrayType
-from fprime.common.models.serialize.bool_type import BoolType
-from fprime.common.models.serialize.enum_type import EnumType
 from fprime.common.models.serialize.numerical_types import (
-    F32Type,
-    F64Type,
-    I8Type,
-    I16Type,
-    I32Type,
-    I64Type,
     U8Type,
     U16Type,
     U32Type,
-    U64Type,
 )
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.time_type import TimeBase, TimeType
-from fprime.common.models.serialize.type_base import BaseType, ValueType
+from fprime.common.models.serialize.type_base import ValueType
 
 
 def get_type_obj_for(type: str) -> type[ValueType]:

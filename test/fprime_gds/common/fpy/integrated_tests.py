@@ -37,7 +37,7 @@ def assert_compile_succeeds(fprime_test_api, seq: str):
     try:
         return compile_seq(fprime_test_api, seq)
     except BaseException as e:
-        raise RuntimeError("compile_seq did not fail") from e
+        raise RuntimeError("compile_seq failed") from e
 
 
 def assert_run_succeeds(
@@ -150,11 +150,11 @@ def test_wait_rel(fprime_test_api: IntegrationTestAPI):
 
 
 def test_wait_abs(fprime_test_api: IntegrationTestAPI):
-    fprime_test_api.send_command("Ref.cmdDisp.CMD_NO_OP")
-    time = fprime_test_api.get_latest_time()
+    fprime_test_api.send_and_assert_command("Ref.cmdDisp.CMD_NO_OP")
+    unix_sec = int(time.time()) + 5
 
     seq = f"""
-    WAIT_ABS {{ "time_base": 2, "time_context": 0, "seconds": {time.seconds + 5}, "useconds": 0 }}
+    WAIT_ABS {{ "time_base": 2, "time_context": 0, "seconds": {unix_sec}, "useconds": 0 }}
     """
     # i see a lot of variability in this depending on tlm rates. cuz latest time just returns latest tlm timestamp
     # so it might be somewhat in the past
@@ -162,10 +162,9 @@ def test_wait_abs(fprime_test_api: IntegrationTestAPI):
 
 
 def test_wait_abs_past(fprime_test_api: IntegrationTestAPI):
-    time = fprime_test_api.get_latest_time()
 
     seq = f"""
-    WAIT_ABS {{ "time_base": 2, "time_context": 0, "seconds": {time.seconds - 8}, "useconds": 0 }}
+    WAIT_ABS {{ "time_base": 2, "time_context": 0, "seconds": 10, "useconds": 0 }}
     """
     assert_seq(fprime_test_api, seq, True, True, min_runtime=0, max_runtime=2)
 
