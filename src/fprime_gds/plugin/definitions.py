@@ -57,10 +57,10 @@ def gds_plugin(plugin_class):
         class_name = decorated_class.__name__
         assert issubclass(
             decorated_class, plugin_class
-        ), f"{decorated_class} is not a subclass of {plugin_name}"
+        ), f"{class_name} is not a subclass of {plugin_name}"
         assert not inspect.isabstract(
             decorated_class
-        ), f"{decorated_class} is abstract. Plugins may not be abstract."
+        ), f"{class_name} is abstract. Plugins may not be abstract."
 
         def return_decorated_class(cls):
             """Function to become the plugin implementation method"""

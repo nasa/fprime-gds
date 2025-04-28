@@ -9,7 +9,7 @@ defines the "DataHandler" base class for handling data.
 
 import abc
 from typing import List, Type
-from fprime_gds.plugin.definitions import gds_plugin_specification, gds_plugin
+from fprime_gds.plugin.definitions import gds_plugin_specification
 
 
 class DataHandler(abc.ABC):

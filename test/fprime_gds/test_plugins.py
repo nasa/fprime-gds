@@ -23,7 +23,7 @@ from fprime_gds.common.communication.adapters.uart import SerialAdapter
 from fprime_gds.common.communication.framing import FramerDeframer, FpFramerDeframer
 from fprime_gds.executables.cli import ParserBase, PluginArgumentParser
 from fprime_gds.executables.apps import GdsFunction, GdsApp
-from fprime_gds.plugin.definitions import gds_plugin_implementation
+from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin
 from fprime_gds.plugin.system import Plugins
 
 
@@ -234,11 +234,11 @@ def start_up(request):
     with NamedTemporaryFile(mode="w+") as temp_file:
         assert "" == temp_file.read(), "Failed to read empty file"
         command_arguments += ["--start-up-file", temp_file.name]
-        # Run subprocess for 3 seconds then kill the GDS with 3 seconds to shut down
+        # Run subprocess for 3 seconds then kill the GDS with 5 seconds to shut down
         process = subprocess.Popen(command_arguments, env=environment)
         time.sleep(3)
         process.send_signal(signal.SIGINT)
-        _ = process.communicate(None, 3)
+        _ = process.communicate(None, 5)
         yield temp_file
 
 
@@ -290,7 +290,7 @@ def test_plugin_validation(plugins):
 
 def test_plugin_arguments(plugins):
     """Tests that arguments can be parsed and supplied to a plugin"""
-    plugin_system = Plugins("framing")
+    plugin_system = plugins 
     a_string = "a_string"
     a_number = "201"
     to_parse = [
@@ -331,10 +331,48 @@ def test_plugin_check_arguments(plugins):
     with pytest.raises(SystemExit):
         args, _ = ParserBase.parse_args(
             [
-                PluginArgumentParser,
+                PluginArgumentParser(plugins),
             ],
             arguments=to_parse,
         )
+
+
+def test_plugin_decorator(plugins):
+    """ Test that the plugin decorator works with known good class """
+    @gds_plugin(FramerDeframer)
+    class MyGood(FramerDeframer):
+        def frame(self, data):
+            pass
+        def deframe(self, data, no_copy=False):
+            pass
+
+    plugins.register_plugin(MyGood)
+    plugin_options = plugins.get_plugins("framing")
+    assert MyGood in [
+        plugin.plugin_class for plugin in plugin_options
+    ], "MyGood plugin not registered as expected"
+
+
+def test_plugin_decorator_without_class():
+    """ Test that the plugin decorator fails if a class is not provided """
+    with pytest.raises(Exception):
+        @gds_plugin
+        class MyGood(Good):
+            pass
+
+def test_plugin_decorator_class_mismatch():
+    """ Test that the plugin decorator fails if it is supplied the wrong plugin class """
+    with pytest.raises(Exception):
+        @gds_plugin(StartApp)
+        class MyGood(Good): # Good is a FramerDeframer
+            pass
+
+def test_plugin_decorator_not_a_plugin():
+    """ Test that the plugin decorator fails if it is supplied a class which is not a plugin """
+    with pytest.raises(Exception):
+        @gds_plugin(object)
+        class MyGood(Good): # Good is a FramerDeframer
+            pass
 
 
 @pytest.mark.parametrize("start_up", [(f"{__name__}:StartFunction", [])], indirect=True)
@@ -350,7 +388,7 @@ def test_start_function(start_up):
 )
 def test_disabled_start_function(start_up):
     """Test disabled start-up functions"""
-    assert "" == start_up.read(), "Failed to read empty file"
+    assert "" == start_up.read(), "Failed to read empty file: Function ran when disabled"
 
 
 @pytest.mark.parametrize("start_up", [(f"{__name__}:StartApp", [])], indirect=True)

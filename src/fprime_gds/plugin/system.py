@@ -8,7 +8,7 @@ using entrypoints.
 
 @author lestarch
 """
-
+import copy
 import os
 import importlib
 import inspect
@@ -56,14 +56,14 @@ class Plugins(object):
         Args:
             categories: None for all categories otherwise a list of categories
         """
-        self.get_plugin_metadata()  # Preload the data
+        self.metadata = copy.deepcopy(self.get_plugin_metadata())
         categories = self.get_all_categories() if categories is None else categories
         self.categories = categories
         self.manager = pluggy.PluginManager(PROJECT_NAME)
 
         # Load hook specifications from only the configured categories
         for category in categories:
-            self.manager.add_hookspecs(self.get_plugin_metadata(category)["class"])
+            self.manager.add_hookspecs(self.metadata[category]["class"])
 
         # Load plugins from setuptools entrypoints and the built-in plugins (limited to category)
         try:
@@ -90,7 +90,7 @@ class Plugins(object):
 
         # Load built-in plugins
         for category in categories:
-            for built_in in self.get_plugin_metadata(category)["built-in"]:
+            for built_in in self.metadata[category]["built-in"]:
                 self.register_plugin(built_in)
 
     def get_plugins(self, category) -> Iterable:
@@ -123,7 +123,7 @@ class Plugins(object):
         the case where loading was never attempted. This sets the variable in metadata to [] to indicate the loading
         was attempted.
         """
-        metadata = self.get_plugin_metadata(category)
+        metadata = self.metadata[category]
         metadata["bound_classes"] = (
             metadata["bound_classes"] if "bound_classes" in metadata else []
         )
@@ -141,7 +141,7 @@ class Plugins(object):
             bound_class: constructor argument bound class
         """
         self.start_loading(category)
-        metadata = self.get_plugin_metadata(category)
+        metadata = self.metadata[category]
         metadata["bound_classes"].append(bound_class)
         assert (
             metadata["type"] == PluginType.FEATURE
@@ -150,7 +150,7 @@ class Plugins(object):
 
     def get_selected_class(self, category: str) -> object:
         """Get the selected constructor-bound class for the category"""
-        metadata = self.get_plugin_metadata(category)
+        metadata = self.metadata[category]
         assert (
             metadata["type"] == PluginType.SELECTION
         ), "Features allow multiple plugins"
@@ -163,7 +163,7 @@ class Plugins(object):
 
     def get_feature_classes(self, category: str) -> object:
         """Get the selected instance for the category"""
-        metadata = self.get_plugin_metadata(category)
+        metadata = self.metadata[category]
         assert (
             metadata["type"] == PluginType.FEATURE
         ), "Selections have single instances"

@@ -20,7 +20,6 @@ import fprime_gds.common.data_types.cmd_data
 import fprime_gds.common.distributor.distributor
 import fprime_gds.common.logger.data_logger
 from fprime_gds.common.transport import RoutingTag, ThreadedTCPSocketClient
-from fprime_gds.plugin.system import Plugins
 
 # Local imports for the sake of composition
 from . import dictionaries, encoding, files, histories

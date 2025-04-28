@@ -215,7 +215,6 @@ class ParserBase(ABC):
             sys.exit(-1)
         except Exception as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
-            raise
             sys.exit(-1)
         return args_ns, parser
 
@@ -543,8 +542,8 @@ class PluginArgumentParser(ParserBase):
                     args = matching_plugin_parsers[0].handle_arguments(args, **kwargs)
             # Feature plugins instantiate all enabled plugins
             elif plugin_type == PluginType.FEATURE:
-                for plugin_parsers in plugin_parsers:
-                    args = plugin_parsers.handle_arguments(args, **kwargs)
+                for plugin_parser in plugin_parsers:
+                    args = plugin_parser.handle_arguments(args, **kwargs)
         return args
 
 

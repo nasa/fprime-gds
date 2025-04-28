@@ -27,7 +27,6 @@ from fprime_gds.executables.cli import (
     PluginArgumentParser,
 )
 from fprime_gds.common.pipeline.standard import StandardPipeline
-from fprime_gds.plugin.system import Plugins
 
 
 class GdsBaseFunction(ABC):
@@ -201,6 +200,7 @@ class GdsStandardApp(GdsApp):
         """
         return {}
 
+    @classmethod
     def init(cls):
         """Allows standard application plugins to initialize before argument parsing is performed"""
         pass
@@ -226,7 +226,7 @@ class GdsStandardApp(GdsApp):
         )
 
     @abstractmethod
-    def start(pipeline: StandardPipeline):
+    def start(self, pipeline: StandardPipeline):
         """Start function to contain behavior based in standard pipeline"""
         raise NotImplementedError()
 
@@ -256,6 +256,8 @@ class GdsStandardApp(GdsApp):
                 Plugins.system(
                     []
                 )  # Disable plugin system unless specified through init
+            # In the case where `init` sets up the plugin system, we want to pass the assertion
+            # triggered by the code above that turns it off in the not-setup case. 
             except AssertionError:
                 pass
             parsed_arguments, _ = ParserBase.parse_args(
