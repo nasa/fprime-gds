@@ -156,12 +156,12 @@ def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_impl
 
 def main():
     arg_parser = ArgumentParser()
-    subparsers = arg_parser.add_subparsers(dest="subcmd")
+    subparsers = arg_parser.add_subparsers(dest="subcmd", required=True)
 
 
-    json_to_dat = subparsers.add_parser("json-to-dat", description="Compiles .json files into param DB .dat files")
+    json_to_dat = subparsers.add_parser("dat", help="Compiles .json files into param DB .dat files")
     json_to_dat.add_argument(
-        "json_file", type=Path, help="The .json file to turn into a .dat file"
+        "json_file", type=Path, help="The .json file to turn into a .dat file", default=None
     )
     json_to_dat.add_argument(
         "--dictionary",
@@ -174,9 +174,9 @@ def main():
     json_to_dat.add_argument("--output", "-o", type=Path, help="The output file", default=None)
 
 
-    json_to_seq = subparsers.add_parser("json-to-seq", description="Converts .json files into command sequence .seq files")
+    json_to_seq = subparsers.add_parser("seq", help="Converts .json files into command sequence .seq files")
     json_to_seq.add_argument(
-        "json_file", type=Path, help="The .json file to turn into a .seq file"
+        "json_file", type=Path, help="The .json file to turn into a .seq file", default=None
     )
     json_to_seq.add_argument(
         "--dictionary",
@@ -192,7 +192,7 @@ def main():
 
     args = arg_parser.parse_args()
 
-    if not args.json_file.exists():
+    if args.json_file is None or not args.json_file.exists():
         print("Unable to find", args.json_file)
         exit(1)
 
@@ -204,7 +204,7 @@ def main():
         print("Unable to find", args.dictionary)
         exit(1)
 
-    output_format = "dat" if args.subcmd == "json-to-dat" else "seq"
+    output_format = args.subcmd
 
     # just compile the one file in place
     if args.output is None:
