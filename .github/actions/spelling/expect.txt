@@ -167,6 +167,7 @@ htags
 hyperlinks
 idct
 idl
+idx
 ieeetr
 ified
 ifun
