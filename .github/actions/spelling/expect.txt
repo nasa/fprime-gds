@@ -23,6 +23,7 @@ autosectionlabel
 backface
 batchmode
 baudrate
+BBBBBHI
 bcolors
 BGR
 Biberstein
@@ -31,6 +32,7 @@ bitmaps
 breadcrumb
 Btns
 BUGLIST
+calcsize
 calibri
 callergraph
 callgraph
@@ -49,6 +51,7 @@ classdocs
 clearfix
 cls
 cmdhist
+cmt
 CODEFILE
 COLORSTYLE
 colorwheel
@@ -63,6 +66,7 @@ curateable
 curated
 curating
 customise
+cuz
 daringfireball
 dataobjects
 dblclick
@@ -136,6 +140,8 @@ FONTSIZE
 fpp
 fprime
 fptable
+fpy
+fpybc
 fqn
 fsw
 gdiplus
@@ -162,6 +168,7 @@ htags
 hyperlinks
 idct
 idl
+idx
 ieeetr
 ified
 ifun
@@ -172,6 +179,7 @@ intlimits
 ip
 ipc
 ipp
+issuecomment
 itcl
 ixx
 janamian
@@ -328,6 +336,7 @@ Theif
 thtcp
 thudp
 timebase
+timectx
 timescales
 timespan
 timestep
