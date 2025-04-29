@@ -84,9 +84,10 @@ class Dictionaries:
                 dictionary
             )
             self._fw_type_name_dict = fw_types_loader.get_name_dict(None)
-            # Update config to use Fw types defined in the JSON dictionary
-            for fw_type_name, fw_type in self._fw_type_name_dict.items():
-                config.set("types", fw_type_name, fw_type)
+            if config:
+                # Update config to use Fw types defined in the JSON dictionary
+                for fw_type_name, fw_type in self._fw_type_name_dict.items():
+                    config.set("types", fw_type_name, fw_type)
             # Metadata
             self._versions = json_event_loader.get_versions()
             self._metadata = json_event_loader.get_metadata().copy()
