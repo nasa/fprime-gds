@@ -559,7 +559,9 @@ class CompositeParser(ParserBase):
         ]
         # Check to ensure everything passed in became a ParserBase after construction
         for i, construct in enumerate(constructed):
-            assert isinstance(construct, ParserBase), f"{construct.__class__.__name__} ({i}) not a ParserBase child"
+            assert isinstance(
+                construct, ParserBase
+            ), f"{construct.__class__.__name__} ({i}) not a ParserBase child"
         flattened = [
             item.constituents if isinstance(item, CompositeParser) else [item]
             for item in constructed
