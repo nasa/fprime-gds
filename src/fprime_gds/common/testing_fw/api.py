@@ -69,8 +69,10 @@ class IntegrationTestAPI(DataHandler):
         if logpath is not None:
             base_dir = Path(self.pipeline.dictionary_path).parents[1]
             for subdir in ['bin', 'dict']:
-                shutil.copytree(base_dir / subdir, Path(logpath) / subdir,
-                                dirs_exist_ok=True)
+                dir_path = base_dir / subdir
+                if dir_path.is_dir():
+                    shutil.copytree(dir_path, Path(logpath) / subdir,
+                                    dirs_exist_ok=True)
 
         # A predicate used as a filter to choose which events to log automatically
         self.event_log_filter = self.get_event_pred()
