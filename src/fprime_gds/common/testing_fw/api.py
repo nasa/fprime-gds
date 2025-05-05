@@ -246,18 +246,18 @@ class IntegrationTestAPI(DataHandler):
         if start is None:
             start = self.get_latest_time()
 
-        chan_dict = self.pipeline.dictionaries.channel_name
-        chans = list(chan_dict.keys())
+        ch_dict = self.pipeline.dictionaries.channel_name
+        channels = list(ch_dict.keys())
 
-        chan_hist = self.get_telemetry_subhistory()
+        history = self.get_telemetry_subhistory()
         result = self.await_telemetry_count(
-            count, channels=chans, history=chan_hist, start=start, timeout=timeout
+            count, channels=channels, history=history, start=start, timeout=timeout
         )
         if not result:
             msg = f'Failed to detect any data flow for {timeout} s.'
             self.__log(msg, TestLogger.RED)
             assert False, msg
-        self.remove_telemetry_subhistory(chan_hist)
+        self.remove_telemetry_subhistory(history)
 
     ######################################################################################
     #   History Functions
