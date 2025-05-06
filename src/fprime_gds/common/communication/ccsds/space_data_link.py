@@ -79,7 +79,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         if not no_copy:
             data = copy.copy(data)
         # Continue until there is not enough data for the header, or until a packet is found (return)
-        while len(data) >= self.TM_FIXED_FRAME_SIZE + 10:
+        while len(data) >= self.TM_FIXED_FRAME_SIZE:
             # Read header information including start token and size and check if we have enough for the total size
             sc_and_channel_ids = struct.unpack_from(">H", data)
             spacecraft_id = (sc_and_channel_ids[0] & 0x3FF0) >> 4
@@ -103,6 +103,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
                 deframed = struct.unpack_from(
                     f">{deframed_data_len}s", data, self.TM_HEADER_SIZE
                 )[0]
+                # Discard the fixed size frame
                 data = data[self.TM_FIXED_FRAME_SIZE:]
                 return deframed, data, discarded
 
@@ -114,8 +115,6 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             discarded += data[0:1]
             data = data[1:]
             continue
-            # Case of not enough data for a full packet, return hoping for more later
-            return None, data, discarded
         return None, data, discarded
 
     @classmethod

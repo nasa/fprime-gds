@@ -16,7 +16,7 @@ from .apid import APID
 
 
 class SpacePacketFramerDeframer(FramerDeframer):
-    """ Concrete implementation of FramerDeframer supporting encryption
+    """ Concrete implementation of FramerDeframer supporting SpacePacket protocol
 
     This implementation is registered as a "framing" plugin to support encryption within the GDS layer.
     """
