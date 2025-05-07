@@ -234,20 +234,18 @@ class IntegrationTestAPI(DataHandler):
         """
         return Path(self.pipeline.dictionary_path).parent.parent.name
 
-    def wait_for_dataflow(self, count=1, start=None, timeout=120):
+    def wait_for_dataflow(self, count=1, channels=None, start=None, timeout=120):
         """
         Wait for data flow by checking for any telemetry updates within a specified timeout.
 
         Args:
             count: either an exact amount (int) or a predicate to specify how many objects to find
+            channels: a channel specifier or list of channel specifiers (mnemonic, ID, or predicate). All will count if None
             start: an optional index or predicate to specify the earliest item to search
             timeout: the number of seconds to wait before terminating the search (int)
         """
         if start is None:
             start = self.get_latest_time()
-
-        ch_dict = self.pipeline.dictionaries.channel_name
-        channels = list(ch_dict.keys())
 
         history = self.get_telemetry_subhistory()
         result = self.await_telemetry_count(
