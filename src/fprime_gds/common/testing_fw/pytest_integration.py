@@ -60,9 +60,8 @@ def pytest_configure(config):
     hook is called for other conftest files as they are registered.
     """
     # Create a JUnit XML report file to capture the test result in a specified location
-    if not config.getoption("--junit-xml"):
-        if config.getoption("--gen-junitxml"):
-            config.option.xmlpath = Path(config.getoption("--logs")) / config.getoption("--junit-xml-file")
+    if config.getoption("--gen-junitxml"):
+        config.option.xmlpath = Path(config.getoption("--logs")) / config.getoption("--junit-xml-file")
 
 @pytest.fixture(scope='session')
 def fprime_test_api_session(request):
