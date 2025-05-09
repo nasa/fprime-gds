@@ -36,5 +36,17 @@
             "queueFullBehavior" : "assert",
             "annotation" : "No-op command"
         }
+    ],
+    "parameters" : [
+        {
+            "name" : "cmdDisp.FAKE_PRM",
+            "type" : {
+                "name" : "string",
+                "kind" : "string",
+                "size": 40
+            },
+            "id" : 4353,
+            "annotation" : "Multiple enumeration parameter via Array"
+        }
     ]
 }

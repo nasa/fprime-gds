@@ -6,6 +6,7 @@ to compose in this code.
 
 @author mstarch
 """
+
 from typing import Type
 
 from fprime_gds.common.history.history import History
@@ -37,6 +38,9 @@ class Histories:
         :param coders: coders object to register histories with
         """
         self.coders = coders
+        # Allow implementation type to disable histories
+        if self._implementation_type is None:
+            return
         # Create histories, RAM histories for now
         self.commands = self._implementation_type()
         self.events = self._implementation_type()
