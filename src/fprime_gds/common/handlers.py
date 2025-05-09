@@ -6,7 +6,10 @@ defines the "DataHandler" base class for handling data.
 
 @author mstarch
 """
+
 import abc
+from typing import List, Type
+from fprime_gds.plugin.definitions import gds_plugin_specification
 
 
 class DataHandler(abc.ABC):
@@ -25,6 +28,42 @@ class DataHandler(abc.ABC):
         :param data: data to be handled by this class
         :param sender: (optional) id of sender, otherwise None
         """
+
+
+class DataHandlerPlugin(DataHandler, abc.ABC):
+    """PLugin class allowing for custom data handlers
+
+    This class acts as a DataHandler class with the addition that it can be used as a plugin and thus self reports the
+    data types it handles (whereas DataHandler leaves that up to the registration call). Users shall concretely subclass
+    this class with their own data handling functionality.
+    """
+
+    @abc.abstractmethod
+    def get_handled_descriptors() -> List[str]:
+        """Return a list of data descriptor names this plugin handles"""
+        raise NotImplementedError()
+
+    @classmethod
+    @gds_plugin_specification
+    def register_data_handler_plugin(cls) -> Type["DataHandlerPlugin"]:
+        """Register a plugin to provide post-decoding data handling capabilities
+
+        Plugin hook for registering a plugin that supplies a DataHandler implementation. Implementors of this hook must
+        return a non-abstract subclass of DataHandlerPlugin. This class will be provided as a data handling
+        that is automatically enabled. Users may disable this via the command line. This data handler will be supplied
+        all data types returned by the `get_data_types()` method.
+
+        This DataHandler will run within the standard GDS (UI) process. Users wanting a separate process shall use a
+        GdsApp plugin instead.
+
+        Note: users should return the class, not an instance of the class. Needed arguments for instantiation are
+        determined from class methods, solicited via the command line, and provided at construction time to the chosen
+        instantiation.
+
+        Returns:
+            DataHandlerPlugin subclass (not instance)
+        """
+        raise NotImplementedError()
 
 
 class HandlerRegistrar(abc.ABC):

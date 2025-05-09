@@ -16,6 +16,7 @@ from fprime_gds.executables.cli import (
     PluginArgumentParser,
 )
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
+from fprime_gds.plugin.system import Plugins
 
 BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
 
@@ -174,7 +175,7 @@ def launch_comm(parsed_args):
 
 
 def launch_plugin(plugin_class_instance):
-    """ Launch a plugin instance """
+    """Launch a plugin instance"""
     plugin_name = getattr(plugin_class_instance, "get_name", lambda: cls.__name__)()
     return launch_process(
         plugin_class_instance.get_process_invocation(),
@@ -215,8 +216,14 @@ def main():
     # Launch launchers and wait for the last app to finish
     try:
         procs = [launcher(parsed_args) for launcher in launchers]
-        _ = [launch_plugin(cls) for cls in  parsed_args.gds_app_enabled_instances]
-        _ = [instance.run() for instance in parsed_args.gds_function_enabled_instances]
+        _ = [
+            launch_plugin(cls())
+            for cls in Plugins.system().get_feature_classes("gds_app")
+        ]
+        _ = [
+            instance().run()
+            for instance in Plugins.system().get_feature_classes("gds_function")
+        ]
 
         print("[INFO] F prime is now running. CTRL-C to shutdown all components.")
         procs[-1].wait()

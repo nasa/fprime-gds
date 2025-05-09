@@ -8,6 +8,7 @@ below.
 
 :author: lestarch
 """
+
 import datetime
 import os.path
 from pathlib import Path
@@ -55,7 +56,13 @@ class StandardPipeline:
         self.__transport_type = ThreadedTCPSocketClient
 
     def setup(
-        self, config: ConfigManager, dictionary, file_store, logging_prefix=None, packet_spec=None, packet_set_name=None
+        self,
+        config: ConfigManager,
+        dictionary,
+        file_store,
+        logging_prefix=None,
+        packet_spec=None,
+        packet_set_name=None,
     ):
         """
         Setup the standard pipeline for moving data from the middleware layer through the GDS layers using the standard
@@ -85,7 +92,9 @@ class StandardPipeline:
         self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
         self.client_socket = self.__transport_type()
         # Setup dictionaries encoders and decoders
-        self.dictionaries.load_dictionaries(self.dictionary_path, packet_spec, packet_set_name)
+        self.dictionaries.load_dictionaries(
+            self.dictionary_path, packet_spec, packet_set_name
+        )        
         # Update config to use Fw types defined in the JSON dictionary
         for fw_type_name, fw_type in self.dictionaries._fw_type_name_dict.items():
             config.set("types", fw_type_name, fw_type)

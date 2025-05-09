@@ -14,7 +14,7 @@ from copy import deepcopy
 from typing import Callable, List, Union
 
 import argcomplete
-import pkg_resources
+import importlib.metadata
 
 # NOTE: These modules are now only lazily loaded below as needed, due to slow
 # performance when importing them
@@ -322,7 +322,7 @@ def create_parser():
     parser = argparse.ArgumentParser(
         description="provides utilities for interacting with the F' Ground Data System (GDS)"
     )
-    fprime_gds_version = pkg_resources.get_distribution("fprime-gds").version
+    fprime_gds_version = importlib.metadata.version("fprime-gds")
     parser.add_argument("-V", "--version", action="version", version=fprime_gds_version)
 
     # Add subcommands to the parser

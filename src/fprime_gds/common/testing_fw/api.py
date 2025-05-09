@@ -9,6 +9,8 @@ telemetry and dictionaries.
 """
 import signal
 import time
+from pathlib import Path
+import shutil
 
 from fprime.common.models.serialize.time_type import TimeType
 
@@ -62,6 +64,15 @@ class IntegrationTestAPI(DataHandler):
 
         # Initialize the logger
         self.logger = TestLogger(logpath) if logpath is not None else None
+
+        # Copy dictionaries and binary file to output directory
+        if logpath is not None:
+            base_dir = Path(self.pipeline.dictionary_path).parents[1]
+            for subdir in ['bin', 'dict']:
+                dir_path = base_dir / subdir
+                if dir_path.is_dir():
+                    shutil.copytree(dir_path, Path(logpath) / subdir,
+                                    dirs_exist_ok=True)
 
         # A predicate used as a filter to choose which events to log automatically
         self.event_log_filter = self.get_event_pred()
@@ -214,6 +225,37 @@ class IntegrationTestAPI(DataHandler):
             time_pred: an optional predicate to specify the flight software timestamp
         """
         self.event_log_filter = self.get_event_pred(event, args, severity, time_pred)
+
+    def get_deployment(self):
+        """
+        Get the deployment of the target using the loaded FSW dictionary path
+        Returns:
+            The name of the deployment (str)
+        """
+        return Path(self.pipeline.dictionary_path).parent.parent.name
+
+    def wait_for_dataflow(self, count=1, channels=None, start=None, timeout=120):
+        """
+        Wait for data flow by checking for any telemetry updates within a specified timeout.
+
+        Args:
+            count: either an exact amount (int) or a predicate to specify how many objects to find
+            channels: a channel specifier or list of channel specifiers (mnemonic, ID, or predicate). All will count if None
+            start: an optional index or predicate to specify the earliest item to search
+            timeout: the number of seconds to wait before terminating the search (int)
+        """
+        if start is None:
+            start = self.get_latest_time()
+
+        history = self.get_telemetry_subhistory()
+        result = self.await_telemetry_count(
+            count, channels=channels, history=history, start=start, timeout=timeout
+        )
+        if not result:
+            msg = f'Failed to detect any data flow for {timeout} s.'
+            self.__log(msg, TestLogger.RED)
+            assert False, msg
+        self.remove_telemetry_subhistory(history)
 
     ######################################################################################
     #   History Functions

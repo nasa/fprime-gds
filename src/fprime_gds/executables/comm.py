@@ -29,6 +29,7 @@ import fprime_gds.common.logger
 import fprime_gds.executables.cli
 from fprime_gds.common.communication.updown import Downlinker, Uplinker
 from fprime_gds.common.zmq_transport import ZmqGround
+from fprime_gds.plugin.system import Plugins
 
 # Uses non-standard PIP package pyserial, so test the waters before getting a hard-import crash
 try:
@@ -46,6 +47,8 @@ def main():
 
     :return: return code
     """
+    # comm.py supports 2 and only 2 plugin categories
+    Plugins.system(["communication", "framing"])
     args, _ = fprime_gds.executables.cli.ParserBase.parse_args(
         [
             fprime_gds.executables.cli.LogDeployParser,
@@ -71,11 +74,11 @@ def main():
             args.tts_addr, args.tts_port
         )
 
-    adapter = args.communication_selection_instance
+    adapter = Plugins.system().get_selected_class("communication")()
 
     # Set the framing class used and pass it to the uplink and downlink component constructions giving each a separate
     # instantiation
-    framer_instance = args.framing_selection_instance
+    framer_instance = Plugins.system().get_selected_class("framing")()
     LOGGER.info(
         "Starting uplinker/downlinker connecting to FSW using %s with %s",
         args.communication_selection,
