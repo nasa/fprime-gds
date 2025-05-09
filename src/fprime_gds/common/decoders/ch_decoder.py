@@ -44,7 +44,7 @@ class ChDecoder(Decoder):
             config = config_manager.ConfigManager().get_instance()
 
         self.__dict = ch_dict
-        self.id_obj = config.get_type("ch_id")
+        self.id_obj = config.get_type("FwChanIdType")
 
     def decode_api(self, data):
         """

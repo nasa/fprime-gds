@@ -57,7 +57,7 @@ class Distributor(DataHandler):
             self.key_frame = int(config.get("framing", "key_val"), 16)
         self.key_obj = config.get_type("key_val")
         self.len_obj = config.get_type("msg_len")
-        self.desc_obj = config.get_type("msg_desc")
+        self.desc_obj = config.get_type("FwPacketDescriptorType")
 
     # NOTE we could use either the type of the object or an enum as the type argument.
     # It should indicate what the decoder decodes.

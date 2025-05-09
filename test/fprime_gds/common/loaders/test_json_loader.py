@@ -218,9 +218,8 @@ def test_construct_pkt_dict(ch_loader, pkt_loader):
 
 def test_construct_fw_types(fw_type_loader):
     _, name_dict, _ = fw_type_loader.construct_dicts(None)
-    assert name_dict["msg_desc"] == "U32"
-    assert name_dict["ch_id"] == "U32"
-    assert name_dict["event_id"] == "U32"
-    assert name_dict["op_code"] == "U32"
-    assert name_dict["pkt_id"] == "U16"
-    assert name_dict["msg_desc"] == "U32"
+    assert name_dict["FwPacketDescriptorType"] == "U32"
+    assert name_dict["FwChanIdType"] == "U32"
+    assert name_dict["FwEventIdType"] == "U32"
+    assert name_dict["FwOpcodeType"] == "U32"
+    assert name_dict["FwTlmPacketizeIdType"] == "U16"

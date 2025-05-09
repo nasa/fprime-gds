@@ -23,8 +23,6 @@ import fprime_gds.common.loaders.ch_json_loader
 import fprime_gds.common.loaders.cmd_json_loader
 import fprime_gds.common.loaders.event_json_loader
 
-from fprime_gds.common.utils.config_manager import ConfigManager
-
 class Dictionaries:
     """
     Dictionaries class to encapsulate the many different dictionaries used in the system. This includes the following
@@ -52,7 +50,7 @@ class Dictionaries:
         self._versions = None
         self._metadata = None
 
-    def load_dictionaries(self, dictionary, packet_spec, packet_set_name, config: ConfigManager):
+    def load_dictionaries(self, dictionary, packet_spec, packet_set_name):
         """
         Loads the dictionaries based on the dictionary path supplied. Optional packet_spec is allowed to specify the
         definitions of packets.
@@ -84,10 +82,6 @@ class Dictionaries:
                 dictionary
             )
             self._fw_type_name_dict = fw_types_loader.get_name_dict(None)
-            if config:
-                # Update config to use Fw types defined in the JSON dictionary
-                for fw_type_name, fw_type in self._fw_type_name_dict.items():
-                    config.set("types", fw_type_name, fw_type)
             # Metadata
             self._versions = json_event_loader.get_versions()
             self._metadata = json_event_loader.get_metadata().copy()

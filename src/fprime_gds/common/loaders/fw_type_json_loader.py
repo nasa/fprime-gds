@@ -15,14 +15,14 @@ class FwTypeJsonLoader(JsonLoader):
 
     TYPE_DEFINITIONS_FIELD = "typeDefinitions"
     
-    # Dictionary mapping from JSON dictionary type qualified name to GDS key in config dictionary
-    FW_TYPE_NAME_MAPPING = {
-        "FwPacketDescriptorType": "msg_desc",
-        "FwChanIdType": "ch_id",
-        "FwEventIdType": "event_id",
-        "FwOpcodeType": "op_code",
-        "FwTlmPacketizeIdType": "pkt_id"
-    }
+    # List of Fw type names in dictionary
+    FW_TYPE_NAMES = [
+        "FwPacketDescriptorType",
+        "FwChanIdType",
+        "FwEventIdType",
+        "FwOpcodeType",
+        "FwTlmPacketizeIdType"
+    ]
 
     def construct_dicts(self, _):
         """
@@ -47,8 +47,8 @@ class FwTypeJsonLoader(JsonLoader):
 
         for type_def in self.json_dict[self.TYPE_DEFINITIONS_FIELD]:
             try:
-                if type_def["kind"] == "alias" and type_def["qualifiedName"] in self.FW_TYPE_NAME_MAPPING:
-                    name_dict[self.FW_TYPE_NAME_MAPPING[type_def["qualifiedName"]]] = type_def["underlyingType"]["name"]
+                if type_def["kind"] == "alias" and type_def["qualifiedName"] in self.FW_TYPE_NAMES:
+                    name_dict[type_def["qualifiedName"]] = type_def["underlyingType"]["name"]
             except KeyError as e:
                 raise GdsDictionaryParsingException(
                     f"{str(e)} key missing from Type Definition dictionary entry: {str(type_def)}"
