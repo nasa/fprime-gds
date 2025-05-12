@@ -19,6 +19,7 @@ from fprime.common.models.serialize.type_exceptions import TypeException
 
 from fprime_gds.common.data_types import event_data
 from fprime_gds.common.decoders import decoder
+from fprime_gds.common.decoders.decoder import DecodingException
 from fprime_gds.common.utils import config_manager
 
 
