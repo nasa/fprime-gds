@@ -170,6 +170,11 @@ class Dictionaries:
     def channel_name(self):
         """Channel dictionary by name"""
         return self._channel_name_dict
+    
+    @property
+    def fw_type_name(self):
+        """Fw type name dictionary by name"""
+        return self._fw_type_name_dict
 
     @property
     def project_version(self):

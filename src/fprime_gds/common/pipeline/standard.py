@@ -96,8 +96,8 @@ class StandardPipeline:
             self.dictionary_path, packet_spec, packet_set_name
         )        
         # Update config to use Fw types defined in the JSON dictionary
-        if self.dictionaries._fw_type_name_dict:
-            for fw_type_name, fw_type in self.dictionaries._fw_type_name_dict.items():
+        if self.dictionaries.fw_type_name:
+            for fw_type_name, fw_type in self.dictionaries.fw_type_name.items():
                 config.set("types", fw_type_name, fw_type)
         self.coders.setup_coders(
             self.dictionaries, self.distributor, self.client_socket, config
