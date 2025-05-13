@@ -9,20 +9,10 @@ Loads flight dictionary (JSON) and returns name based Python dictionaries of Fw 
 from fprime_gds.common.loaders.json_loader import JsonLoader
 from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
 
-
 class FwTypeJsonLoader(JsonLoader):
     """Class to load python based Fw type dictionaries"""
 
     TYPE_DEFINITIONS_FIELD = "typeDefinitions"
-    
-    # List of Fw type names in dictionary
-    FW_TYPE_NAMES = [
-        "FwPacketDescriptorType",
-        "FwChanIdType",
-        "FwEventIdType",
-        "FwOpcodeType",
-        "FwTlmPacketizeIdType"
-    ]
 
     def construct_dicts(self, _):
         """
@@ -47,8 +37,11 @@ class FwTypeJsonLoader(JsonLoader):
 
         for type_def in self.json_dict[self.TYPE_DEFINITIONS_FIELD]:
             try:
-                if type_def["kind"] == "alias" and type_def["qualifiedName"] in self.FW_TYPE_NAMES:
-                    name_dict[type_def["qualifiedName"]] = type_def["underlyingType"]["name"]
+                if type_def["kind"] == "alias":
+                    name = str(type_def["qualifiedName"])
+                    # Only consider names with the pattern Fw*Type
+                    if name.startswith("Fw") and name.endswith("Type"):
+                        name_dict[type_def["qualifiedName"]] = type_def["underlyingType"]["name"]
             except KeyError as e:
                 raise GdsDictionaryParsingException(
                     f"{str(e)} key missing from Type Definition dictionary entry: {str(type_def)}"
