@@ -46,6 +46,12 @@ def pytest_addoption(parser):
         default="report.xml",
         help="File to store JUnit XML report. [default: %(default)s]",
     )
+    # Add an option to enable JUnit XML report generation to a specified location
+    parser.addoption(
+        "--gen-junitxml",
+        action="store_true",
+        help="Enable JUnitXML report generation to a specified location"
+    )
 
 def pytest_configure(config):
     """ This is a hook to allow plugins and conftest files to perform initial configuration
@@ -53,9 +59,9 @@ def pytest_configure(config):
     This hook is called for every initial conftest file after command line options have been parsed. After that, the 
     hook is called for other conftest files as they are registered.
     """
-    # Create a JUnit XML report file to capture the test result
-    config.option.xmlpath = Path(config.getoption("--logs")) / config.getoption("--junit-xml-file")
-    config.option.junitxml = True
+    # Create a JUnit XML report file to capture the test result in a specified location
+    if config.getoption("--gen-junitxml"):
+        config.option.xmlpath = Path(config.getoption("--logs")) / config.getoption("--junit-xml-file")
 
 @pytest.fixture(scope='session')
 def fprime_test_api_session(request):
