@@ -51,7 +51,7 @@ def test_empty_seq(fprime_test_api: IntegrationTestAPI):
 
 def test_nonexistent_directive(fprime_test_api):
     seq = """
-    ASDF_DIRECTIVE_SDFSDF
+    DIRECTIVE_FAILURE
 
     """
     assert_compile_fails(fprime_test_api, seq)
@@ -243,7 +243,7 @@ def test_local_var_set_value_way_too_big(fprime_test_api: IntegrationTestAPI):
 
 def test_local_var_set_bad_type(fprime_test_api: IntegrationTestAPI):
     seq = """
-    SET_LVAR 0, {"type": "unknown_asdfasdfasdf", "value": 8}
+    SET_LVAR 0, {"type": "unknown_failure", "value": 8}
     """
 
     assert_compile_fails(fprime_test_api, seq)

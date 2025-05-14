@@ -62,6 +62,7 @@ configs
 Consolas
 creatingdocsetswithdoxygen
 csum
+ctx
 curateable
 curated
 curating
@@ -208,6 +209,7 @@ logdir
 logpath
 logselect
 luxon
+LVAR
 makeindex
 MAKEVAR
 marijnh
