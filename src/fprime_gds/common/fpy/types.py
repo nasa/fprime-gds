@@ -80,9 +80,8 @@ class DirectiveOpcode(Enum):
     GOTO = 0x00000004
     IF = 0x00000005
     NO_OP = 0x00000006
-    GET_TLM_TIME = 0x00000007
-    GET_TLM_VAL = 0x00000008
-    GET_PRM_VAL = 0x00000009
+    GET_TLM = 0x00000007
+    GET_PRM = 0x00000008
 
 
 @dataclass
@@ -190,20 +189,14 @@ FPY_DIRECTIVES: list[StatementTemplate] = [
     ),
     StatementTemplate(
         StatementType.DIRECTIVE,
-        DirectiveOpcode.GET_TLM_VAL.value,
-        "GET_TLM_VAL",
-        [tlm_chan_id_from_json, U8Type],
+        DirectiveOpcode.GET_TLM.value,
+        "GET_TLM",
+        [U8Type, U8Type, tlm_chan_id_from_json],
     ),
     StatementTemplate(
         StatementType.DIRECTIVE,
-        DirectiveOpcode.GET_TLM_TIME.value,
-        "GET_TLM_TIME",
-        [tlm_chan_id_from_json, U8Type],
-    ),
-    StatementTemplate(
-        StatementType.DIRECTIVE,
-        DirectiveOpcode.GET_PRM_VAL.value,
-        "GET_PRM_VAL",
-        [prm_id_from_json, U8Type],
+        DirectiveOpcode.GET_PRM.value,
+        "GET_PRM",
+        [U8Type, prm_id_from_json],
     ),
 ]

@@ -249,49 +249,25 @@ def test_local_var_set_bad_type(fprime_test_api: IntegrationTestAPI):
     assert_compile_fails(fprime_test_api, seq)
 
 
-def test_get_tlm_val(fprime_test_api: IntegrationTestAPI):
+def test_get_tlm(fprime_test_api: IntegrationTestAPI):
     seq = """
-    GET_TLM_VAL "Ref.fpySeq.StatementsDispatched", 0
+    GET_TLM 0, 1, "Ref.fpySeq.StatementsDispatched"
     """
 
     assert_compile_succeeds(fprime_test_api, seq)
 
 
-def test_get_tlm_val_bad_chan(fprime_test_api: IntegrationTestAPI):
+def test_get_tlm_bad_chan(fprime_test_api: IntegrationTestAPI):
     seq = """
-    GET_TLM_VAL "Ref.fpySeq.RUN", 0
+    GET_TLM 0, 1, "Ref.fpySeq.RUN"
     """
 
     assert_compile_fails(fprime_test_api, seq)
 
 
-def test_get_tlm_val_bad_idx(fprime_test_api: IntegrationTestAPI):
+def test_get_tlm_bad_idx(fprime_test_api: IntegrationTestAPI):
     seq = """
-    GET_TLM_VAL "Ref.fpySeq.StatementsDispatched", 255
-    """
-
-    assert_compile_succeeds(fprime_test_api, seq)
-
-
-def test_get_tlm_time(fprime_test_api: IntegrationTestAPI):
-    seq = """
-    GET_TLM_TIME "Ref.fpySeq.StatementsDispatched", 0
-    """
-
-    assert_compile_succeeds(fprime_test_api, seq)
-
-
-def test_get_tlm_time_bad_chan(fprime_test_api: IntegrationTestAPI):
-    seq = """
-    GET_TLM_TIME "Ref.fpySeq.RUN", 0
-    """
-
-    assert_compile_fails(fprime_test_api, seq)
-
-
-def test_get_tlm_time_bad_idx(fprime_test_api: IntegrationTestAPI):
-    seq = """
-    GET_TLM_TIME "Ref.fpySeq.StatementsDispatched", 255
+    GET_TLM 0, 255, "Ref.fpySeq.StatementsDispatched"
     """
 
     assert_compile_succeeds(fprime_test_api, seq)
