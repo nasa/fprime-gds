@@ -139,7 +139,7 @@ def serialize_bytecode(input: Path, dictionary: Path, output: Path = None):
     bytecode file into binary and writes it to the output file. If the output file
     is None, writes it to the input file with a .bin extension"""
     cmd_json_dict_loader = CmdJsonLoader(str(dictionary))
-    (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
+    (_, cmd_name_dict, _) = cmd_json_dict_loader.construct_dicts(
         str(dictionary)
     )
 
@@ -155,18 +155,18 @@ def serialize_bytecode(input: Path, dictionary: Path, output: Path = None):
         stmt_templates.append(stmt_template)
 
     tlm_json_loader = ChJsonLoader(str(dictionary))
-    (cmd_id_dict, cmd_name_dict, versions) = tlm_json_loader.construct_dicts(
+    (_, tlm_name_dict, _) = tlm_json_loader.construct_dicts(
         str(dictionary)
     )
 
     prm_json_loader = PrmJsonLoader(str(dictionary))
-    (prm_id_dict, prm_name_dict, versions) = prm_json_loader.construct_dicts(
+    (_, prm_name_dict, _) = prm_json_loader.construct_dicts(
         str(dictionary)
     )
 
     context = BytecodeParseContext()
     context.types = cmd_json_dict_loader.parsed_types
-    context.channels = cmd_name_dict
+    context.channels = tlm_name_dict
     context.params = prm_name_dict
 
     input_lines = input.read_text().splitlines()
@@ -177,15 +177,15 @@ def serialize_bytecode(input: Path, dictionary: Path, output: Path = None):
     ]
 
     goto_tags = {}
-    statement_idx = 0
+    stmt_idx = 0
     statement_strs: list[str] = []
-    for stmt_idx, stmt in enumerate(input_lines):
+    for stmt in input_lines:
         if stmt.endswith(":"):
             # it's a goto tag
-            goto_tags[stmt[:-1]] = statement_idx
+            goto_tags[stmt[:-1]] = stmt_idx
         else:
             statement_strs.append(stmt)
-            statement_idx += 1
+            stmt_idx += 1
 
     context.goto_tags = goto_tags
 
@@ -200,7 +200,7 @@ def serialize_bytecode(input: Path, dictionary: Path, output: Path = None):
             ) from e
 
     # perform some checks for things we know will fail
-    for stmt_idx, stmt in enumerate(statements):
+    for stmt in statements:
         if stmt.template.name == "GOTO":
             if stmt.arg_values[0].val > len(statements):
                 raise RuntimeError(

@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 import struct
+from typing import Any, Callable
 from fprime.common.models.serialize.type_base import BaseType, ValueType
 from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.numerical_types import U32Type, U16Type, U8Type
@@ -38,8 +39,8 @@ class StatementTemplate:
     opcode: int
     name: str
     """fully qualified statement name"""
-    args: list[type[BaseType]]
-    """list of argument types of this statement"""
+    args: list[type[BaseType] | Callable[[Any, BytecodeParseContext], BaseType]]
+    """list of argument types of this statement, or functions that return an arg type"""
 
 
 @dataclass
