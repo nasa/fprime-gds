@@ -66,11 +66,15 @@ class FramerDeframer(abc.ABC):
         discarded_aggregate = b""
         while True:
             # Deframe and return only on None
-            (packet, data, discarded) = self.deframe(data, no_copy=True)
+            (deframed, data, discarded) = self.deframe(data, no_copy=True)
             discarded_aggregate += discarded
-            if packet is None:
+            if deframed is None: # No more packets available, return aggregate
                 return packets, data, discarded_aggregate
-            packets.append(packet)
+            if isinstance(deframed, list): # list of bytearrays
+                packets.extend(deframed)
+            else:
+                packets.append(deframed)
+
 
     @classmethod
     @gds_plugin_specification
@@ -117,7 +121,7 @@ class FpFramerDeframer(FramerDeframer):
     HEADER_FORMAT = None
     START_TOKEN = None
 
-    def __init__(self, checksum_type):
+    def __init__(self, checksum_type = "crc32"):
         """Sets constants on construction."""
         # Setup the constants as soon as possible.
         FpFramerDeframer.set_constants()
@@ -203,7 +207,7 @@ class FpFramerDeframer(FramerDeframer):
                     data = data[total_size:]
                     return deframed, data, discarded
                 print(
-                    "[WARNING] Checksum validation failed. Have you correctly set '--comm-checksum-type'",
+                    "[WARNING] Checksum validation failed.",
                     file=sys.stderr,
                 )
                 # Bad checksum, rotate 1 and keep looking for non-garbage
@@ -218,22 +222,6 @@ class FpFramerDeframer(FramerDeframer):
     def get_name(cls):
         """ Get the name of this plugin """
         return "fprime"
-
-    @classmethod
-    def get_arguments(cls):
-        """ Get arguments for the framer/deframer """
-        return {("--comm-checksum-type",): {
-            "dest": "checksum_type",
-            "action": "store",
-            "type": str,
-            "help": "Setup the checksum algorithm. [default: %(default)s]",
-            "choices": [
-                item
-                for item in CHECKSUM_MAPPING.keys()
-                if item != "default"
-            ],
-            "default": "crc32",
-        }}
 
     @classmethod
     @gds_plugin_implementation

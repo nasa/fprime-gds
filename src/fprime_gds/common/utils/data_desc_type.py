@@ -24,5 +24,7 @@ DataDescType = Enum(
         "FW_PACKET_HAND": 0xFE,
         # Unknown packet
         "FW_PACKET_UNKNOWN": 0xFF,
+        # Space Packet Idle APID
+        "CCSDS_SPACE_PACKET_IDLE_APID": 0x7FF,
     },
 )

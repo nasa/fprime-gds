@@ -398,6 +398,7 @@ class IndividualPluginParser(BareArgumentParser):
                 for key, value in self.extract_arguments(arguments).items()
                 if key != self.disable_flag_destination
             }
+
             plugin_zero_argument_class = functools.partial(
                 self.plugin_class.get_implementor(), **plugin_arguments
             )
