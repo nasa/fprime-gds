@@ -44,15 +44,15 @@
       "kind" : "alias",
       "qualifiedName" : "FwPacketDescriptorType",
       "type" : {
-        "name" : "U32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
+        "size" : 8,
         "signed" : false
       },
       "underlyingType" : {
-        "name" : "U32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
+        "size" : 8,
         "signed" : false
       }
     },

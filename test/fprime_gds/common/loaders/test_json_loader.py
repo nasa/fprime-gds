@@ -218,7 +218,7 @@ def test_construct_pkt_dict(ch_loader, pkt_loader):
 
 def test_construct_fw_types(fw_type_loader):
     _, name_dict, _ = fw_type_loader.construct_dicts(None)
-    assert name_dict["FwPacketDescriptorType"] == "U32"
+    assert name_dict["FwPacketDescriptorType"] == "U8" # as per specified in RefTopologyDictionary.json
     assert name_dict["FwChanIdType"] == "U32"
     assert name_dict["FwEventIdType"] == "U32"
     assert name_dict["FwOpcodeType"] == "U32"
