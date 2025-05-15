@@ -28,7 +28,7 @@ class FramerDeframer(abc.ABC):
     """
 
     @abc.abstractmethod
-    def frame(self, data):
+    def frame(self, data: bytes) -> bytes:
         """
         Frames outgoing data in the specified format. Expects incoming raw bytes to frame, and adds on the needed header
         and footer bytes. This new array of bytes is returned from the method.
@@ -38,7 +38,7 @@ class FramerDeframer(abc.ABC):
         """
 
     @abc.abstractmethod
-    def deframe(self, data, no_copy=False):
+    def deframe(self, data: bytes, no_copy=False) -> tuple[(list[bytes] | bytes | None), bytes, bytes]:
         """
         Deframes the incoming data from the specified format. Produces exactly one packet, and leftover bytes. Users
         wanting all packets to be deframed should call "deframe_all". If no full packet is available, this method
@@ -51,7 +51,7 @@ class FramerDeframer(abc.ABC):
         :return: (packet as array of bytes or None, leftover bytes, any discarded data)
         """
 
-    def deframe_all(self, data, no_copy):
+    def deframe_all(self, data: bytes, no_copy: bool):
         """
         Deframes all available packets found in a single set of bytes by calling deframe until a None packet is
         retrieved. This list of packets, and the remaining bytes are returned
@@ -70,7 +70,7 @@ class FramerDeframer(abc.ABC):
             discarded_aggregate += discarded
             if deframed is None: # No more packets available, return aggregate
                 return packets, data, discarded_aggregate
-            if isinstance(deframed, list): # list of bytearrays
+            if isinstance(deframed, list): # list of bytess
                 packets.extend(deframed)
             else:
                 packets.append(deframed)
