@@ -131,17 +131,32 @@ def main():
         print("Dictionary file", args.dictionary, "does not exist")
         exit(1)
 
-    serialize_bytecode(args.input, args.dictionary, args.output)
+    statements = text_to_statements(args.input, args.dictionary)
+    serialize_bytecode(statements, args.output)
 
 
-def serialize_bytecode(input: Path, dictionary: Path, output: Path = None):
-    """Given an input .fpybc file, and a dictionary .json file, converts the
-    bytecode file into binary and writes it to the output file. If the output file
-    is None, writes it to the input file with a .bin extension"""
+def serialize_bytecode(statements: list[StatementData], output: Path = None):
+    output_bytes = bytes()
+
+    for stmt in statements:
+        output_bytes += serialize_statement(stmt)
+
+    header = Header(0, 0, 0, 1, 0, len(statements), len(output_bytes))
+    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
+
+    crc = zlib.crc32(output_bytes) % (1 << 32)
+    footer = Footer(crc)
+    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
+
+    if output is None:
+        output = input.with_suffix(".bin")
+
+    output.write_bytes(output_bytes)
+
+
+def text_to_statements(input: Path, dictionary: Path) -> list[StatementData]:
     cmd_json_dict_loader = CmdJsonLoader(str(dictionary))
-    (_, cmd_name_dict, _) = cmd_json_dict_loader.construct_dicts(
-        str(dictionary)
-    )
+    (_, cmd_name_dict, _) = cmd_json_dict_loader.construct_dicts(str(dictionary))
 
     stmt_templates = []
     stmt_templates.extend(FPY_DIRECTIVES)
@@ -155,14 +170,10 @@ def serialize_bytecode(input: Path, dictionary: Path, output: Path = None):
         stmt_templates.append(stmt_template)
 
     tlm_json_loader = ChJsonLoader(str(dictionary))
-    (_, tlm_name_dict, _) = tlm_json_loader.construct_dicts(
-        str(dictionary)
-    )
+    (_, tlm_name_dict, _) = tlm_json_loader.construct_dicts(str(dictionary))
 
     prm_json_loader = PrmJsonLoader(str(dictionary))
-    (_, prm_name_dict, _) = prm_json_loader.construct_dicts(
-        str(dictionary)
-    )
+    (_, prm_name_dict, _) = prm_json_loader.construct_dicts(str(dictionary))
 
     context = BytecodeParseContext()
     context.types = cmd_json_dict_loader.parsed_types
@@ -207,22 +218,7 @@ def serialize_bytecode(input: Path, dictionary: Path, output: Path = None):
                     f"GOTO index is outside the valid range for this sequence (was {stmt.arg_values[0].val}, should be <{len(statements)})"
                 )
 
-    output_bytes = bytes()
-
-    for stmt in statements:
-        output_bytes += serialize_statement(stmt)
-
-    header = Header(0, 0, 0, 1, 0, len(statements), len(output_bytes))
-    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
-
-    crc = zlib.crc32(output_bytes) % (1 << 32)
-    footer = Footer(crc)
-    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
-
-    if output is None:
-        output = input.with_suffix(".bin")
-
-    output.write_bytes(output_bytes)
+    return statements
 
 
 if __name__ == "__main__":
