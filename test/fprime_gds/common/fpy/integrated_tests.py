@@ -8,11 +8,8 @@ from fprime_gds.common.fpy.serialize_bytecode import serialize_bytecode
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 import fprime_gds.common.logger.test_logger
 
-# disable excel logging.... wtf ew
-fprime_gds.common.logger.test_logger.MODULE_INSTALLED = False
 
-
-def compile_seq(fprime_test_api, seq: str) -> Path:
+def serialize_seq(fprime_test_api, seq: str) -> Path:
     with tempfile.NamedTemporaryFile(suffix=".seq", delete=False) as fp:
         fp.write(seq.encode())
         input_path = Path(fp.name)
@@ -24,19 +21,19 @@ def compile_seq(fprime_test_api, seq: str) -> Path:
     return output_path
 
 
-def assert_compile_fails(fprime_test_api, seq: str):
+def assert_ser_fails(fprime_test_api, seq: str):
     try:
-        compile_seq(fprime_test_api, seq)
+        serialize_seq(fprime_test_api, seq)
     except BaseException as e:
         return
-    raise RuntimeError("compile_seq did not fail")
+    raise RuntimeError("serialize_seq did not fail")
 
 
-def assert_compile_succeeds(fprime_test_api, seq: str):
+def assert_ser_succeeds(fprime_test_api, seq: str):
     try:
-        return compile_seq(fprime_test_api, seq)
+        return serialize_seq(fprime_test_api, seq)
     except BaseException as e:
-        raise RuntimeError("compile_seq failed") from e
+        raise RuntimeError("serialize_seq failed") from e
 
 
 def test_empty_seq(fprime_test_api: IntegrationTestAPI):
@@ -46,7 +43,7 @@ def test_empty_seq(fprime_test_api: IntegrationTestAPI):
 
 
     """
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_nonexistent_directive(fprime_test_api):
@@ -54,7 +51,7 @@ def test_nonexistent_directive(fprime_test_api):
     DIRECTIVE_FAILURE
 
     """
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
 
 
 def test_nonexistent_cmd(fprime_test_api):
@@ -62,7 +59,7 @@ def test_nonexistent_cmd(fprime_test_api):
     Ref.cmdDisp.CMD_ASDF
 
     """
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
 
 
 def test_no_op(fprime_test_api: IntegrationTestAPI):
@@ -71,7 +68,7 @@ def test_no_op(fprime_test_api: IntegrationTestAPI):
     Ref.cmdDisp.CMD_NO_OP_STRING "Hello World"
     Ref.cmdDisp.CMD_NO_OP
     """
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_wrong_cmd_args(fprime_test_api: IntegrationTestAPI):
@@ -80,9 +77,7 @@ def test_wrong_cmd_args(fprime_test_api: IntegrationTestAPI):
     Ref.cmdDisp.CMD_NO_OP_STRING 123
     Ref.cmdDisp.CMD_NO_OP
     """
-    assert_compile_fails(fprime_test_api, seq)
-
-
+    assert_ser_fails(fprime_test_api, seq)
 
 
 def test_wait_rel(fprime_test_api: IntegrationTestAPI):
@@ -91,24 +86,24 @@ def test_wait_rel(fprime_test_api: IntegrationTestAPI):
     WAIT_REL 2, 0
     Ref.cmdDisp.CMD_NO_OP_STRING "Hello World"
     """
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
     seq = """
     WAIT_REL "2", 123
     """
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
 
     seq = """
     WAIT_REL 2, "asdf"
     """
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
 
 
 def test_wait_abs(fprime_test_api: IntegrationTestAPI):
     seq = """
     WAIT_ABS { "time_base": 2, "time_context": 0, "seconds": 12, "useconds": 0 }
     """
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_wait_abs_past(fprime_test_api: IntegrationTestAPI):
@@ -116,41 +111,40 @@ def test_wait_abs_past(fprime_test_api: IntegrationTestAPI):
     seq = """
     WAIT_ABS { "time_base": 2, "time_context": 0, "seconds": 10, "useconds": 0 }
     """
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_wait_bad_base(fprime_test_api: IntegrationTestAPI):
     seq = """
     WAIT_ABS { "time_base": 0, "time_context": 0, "seconds": 12, "useconds": 0 }
     """
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_wait_bad_context(fprime_test_api: IntegrationTestAPI):
     seq = """
     WAIT_ABS { "time_base": 2, "time_context": 123, "seconds": 12, "useconds": 0 }
     """
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_wait_bad_arg_types(fprime_test_api: IntegrationTestAPI):
     seq = """
     WAIT_ABS { "time_base": "asdf", "time_context": 123, "seconds": 12, "useconds": 0 }
     """
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
     seq = """
     WAIT_ABS { "time_base": 12, "time_context": "12", "seconds": 12, "useconds": 0 }
     """
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
     seq = """
     WAIT_ABS { "time_base": 12, "time_context": 123, "seconds": [12], "useconds": 0 }
     """
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
     seq = """
     WAIT_ABS { "time_base": 12, "time_context": 123, "seconds": 12, "useconds": {12} }
     """
-    assert_compile_fails(fprime_test_api, seq)
-
+    assert_ser_fails(fprime_test_api, seq)
 
 
 def test_goto_idx(fprime_test_api: IntegrationTestAPI):
@@ -159,7 +153,8 @@ def test_goto_idx(fprime_test_api: IntegrationTestAPI):
     Ref.cmdDisp.CMD_NO_OP
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
+
 
 def test_goto_bad_idx(fprime_test_api: IntegrationTestAPI):
     seq = """
@@ -167,7 +162,7 @@ def test_goto_bad_idx(fprime_test_api: IntegrationTestAPI):
     Ref.cmdDisp.CMD_NO_OP
     """
 
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
 
 
 def test_goto_tag(fprime_test_api: IntegrationTestAPI):
@@ -178,7 +173,7 @@ def test_goto_tag(fprime_test_api: IntegrationTestAPI):
     Ref.cmdDisp.CMD_NO_OP
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_goto_eof(fprime_test_api: IntegrationTestAPI):
@@ -189,7 +184,7 @@ def test_goto_eof(fprime_test_api: IntegrationTestAPI):
     end:
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_local_var_set(fprime_test_api: IntegrationTestAPI):
@@ -197,7 +192,7 @@ def test_local_var_set(fprime_test_api: IntegrationTestAPI):
     SET_LVAR 0, {"type": "bool", "value": true}
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_if_true(fprime_test_api: IntegrationTestAPI):
@@ -211,7 +206,7 @@ def test_if_true(fprime_test_api: IntegrationTestAPI):
     end:
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_local_var_set_bad_idx(fprime_test_api: IntegrationTestAPI):
@@ -219,7 +214,7 @@ def test_local_var_set_bad_idx(fprime_test_api: IntegrationTestAPI):
     SET_LVAR 255, {"type": "bool", "value": false}
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_local_var_set_string(fprime_test_api: IntegrationTestAPI):
@@ -227,8 +222,7 @@ def test_local_var_set_string(fprime_test_api: IntegrationTestAPI):
     SET_LVAR 0, {"type": "string", "value": "test string"}
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
-
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_local_var_set_value_way_too_big(fprime_test_api: IntegrationTestAPI):
@@ -238,7 +232,7 @@ def test_local_var_set_value_way_too_big(fprime_test_api: IntegrationTestAPI):
     SET_LVAR 0, {{"type": "string", "value": "{"a" * (string_len)}"}}
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_local_var_set_bad_type(fprime_test_api: IntegrationTestAPI):
@@ -246,7 +240,7 @@ def test_local_var_set_bad_type(fprime_test_api: IntegrationTestAPI):
     SET_LVAR 0, {"type": "unknown_failure", "value": 8}
     """
 
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
 
 
 def test_get_tlm(fprime_test_api: IntegrationTestAPI):
@@ -254,7 +248,7 @@ def test_get_tlm(fprime_test_api: IntegrationTestAPI):
     GET_TLM 0, 1, "Ref.fpySeq.StatementsDispatched"
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
 
 
 def test_get_tlm_bad_chan(fprime_test_api: IntegrationTestAPI):
@@ -262,7 +256,7 @@ def test_get_tlm_bad_chan(fprime_test_api: IntegrationTestAPI):
     GET_TLM 0, 1, "Ref.fpySeq.RUN"
     """
 
-    assert_compile_fails(fprime_test_api, seq)
+    assert_ser_fails(fprime_test_api, seq)
 
 
 def test_get_tlm_bad_idx(fprime_test_api: IntegrationTestAPI):
@@ -270,4 +264,4 @@ def test_get_tlm_bad_idx(fprime_test_api: IntegrationTestAPI):
     GET_TLM 0, 255, "Ref.fpySeq.StatementsDispatched"
     """
 
-    assert_compile_succeeds(fprime_test_api, seq)
+    assert_ser_succeeds(fprime_test_api, seq)
