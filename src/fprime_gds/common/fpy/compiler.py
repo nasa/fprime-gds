@@ -8,7 +8,7 @@ from fprime.common.models.serialize.type_base import BaseType
 
 
 @dataclass
-class FppNamedType:
+class NamedType:
     name: str
     type: type[BaseType]
 
@@ -16,33 +16,28 @@ class FppNamedType:
 @dataclass
 class Variable:
     name: str
-    type: FppNamedType
+    type: NamedType
 
 
 @dataclass
-class FppNamespace:
+class Namespace:
     name: str
     tlms: list[ChTemplate]
     prms: list[PrmTemplate]
     stmts: list[StatementTemplate]
-    types: list[FppNamedType]
+    types: list[NamedType]
     vars: list[Variable]
-    children: list["FppNamespace"]
+    children: list["Namespace"]
 
 
 FppNamedObject = (
-    ChTemplate
-    | PrmTemplate
-    | StatementTemplate
-    | Variable
-    | FppNamespace
-    | FppNamedType
+    ChTemplate | PrmTemplate | StatementTemplate | Variable | Namespace | NamedType
 )
 
 
 @dataclass
 class CompileState:
-    top: FppNamespace
+    top: Namespace
 
 
 @dataclass
@@ -72,10 +67,9 @@ def compile_call(call: ast.Call, context: CompileState) -> list[StatementData] |
 
     # calls can be instantiations of types, or cmd calls, or directives
     # or (later) functions
-    if not isinstance(func_obj, (StatementTemplate, FppNamedType)):
+    if not isinstance(func_obj, (StatementTemplate, NamedType)):
         call.error = "Syntax error compile call"
         return None
-
 
     # get the list of args
     args: list[FpyArgTemplate] = []
@@ -312,7 +306,8 @@ def compile_call(call: ast.Call, context: CompileState) -> list[StatementData] |
 
         return True
 
-def resolve_named_object(obj, ns: FppNamespace) -> FppNamedObject | None:
+
+def resolve_named_object(obj, ns: Namespace) -> FppNamedObject | None:
     if isinstance(obj, ast.Name):
         resolved = resolve_name(obj.id, ns)
     elif isinstance(obj, ast.Attribute):
@@ -324,19 +319,19 @@ def resolve_named_object(obj, ns: FppNamespace) -> FppNamedObject | None:
     return resolved
 
 
-def resolve_attr(attr: ast.Attribute, ns: FppNamespace) -> FppNamedObject | None:
+def resolve_attr(attr: ast.Attribute, ns: Namespace) -> FppNamedObject | None:
     parent_obj = resolve_named_object(attr.value, ns)
 
     # for now, only support children of namespaces
     # in future, support accessing tlm member fields
-    if isinstance(parent_obj, FppNamespace):
+    if isinstance(parent_obj, Namespace):
         return resolve_name(attr.attr, parent_obj)
 
     attr.error = "Syntax error resolve attr"
     return None
 
 
-def resolve_name(name: str, ns: FppNamespace) -> FppNamedObject | None:
+def resolve_name(name: str, ns: Namespace) -> FppNamedObject | None:
     matching = []
     for sub_ns in ns.children:
         if sub_ns.name == name:

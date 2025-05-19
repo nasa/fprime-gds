@@ -163,6 +163,7 @@ class CheckCalls(ast.NodeTransformer):
         self.type_name_dict = type_name_dict
 
     def visit_Call(self, node: ast.Call):
+        pass
 
 
 
