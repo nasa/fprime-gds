@@ -36,16 +36,6 @@ kwparams: "**" typedparam ","?
 ?typedparam: name (":" test)?
 
 
-lambdef: "lambda" [lambda_params] ":" test
-lambdef_nocond: "lambda" [lambda_params] ":" test_nocond
-lambda_params: lambda_paramvalue ("," lambda_paramvalue)* ["," [lambda_starparams | lambda_kwparams]]
-          | lambda_starparams
-          | lambda_kwparams
-?lambda_paramvalue: name ("=" test)?
-lambda_starparams: "*" [name]  ("," lambda_paramvalue)* ["," [lambda_kwparams]]
-lambda_kwparams: "**" name ","?
-
-
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
 ?small_stmt: (expr_stmt | assign_stmt | del_stmt | pass_stmt | flow_stmt | import_stmt | global_stmt | nonlocal_stmt | assert_stmt)
@@ -151,12 +141,9 @@ keyw_arg_pattern: NAME "=" as_pattern
 suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
 
 ?test: or_test ("if" or_test "else" test)?
-     | lambdef
      | assign_expr
 
 assign_expr: name ":=" test
-
-?test_nocond: or_test | lambdef_nocond
 
 ?or_test: and_test ("or" and_test)*
 ?and_test: not_test_ ("and" not_test_)*
@@ -190,13 +177,9 @@ star_expr: "*" expr
           | atom
 
 ?atom: "(" _tuple_inner? ")" -> tuple
-     | "(" comprehension{test_or_star_expr} ")" -> tuple_comprehension
      | "[" _exprlist? "]"  -> list
-     | "[" comprehension{test_or_star_expr} "]"  -> list_comprehension
      | "{" _dict_exprlist? "}" -> dict
-     | "{" comprehension{key_value} "}" -> dict_comprehension
      | "{" _exprlist "}" -> set
-     | "{" comprehension{test} "}" -> set_comprehension
      | name -> var
      | number
      | string_concat
@@ -235,19 +218,12 @@ classdef: "class" name ["(" [arguments] ")"] ":" suite
 arguments: argvalue ("," argvalue)*  ("," [ starargs | kwargs])?
          | starargs
          | kwargs
-         | comprehension{test}
 
 starargs: stararg ("," stararg)* ("," argvalue)* ["," kwargs]
 stararg: "*" test
 kwargs: "**" test ("," argvalue)*
 
 ?argvalue: test ("=" test)?
-
-
-comprehension{comp_result}: comp_result comp_fors [comp_if]
-comp_fors: comp_for+
-comp_for: "for" exprlist "in" or_test
-?comp_if: "if" test_nocond
 
 // not used in grammar, but may appear in "node" passed from Parser to Compiler
 encoding_decl: name
