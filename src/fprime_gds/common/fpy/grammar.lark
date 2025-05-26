@@ -15,10 +15,6 @@ single_input: _NEWLINE | simple_stmt | compound_stmt _NEWLINE
 file_input: (_NEWLINE | stmt)*
 eval_input: testlist _NEWLINE*
 
-decorator: "@" dotted_name [ "(" [arguments] ")" ] _NEWLINE
-decorators: decorator+
-decorated: decorators (classdef | funcdef)
-
 funcdef: "def" name "(" [parameters] ")" ["->" test] ":" suite
 
 parameters: paramvalue ("," paramvalue)* ["," SLASH ("," paramvalue)*] ["," [starparams | kwparams]]
@@ -72,7 +68,7 @@ nonlocal_stmt: "nonlocal" name ("," name)*
 assert_stmt: "assert" test ["," test]
 
 ?compound_stmt: if_stmt | while_stmt | for_stmt | match_stmt
-              | funcdef | classdef | decorated
+              | funcdef
 if_stmt: "if" test ":" suite elifs ["else" ":" suite]
 elifs: elif_*
 elif_: "elif" test ":" suite
@@ -199,8 +195,6 @@ _dict_exprlist: (key_value | "**" expr) ("," (key_value | "**" expr))* [","]
 key_value: test ":"  test
 
 _exprlist: test_or_star_expr (","  test_or_star_expr)* [","]
-
-classdef: "class" name ["(" [arguments] ")"] ":" suite
 
 
 
