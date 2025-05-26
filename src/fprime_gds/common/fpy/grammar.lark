@@ -72,18 +72,13 @@ nonlocal_stmt: "nonlocal" name ("," name)*
 assert_stmt: "assert" test ["," test]
 
 ?compound_stmt: if_stmt | while_stmt | for_stmt | match_stmt
-              | with_stmt | funcdef | classdef | decorated
+              | funcdef | classdef | decorated
 if_stmt: "if" test ":" suite elifs ["else" ":" suite]
 elifs: elif_*
 elif_: "elif" test ":" suite
 while_stmt: "while" test ":" suite ["else" ":" suite]
 for_stmt: "for" exprlist "in" testlist ":" suite ["else" ":" suite]
 // NB compile.c makes sure that the default except clause is last
-
-
-with_stmt: "with" with_items ":" suite
-with_items: with_item ("," with_item)*
-with_item: test ["as" name]
 
 match_stmt: "match" test ":" _NEWLINE _INDENT case+ _DEDENT
 
