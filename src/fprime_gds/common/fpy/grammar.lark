@@ -57,7 +57,7 @@ dotted_as_name: dotted_name ["as" name]
 dotted_as_names: dotted_as_name ("," dotted_as_name)*
 dotted_name: name ("." name)*
 
-?compound_stmt: if_stmt | while_stmt | for_stmt | match_stmt
+?compound_stmt: if_stmt | while_stmt | for_stmt
               | funcdef
 if_stmt: "if" test ":" suite elifs ["else" ":" suite]
 elifs: elif_*
@@ -65,52 +65,6 @@ elif_: "elif" test ":" suite
 while_stmt: "while" test ":" suite ["else" ":" suite]
 for_stmt: "for" exprlist "in" testlist ":" suite ["else" ":" suite]
 // NB compile.c makes sure that the default except clause is last
-
-match_stmt: "match" test ":" _NEWLINE _INDENT case+ _DEDENT
-
-case: "case" pattern ["if" test] ":" suite
-
-?pattern: sequence_item_pattern "," _sequence_pattern -> sequence_pattern
-        | as_pattern
-?as_pattern: or_pattern ("as" NAME)?
-?or_pattern: closed_pattern ("|" closed_pattern)*
-?closed_pattern: literal_pattern
-               | NAME -> capture_pattern
-               | "_" -> any_pattern
-               | attr_pattern
-               | "(" as_pattern ")"
-               | "[" _sequence_pattern "]" -> sequence_pattern
-               | "(" (sequence_item_pattern "," _sequence_pattern)? ")" -> sequence_pattern
-               | "{" (mapping_item_pattern ("," mapping_item_pattern)* ","?)?"}" -> mapping_pattern
-               | "{" (mapping_item_pattern ("," mapping_item_pattern)* ",")? "**" NAME ","? "}" -> mapping_star_pattern
-               | class_pattern
-
-literal_pattern: inner_literal_pattern
-
-?inner_literal_pattern: "None" -> const_none
-                      | "True" -> const_true
-                      | "False" -> const_false
-                      | STRING -> string
-                      | number
-
-attr_pattern: NAME ("." NAME)+ -> value
-
-name_or_attr_pattern: NAME ("." NAME)* -> value
-
-mapping_item_pattern: (literal_pattern|attr_pattern) ":" as_pattern
-
-_sequence_pattern: (sequence_item_pattern ("," sequence_item_pattern)* ","?)?
-?sequence_item_pattern: as_pattern
-                      | "*" NAME -> star_pattern
-
-class_pattern: name_or_attr_pattern "(" [arguments_pattern ","?] ")"
-arguments_pattern: pos_arg_pattern ["," keyws_arg_pattern]
-                 | keyws_arg_pattern -> no_pos_arguments
-
-pos_arg_pattern: as_pattern ("," as_pattern)*
-keyws_arg_pattern: keyw_arg_pattern ("," keyw_arg_pattern)*
-keyw_arg_pattern: NAME "=" as_pattern
-
 
 
 suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
@@ -214,7 +168,7 @@ _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 
 // Python terminals
 
-!name: NAME | "match" | "case"
+!name: NAME
 NAME: /[^\W\d]\w*/
 COMMENT: /#[^\n]*/
 
