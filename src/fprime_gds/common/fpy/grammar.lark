@@ -17,7 +17,7 @@ parameters: paramvalue ("," paramvalue)* ["," SLASH ("," paramvalue)*] ["," [sta
           | starparams
           | kwparams
 
-SLASH: "/" // Otherwise the it will completely disappear and it will be undisguisable in the result
+SLASH: "/"
 starparams: (starparam | starguard) poststarparams
 starparam: "*" typedparam
 starguard: "*"
@@ -30,7 +30,7 @@ kwparams: "**" typedparam ","?
 
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
-?small_stmt: (expr_stmt | assign_stmt | del_stmt | pass_stmt | flow_stmt)
+?small_stmt: (expr_stmt | assign_stmt | pass_stmt | flow_stmt)
 expr_stmt: testlist
 ?assign_stmt: annassign | augassign | assign
 
@@ -40,7 +40,6 @@ augassign: testlist augassign_op (testlist)
 !augassign_op: "+=" | "-=" | "*=" | "@=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" | "**=" | "//="
 
 // For normal and annotated assignments, additional restrictions enforced by the interpreter
-del_stmt: "del" exprlist
 pass_stmt: "pass"
 ?flow_stmt: break_stmt | continue_stmt | return_stmt
 break_stmt: "break"
