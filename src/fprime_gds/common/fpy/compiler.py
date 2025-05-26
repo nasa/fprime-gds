@@ -1,9 +1,9 @@
-import ast
 from dataclasses import dataclass
 
 from fprime_gds.common.fpy.types import StatementData, StatementTemplate
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
+from fprime_gds.common.fpy.parser import Expr, If, Assign, Call, Name, Var, Attr
 from fprime.common.models.serialize.type_base import BaseType
 
 
@@ -40,14 +40,9 @@ class CompileState:
     top: Namespace
 
 
-@dataclass
-class Body:
-    stmts: list[StatementData]
-
-
-def compile_body(body: list[ast.AST], context: CompileState) -> Body | None:
+def compile_body(body: list, context: CompileState) -> None:
     for node in body:
-        if not isinstance(node, (ast.Expr, ast.If, ast.Assign)):
+        if not isinstance(node, (Expr, If, Assign)):
             node.error = "Syntax error compile body"
             return None
 

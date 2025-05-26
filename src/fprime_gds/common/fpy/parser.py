@@ -1,8 +1,9 @@
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from pprint import pprint
 from typing import Any
 from lark.indenter import PythonIndenter
-from lark import Lark, Transformer
+from lark import Lark, Transformer, ast_utils, v_args
+from lark.tree import Meta
 
 
 def parse_fpy(text: str):
@@ -15,8 +16,9 @@ def parse_fpy(text: str):
     )
 
     tree = parser.parse(text, on_error=lambda x: print("Error"))
-    print(tree.pretty())
-    pprint(FpyTransformer().transform(tree))
+    transformed = FpyTransformer().transform(tree)
+    pprint(transformed)
+    return transformed
 
 
 def flatten_ast_node(cls):
@@ -32,67 +34,84 @@ def flatten_ast_node(cls):
 
 
 @dataclass
-class Root:
-    stmts: list
+class _Ast:
+    meta: Meta = field(repr=False)
 
 
-@flatten_ast_node
-class Expr:
-    value: Any
+@dataclass
+class Root(_Ast):
+    stmts: list[_Ast]
 
 
-@flatten_ast_node
-class Call:
-    func: list
-    args: list
+@dataclass
+class Expr(_Ast):
+    value: _Ast
 
 
-@flatten_ast_node
-class Name:
+@dataclass
+class Call(_Ast):
+    func: list[_Ast]
+    args: list[_Ast]
+
+
+@dataclass
+class Name(_Ast):
     value: str
 
 
-@flatten_ast_node
-class Var:
-    value: Any
+@dataclass
+class Var(_Ast):
+    value: _Ast
 
 
-@flatten_ast_node
-class Attr:
-    value: Any
+@dataclass
+class Attr(_Ast):
+    value: _Ast
     name: str
 
 
 @dataclass
-class Body:
-    stmts: list
+class Body(_Ast):
+    stmts: list[_Ast]
 
 
-@flatten_ast_node
-class If:
-    condition: Any
-    body: Any
-    elifs: Any
-    els: Any
+@dataclass
+class If(_Ast):
+    condition: _Ast
+    body: _Ast
+    elifs: _Ast
+    els: _Ast
 
 
-@flatten_ast_node
-class String:
+@dataclass
+class String(_Ast):
     value: str
 
 
-@flatten_ast_node
-class Assign:
-    assignment: Any
+@dataclass
+class Assign(_Ast):
+    variable: Var
+    value: _Ast
 
 
+@dataclass
+class Elif(_Ast):
+    condition: _Ast
+    body: _Ast
+
+
+@v_args(meta=False, inline=False)
+def as_list(self, tree):
+    return list(tree)
+
+
+@v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
     const_true = lambda self, _: True
     const_false = lambda self, _: False
     NAME = str
     # an actual string literal
     STRING = str
-
 
     file_input = Root
     expr_stmt = Expr
@@ -101,8 +120,11 @@ class FpyTransformer(Transformer):
     var = Var
     getattr = Attr
     if_stmt = If
-    suite = list
-    arguments = list
+    suite = as_list
+    arguments = as_list
     # the string ast node
     string = String
-    assign_stmt = Assign
+    assign = Assign
+
+    elifs = as_list
+    elif_ = Elif

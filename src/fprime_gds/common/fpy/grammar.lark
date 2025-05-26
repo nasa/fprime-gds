@@ -31,16 +31,13 @@ kwparams: "**" typedparam ","?
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
 ?small_stmt: (expr_stmt | assign_stmt | del_stmt | pass_stmt | flow_stmt)
-expr_stmt: testlist_star_expr
-assign_stmt: annassign | augassign | assign
+expr_stmt: testlist
+?assign_stmt: annassign | augassign | assign
 
-annassign: testlist_star_expr ":" test ["=" test]
-assign: testlist_star_expr ("=" (testlist_star_expr))+
-augassign: testlist_star_expr augassign_op (testlist)
+annassign: testlist ":" test ["=" test]
+assign: testlist ("=" (testlist))+
+augassign: testlist augassign_op (testlist)
 !augassign_op: "+=" | "-=" | "*=" | "@=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" | "**=" | "//="
-?testlist_star_expr: test_or_star_expr
-                   | test_or_star_expr ("," test_or_star_expr)+ ","?  -> tuple
-                   | test_or_star_expr ","  -> tuple
 
 // For normal and annotated assignments, additional restrictions enforced by the interpreter
 del_stmt: "del" exprlist
@@ -72,7 +69,6 @@ assign_expr: name ":=" test
 ?not_test_: "not" not_test_ -> not_test
          | comparison
 ?comparison: expr (comp_op expr)*
-star_expr: "*" expr
 
 ?expr: or_expr
 ?or_expr: xor_expr ("|" xor_expr)*
@@ -112,24 +108,21 @@ star_expr: "*" expr
 
 ?string_concat: string+
 
-_tuple_inner: test_or_star_expr (("," test_or_star_expr)+ [","] | ",")
-
-?test_or_star_expr: test
-                 | star_expr
+_tuple_inner: test (("," test)+ [","] | ",")
 
 ?subscriptlist: subscript
               | subscript (("," subscript)+ [","] | ",") -> subscript_tuple
 ?subscript: test | ([test] ":" [test] [sliceop]) -> slice
 sliceop: ":" [test]
-?exprlist: (expr|star_expr)
-         | (expr|star_expr) (("," (expr|star_expr))+ [","]|",")
+?exprlist: expr
+         | expr (("," expr)+ [","]|",")
 ?testlist: test | testlist_tuple
 testlist_tuple: test (("," test)+ [","] | ",")
 _dict_exprlist: (key_value | "**" expr) ("," (key_value | "**" expr))* [","]
 
 key_value: test ":"  test
 
-_exprlist: test_or_star_expr (","  test_or_star_expr)* [","]
+_exprlist: test (","  test)* [","]
 
 
 
