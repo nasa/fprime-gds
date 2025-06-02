@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 from fprime.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.ch_data import ChData
-from fprime_gds.common.fpy.serialize_bytecode import serialize_bytecode
+from fprime_gds.common.fpy.bytecode.serialize_bytecode import serialize_bytecode
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 import fprime_gds.common.logger.test_logger
 

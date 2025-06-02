@@ -6,7 +6,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 import struct
 import zlib
-from fprime_gds.common.fpy.types import (
+from fprime_gds.common.fpy.bytecode.types import (
     StatementTemplate,
     StatementData,
     Header,

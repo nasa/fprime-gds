@@ -1,15 +1,15 @@
 import ast
-from fprime_gds.common.fpy.old_compiler import compile
-from fprime_gds.common.fpy.parser import parse_fpy
+from fprime_gds.common.fpy.old_compiler import compile_fpy
+from fprime_gds.common.fpy.parser import parse
 
 
-def compile_seq(fprime_test_api, seq: str):
-    parse_fpy(seq)
+def parse_seq(fprime_test_api, seq: str):
+    parse(seq)
 
 
 def assert_success(fprime_test_api, seq: str):
     try:
-        return compile_seq(fprime_test_api, seq)
+        return parse_seq(fprime_test_api, seq)
     except BaseException as e:
         raise RuntimeError("compile_seq failed") from e
 
@@ -38,6 +38,24 @@ if bool_var:
     cmd()
 elif other_bool_var:
     directive()
+"""
+
+    assert_success(fprime_test_api, seq)
+
+def test_pass(fprime_test_api):
+    seq = """
+pass
+"""
+
+    assert_success(fprime_test_api, seq)
+
+
+
+
+def test_funcdef(fprime_test_api):
+    seq = """
+def func():
+    pass
 """
 
     assert_success(fprime_test_api, seq)

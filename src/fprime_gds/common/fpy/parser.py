@@ -1,23 +1,25 @@
 from dataclasses import dataclass, field, fields
+from pathlib import Path
 from pprint import pprint
 from typing import Any
 from lark.indenter import PythonIndenter
 from lark import Lark, Transformer, ast_utils, v_args
 from lark.tree import Meta
 
+fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
 
-def parse_fpy(text: str):
-    parser = Lark.open_from_package(
-        "fprime_gds.common.fpy",
-        "grammar.lark",
-        postlex=PythonIndenter(),
+
+def parse(text: str):
+    parser = Lark(
+        fpy_grammar_str,
         start="file_input",
         parser="lalr",
+        postlex=PythonIndenter(),
+        propagate_positions=True,
     )
 
     tree = parser.parse(text, on_error=lambda x: print("Error"))
     transformed = FpyTransformer().transform(tree)
-    pprint(transformed)
     return transformed
 
 
@@ -33,76 +35,97 @@ def flatten_ast_node(cls):
     return datacls
 
 
-@dataclass
-class _Ast:
+@dataclass()
+class Ast:
     meta: Meta = field(repr=False)
+    id: int = field(init=False, repr=False, default=None)
 
 
-@dataclass
-class Root(_Ast):
-    stmts: list[_Ast]
+@dataclass()
+class ScopedBody(Ast):
+    stmts: list[Ast]
 
 
-@dataclass
-class Expr(_Ast):
-    value: _Ast
+@dataclass()
+class Expr(Ast):
+    value: Ast
 
 
-@dataclass
-class Call(_Ast):
-    func: list[_Ast]
-    args: list[_Ast]
+@dataclass()
+class Call(Ast):
+    func: list[Ast]
+    args: list[Ast]
 
 
-@dataclass
-class Name(_Ast):
+@dataclass()
+class Name(Ast):
     value: str
 
 
-@dataclass
-class Var(_Ast):
-    value: _Ast
+@dataclass()
+class Var(Ast):
+    value: Ast
 
 
-@dataclass
-class Attr(_Ast):
-    value: _Ast
+@dataclass()
+class Attr(Ast):
+    value: Ast
     name: str
 
 
-@dataclass
-class Body(_Ast):
-    stmts: list[_Ast]
+@dataclass()
+class If(Ast):
+    condition: Ast
+    body: ScopedBody
+    elifs: Ast
+    els: ScopedBody | None
 
 
-@dataclass
-class If(_Ast):
-    condition: _Ast
-    body: _Ast
-    elifs: _Ast
-    els: _Ast
-
-
-@dataclass
-class String(_Ast):
+@dataclass()
+class String(Ast):
     value: str
 
 
-@dataclass
-class Assign(_Ast):
+@dataclass()
+class Assign(Ast):
     variable: Var
-    value: _Ast
+    value: Ast
 
 
-@dataclass
-class Elif(_Ast):
-    condition: _Ast
-    body: _Ast
+@dataclass()
+class AnnAssign(Ast):
+    variable: Var
+    ann_type: Var
+    value: Ast
+
+
+@dataclass()
+class Elif(Ast):
+    condition: Ast
+    body: ScopedBody
+
+
+@dataclass()
+class Pass(Ast):
+    pass
+
+
+@dataclass()
+class FuncDef(Ast):
+    name: str
+    parameters: list[Ast]
+    return_type: Ast
+    body: ScopedBody
 
 
 @v_args(meta=False, inline=False)
 def as_list(self, tree):
     return list(tree)
+
+
+@v_args(meta=True, inline=False)
+def as_body(self, meta, tree):
+    return ScopedBody(meta, tree)
 
 
 @v_args(meta=True, inline=True)
@@ -113,18 +136,21 @@ class FpyTransformer(Transformer):
     # an actual string literal
     STRING = str
 
-    file_input = Root
+    file_input = as_body
     expr_stmt = Expr
     funccall = Call
     name = Name
     var = Var
     getattr = Attr
     if_stmt = If
-    suite = as_list
+    suite = as_body
     arguments = as_list
     # the string ast node
     string = String
     assign = Assign
+    annassign = AnnAssign
 
     elifs = as_list
     elif_ = Elif
+    pass_stmt = Pass
+    funcdef = FuncDef

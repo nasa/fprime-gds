@@ -1,357 +1,313 @@
-from dataclasses import dataclass
+from ast import Pass
+from dataclasses import dataclass, field, fields
+from types import NoneType
 
-from fprime_gds.common.fpy.types import StatementData, StatementTemplate
+from fprime_gds.common.fpy.bytecode.types import (
+    FPY_DIRECTIVES,
+    StatementData,
+    StatementTemplate,
+    StatementType,
+)
+from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
+from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
+from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
-from fprime_gds.common.fpy.parser import Expr, If, Assign, Call, Name, Var, Attr
+from fprime.common.models.serialize.time_type import TimeType
+from fprime.common.models.serialize.numerical_types import (
+    U32Type,
+    U16Type,
+    U64Type,
+    U8Type,
+    I16Type,
+    I32Type,
+    I64Type,
+    I8Type,
+    F32Type,
+    F64Type,
+)
+from fprime.common.models.serialize.string_type import StringType
+from fprime.common.models.serialize.bool_type import BoolType
+from fprime_gds.common.fpy.parser import (
+    AnnAssign,
+    Ast,
+    ScopedBody,
+    Expr,
+    FuncDef,
+    If,
+    Assign,
+    Call,
+    Name,
+    Var,
+    Attr,
+)
 from fprime.common.models.serialize.type_base import BaseType
 
 
-@dataclass
-class NamedType:
-    name: str
-    type: type[BaseType]
+class CompileException(BaseException):
+    def __init__(self, msg, node: Ast):
+        self.msg = msg
+        self.node = node
+
+    def __str__(self):
+        return f"At line {self.node.meta.line}: {self.msg}"
 
 
-@dataclass
-class Variable:
-    name: str
-    type: NamedType
-
-
-@dataclass
-class Namespace:
-    name: str
-    tlms: list[ChTemplate]
-    prms: list[PrmTemplate]
-    stmts: list[StatementTemplate]
-    types: list[NamedType]
-    vars: list[Variable]
-    children: list["Namespace"]
-
-
-FppNamedObject = (
-    ChTemplate | PrmTemplate | StatementTemplate | Variable | Namespace | NamedType
-)
+FpySymbol = type[BaseType]
 
 
 @dataclass
 class CompileState:
-    top: Namespace
+    symbol_tables: dict[int, dict[str, FpySymbol]]
+    """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
 
+    parent_scope: dict[int, int | None]
+    """a dict tracking the parent scope of each ast node. keys are ast node uid, values are uid of parent scopedbody"""
 
-def compile_body(body: list, context: CompileState) -> None:
-    for node in body:
-        if not isinstance(node, (Expr, If, Assign)):
-            node.error = "Syntax error compile body"
-            return None
+    tlms: dict[str, ChTemplate] = field(repr=False)
+    prms: dict[str, PrmTemplate] = field(repr=False)
+    stmts: dict[str, StatementTemplate] = field(repr=False)
+    types: dict[str, type[BaseType]] = field(repr=False)
 
+    errors: list[CompileException]
 
-def compile_expr(expr: ast.Expr, context: CompileState) -> list[StatementData] | None:
-    if not isinstance(expr.value, ast.Call):
-        expr.error = "Syntax error compile expr"
+    def lookup_symbol(self, symbol: str, at_node: Ast) -> FpySymbol | None:
+        parent = self.parent_scope[at_node.id]
+        while parent is not None:
+            table = self.symbol_tables[parent]
+            if symbol in table:
+                return table[symbol]
+
+            parent = self.parent_scope[parent]
         return None
 
-    return compile_call(expr.value, context)
+    def add_symbol(self, symbol_name: str, symbol_type: FpySymbol, at_node: Ast):
+        parent_scope = self.parent_scope[at_node.id]
+        self.symbol_tables[parent_scope][symbol_name] = symbol_type
 
 
-def compile_call(call: ast.Call, context: CompileState) -> list[StatementData] | None:
-    func_obj = resolve_named_object(call.func, context.top)
-    if func_obj is None:
-        return None
-
-    # calls can be instantiations of types, or cmd calls, or directives
-    # or (later) functions
-    if not isinstance(func_obj, (StatementTemplate, NamedType)):
-        call.error = "Syntax error compile call"
-        return None
-
-    # get the list of args
-    args: list[FpyArgTemplate] = []
-    if isinstance(node.func, FpyStmt):
-        args = node.func.template.args
-    elif isinstance(node.func, FpyType):
-        # it's an FpyType
-        if not self.check_has_ctor(node.func.fprime_type):
-            node.error = (
-                "Type "
-                + str(node.func.fprime_type.__name__)
-                + " cannot be directly constructed"
-            )
-            return node
-        args = self.get_args_list_from_fprime_type_ctor(node.func.fprime_type)
-    else:
-        assert False, node.func
-
-    # okay, now map the args to the nodes
-    mapped_args = self.map_args(args, node)
-
-    if hasattr(node, "error"):
-        # if something went wrong, don't traverse the tree
-        return node
-
-    # okay, now type check the args
-    for arg in mapped_args:
-        # this func will add an error if it finds one
-        if not self.check_node_converts_to_fprime_type(arg.node, arg.type):
-            # don't traverse the tree if we fail
-            return node
-
-    fpy_call = FpyCall(node.func, mapped_args)
-
-    return super().generic_visit(fpy_call)
-
-    def check_has_ctor(self, type: type[BaseType]) -> bool:
-        # only serializables (i.e. structs), time objects and arrays can be directly constructed in fpy syntax. enums and literals cannot
-        return issubclass(type, (SerializableType, ArrayType, TimeType))
-
-    def get_args_list_from_fprime_type_ctor(
-        self, type: type[BaseType]
-    ) -> list[FpyArgTemplate]:
-        args = []
-        if issubclass(type, SerializableType):
-            for member in type.MEMBER_LIST:
-                (member_name, member_type, member_format_str, member_desc) = member
-                args.append(FpyArgTemplate((member_name, member_desc, member_type)))
-        elif issubclass(type, ArrayType):
-            for i in range(type.LENGTH):
-                args.append(FpyArgTemplate(("e" + str(i), "", type.MEMBER_TYPE)))
-        elif issubclass(type, TimeType):
-            args.append(
-                (
-                    "time_base",
-                    "Time base index for the time tag. Must be a valid integer for a TimeBase Enum value.",
-                    I32Type,
-                )
-            )
-            args.append(("time_context", "Time context for the time tag", I32Type))
-            args.append(
-                ("seconds", "Seconds elapsed since specified time base", I32Type)
-            )
-            args.append(
-                (
-                    "useconds",
-                    "Microseconds since start of current second. Must be in range [0, 999999] inclusive",
-                    I32Type,
-                )
-            )
+class CompilePass:
+    def _visit(self, parent: Ast | None, node: Ast, state: CompileState):
+        self_type = type(self)
+        custom_visit_name = "visit_" + type(node).__name__
+        if hasattr(self_type, custom_visit_name):
+            # call the custom function
+            getattr(self_type, custom_visit_name)(self, parent, node, state)
         else:
-            raise RuntimeError(
-                "FPrime type " + str(type.__name__) + " has no constructor"
-            )
-        return args
+            # call the default
+            self.visit_default(parent, node, state)
 
-    def map_args(self, args: list[FpyArgTemplate], node: ast.Call) -> list[FpyArg]:
-        """
-        Maps arguments from a list of arg templates to an ast node by position and name. Does not perform type checking.
-        """
+    def visit_default(self, parent: Ast | None, node: Ast, state: CompileState):
+        pass
 
-        mapping = []
+    def run(self, body: ScopedBody, state: CompileState):
+        def _descend(node: Ast):
+            if not isinstance(node, Ast):
+                return
+            children = []
+            for field in fields(node):
+                field_val = getattr(node, field.name)
+                if isinstance(field_val, list):
+                    children.extend(field_val)
+                else:
+                    children.append(field_val)
 
-        for idx, arg_template in enumerate(args):
-            arg_name, arg_desc, arg_type = arg_template
+            for child in children:
+                if not isinstance(child, Ast):
+                    continue
+                _descend(child)
+                self._visit(node, child, state)
 
-            arg_node = None
+        _descend(body)
+        self._visit(None, body, state)
 
-            if idx < len(node.args):
-                # if we're still in positional args
-                arg_node = node.args[idx]
-            else:
-                # if we're in kwargs
-                # find a matching node from keywords
-                arg_node = [n.value for n in node.keywords if n.arg == arg_name]
-                if len(arg_node) != 1:
-                    if len(arg_node) == 0:
-                        # unable to find a matching kwarg for this arg template
-                        node.error = "Missing argument " + str(arg_name)
-                        continue
-                    else:
-                        node.error = "Multiple values for " + str(arg_name)
-                        continue
 
-                arg_node = arg_node[0]
+class TopDownCompilePass(CompilePass):
 
-            mapping.append(FpyArg(arg_name, arg_type, arg_node))
+    def run(self, body: ScopedBody, state: CompileState):
+        def _descend(node: Ast):
+            if not isinstance(node, Ast):
+                return
+            children = []
+            for field in fields(node):
+                field_val = getattr(node, field.name)
+                if isinstance(field_val, list):
+                    children.extend(field_val)
+                else:
+                    children.append(field_val)
 
-        return mapping
+            for child in children:
+                if not isinstance(child, Ast):
+                    continue
+                self._visit(node, child, state)
+                _descend(child)
 
-    def check_node_converts_to_fprime_type(
-        self, node: ast.AST, fprime_type: type[BaseType]
-    ) -> bool:
-        """
-        Ensure the ast node can be turned into the desired FPrime type
-        """
+        self._visit(None, body, state)
+        _descend(body)
 
-        def error(node, msg):
-            node.error = msg
 
-        if issubclass(fprime_type, BoolType):
-            if not isinstance(node, ast.Constant):
-                error(node, "Invalid syntax")
-                return False
-            if not isinstance(node.value, bool):
-                error(
-                    node,
-                    "Expected a boolean literal, found '" + str(type(node.value)) + "'",
-                )
-                return False
-        elif issubclass(fprime_type, (F64Type, F32Type)):
-            if not isinstance(node, ast.Constant):
-                error(node, "Invalid syntax")
-                return False
-            if not isinstance(node.value, float):
-                error(
-                    node,
-                    "Expected a floating point literal, found '"
-                    + str(type(node.value))
-                    + "'",
-                )
-                return False
-        elif issubclass(
-            fprime_type,
-            (I64Type, U64Type, I32Type, U32Type, I16Type, U16Type, I8Type, U8Type),
+class AssignIds(TopDownCompilePass):
+
+    def __init__(self):
+        self.next_id = 0
+
+    def visit_default(self, parent, node, state):
+        node.id = self.next_id
+        self.next_id += 1
+
+
+class CreateScopes(TopDownCompilePass):
+
+    def visit_default(self, parent, node, state):
+        if isinstance(parent, (ScopedBody, NoneType)):
+            state.parent_scope[node.id] = parent.id if parent is not None else None
+        else:
+            state.parent_scope[node.id] = state.parent_scope[parent.id]
+
+    def visit_ScopedBody(self, parent, node: ScopedBody, state: CompileState):
+        state.symbol_tables[node.id] = {}
+        state.parent_scope[node.id] = (
+            state.parent_scope[parent.id] if parent is not None else None
+        )
+
+
+class CreateSymbolTables(TopDownCompilePass):
+
+    def visit_AnnAssign(self, parent, node: AnnAssign, state: CompileState):
+        if not isinstance(node.variable, Var) or not isinstance(
+            node.variable.value, Name
         ):
-            if not isinstance(node, ast.Constant):
-                error(node, "Invalid syntax")
-                return False
-            if not isinstance(node.value, int):
-                error(
-                    node,
-                    "Expected an integer literal, found '"
-                    + str(type(node.value))
-                    + "'",
+            state.errors.append(
+                CompileException(
+                    "Left hand side of assignment must be a simple variable",
+                    node.variable,
                 )
-                return False
-        elif issubclass(fprime_type, StringType):
-            if not isinstance(node, ast.Constant):
-                error(node, "Invalid syntax")
-                return False
-            if not isinstance(node.value, str):
-                error(
-                    node,
-                    "Expected a string literal, found '" + str(type(node.value)) + "'",
-                )
-                return False
-        elif issubclass(fprime_type, EnumType):
-            if not isinstance(node, FpyEnumConstant):
-                if isinstance(node, ast.Constant):
-                    error(
-                        node,
-                        "Expecting a value from "
-                        + str(fprime_type.__name__)
-                        + ", found '"
-                        + str(type(node.value).__name__)
-                        + "'",
-                    )
-                else:
-                    error(node, "Expecting a value from " + str(fprime_type.__name__))
-                return False
-            if fprime_type != node.enum_type:
-                error(
-                    node,
-                    "Expecting a value from "
-                    + str(fprime_type.__name__)
-                    + ", found a value from "
-                    + str(node.enum_type.__name__),
-                )
-                return False
-        elif issubclass(fprime_type, (ArrayType, SerializableType, TimeType)):
-            if not isinstance(node, ast.Call):
-                # must be a ctor call
-                if isinstance(node, ast.Constant):
-                    error(
-                        node,
-                        "Expecting a value of type "
-                        + str(fprime_type.__name__)
-                        + ", found '"
-                        + str(type(node.value).__name__)
-                        + "'",
-                    )
-                else:
-                    error(
-                        node, "Expecting a value of type " + str(fprime_type.__name__)
-                    )
+            )
+            return
 
-                return False
-            if not isinstance(node.func, FpyType):
-                # must be a ctor call
-                error(node, "Invalid syntax")
-                return False
-            if fprime_type != node.func.fprime_type:
-                error(
-                    node,
-                    "Expected "
-                    + str(fprime_type.__name__)
-                    + " but found "
-                    + str(node.func.fprime_type.__name__),
+        if not isinstance(node.ann_type, Var) or not isinstance(
+            node.ann_type.value, Name
+        ):
+            state.errors.append(
+                CompileException(
+                    "Type annotation must be a simple type name", node.ann_type
                 )
-                return False
+            )
+            return
+
+        # okay we're assigning a variable to something, with an annotation. look it up in the symbol table
+        existing_symbol = state.lookup_symbol(node.variable.value.value, node.variable)
+        if not existing_symbol:
+            # new symbol. put it in the table under this scope
+            sym_type = state.types.get(node.ann_type.value.value, None)
+            if sym_type is None:
+                state.errors.append(
+                    CompileException(f"Unknown type {node.ann_type.value.value}", node)
+                )
+                return
+            state.add_symbol(
+                node.variable.value.value,
+                sym_type,
+                node,
+            )
         else:
-            if isinstance(node, ast.Constant):
-                error(
-                    node,
-                    "Can't convert '"
-                    + str(type(node.value).__name__)
-                    + "' to "
-                    + str(fprime_type),
+            # already existing. check the type is consistent
+            new_type = state.types[node.ann_type.value.value]
+            if existing_symbol != new_type:
+                state.errors.append(
+                    CompileException(
+                        f"Inconsistent type. Was {existing_symbol}, but annotation was {new_type}",
+                        node.ann_type,
+                    )
                 )
-            else:
-                error(node, "Can't convert argument to " + str(fprime_type))
-            return False
+                return
+            # okay, type is consistent.
 
-        return True
+    def visit_Assign(self, parent, node: Assign, state: CompileState):
+        if not isinstance(node.variable, Var) or not isinstance(
+            node.variable.value, Name
+        ):
+            state.errors.append(
+                CompileException(
+                    "Left hand side of assignment must be a simple variable",
+                    node.variable,
+                )
+            )
+            return
+
+        # okay we're assigning a variable to something, without an annotation. look it up in the symbol table
+        existing = state.lookup_symbol(node.variable.value.value, node.variable)
+        if not existing:
+            # error because this isn't an annotated assignment. right now all assignments must be annotated
+            state.errors.append(
+                CompileException(
+                    "Must provide a type annotation for new variables", node.variable
+                )
+            )
+
+class CompileBodies(CompilePass):
+    def visit_ScopedBody(self, parent, node: ScopedBody, state: CompileState):
+        for stmt in node.stmts:
+            print(stmt)
 
 
-def resolve_named_object(obj, ns: Namespace) -> FppNamedObject | None:
-    if isinstance(obj, ast.Name):
-        resolved = resolve_name(obj.id, ns)
-    elif isinstance(obj, ast.Attribute):
-        resolved = resolve_attr(obj, ns)
-    else:
-        obj.error = "Syntax error resolve named object"
-        return None
+def get_base_compile_state(dictionary: str) -> CompileState:
+    cmd_json_dict_loader = CmdJsonLoader(dictionary)
+    (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
+        dictionary
+    )
 
-    return resolved
+    ch_json_dict_loader = ChJsonLoader(dictionary)
+    (ch_id_dict, ch_name_dict, versions) = ch_json_dict_loader.construct_dicts(
+        dictionary
+    )
+    prm_json_dict_loader = PrmJsonLoader(dictionary)
+    (prm_id_dict, prm_name_dict, versions) = prm_json_dict_loader.construct_dicts(
+        dictionary
+    )
+    type_name_dict = cmd_json_dict_loader.parsed_types
+    type_name_dict.update(ch_json_dict_loader.parsed_types)
+    # insert the implicit types into the dict
+    type_name_dict["Fw.Time"] = TimeType
+    type_name_dict["U64"] = U64Type
+    type_name_dict["U32"] = U32Type
+    type_name_dict["U16"] = U16Type
+    type_name_dict["U8"] = U8Type
+    type_name_dict["I64"] = I64Type
+    type_name_dict["I32"] = I32Type
+    type_name_dict["I16"] = I16Type
+    type_name_dict["I8"] = I8Type
+    type_name_dict["F64"] = F64Type
+    type_name_dict["F32"] = F32Type
+    type_name_dict["bool"] = BoolType
+    type_name_dict["str"] = StringType
+
+    stmt_name_dict = {directive.name: directive for directive in FPY_DIRECTIVES}
+    for cmd_template in cmd_name_dict.values():
+        stmt_template = StatementTemplate(
+            StatementType.CMD,
+            cmd_template.opcode,
+            cmd_template.get_full_name(),
+            [arg[2] for arg in cmd_template.arguments],
+        )
+        stmt_name_dict[cmd_template.get_full_name()] = stmt_template
+
+    state = CompileState(
+        {},
+        {},
+        tlms=ch_name_dict,
+        prms=prm_name_dict,
+        stmts=stmt_name_dict,
+        types=type_name_dict,
+        errors=[],
+    )
+    return state
 
 
-def resolve_attr(attr: ast.Attribute, ns: Namespace) -> FppNamedObject | None:
-    parent_obj = resolve_named_object(attr.value, ns)
-
-    # for now, only support children of namespaces
-    # in future, support accessing tlm member fields
-    if isinstance(parent_obj, Namespace):
-        return resolve_name(attr.attr, parent_obj)
-
-    attr.error = "Syntax error resolve attr"
-    return None
-
-
-def resolve_name(name: str, ns: Namespace) -> FppNamedObject | None:
-    matching = []
-    for sub_ns in ns.children:
-        if sub_ns.name == name:
-            matching.append(sub_ns)
-    for tlm in ns.tlms:
-        if tlm.name == name:
-            matching.append(tlm)
-    for stmt in ns.stmts:
-        if stmt.name == name:
-            matching.append(stmt)
-    for prm in ns.prms:
-        if prm.prm_name == name:
-            matching.append(prm)
-    for var in ns.vars:
-        if var.name == name:
-            matching.append(var)
-    for typ in ns.types:
-        if typ.name == name:
-            matching.append(typ)
-
-    if len(matching) == 0:
-        name.error = "Unknown name " + str(name)
-        return None
-    if len(matching) > 1:
-        # TODO better err msg
-        name.error = "Ambiguous name " + str(name)
-        return None
-    return matching[0]
+def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
+    state = get_base_compile_state(dictionary)
+    passes: list[CompilePass] = [AssignIds(), CreateScopes(), CreateSymbolTables(), CompileBodies()]
+    for compile_pass in passes:
+        compile_pass.run(body, state)
+        for error in state.errors:
+            raise error

@@ -81,7 +81,7 @@ assign_expr: name ":=" test
 !_unary_op: "+"|"-"|"~"
 !_add_op: "+"|"-"
 !_shift_op: "<<"|">>"
-!_mul_op: "*"|"@"|"/"|"%"|"//"
+!_mul_op: "*"|"/"|"%"|"//"
 !comp_op: "<"|">"|"=="|">="|"<="|"!="|"in"|"not" "in"|"is"|"is" "not"
 
 ?power: atom_expr ("**" factor)?
@@ -98,11 +98,11 @@ assign_expr: name ":=" test
      | name -> var
      | number
      | string_concat
-     | "(" test ")"
      | "..." -> ellipsis
      | "None"    -> const_none
      | "True"    -> const_true
      | "False"   -> const_false
+     | "(" test ")" // the final case--go back to top of parse
 
 
 ?string_concat: string+
