@@ -1,129 +1,44 @@
 // Adapted from: https://docs.python.org/3/reference/grammar.html and the Lark Python grammar
 
-// Start symbols for the grammar:
-//       single_input is a single interactive statement;
-//       file_input is a module or sequence of commands read from an input file;
-//       eval_input is the input for the eval() functions.
-// NB: compound_stmt in single_input is followed by extra NEWLINE!
-//
-
-single_input: _NEWLINE | simple_stmt | compound_stmt _NEWLINE
-file_input: (_NEWLINE | stmt)*
-eval_input: testlist _NEWLINE*
-
-funcdef: "def" name "(" [parameters] ")" ["->" test] ":" suite
-
-parameters: paramvalue ("," paramvalue)* ["," SLASH ("," paramvalue)*] ["," [starparams | kwparams]]
-          | starparams
-          | kwparams
-
-SLASH: "/"
-starparams: (starparam | starguard) poststarparams
-starparam: "*" typedparam
-starguard: "*"
-poststarparams: ("," paramvalue)* ["," kwparams]
-kwparams: "**" typedparam ","?
-
-?paramvalue: typedparam ("=" test)?
-?typedparam: name (":" test)?
-
+input: (_NEWLINE | stmt)*
 
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
-?small_stmt: (expr_stmt | assign_stmt | pass_stmt | flow_stmt)
-expr_stmt: testlist
-?assign_stmt: annassign | augassign | assign
+?small_stmt: (expr_stmt | assign_stmt | pass_stmt )
+expr_stmt: atom_expr
+?assign_stmt: annassign | assign
 
-annassign: testlist ":" test ["=" test]
-assign: testlist ("=" (testlist))+
-augassign: testlist augassign_op (testlist)
-!augassign_op: "+=" | "-=" | "*=" | "@=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" | "**=" | "//="
+annassign: atom_expr ":" atom_expr "=" atom_expr
+assign: atom_expr "=" atom_expr
 
-// For normal and annotated assignments, additional restrictions enforced by the interpreter
 pass_stmt: "pass"
-?flow_stmt: break_stmt | continue_stmt | return_stmt
-break_stmt: "break"
-continue_stmt: "continue"
-return_stmt: "return" [testlist]
 
-?compound_stmt: if_stmt | while_stmt | for_stmt
-              | funcdef
+?compound_stmt: if_stmt
 if_stmt: "if" test ":" suite elifs ["else" ":" suite]
 elifs: elif_*
 elif_: "elif" test ":" suite
-while_stmt: "while" test ":" suite ["else" ":" suite]
-for_stmt: "for" exprlist "in" testlist ":" suite ["else" ":" suite]
-// NB compile.c makes sure that the default except clause is last
 
 
 suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
 
-?test: or_test ("if" or_test "else" test)?
-     | assign_expr
-
-assign_expr: name ":=" test
-
+?test: or_test
 ?or_test: and_test ("or" and_test)*
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
          | comparison
-?comparison: expr (comp_op expr)*
+?comparison: atom_expr (comp_op atom_expr)*
 
-?expr: or_expr
-?or_expr: xor_expr ("|" xor_expr)*
-?xor_expr: and_expr ("^" and_expr)*
-?and_expr: shift_expr ("&" shift_expr)*
-?shift_expr: arith_expr (_shift_op arith_expr)*
-?arith_expr: term (_add_op term)*
-?term: factor (_mul_op factor)*
-?factor: _unary_op factor | power
-
-!_unary_op: "+"|"-"|"~"
-!_add_op: "+"|"-"
-!_shift_op: "<<"|">>"
-!_mul_op: "*"|"/"|"%"|"//"
-!comp_op: "<"|">"|"=="|">="|"<="|"!="|"in"|"not" "in"|"is"|"is" "not"
-
-?power: atom_expr ("**" factor)?
+!comp_op: "<"|">"|"=="|">="|"<="|"!="
 
 ?atom_expr: atom_expr "(" [arguments] ")"      -> funccall
-          | atom_expr "[" subscriptlist "]"  -> getitem
           | atom_expr "." name               -> getattr
           | atom
 
-?atom: "(" _tuple_inner? ")" -> tuple
-     | "[" _exprlist? "]"  -> list
-     | "{" _dict_exprlist? "}" -> dict
-     | "{" _exprlist "}" -> set
-     | name -> var
+?atom: name -> var
      | number
-     | string_concat
-     | "..." -> ellipsis
-     | "None"    -> const_none
      | "True"    -> const_true
      | "False"   -> const_false
      | "(" test ")" // the final case--go back to top of parse
-
-
-?string_concat: string+
-
-_tuple_inner: test (("," test)+ [","] | ",")
-
-?subscriptlist: subscript
-              | subscript (("," subscript)+ [","] | ",") -> subscript_tuple
-?subscript: test | ([test] ":" [test] [sliceop]) -> slice
-sliceop: ":" [test]
-?exprlist: expr
-         | expr (("," expr)+ [","]|",")
-?testlist: test | testlist_tuple
-testlist_tuple: test (("," test)+ [","] | ",")
-_dict_exprlist: (key_value | "**" expr) ("," (key_value | "**" expr))* [","]
-
-key_value: test ":"  test
-
-_exprlist: test (","  test)* [","]
-
-
 
 arguments: argvalue ("," argvalue)*  ("," [ starargs | kwargs])?
          | starargs

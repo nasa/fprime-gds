@@ -12,7 +12,7 @@ fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
 def parse(text: str):
     parser = Lark(
         fpy_grammar_str,
-        start="file_input",
+        start="input",
         parser="lalr",
         postlex=PythonIndenter(),
         propagate_positions=True,
@@ -136,7 +136,7 @@ class FpyTransformer(Transformer):
     # an actual string literal
     STRING = str
 
-    file_input = as_body
+    input = as_body
     expr_stmt = Expr
     funccall = Call
     name = Name

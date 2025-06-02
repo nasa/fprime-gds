@@ -1,10 +1,9 @@
-single_input: _NEWLINE | simple_stmt | compound_stmt _NEWLINE
-file_input: (_NEWLINE | stmt)*
-eval_input: testlist _NEWLINE*
+input: (_NEWLINE | stmt | goto_tag)*
 
-stmt: [namespace] name args
+stmt: [namespace] name args _NEWLINE
 namespace: name "." [namespace]
 
+goto_tag: name ":"
 
 reg_op: (three_reg_op reg reg reg) | (two_reg_op reg reg) | (one_reg_op reg)
 

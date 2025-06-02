@@ -19,7 +19,7 @@ def assert_failure(fprime_test_api, seq: str):
         compile_seq(fprime_test_api, seq)
     except BaseException as e:
         return
-    raise RuntimeError("compile_seq succeeded") from e
+    raise RuntimeError("compile_seq succeeded")
 
 
 def test_simple_var(fprime_test_api):
@@ -75,5 +75,3 @@ var: U16 = 2
 """
 
     assert_failure(fprime_test_api, seq)
-
-def test_basic_directive()
