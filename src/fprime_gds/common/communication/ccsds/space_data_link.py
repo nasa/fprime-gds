@@ -127,7 +127,9 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         return {
             ("--scid", ): {
                 "type": lambda input_arg: int(input_arg, 0),
-                "help": "Spacecraft ID"
+                "help": "Spacecraft ID",
+                "default": 0x44,
+                "required": False
             },
             ("--vcid",): {
                 "type": lambda input_arg: int(input_arg, 0),

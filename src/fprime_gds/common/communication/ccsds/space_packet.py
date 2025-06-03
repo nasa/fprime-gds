@@ -13,7 +13,10 @@ from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin
 from fprime_gds.common.utils.data_desc_type import DataDescType
 
 from .apid import APID
+import logging
 
+LOGGER = logging.getLogger("framing")
+LOGGER.setLevel(logging.DEBUG)
 
 @gds_plugin(FramerDeframer)
 class SpacePacketFramerDeframer(FramerDeframer):
@@ -23,7 +26,7 @@ class SpacePacketFramerDeframer(FramerDeframer):
     """
     SEQUENCE_COUNT_MAXIMUM = 16384 # 2^14
     HEADER_SIZE = 6
-    IDLE_APID = 0x7FF
+    IDLE_APID = 0x7FF # max 11 bit value per protocol specification
 
     def __init__(self):
         # self.sequence_number = 0
@@ -70,12 +73,12 @@ class SpacePacketFramerDeframer(FramerDeframer):
                 continue
             # Discard Idle Packets
             if sp_header.apid == self.IDLE_APID:
-                print(f"Discarding idle packet: {sp_header}")
+                # LOGGER.debug(f"Discarding idle packet: {sp_header}")
                 data = data[sp_header.packet_len:]
                 continue
             # Check sequence count and warn if not expected value (don't drop the packet)
             if sp_header.seq_count != self.get_sequence_count(sp_header.apid):
-                print(f"########## received: {sp_header.seq_count} | expected: {self.get_sequence_count(sp_header.apid)}")
+                LOGGER.warning(f"APID {sp_header.apid} received sequence count: {sp_header.seq_count} (expected: {self.get_sequence_count(sp_header.apid)})")
                 # Set the sequence count to the next expected value (consider missing packets have been lost)
                 self.apid_to_sequence_count_map[sp_header.apid] = sp_header.seq_count + 1
             # If the pool is large enough to read the whole packet, then read it
@@ -85,10 +88,11 @@ class SpacePacketFramerDeframer(FramerDeframer):
                     f">{sp_header.data_len + 1}s", data, self.HEADER_SIZE
                 )[0]
                 data = data[sp_header.packet_len:]
+                LOGGER.debug(f"Deframed packet: {sp_header}")
                 deframed_packets.append(deframed)
                 continue
             else:
-                print(f"ERROR: Not enough data to read packet: {sp_header}")
+                LOGGER.debug(f"ERROR: Not enough data to read packet: {sp_header}")
                 # If we don't have enough data, then break out of the loop
                 continue
         return deframed_packets, data, discarded
@@ -97,11 +101,17 @@ class SpacePacketFramerDeframer(FramerDeframer):
         """ Get the sequence number and increment
 
         This function will return the current sequence number and then increment the sequence number for the next round.
+        Should an APID not be registered already, it will be initialized to 0.
 
         Return:
             current sequence number
         """
-        sequence = self.apid_to_sequence_count_map[apid]
+        try:
+            sequence = self.apid_to_sequence_count_map[apid]
+        except KeyError:
+            # If the APID is not in the map, initialize it to 0
+            sequence = 0
+            self.apid_to_sequence_count_map[apid] = 0
         self.apid_to_sequence_count_map[apid] = (sequence + 1) % self.SEQUENCE_COUNT_MAXIMUM
         return sequence
 

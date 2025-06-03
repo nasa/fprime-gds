@@ -28,7 +28,8 @@ class ChainedFramerDeframer(FramerDeframer, ABC):
     @classmethod
     @abstractmethod
     def get_composites(cls) -> List[Type[FramerDeframer]]:
-        """ Return a list of composites """
+        """ Return a list of composites 
+        Innermost FramerDeframer should be first in the list. """
         raise NotImplementedError(f"Subclasses of {cls.__name__} must implement get_composites")
 
     @staticmethod
@@ -92,7 +93,8 @@ class SpacePacketSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
 
     @classmethod
     def get_composites(cls) -> List[Type[FramerDeframer]]:
-        """ Return the composite list of this """
+        """ Return the composite list of this chain 
+        Innermost FramerDeframer should be first in the list. """
         return [
             SpacePacketFramerDeframer,
             SpaceDataLinkFramerDeframer

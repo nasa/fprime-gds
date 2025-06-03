@@ -7,8 +7,8 @@ from enum import Enum
 
 DataDescType = Enum(
     "DataDescType",
-    # Command packet type - incoming
     {
+        # Command packet type - incoming
         "FW_PACKET_COMMAND": 0,
         # Telemetry packet type - outgoing
         "FW_PACKET_TELEM": 1,
