@@ -39,6 +39,7 @@ callgraph
 cata
 CCB
 CCFF
+ccsds
 Cdioux
 cdn
 cdxoefg
@@ -300,6 +301,7 @@ rollup
 rpaetz
 rst
 saba
+scid
 sdd
 searchdata
 Segoe
@@ -315,6 +317,7 @@ SMAP
 Smath
 SNDHWM
 sorttable
+spacepacket
 squashify
 sss
 Ssymbols
@@ -373,6 +376,8 @@ usec
 useconds
 usepackage
 usr
+vcid
+VCP
 vh
 vhd
 vhdl

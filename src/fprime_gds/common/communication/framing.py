@@ -71,7 +71,7 @@ class FramerDeframer(abc.ABC):
             discarded_aggregate += discarded
             if deframed is None: # No more packets available, return aggregate
                 return packets, data, discarded_aggregate
-            if isinstance(deframed, list): # list of bytess
+            if isinstance(deframed, list): # list of bytes
                 packets.extend(deframed)
             else:
                 packets.append(deframed)
