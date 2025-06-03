@@ -11,6 +11,7 @@ that implement this pattern. The current list of implementation classes are:
 
 @author lestarch
 """
+from __future__ import annotations
 import abc
 import copy
 import struct
