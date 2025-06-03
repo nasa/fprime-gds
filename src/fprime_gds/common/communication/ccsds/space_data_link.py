@@ -5,7 +5,7 @@ import copy
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.plugin.definitions import gds_plugin_implementation
 
-from crcmod.predefined import PredefinedCrc
+import crc
 
 
 class SpaceDataLinkFramerDeframer(FramerDeframer):
@@ -18,6 +18,15 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     TM_TRAILER_SIZE = 2
     TC_TRAILER_SIZE = 2
 
+    # As per CCSDS standard, use CRC-16 CCITT config with init value
+    # all 1s and final XOR value of 0x0000
+    CRC_CCITT_CONFIG = crc.Configuration(
+        width=16,
+        polynomial=0x1021,
+        init_value=0xFFFF,
+        final_xor_value=0x0000,
+    )
+    CRC_CALCULATOR = crc.Calculator(CRC_CCITT_CONFIG)
 
     def __init__(self, scid, vcid):
         """ """
@@ -56,11 +65,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         full_bytes_no_crc = header_bytes + space_packet_bytes
         assert len(full_bytes_no_crc) == self.TC_HEADER_SIZE + length, "Malformed packet generated"
 
-        # Use CRC-16 (CCITT) with no final XOR (XOR of 0x0000)
-        crc_calculator = PredefinedCrc(crc_name="crc-ccitt-false")
-        crc_calculator.update(full_bytes_no_crc)
-
-        full_bytes = full_bytes_no_crc + struct.pack(">H", crc_calculator.crcValue)
+        full_bytes = full_bytes_no_crc + struct.pack(">H", self.CRC_CALCULATOR.checksum(full_bytes_no_crc))
         return full_bytes
 
     def get_sequence_number(self):
@@ -96,12 +101,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             # Spacecraft ID and Virtual Channel ID match, so we look at end of frame for CRC
             crc_offset = self.TM_FIXED_FRAME_SIZE - self.TM_TRAILER_SIZE
             transmitted_crc = struct.unpack_from(">H", data, crc_offset)[0]
-
-            # Use CRC-16 (CCITT) with no final XOR (XOR of 0x0000)
-            crc_calculator = PredefinedCrc(crc_name="crc-ccitt-false")
-            crc_calculator.update(data[:crc_offset])
-
-            if transmitted_crc == crc_calculator.crcValue:
+            if transmitted_crc == self.CRC_CALCULATOR.checksum(data[:crc_offset]):
                 # CRC is valid, so we return the deframed data
                 deframed_data_len = self.TM_FIXED_FRAME_SIZE - self.TM_TRAILER_SIZE - self.TM_HEADER_SIZE
                 deframed = struct.unpack_from(

@@ -106,12 +106,7 @@ class SpacePacketFramerDeframer(FramerDeframer):
         Return:
             current sequence number
         """
-        try:
-            sequence = self.apid_to_sequence_count_map[apid]
-        except KeyError:
-            # If the APID is not in the map, initialize it to 0
-            sequence = 0
-            self.apid_to_sequence_count_map[apid] = 0
+        sequence = self.apid_to_sequence_count_map.get(apid, 0) # if APID isn't registered, default to 0
         self.apid_to_sequence_count_map[apid] = (sequence + 1) % self.SEQUENCE_COUNT_MAXIMUM
         return sequence
 
