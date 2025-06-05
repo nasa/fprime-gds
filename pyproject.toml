@@ -42,7 +42,8 @@ dependencies = [
     "Jinja2>=2.11.3",
     "openpyxl>=3.0.10",
     "pyserial>=3.5",
-    "pydantic>=2.6"
+    "pydantic>=2.6",
+    "PyYAML>=6.0.2"
 ]
 
 [project.urls]

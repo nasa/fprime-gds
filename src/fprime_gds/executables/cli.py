@@ -209,7 +209,7 @@ class ParserBase(ABC):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
-        return cls._parse_args(parser_classes, description, arguments, allow_unknowns=True, **kwargs)
+        return cls._parse_args(parser_classes, description, arguments, use_parse_known=True, **kwargs)
 
     @classmethod
     def parse_args(
@@ -240,7 +240,7 @@ class ParserBase(ABC):
         parser_classes,
         description="No tool description provided",
         arguments=None,
-        allow_unknowns=False,
+        use_parse_known=False,
         **kwargs,
     ):
         """Parse and post-process arguments helper
@@ -256,13 +256,14 @@ class ParserBase(ABC):
             parser_classes: a list of ParserBase subclasses that will be used to
             description: description passed ot the argument parser
             arguments: arguments to process, None to use command line input
+            use_parse_known: use parse_known_arguments from argparse
 
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
         composition = CompositeParser(parser_classes, description)
         parser = composition.get_parser()
         try:
-            if allow_unknowns:
+            if use_parse_known:
                 args_ns, *unknowns = parser.parse_known_args(arguments)
             else:
                 args_ns = parser.parse_args(arguments)
@@ -320,7 +321,7 @@ class ConfigDrivenParser(ParserBase):
         arguments=None,
         **kwargs,
     ):
-        """ Parse and post-process arguments using inputs and confnig
+        """ Parse and post-process arguments using inputs and config
 
         Parse the arguments in two stages: first parse the configuration data, ignoring unknown inputs, then parse the
         full argument set with the supplied configuration to fill in additional options.
