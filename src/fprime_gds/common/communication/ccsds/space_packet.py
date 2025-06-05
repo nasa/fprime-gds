@@ -68,7 +68,12 @@ class SpacePacketFramerDeframer(FramerDeframer):
                 discarded += data[0:1]
                 data = data[1:]
                 continue
-            # Discard Idle Packets
+            if sp_header.ccsds_version != 0 or sp_header.packet_type != PacketType.TM:
+                # Space Packet version is speicifed as 0 per protocol
+                discarded += data[0:1]
+                data = data[1:]
+                continue
+            # Skip Idle Packets as they are not meaningful
             if sp_header.apid == self.IDLE_APID:
                 data = data[sp_header.packet_len :]
                 continue
@@ -92,13 +97,12 @@ class SpacePacketFramerDeframer(FramerDeframer):
                 )[0]
                 data = data[sp_header.packet_len :]
                 LOGGER.debug(f"Deframed packet: {sp_header}")
-                deframed_packets.append(deframed)
-                continue
+                return deframed, data, discarded
             else:
                 LOGGER.debug(f"ERROR: Not enough data to read packet: {sp_header}")
                 # If we don't have enough data, then break out of the loop
-                continue
-        return deframed_packets, data, discarded
+                break
+        return None, data, discarded
 
     def get_sequence_count(self, apid: int):
         """Get the sequence number and increment
