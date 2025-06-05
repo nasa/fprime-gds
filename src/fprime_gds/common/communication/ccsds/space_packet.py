@@ -37,15 +37,7 @@ class SpacePacketFramerDeframer(FramerDeframer):
             self.apid_to_sequence_count_map[key.value] = 0
 
     def frame(self, data):
-        """Frame the supplied data in an encrypted frame
-
-        Frame the data in an encrypted frame using the configured encryption algorithms.
-
-        Args:
-            data: data to frame
-        Return:
-            encrypted bytes
-        """
+        """Frame the supplied data in Space Packet"""
         # The protocol defines length token to be number of bytes minus 1
         data_length_token = len(data) - 1
         apid = APID.from_data(data)
@@ -59,7 +51,7 @@ class SpacePacketFramerDeframer(FramerDeframer):
         return space_packet.pack()
 
     def deframe(self, data, no_copy=False):
-        """No op deframe step"""
+        """Deframe the supplied data according to Space Packet protocol"""
         discarded = b""
         if data is None:
             return None, None, discarded

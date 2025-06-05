@@ -41,15 +41,15 @@ class FramerDeframer(abc.ABC):
     @abc.abstractmethod
     def deframe(self, data: bytes, no_copy=False) -> tuple[(list[bytes] | bytes | None), bytes, bytes]:
         """
-        Deframes the incoming data from the specified format. Produces exactly one packet, and leftover bytes. Users
+        Deframes the incoming data from the specified format. Produces n packets (n>=0), and leftover bytes. Users
         wanting all packets to be deframed should call "deframe_all". If no full packet is available, this method
-        returns None. Expects incoming raw bytes to deframe, and returns a deframed packet or None, the leftover
+        returns None. Expects incoming raw bytes to deframe, and returns deframed packet(s) or None, the leftover
         bytes that were unused, and any bytes discarded from the existing data stream. Will search and discard data up
         until a start token is found. Note: data will be consumed up to the first start token found.
 
         :param data: framed data bytes
         :param no_copy: (optional) will prevent extra copy if True, but "data" input will be destroyed.
-        :return: (packet as array of bytes or None, leftover bytes, any discarded data)
+        :return: (packet as bytes | list[bytes] | None, leftover bytes, any discarded data)
         """
 
     def deframe_all(self, data: bytes, no_copy: bool):

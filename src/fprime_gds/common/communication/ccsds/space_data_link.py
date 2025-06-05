@@ -1,3 +1,4 @@
+"""F Prime Framer/Deframer Implementation of the CCSDS Space Data Link (TC/TM) Protocols"""
 import sys
 import struct
 import copy
@@ -9,8 +10,10 @@ import crc
 
 
 class SpaceDataLinkFramerDeframer(FramerDeframer):
-    """ CCSDS Framer/Deframer Implementation for the TC (uplink / framing) and TM (downlink / deframing) 
-    protocols. This FramerDeframer is used for framing TC data for uplink and deframing TM data for downlink."""
+    """CCSDS Framer/Deframer Implementation for the TC (uplink / framing) and TM (downlink / deframing)
+    protocols. This FramerDeframer is used for framing TC data for uplink and deframing TM data for downlink.
+    """
+
     SEQUENCE_NUMBER_MAXIMUM = 256
     TC_HEADER_SIZE = 5
     TM_HEADER_SIZE = 6
@@ -34,14 +37,14 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         self.vcid = vcid
         self.sequence_number = 0
 
-
     def frame(self, data):
-        """ Frame the supplied data in a TC frame
-        """
+        """Frame the supplied data in a TC frame"""
         space_packet_bytes = data
         # CCSDS TC protocol defines the length token as number of bytes in full frame, minus 1
         # so we add to packet size the size of the header and trailer and subtract 1
-        length = len(space_packet_bytes) + self.TC_HEADER_SIZE + self.TC_TRAILER_SIZE - 1
+        length = (
+            len(space_packet_bytes) + self.TC_HEADER_SIZE + self.TC_TRAILER_SIZE - 1
+        )
         assert length < (pow(2, 10) - 1), "Length too-large for CCSDS format"
 
         # CCSDS TC Header:
@@ -54,24 +57,35 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         # 10b -  XX - Frame length
         #  8b -  XX - Frame sequence number
 
-        header = (0 << 30) | \
-                 (1 << 29) | \
-                 (0 << 28) | \
-                 ((self.scid & 0x3FF) << 16) | \
-                 ((self.vcid & 0x3F) << 10) | \
-                 (length & 0x3FF)
+        # Flags to 0 except for bypass FARM, SCID, VCID and length
+        header = (
+            (0 << 30)
+            | (1 << 29)
+            | (0 << 28)
+            | ((self.scid & 0x3FF) << 16)
+            | ((self.vcid & 0x3F) << 10)
+            | (length & 0x3FF)
+        )
 
-        sequence_number = 0 # in Type-B data, sequence number is not used and set to all 0s
+        sequence_number = (
+            0  # in Type-B data, sequence number is not used and set to all 0s
+        )
         header_bytes = struct.pack(">IB", header, sequence_number)
-        assert len(header_bytes) == self.TC_HEADER_SIZE, "CCSDS primary header must be 5 octets long"
+        assert (
+            len(header_bytes) == self.TC_HEADER_SIZE
+        ), "CCSDS primary header must be 5 octets long"
         full_bytes_no_crc = header_bytes + space_packet_bytes
-        assert len(full_bytes_no_crc) == self.TC_HEADER_SIZE + len(data), "Malformed packet generated"
+        assert len(full_bytes_no_crc) == self.TC_HEADER_SIZE + len(
+            data
+        ), "Malformed packet generated"
 
-        full_bytes = full_bytes_no_crc + struct.pack(">H", self.CRC_CALCULATOR.checksum(full_bytes_no_crc))
+        full_bytes = full_bytes_no_crc + struct.pack(
+            ">H", self.CRC_CALCULATOR.checksum(full_bytes_no_crc)
+        )
         return full_bytes
 
     def get_sequence_number(self):
-        """ Get the sequence number and increment - used for TM deframing
+        """Get the sequence number and increment - used for TM deframing
 
         This function will return the current sequence number and then increment the sequence number for the next round.
 
@@ -83,18 +97,17 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         return sequence
 
     def deframe(self, data, no_copy=False):
-        """Deframe TM frames
-        This is essentially the CCSDS TM VCP.indication primitive ?
-        """
+        """Deframe TM frames"""
         discarded = b""
         if not no_copy:
             data = copy.copy(data)
         # Continue until there is not enough data for the header, or until a packet is found (return)
         while len(data) >= self.TM_FIXED_FRAME_SIZE:
-            # Read header information including start token and size and check if we have enough for the total size
+            # Read header information
             sc_and_channel_ids = struct.unpack_from(">H", data)
             spacecraft_id = (sc_and_channel_ids[0] & 0x3FF0) >> 4
             virtual_channel_id = (sc_and_channel_ids[0] & 0x000E) >> 1
+            # Check if the header is correct with regards to expected spacecraft and VC IDs
             if spacecraft_id != self.scid or virtual_channel_id != self.vcid:
                 # If the header is invalid, rotate away a Byte and keep processing
                 discarded += data[0:1]
@@ -105,12 +118,16 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             transmitted_crc = struct.unpack_from(">H", data, crc_offset)[0]
             if transmitted_crc == self.CRC_CALCULATOR.checksum(data[:crc_offset]):
                 # CRC is valid, so we return the deframed data
-                deframed_data_len = self.TM_FIXED_FRAME_SIZE - self.TM_TRAILER_SIZE - self.TM_HEADER_SIZE
+                deframed_data_len = (
+                    self.TM_FIXED_FRAME_SIZE
+                    - self.TM_TRAILER_SIZE
+                    - self.TM_HEADER_SIZE
+                )
                 deframed = struct.unpack_from(
                     f">{deframed_data_len}s", data, self.TM_HEADER_SIZE
                 )[0]
                 # Discard the fixed size frame
-                data = data[self.TM_FIXED_FRAME_SIZE:]
+                data = data[self.TM_FIXED_FRAME_SIZE :]
                 return deframed, data, discarded
 
             print(
@@ -125,25 +142,25 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
 
     @classmethod
     def get_arguments(cls):
-        """ Arguments to request from the CLI """
+        """Arguments to request from the CLI"""
         return {
-            ("--scid", ): {
+            ("--scid",): {
                 "type": lambda input_arg: int(input_arg, 0),
                 "help": "Spacecraft ID",
                 "default": 0x44,
-                "required": False
+                "required": False,
             },
             ("--vcid",): {
                 "type": lambda input_arg: int(input_arg, 0),
                 "help": "Virtual channel ID",
                 "default": 1,
-                "required": False
-            }
+                "required": False,
+            },
         }
 
     @classmethod
     def check_arguments(cls, scid, vcid):
-        """ Check arguments from the CLI
+        """Check arguments from the CLI
 
         Confirms that the input arguments are valid for this framer/deframer.
 
@@ -167,12 +184,11 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
 
     @classmethod
     def get_name(cls):
-        """ Name of this implementation provided to CLI """
+        """Name of this implementation provided to CLI"""
         return "raw-space-data-link"
 
     @classmethod
     @gds_plugin_implementation
     def register_framing_plugin(cls):
-        """ Register the MyPlugin plugin """
+        """Register the MyPlugin plugin"""
         return cls
-
