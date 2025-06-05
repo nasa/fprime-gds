@@ -43,6 +43,7 @@ dependencies = [
     "openpyxl>=3.0.10",
     "pyserial>=3.5",
     "pydantic>=2.6",
+    "spacepackets>=0.28.0",
     "crc>=7.0.0"
 ]
 
