@@ -57,24 +57,26 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         # 10b -  XX - Frame length
         #  8b -  XX - Frame sequence number
 
-        # Flags to 0 except for bypass FARM, SCID, VCID and length
-        header = (
-            (0 << 30)
-            | (1 << 29)
-            | (0 << 28)
-            | ((self.scid & 0x3FF) << 16)
-            | ((self.vcid & 0x3F) << 10)
-            | (length & 0x3FF)
+        # First 16 bits:
+        header_val1_u16 = (
+            (0 << 14) |  # TF version number (2 bits)
+            (1 << 13) |  # Bypass FARM (1 bit)
+            (0 << 12) |  # Type-D (1 bit)
+            (0 << 10) |  # Reserved (2 bits)
+            ((self.scid & 0x3FF))  # SCID (10 bits)
         )
-
-        sequence_number = (
-            0  # in Type-B data, sequence number is not used and set to all 0s
+        # Second 16 bits:
+        header_val2_u16 = (
+            ((self.vcid & 0x3F) << 10) |  # VCID (6 bits)
+            (length & 0x3FF)              # Frame length (10 bits)
         )
-        header_bytes = struct.pack(">IB", header, sequence_number)
+        # 8 bit sequence number - always 0 in bypass FARM mode
+        header_val3_u8 = 0
+        header_bytes = struct.pack(">HHB", header_val1_u16, header_val2_u16, header_val3_u8)
+        full_bytes_no_crc = header_bytes + space_packet_bytes
         assert (
             len(header_bytes) == self.TC_HEADER_SIZE
         ), "CCSDS primary header must be 5 octets long"
-        full_bytes_no_crc = header_bytes + space_packet_bytes
         assert len(full_bytes_no_crc) == self.TC_HEADER_SIZE + len(
             data
         ), "Malformed packet generated"
