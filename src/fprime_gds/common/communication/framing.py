@@ -82,8 +82,7 @@ class FramerDeframer(abc.ABC):
             discarded_aggregate += discarded
             if deframed is None: # No more packets available, return aggregate
                 return packets, data, discarded_aggregate
-            else:
-                packets.append(deframed)
+            packets.append(deframed)
 
     @classmethod
     @gds_plugin_specification

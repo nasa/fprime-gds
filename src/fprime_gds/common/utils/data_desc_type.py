@@ -5,6 +5,9 @@ Defines an enumeration that represents each type of data packet that can be down
 """
 from enum import Enum
 
+
+# TODO: these values should be read from the dictionary instead of hardcoded here
+
 DataDescType = Enum(
     "DataDescType",
     {
