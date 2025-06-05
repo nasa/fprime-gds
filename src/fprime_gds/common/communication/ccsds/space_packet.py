@@ -57,7 +57,6 @@ class SpacePacketFramerDeframer(FramerDeframer):
             return None, None, discarded
         if not no_copy:
             data = copy.copy(data)
-        deframed_packets = []
         # Deframe all packets until there is not enough data for a header
         while len(data) >= self.HEADER_SIZE:
             # Read header information including start token and size and check if we have enough for the total size

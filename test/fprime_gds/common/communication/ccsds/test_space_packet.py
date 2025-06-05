@@ -24,7 +24,7 @@ def test_frame_invalid_data(framer_deframer):
     data = b"\xff\xff\xff\xff" + b"test_payload"
     # Invalid DataDescType, should raise ValueError
     with pytest.raises(ValueError):
-        framed_data = framer_deframer.frame(data)
+        framer_deframer.frame(data)
 
 def test_deframe_valid_packet(framer_deframer):
     """Test deframing a valid space packet."""
