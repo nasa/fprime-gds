@@ -44,7 +44,7 @@ class EventDecoder(decoder.Decoder):
             config = config_manager.ConfigManager().get_instance()
 
         self.__dict = event_dict
-        self.id_obj = config.get_type("event_id")
+        self.id_obj = config.get_type("FwEventIdType")
 
     def decode_api(self, data):
         """

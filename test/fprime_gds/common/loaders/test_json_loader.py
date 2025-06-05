@@ -3,6 +3,7 @@ from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.event_json_loader import EventJsonLoader
 from fprime_gds.common.loaders.pkt_json_loader import PktJsonLoader
+from fprime_gds.common.loaders.fw_type_json_loader import FwTypeJsonLoader
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.enum_type import EnumType
 import fprime.common.models.serialize.numerical_types as numerical_types
@@ -42,6 +43,10 @@ def ch_loader():
 @pytest.fixture
 def pkt_loader():
     return PktJsonLoader(REF_JSON_DICTIONARY)
+
+@pytest.fixture
+def fw_type_loader():
+    return FwTypeJsonLoader(REF_JSON_DICTIONARY)
 
 @pytest.fixture
 def json_dict_obj():
@@ -210,3 +215,11 @@ def test_construct_pkt_dict(ch_loader, pkt_loader):
     assert type_demo_pkt_ch_list[1].get_full_name() == "Ref.typeDemo.ChoicesCh"
     assert type_demo_pkt_ch_list[-1].get_full_name() == "Ref.typeDemo.ScalarF64Ch"
 
+
+def test_construct_fw_types(fw_type_loader):
+    _, name_dict, _ = fw_type_loader.construct_dicts(None)
+    assert name_dict["FwPacketDescriptorType"] == "U8" # as per specified in RefTopologyDictionary.json
+    assert name_dict["FwChanIdType"] == "U32"
+    assert name_dict["FwEventIdType"] == "U32"
+    assert name_dict["FwOpcodeType"] == "U32"
+    assert name_dict["FwTlmPacketizeIdType"] == "U16"

@@ -114,7 +114,7 @@ class ConfigManager(configparser.ConfigParser):
             return U16Type()
         if type_str == "U32":
             return U32Type()
-        if type_str == "u64":
+        if type_str == "U64":
             return U64Type()
         if type_str == "I8":
             return I8Type()
@@ -153,11 +153,11 @@ class ConfigManager(configparser.ConfigParser):
 
         self.__prop["types"] = {
             "msg_len": "U32",
-            "msg_desc": "U32",
-            "ch_id": "U32",
-            "event_id": "U32",
-            "op_code": "U32",
-            "pkt_id": "U16",
+            "FwPacketDescriptorType": "U32",
+            "FwChanIdType": "U32",
+            "FwEventIdType": "U32",
+            "FwOpcodeType": "U32",
+            "FwTlmPacketizeIdType": "U16",
             "key_val": "U16",
         }
         self._set_section_defaults("types")

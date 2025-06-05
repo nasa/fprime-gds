@@ -9,6 +9,7 @@ import webbrowser
 
 from fprime_gds.executables.cli import (
     BinaryDeployment,
+    ConfigDrivenParser,
     CommParser,
     GdsParser,
     ParserBase,
@@ -37,7 +38,7 @@ def parse_args():
         PluginArgumentParser,
     ]
     # Parse the arguments, and refine through all handlers
-    args, parser = ParserBase.parse_args(arg_handlers, "Run F prime deployment and GDS")
+    args, parser = ConfigDrivenParser.parse_args(arg_handlers, "Run F prime deployment and GDS")
     return args
 
 

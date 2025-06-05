@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import astuple
+import inspect
 import json
 from pathlib import Path
 from argparse import ArgumentParser
@@ -13,25 +14,17 @@ from fprime_gds.common.fpy.types import (
     HEADER_FORMAT,
     FOOTER_FORMAT,
     StatementType,
-    FPY_DIRECTIVES
+    FPY_DIRECTIVES,
+    BytecodeParseContext,
+    get_type_obj_for,
 )
+from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime.common.models.serialize.numerical_types import (
     U8Type,
-    U16Type,
-    U32Type,
 )
-from fprime.common.models.serialize.type_base import ValueType
 
-
-def get_type_obj_for(type: str) -> type[ValueType]:
-    """returns a type object representing the ValueType that corresponds to a type alias"""
-    if type == "FwOpcodeType":
-        return U32Type
-    elif type == "FwSizeStoreType":
-        return U16Type
-
-    raise RuntimeError("Unknown FPrime type alias " + str(type))
+from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 
 
 def serialize_statement(stmt: StatementData) -> bytes:
@@ -59,7 +52,7 @@ def serialize_statement(stmt: StatementData) -> bytes:
 
 
 def parse_str_as_statement(
-    stmt: str, templates: list[StatementTemplate]
+    stmt: str, templates: list[StatementTemplate], context: BytecodeParseContext
 ) -> StatementData:
     """Converts a human-readable line of bytecode into a StatementData instance, given a list of
     possible statement templates"""
@@ -95,7 +88,12 @@ def parse_str_as_statement(
         )
     for index, arg_json in enumerate(args):
         arg_type = matching_template.args[index]
-        arg_value = arg_type(arg_json)
+        if inspect.isclass(arg_type):
+            # it's a type. instantiate it with the json
+            arg_value = arg_type(arg_json)
+        else:
+            # it's a function. give it the json and the ctx
+            arg_value = arg_type(arg_json, context)
         arg_values.append(arg_value)
 
     return StatementData(matching_template, arg_values)
@@ -112,7 +110,7 @@ def main():
         "--dictionary",
         type=Path,
         help="The JSON topology dictionary to compile against",
-        required=True
+        required=True,
     )
 
     arg_parser.add_argument(
@@ -135,12 +133,13 @@ def main():
 
     serialize_bytecode(args.input, args.dictionary, args.output)
 
-def serialize_bytecode(input: Path, dictionary: Path, output: Path=None):
-    """Given an input .fpybc file, and a dictionary .json file, converts the 
-    bytecode file into binary and writes it to the output file. If the output file 
+
+def serialize_bytecode(input: Path, dictionary: Path, output: Path = None):
+    """Given an input .fpybc file, and a dictionary .json file, converts the
+    bytecode file into binary and writes it to the output file. If the output file
     is None, writes it to the input file with a .bin extension"""
     cmd_json_dict_loader = CmdJsonLoader(str(dictionary))
-    (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
+    (_, cmd_name_dict, _) = cmd_json_dict_loader.construct_dicts(
         str(dictionary)
     )
 
@@ -155,27 +154,65 @@ def serialize_bytecode(input: Path, dictionary: Path, output: Path=None):
         )
         stmt_templates.append(stmt_template)
 
-    stmts = []
+    tlm_json_loader = ChJsonLoader(str(dictionary))
+    (_, tlm_name_dict, _) = tlm_json_loader.construct_dicts(
+        str(dictionary)
+    )
 
-    for line_idx, line in enumerate(input.read_text().splitlines()):
-        line = line.strip()
-        if line.startswith(";") or len(line) == 0:
-            # ignore comments, empty lines
-            continue
+    prm_json_loader = PrmJsonLoader(str(dictionary))
+    (_, prm_name_dict, _) = prm_json_loader.construct_dicts(
+        str(dictionary)
+    )
+
+    context = BytecodeParseContext()
+    context.types = cmd_json_dict_loader.parsed_types
+    context.channels = tlm_name_dict
+    context.params = prm_name_dict
+
+    input_lines = input.read_text().splitlines()
+    input_lines = [line.strip() for line in input_lines]
+    # remove comments and empty lines
+    input_lines = [
+        line for line in input_lines if not line.startswith(";") and len(line) > 0
+    ]
+
+    goto_tags = {}
+    stmt_idx = 0
+    statement_strs: list[str] = []
+    for stmt in input_lines:
+        if stmt.endswith(":"):
+            # it's a goto tag
+            goto_tags[stmt[:-1]] = stmt_idx
+        else:
+            statement_strs.append(stmt)
+            stmt_idx += 1
+
+    context.goto_tags = goto_tags
+
+    statements: list[StatementData] = []
+    for stmt_idx, stmt in enumerate(statement_strs):
         try:
-            stmt_data = parse_str_as_statement(line, stmt_templates)
-            stmts.append(stmt_data)
+            stmt_data = parse_str_as_statement(stmt, stmt_templates, context)
+            statements.append(stmt_data)
         except BaseException as e:
             raise RuntimeError(
-                "Exception while parsing line " + str(line_idx + 1)
+                "Exception while parsing statement index " + str(stmt_idx) + ": " + stmt
             ) from e
+
+    # perform some checks for things we know will fail
+    for stmt in statements:
+        if stmt.template.name == "GOTO":
+            if stmt.arg_values[0].val > len(statements):
+                raise RuntimeError(
+                    f"GOTO index is outside the valid range for this sequence (was {stmt.arg_values[0].val}, should be <{len(statements)})"
+                )
 
     output_bytes = bytes()
 
-    for stmt in stmts:
+    for stmt in statements:
         output_bytes += serialize_statement(stmt)
 
-    header = Header(0, 0, 0, 1, 0, len(stmts), len(output_bytes))
+    header = Header(0, 0, 0, 1, 0, len(statements), len(output_bytes))
     output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
 
     crc = zlib.crc32(output_bytes) % (1 << 32)

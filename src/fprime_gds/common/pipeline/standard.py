@@ -20,6 +20,7 @@ import fprime_gds.common.data_types.cmd_data
 import fprime_gds.common.distributor.distributor
 import fprime_gds.common.logger.data_logger
 from fprime_gds.common.transport import RoutingTag, ThreadedTCPSocketClient
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 # Local imports for the sake of composition
 from . import dictionaries, encoding, files, histories
@@ -56,7 +57,7 @@ class StandardPipeline:
 
     def setup(
         self,
-        config,
+        config: ConfigManager,
         dictionary,
         file_store,
         logging_prefix=None,
@@ -93,7 +94,11 @@ class StandardPipeline:
         # Setup dictionaries encoders and decoders
         self.dictionaries.load_dictionaries(
             self.dictionary_path, packet_spec, packet_set_name
-        )
+        )        
+        # Update config to use Fw types defined in the JSON dictionary
+        if self.dictionaries.fw_type_name:
+            for fw_type_name, fw_type in self.dictionaries.fw_type_name.items():
+                config.set("types", fw_type_name, fw_type)
         self.coders.setup_coders(
             self.dictionaries, self.distributor, self.client_socket, config
         )

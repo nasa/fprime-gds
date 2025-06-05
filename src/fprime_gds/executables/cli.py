@@ -19,6 +19,9 @@ import os
 import platform
 import re
 import sys
+
+import yaml
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -185,8 +188,9 @@ class ParserBase(ABC):
         Returns: namespace with processed results of arguments.
         """
 
-    @staticmethod
-    def parse_args(
+    @classmethod
+    def parse_known_args(
+        cls,
         parser_classes,
         description="No tool description provided",
         arguments=None,
@@ -196,7 +200,8 @@ class ParserBase(ABC):
 
         Create a parser for the given application using the description provided. This will then add all specified
         ParserBase subclasses' get_parser output as parent parses for the created parser. Then all of the handle
-        arguments methods will be called, and the final namespace will be returned.
+        arguments methods will be called, and the final namespace will be returned. This will allow unknown arguments
+        which are returned as the last tuple result.
 
         Args:
             parser_classes: a list of ParserBase subclasses that will be used to
@@ -204,10 +209,65 @@ class ParserBase(ABC):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
+        return cls._parse_args(parser_classes, description, arguments, use_parse_known=True, **kwargs)
+
+    @classmethod
+    def parse_args(
+        cls,
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        **kwargs,
+    ):
+        """Parse and post-process arguments
+
+        Create a parser for the given application using the description provided. This will then add all specified
+        ParserBase subclasses' get_parser output as parent parses for the created parser. Then all of the handle
+        arguments methods will be called, and the final namespace will be returned. This does not allow unknown
+        arguments.
+
+        Args:
+            parser_classes: a list of ParserBase subclasses that will be used to
+            description: description passed ot the argument parser
+            arguments: arguments to process, None to use command line input
+        Returns: namespace with all parsed arguments from all provided ParserBase subclasses
+        """
+        return cls._parse_args(parser_classes, description, arguments, **kwargs)
+
+
+    @staticmethod
+    def _parse_args(
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        use_parse_known=False,
+        **kwargs,
+    ):
+        """Parse and post-process arguments helper
+
+        Create a parser for the given application using the description provided. This will then add all specified
+        ParserBase subclasses' get_parser output as parent parses for the created parser. Then all of the handle
+        arguments methods will be called, and the final namespace will be returned.
+
+        This takes a function that will take in a parser and return the parsing function to call on arguments.
+
+        Args:
+            parse_function_processor: takes a parser, returns the parse function to call
+            parser_classes: a list of ParserBase subclasses that will be used to
+            description: description passed ot the argument parser
+            arguments: arguments to process, None to use command line input
+            use_parse_known: use parse_known_arguments from argparse
+
+        Returns: namespace with all parsed arguments from all provided ParserBase subclasses
+        """
         composition = CompositeParser(parser_classes, description)
         parser = composition.get_parser()
         try:
-            args_ns = parser.parse_args(arguments)
+            if use_parse_known:
+                args_ns, *unknowns = parser.parse_known_args(arguments)
+            else:
+                args_ns = parser.parse_args(arguments)
+                unknowns = []
             args_ns = composition.handle_arguments(args_ns, **kwargs)
         except ValueError as ver:
             print(f"[ERROR] Failed to parse arguments: {ver}", file=sys.stderr)
@@ -216,7 +276,7 @@ class ParserBase(ABC):
         except Exception as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
             sys.exit(-1)
-        return args_ns, parser
+        return args_ns, parser, *unknowns
 
     @staticmethod
     def find_in(token, deploy, is_file=True):
@@ -234,6 +294,106 @@ class ParserBase(ABC):
                 if re.match(f"^{str(token)}$", check):
                     return os.path.join(dirpath, check)
         return None
+
+
+class ConfigDrivenParser(ParserBase):
+    """ Parser that allows options from configuration and command line
+
+    This parser reads a configuration file (if supplied) and uses the values to drive the inputs to arguments. Command
+    line arguments will still take precedence over the configured values.
+    """
+    DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
+
+    @classmethod
+    def set_default_configuration(cls, path: Path):
+        """ Set path for (global) default configuration file
+
+        Set the path for default configuration file. If unset, will use 'fprime-gds.yml'. Set to None to disable default
+        configuration.
+        """
+        cls.DEFAULT_CONFIGURATION_PATH = path
+
+    @classmethod
+    def parse_args(
+        cls,
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        **kwargs,
+    ):
+        """ Parse and post-process arguments using inputs and config
+
+        Parse the arguments in two stages: first parse the configuration data, ignoring unknown inputs, then parse the
+        full argument set with the supplied configuration to fill in additional options.
+
+        Args:
+            parser_classes: a list of ParserBase subclasses that will be used to
+            description: description passed ot the argument parser
+            arguments: arguments to process, None to use command line input
+        Returns: namespace with all parsed arguments from all provided ParserBase subclasses
+        """
+        arguments = sys.argv[1:] if arguments is None else arguments
+
+        # Help should spill all the arguments, so delegate to the normal parsing flow including
+        # this and supplied parsers
+        if "-h" in arguments or "--help" in arguments:
+            parsers = [ConfigDrivenParser] + parser_classes
+            ParserBase.parse_args(parsers, description, arguments, **kwargs)
+            sys.exit(0)
+
+        # Custom flow involving parsing the arguments of this parser first, then passing the configured values
+        # as part of the argument source
+        ns_config, _, remaining = ParserBase.parse_known_args([ConfigDrivenParser], description, arguments, **kwargs)
+        config_options = ns_config.config_values.get("command-line-options", {})
+        config_args = cls.flatten_options(config_options)
+        # Argparse allows repeated (overridden) arguments, thus the CLI override is accomplished by providing
+        # remaining arguments after the configured ones
+        ns_full, parser = ParserBase.parse_args(parser_classes, description, config_args + remaining, **kwargs)
+        ns_final =  argparse.Namespace(**vars(ns_config), **vars(ns_full))
+        return ns_final, parser
+
+    @staticmethod
+    def flatten_options(configured_options):
+        """ Flatten options down to arguments """
+        flattened = []
+        for option, value in configured_options.items():
+            flattened.append(f"--{option}")
+            if value is not None:
+                flattened.extend(value if isinstance(value, (list, tuple)) else [f"{value}"])
+        return flattened
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """Arguments needed for config processing"""
+        return {
+            ("-c", "--config"): {
+                "dest": "config",
+                "required": False,
+                "default": self.DEFAULT_CONFIGURATION_PATH,
+                "type": Path,
+                "help": f"Argument configuration file path.",
+            }
+        }
+
+    def handle_arguments(self, args, **kwargs):
+        """ Handle the arguments
+
+        Loads the configuration file specified and fills in the `config_values` attribute of the namespace with the
+        loaded configuration dictionary.
+        """
+        args.config_values = {}
+        # Specified but non-existent config file is a hard error
+        if ("-c" in sys.argv[1:] or "--config" in sys.argv[1:]) and not args.config.exists():
+            raise ValueError(f"Specified configuration file '{args.config}' does not exist")
+        # Read configuration if the file was set and exists
+        if args.config is not None  and args.config.exists():
+            print(f"[INFO] Reading command-line configuration from: {args.config}")
+            with open(args.config, "r") as file_handle:
+                try:
+                    loaded = yaml.safe_load(file_handle)
+                    args.config_values = loaded if loaded is not None else {}
+                except Exception as exc:
+                    raise ValueError(f"Malformed configuration {args.config}: {exc}", exc)
+        return args
 
 
 class DetectionParser(ParserBase):

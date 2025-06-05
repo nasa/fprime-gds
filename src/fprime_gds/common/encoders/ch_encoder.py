@@ -57,8 +57,8 @@ class ChEncoder(Encoder):
         super().__init__(config)
 
         self.len_obj = self.config.get_type("msg_len")
-        self.desc_obj = self.config.get_type("msg_desc")
-        self.id_obj = self.config.get_type("ch_id")
+        self.desc_obj = self.config.get_type("FwPacketDescriptorType")
+        self.id_obj = self.config.get_type("FwChanIdType")
 
     def encode_api(self, data):
         """

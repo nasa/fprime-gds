@@ -45,7 +45,7 @@ class PktDecoder(ChDecoder):
         super().__init__(ch_dict, config)
 
         self.__dict = pkt_name_dict
-        self.id_obj = config.get_type("pkt_id")
+        self.id_obj = config.get_type("FwTlmPacketizeIdType")
 
     def decode_api(self, data):
         """
