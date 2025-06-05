@@ -39,7 +39,9 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         """ Frame the supplied data in a TC frame
         """
         space_packet_bytes = data
-        length = len(space_packet_bytes)
+        # CCSDS TC protocol defines the length token as number of bytes in full frame, minus 1
+        # so we add to packet size the size of the header and trailer and subtract 1
+        length = len(space_packet_bytes) + self.TC_HEADER_SIZE + self.TC_TRAILER_SIZE - 1
         assert length < (pow(2, 10) - 1), "Length too-large for CCSDS format"
 
         # CCSDS TC Header:
@@ -63,7 +65,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         header_bytes = struct.pack(">IB", header, sequence_number)
         assert len(header_bytes) == self.TC_HEADER_SIZE, "CCSDS primary header must be 5 octets long"
         full_bytes_no_crc = header_bytes + space_packet_bytes
-        assert len(full_bytes_no_crc) == self.TC_HEADER_SIZE + length, "Malformed packet generated"
+        assert len(full_bytes_no_crc) == self.TC_HEADER_SIZE + len(data), "Malformed packet generated"
 
         full_bytes = full_bytes_no_crc + struct.pack(">H", self.CRC_CALCULATOR.checksum(full_bytes_no_crc))
         return full_bytes
