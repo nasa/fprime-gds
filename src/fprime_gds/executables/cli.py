@@ -209,7 +209,7 @@ class ParserBase(ABC):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
-        return cls._parse_args(lambda parse: parse.parse_known_args, parser_classes, description, arguments, **kwargs)
+        return cls._parse_args(parser_classes, description, arguments, allow_unkowns=True, **kwargs)
 
     @classmethod
     def parse_args(
@@ -232,22 +232,15 @@ class ParserBase(ABC):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
-        def tuple_wrapper(parser):
-            """ From a parser, get a closure that wraps parse_args as a one argument tuple """
-            def wrapper(arguments):
-                """ Return parse args as a 1-argument tuple """
-                return (parser.parse_args(arguments), )
-            return wrapper
-
-        return cls._parse_args(tuple_wrapper, parser_classes, description, arguments, **kwargs)
+        return cls._parse_args(parser_classes, description, arguments, **kwargs)
 
 
     @staticmethod
     def _parse_args(
-        parse_function_processor,
         parser_classes,
         description="No tool description provided",
         arguments=None,
+        allow_unknowns=False,
         **kwargs,
     ):
         """Parse and post-process arguments helper
@@ -269,7 +262,11 @@ class ParserBase(ABC):
         composition = CompositeParser(parser_classes, description)
         parser = composition.get_parser()
         try:
-            args_ns, *unknowns = parse_function_processor(parser)(arguments)
+            if allow_unknowns:
+                args_ns, *unknowns = parser.parse_known_args(arguments)
+            else:
+                args_ns = parser.parse_args(arguments)
+                unknowns = []
             args_ns = composition.handle_arguments(args_ns, **kwargs)
         except ValueError as ver:
             print(f"[ERROR] Failed to parse arguments: {ver}", file=sys.stderr)
