@@ -46,4 +46,4 @@ value="(?:[0-9a-f]{1,2} )*"
 `(.*?)`
 
 # Python struct packing patterns
-r'["\']([<>])[xcbB?hHiIlLqQnNefdspP]+["\']'
+["\']([<>])[xcbB?hHiIlLqQnNefdspP]+["\']

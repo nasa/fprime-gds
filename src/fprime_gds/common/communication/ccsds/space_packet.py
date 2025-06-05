@@ -98,7 +98,6 @@ class SpacePacketFramerDeframer(FramerDeframer):
                 LOGGER.debug(f"Deframed packet: {sp_header}")
                 return deframed, data, discarded
             else:
-                LOGGER.debug(f"ERROR: Not enough data to read packet: {sp_header}")
                 # If we don't have enough data, then break out of the loop
                 break
         return None, data, discarded

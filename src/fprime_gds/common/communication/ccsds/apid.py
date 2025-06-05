@@ -4,6 +4,7 @@ from fprime.common.models.serialize.numerical_types import U32Type
 
 class APID(object):
     """ APID implementations """
+    #TODO: use the DataDescType configured by loading the dictionary
 
     @classmethod
     def from_type(cls, data_type: DataDescType):
