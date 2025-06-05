@@ -21,7 +21,7 @@ def test_frame_valid_data(framer_deframer):
 def test_frame_invalid_data(framer_deframer):
     """Test framing valid data with an incorrect DataDescType prefixed."""
     # Prefix with 4 bytes corresponding to the DataDescType
-    data = b"\xff\xff\xff\xfftest_payload"
+    data = b"\xff\xff\xff\xff" + b"test_payload"
     # Invalid DataDescType, should raise ValueError
     with pytest.raises(ValueError):
         framed_data = framer_deframer.frame(data)

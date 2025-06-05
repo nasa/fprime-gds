@@ -38,7 +38,7 @@ def test_deframe_valid_frame(framer_deframer):
         - SpaceDataLinkFramerDeframer.TM_HEADER_SIZE
         - SpaceDataLinkFramerDeframer.TM_TRAILER_SIZE
     )
-    gvcid_u16 = (SCID_TEST_VALUE << 4) | (VCID_TEST_VALUE << 1)
+    global_vcid_u16 = (SCID_TEST_VALUE << 4) | (VCID_TEST_VALUE << 1)
     mc_count_u8 = 0
     vc_count_u8 = 0
     status_u16 = 0
@@ -46,7 +46,7 @@ def test_deframe_valid_frame(framer_deframer):
     input_data_no_crc = (
         struct.pack(
             ">HBBH",
-            gvcid_u16,
+            global_vcid_u16,
             mc_count_u8,
             vc_count_u8,
             status_u16,
@@ -67,7 +67,7 @@ def test_deframe_incorrect_crc(framer_deframer):
         - SpaceDataLinkFramerDeframer.TM_HEADER_SIZE
         - SpaceDataLinkFramerDeframer.TM_TRAILER_SIZE
     )
-    gvcid_u16 = (SCID_TEST_VALUE << 4) | (VCID_TEST_VALUE << 1)
+    global_vcid_u16 = (SCID_TEST_VALUE << 4) | (VCID_TEST_VALUE << 1)
     mc_count_u8 = 0
     vc_count_u8 = 0
     status_u16 = 0
@@ -75,7 +75,7 @@ def test_deframe_incorrect_crc(framer_deframer):
     input_data_no_crc = (
         struct.pack(
             ">HBBH",
-            gvcid_u16,
+            global_vcid_u16,
             mc_count_u8,
             vc_count_u8,
             status_u16,

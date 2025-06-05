@@ -69,7 +69,7 @@ class SpacePacketFramerDeframer(FramerDeframer):
                 data = data[1:]
                 continue
             if sp_header.ccsds_version != 0 or sp_header.packet_type != PacketType.TM:
-                # Space Packet version is speicifed as 0 per protocol
+                # Space Packet version is specified as 0 per protocol
                 discarded += data[0:1]
                 data = data[1:]
                 continue
