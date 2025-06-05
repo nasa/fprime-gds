@@ -128,7 +128,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
                 deframed = struct.unpack_from(
                     f">{deframed_data_len}s", data, self.TM_HEADER_SIZE
                 )[0]
-                # Discard the fixed size frame
+                # Consume the fixed size frame
                 data = data[self.TM_FIXED_FRAME_SIZE :]
                 return deframed, data, discarded
 
