@@ -11,6 +11,7 @@ that implement this pattern. The current list of implementation classes are:
 
 @author lestarch
 """
+
 from __future__ import annotations
 import abc
 import copy
@@ -19,7 +20,10 @@ import sys
 from typing import Type
 
 from .checksum import calculate_checksum, CHECKSUM_MAPPING
-from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin_specification
+from fprime_gds.plugin.definitions import (
+    gds_plugin_implementation,
+    gds_plugin_specification,
+)
 
 
 class FramerDeframer(abc.ABC):
@@ -39,7 +43,9 @@ class FramerDeframer(abc.ABC):
         """
 
     @abc.abstractmethod
-    def deframe(self, data: bytes, no_copy=False) -> tuple[(list[bytes] | bytes | None), bytes, bytes]:
+    def deframe(
+        self, data: bytes, no_copy=False
+    ) -> tuple[(list[bytes] | bytes | None), bytes, bytes]:
         """
         Deframes the incoming data from the specified format. Produces n packets (n>=0), and leftover bytes. Users
         wanting all packets to be deframed should call "deframe_all". If no full packet is available, this method
@@ -69,13 +75,12 @@ class FramerDeframer(abc.ABC):
             # Deframe and return only on None
             (deframed, data, discarded) = self.deframe(data, no_copy=True)
             discarded_aggregate += discarded
-            if deframed is None: # No more packets available, return aggregate
+            if deframed is None:  # No more packets available, return aggregate
                 return packets, data, discarded_aggregate
-            if isinstance(deframed, list): # list of bytes
+            if isinstance(deframed, list):  # list of bytes
                 packets.extend(deframed)
             else:
                 packets.append(deframed)
-
 
     @classmethod
     @gds_plugin_specification
@@ -122,7 +127,7 @@ class FpFramerDeframer(FramerDeframer):
     HEADER_FORMAT = None
     START_TOKEN = None
 
-    def __init__(self, checksum_type = "crc32"):
+    def __init__(self, checksum_type="crc32"):
         """Sets constants on construction."""
         # Setup the constants as soon as possible.
         FpFramerDeframer.set_constants()
@@ -202,8 +207,7 @@ class FpFramerDeframer(FramerDeframer):
                 )
                 # If the checksum is valid, return the packet. Otherwise continue to rotate
                 if check == calculate_checksum(
-                    data[: data_size + FpFramerDeframer.HEADER_SIZE],
-                    self.checksum
+                    data[: data_size + FpFramerDeframer.HEADER_SIZE], self.checksum
                 ):
                     data = data[total_size:]
                     return deframed, data, discarded
@@ -221,13 +225,13 @@ class FpFramerDeframer(FramerDeframer):
 
     @classmethod
     def get_name(cls):
-        """ Get the name of this plugin """
+        """Get the name of this plugin"""
         return "fprime"
 
     @classmethod
     @gds_plugin_implementation
     def register_framing_plugin(cls):
-        """ Register a bad plugin """
+        """Register a bad plugin"""
         return cls
 
 
