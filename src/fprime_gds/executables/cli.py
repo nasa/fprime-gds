@@ -209,7 +209,7 @@ class ParserBase(ABC):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
-        return cls._parse_args(parser_classes, description, arguments, allow_unkowns=True, **kwargs)
+        return cls._parse_args(parser_classes, description, arguments, allow_unknowns=True, **kwargs)
 
     @classmethod
     def parse_args(
