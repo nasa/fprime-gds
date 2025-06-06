@@ -37,17 +37,9 @@ suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
      | number
      | "True"    -> const_true
      | "False"   -> const_false
-     | "(" test ")" // the final case--go back to top of parse
+     | "(" atom_expr ")" // the final case--go back to top of parse
 
-arguments: argvalue ("," argvalue)*  ("," [ starargs | kwargs])?
-         | starargs
-         | kwargs
-
-starargs: stararg ("," stararg)* ("," argvalue)* ["," kwargs]
-stararg: "*" test
-kwargs: "**" test ("," argvalue)*
-
-?argvalue: test ("=" test)?
+arguments: atom_expr ("," atom_expr)*
 
 // not used in grammar, but may appear in "node" passed from Parser to Compiler
 encoding_decl: name

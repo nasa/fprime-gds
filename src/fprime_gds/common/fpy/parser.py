@@ -117,6 +117,10 @@ class FuncDef(Ast):
     return_type: Ast
     body: ScopedBody
 
+@dataclass
+class Literal(Ast):
+    value: Any
+
 
 @v_args(meta=False, inline=False)
 def as_list(self, tree):
@@ -140,7 +144,10 @@ class FpyTransformer(Transformer):
     NAME = str
     # an actual string literal
     STRING = str
+    FLOAT_NUMBER = float
+    DEC_NUMBER = int
 
+    number = Literal
     input = as_body
     expr_stmt = Expr
     funccall = Call

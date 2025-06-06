@@ -15,6 +15,8 @@ from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.enum_type import EnumType, REPRESENTATION_TYPE_MAP
+from fprime.common.models.serialize.serializable_type import SerializableType
+from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
@@ -32,6 +34,7 @@ from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
     AnnAssign,
     Ast,
+    Literal,
     ScopedBody,
     Expr,
     FuncDef,
@@ -44,6 +47,33 @@ from fprime_gds.common.fpy.parser import (
 )
 from fprime.common.models.serialize.type_base import BaseType
 
+NUMERIC_TYPES = (
+    U32Type,
+    U16Type,
+    U64Type,
+    U8Type,
+    I16Type,
+    I32Type,
+    I64Type,
+    I8Type,
+    F32Type,
+    F64Type,
+)
+INTEGER_TYPES = (
+    U32Type,
+    U16Type,
+    U64Type,
+    U8Type,
+    I16Type,
+    I32Type,
+    I64Type,
+    I8Type,
+)
+FLOAT_TYPES = (
+    F32Type,
+    F64Type,
+)
+
 
 class CompileException(BaseException):
     def __init__(self, msg, node: Ast):
@@ -51,35 +81,43 @@ class CompileException(BaseException):
         self.node = node
 
     def __str__(self):
-        return f"At line {self.node.meta.line}: {self.msg}"
+        return f"At line {self.node.meta.line} {self.node}: {self.msg}"
 
 
 FpyBuiltin = str
 
-FpySymbol = ChTemplate | PrmTemplate | type[BaseType] | CmdTemplate | FpyBuiltin
+
+@dataclass
+class FpyCallable:
+    return_type: type[BaseType] | None
+    args: list[tuple[str, type[BaseType]]]
+    action: CmdTemplate | FpyBuiltin | None
+
+
+# named symbols can be tlm chans, prms, callables, or directly referenced consts (usually enums)
+FpySymbol = ChTemplate | PrmTemplate | FpyCallable | BaseType
 
 
 @dataclass
 class CompileState:
-    symbol_tables: dict[int, dict[str, FpySymbol]]
+    tlms: dict[str, ChTemplate] = field(repr=False, default_factory=dict)
+    prms: dict[str, PrmTemplate] = field(repr=False, default_factory=dict)
+    consts: dict[str, BaseType] = field(repr=False, default_factory=dict)
+    callables: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
+
+    symbol_tables: dict[int, dict[str, FpySymbol]] = field(default_factory=dict)
     """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
 
-    parent_scope: dict[int, int | None]
+    parent_scope: dict[int, int | None] = field(default_factory=dict)
     """a dict tracking the parent scope of each ast node. keys are ast node uid, values are uid of parent scopedbody"""
 
-    tlms: dict[str, ChTemplate] = field(repr=False)
-    prms: dict[str, PrmTemplate] = field(repr=False)
-    types: dict[str, type[BaseType]] = field(repr=False)
-    cmds: dict[str, CmdTemplate] = field(repr=False)
-    builtins: dict[str, FpyBuiltin] = field(repr=False)
-    consts: dict[str, BaseType] = field(repr=False)
-
-    errors: list[CompileException]
-
-    references: dict[int, FpySymbol]
+    references: dict[int, FpySymbol] = field(default_factory=dict)
     """a dict mapping ast node uid to which symbol it references"""
 
-    compiled_exprs: dict[int, list[StatementData]]
+    types: dict[int, type[BaseType]] = field(default_factory=dict)
+    """a dict mapping ast node uid to which BaseType it resolves to"""
+
+    errors: list[CompileException] = field(default_factory=list)
 
     def lookup_symbol(self, symbol: str, at_node: Ast) -> FpySymbol | None:
         # first check if there's a symbol defined in the sequence
@@ -92,18 +130,12 @@ class CompileState:
             parent = self.parent_scope[parent]
 
         # check for the symbol in all the global symbol tables
-        builtin = self.builtins.get(symbol, None)
-        if builtin is not None:
-            return builtin
-        type = self.types.get(symbol, None)
-        if type is not None:
-            return type
+        callable = self.callables.get(symbol, None)
+        if callable is not None:
+            return callable
         const = self.consts.get(symbol, None)
         if const is not None:
             return const
-        cmd = self.cmds.get(symbol, None)
-        if cmd is not None:
-            return cmd
         tlm = self.tlms.get(symbol, None)
         if tlm is not None:
             return tlm
@@ -289,32 +321,95 @@ class ResolveReferences(TopDownCompilePass):
         symbol = state.lookup_symbol(fqn, node)
         if symbol is not None:
             state.references[node.id] = symbol
+            print(fqn, symbol)
 
 
-class InstantiateTypes(CompilePass):
+class TypeCheckCalls(CompilePass):
     def visit_Call(self, parent, node: Call, state: CompileState):
-        # cmd or directive call
-        # get which dir/cmd it's referring to
         ref = state.references.get(node.func.id, None)
         if ref is None:
-            state.errors.append(CompileException("Unknown function", node))
+            state.errors.append(CompileException("Unknown reference", node))
             return
 
-        if not isinstance(ref, type):
-            # not instantiating a type
+        if not isinstance(ref, FpyCallable):
+            # calling something that isn't callable
+            state.errors.append(CompileException("Invalid syntax (not callable)", node))
             return
 
-        if issubclass(ref, EnumType):
-            state.errors.append(CompileException("Invalid syntax", node))
+        node_arg_count = len(node.args) if node.args is not None else 0
+        if node_arg_count != len(ref.args):
+            if len(node.args) < len(ref.args):
+                state.errors.append(CompileException("Missing arguments", node))
+                return
+            state.errors.append(CompileException("Too many arguments", node))
             return
 
-        print(node.args)
+        if node_arg_count == 0:
+            # no args. good 2 go
+            return
 
-        # yes instantiating a type
+        for value, arg_template in zip(node.args, ref.args):
+            arg_name, arg_type = arg_template
+            # check type of value matches expected type of template
 
-        # right now we only support initializing types thru consts
-        # for arg in node.args:
-        #     if arg.
+            if isinstance(value, Literal):
+                if not is_literal_compatible(value.value, arg_type):
+                    state.errors.append(
+                    CompileException(
+                        f"Wrong type for arg {arg_name} ({type(value)} cannot be converted to {arg_type})",
+                        node,
+                    )
+                    )
+                    return
+                # literal value, compatible with expected type
+                continue
+
+            if isinstance(value, Call):
+                # a call's type is defined by its function
+                ref = state.references.get(value.func.id, None)
+            else:
+                # some ast node. get what type it references
+                ref = state.references.get(value.id, None)
+
+            if ref is None:
+                state.errors.append(
+                    CompileException("Invalid syntax (unknown reference)", value)
+                )
+                return
+
+            if isinstance(ref, FpyCallable):
+                existing_value_type = ref.return_type
+            elif isinstance(ref, BaseType):
+                existing_value_type = type(ref)
+            else:
+                state.errors.append(
+                    CompileException("Invalid syntax (invalid argument)", value)
+                )
+                return
+
+            if existing_value_type != arg_type:
+                state.errors.append(
+                    CompileException(
+                        f"Wrong type for arg {arg_name} (expected {arg_type} found {existing_value_type})",
+                        node,
+                    )
+                )
+                return
+
+
+def is_literal_compatible(literal, typ):
+    if isinstance(literal, int) and issubclass(typ, NUMERIC_TYPES):
+        # fine to coerce an int to a float
+        return True
+    if isinstance(literal, float) and issubclass(typ, FLOAT_TYPES):
+        # can't convert float to int
+        return True
+    if isinstance(literal, str) and typ == StringType:
+        return True
+    if isinstance(literal, bool) and typ == BoolType:
+        return True
+
+    return False
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -344,40 +439,45 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
     # insert the implicit types into the dict
     type_name_dict["Fw.Time"] = TimeType
-    type_name_dict["U64"] = U64Type
-    type_name_dict["U32"] = U32Type
-    type_name_dict["U16"] = U16Type
-    type_name_dict["U8"] = U8Type
-    type_name_dict["I64"] = I64Type
-    type_name_dict["I32"] = I32Type
-    type_name_dict["I16"] = I16Type
-    type_name_dict["I8"] = I8Type
-    type_name_dict["F64"] = F64Type
-    type_name_dict["F32"] = F32Type
+    for typ in NUMERIC_TYPES:
+        type_name_dict[typ.get_canonical_name()] = typ
+        print(typ, typ.get_canonical_name())
     type_name_dict["bool"] = BoolType
     type_name_dict["str"] = StringType
 
-    stmt_name_dict = {directive.name: directive for directive in FPY_DIRECTIVES}
-    for cmd_template in cmd_name_dict.values():
-        stmt_template = StatementTemplate(
-            cmd_template.opcode,
-            cmd_template.get_full_name(),
-            [arg[2] for arg in cmd_template.arguments],
-        )
-        stmt_name_dict[cmd_template.get_full_name()] = stmt_template
+    callable_name_dict = {}
+    for name, cmd in cmd_name_dict.items():
+        cmd: CmdTemplate
+        args = []
+        for arg_name, _, arg_type in cmd.arguments:
+            args.append((arg_name, arg_type))
+        callable_name_dict[name] = FpyCallable(None, args, cmd)
+
+    for name, typ in type_name_dict.items():
+        args = []
+        if issubclass(typ, SerializableType):
+            for arg_name, arg_type, _, _ in typ.MEMBER_LIST:
+                args.append((arg_name, arg_type))
+        elif issubclass(typ, ArrayType):
+            for i in range(0, typ.LENGTH):
+                args.append(("e" + str(i), typ.MEMBER_TYPE))
+        elif issubclass(typ, TimeType):
+            args.append(("time_base", U16Type))
+            args.append(("time_context", U8Type))
+            args.append(("seconds", U32Type))
+            args.append(("useconds", U32Type))
+        else:
+            # bool, enum, string or numeric type
+            # none of these have callable ctors
+            continue
+
+        callable_name_dict[name] = FpyCallable(typ, args, None)
 
     state = CompileState(
-        {},
-        {},
         tlms=ch_name_dict,
         prms=prm_name_dict,
-        cmds=cmd_name_dict,
-        types=type_name_dict,
-        builtins={},
-        references={},
-        errors=[],
-        compiled_exprs={},
-        consts=enum_consts
+        consts=enum_consts,
+        callables=callable_name_dict,
     )
     return state
 
@@ -389,7 +489,7 @@ def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
         CreateScopes(),
         CreateSymbolTables(),
         ResolveReferences(),
-        InstantiateTypes(),
+        TypeCheckCalls(),
     ]
     for compile_pass in passes:
         compile_pass.run(body, state)

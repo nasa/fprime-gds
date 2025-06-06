@@ -106,3 +106,10 @@ def test_cmd_with_enum(fprime_test_api):
 Ref.SG5.Settings(123, 0.5, 0.5, Ref.SignalType.TRIANGLE)
 """
     assert_success(fprime_test_api, seq)
+
+
+def test_instantiate_type_for_cmd(fprime_test_api):
+    seq = """
+Ref.typeDemo.CHOICE_PAIR(Ref.ChoicePair(Ref.Choice.ONE, Ref.Choice.TWO))
+"""
+    assert_success(fprime_test_api, seq)
