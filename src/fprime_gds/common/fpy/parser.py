@@ -53,7 +53,7 @@ class Expr(Ast):
 
 @dataclass()
 class Call(Ast):
-    func: list[Ast]
+    func: Ast
     args: list[Ast]
 
 
@@ -128,6 +128,11 @@ def as_body(self, meta, tree):
     return ScopedBody(meta, tree)
 
 
+@v_args(meta=False, inline=True)
+def as_str(self, value):
+    return str(value)
+
+
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
     const_true = lambda self, _: True
@@ -139,11 +144,11 @@ class FpyTransformer(Transformer):
     input = as_body
     expr_stmt = Expr
     funccall = Call
-    name = Name
+    name = as_str
     var = Var
     getattr = Attr
     if_stmt = If
-    suite = as_body
+    suite = as_list
     arguments = as_list
     # the string ast node
     string = String

@@ -53,6 +53,7 @@ var: U32.asdf = 1
 
     assert_failure(fprime_test_api, seq)
 
+
 def test_reassign(fprime_test_api):
     seq = """
 var: U32 = 1
@@ -60,13 +61,15 @@ var = 2
 """
 
     assert_success(fprime_test_api, seq)
-    
+
+
 def test_reassign_ann(fprime_test_api):
     seq = """
 var: U32 = 1
 var: U32 = 2
 """
     assert_success(fprime_test_api, seq)
+
 
 def test_assign_inconsistent_type(fprime_test_api):
     seq = """
@@ -75,3 +78,31 @@ var: U16 = 2
 """
 
     assert_failure(fprime_test_api, seq)
+
+
+def test_call_cmd(fprime_test_api):
+    seq = """
+Ref.cmdDisp.CMD_NO_OP()
+"""
+    assert_success(fprime_test_api, seq)
+
+
+def test_call_cmd_with_int_arg(fprime_test_api):
+    seq = """
+Ref.sendBuffComp.PARAMETER3_PRM_SET(4)
+"""
+    assert_success(fprime_test_api, seq)
+
+
+def test_bad_enum_ctor(fprime_test_api):
+    seq = """
+Ref.SG5.Settings(123, 0.5, 0.5, Ref.SignalType(1))
+"""
+    assert_failure(fprime_test_api, seq)
+
+
+def test_cmd_with_enum(fprime_test_api):
+    seq = """
+Ref.SG5.Settings(123, 0.5, 0.5, Ref.SignalType.TRIANGLE)
+"""
+    assert_success(fprime_test_api, seq)

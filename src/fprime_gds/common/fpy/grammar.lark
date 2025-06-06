@@ -4,9 +4,8 @@ input: (_NEWLINE | stmt)*
 
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
-?small_stmt: (expr_stmt | assign_stmt | pass_stmt )
+?small_stmt: (expr_stmt | annassign | assign | pass_stmt )
 expr_stmt: atom_expr
-?assign_stmt: annassign | assign
 
 annassign: atom_expr ":" atom_expr "=" atom_expr
 assign: atom_expr "=" atom_expr

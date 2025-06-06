@@ -6,14 +6,15 @@ from fprime_gds.common.fpy.bytecode.types import (
     FPY_DIRECTIVES,
     StatementData,
     StatementTemplate,
-    StatementType,
 )
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 from fprime_gds.common.templates.ch_template import ChTemplate
+from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime.common.models.serialize.time_type import TimeType
+from fprime.common.models.serialize.enum_type import EnumType, REPRESENTATION_TYPE_MAP
 from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
@@ -53,7 +54,9 @@ class CompileException(BaseException):
         return f"At line {self.node.meta.line}: {self.msg}"
 
 
-FpySymbol = type[BaseType]
+FpyBuiltin = str
+
+FpySymbol = ChTemplate | PrmTemplate | type[BaseType] | CmdTemplate | FpyBuiltin
 
 
 @dataclass
@@ -66,12 +69,20 @@ class CompileState:
 
     tlms: dict[str, ChTemplate] = field(repr=False)
     prms: dict[str, PrmTemplate] = field(repr=False)
-    stmts: dict[str, StatementTemplate] = field(repr=False)
     types: dict[str, type[BaseType]] = field(repr=False)
+    cmds: dict[str, CmdTemplate] = field(repr=False)
+    builtins: dict[str, FpyBuiltin] = field(repr=False)
+    consts: dict[str, BaseType] = field(repr=False)
 
     errors: list[CompileException]
 
+    references: dict[int, FpySymbol]
+    """a dict mapping ast node uid to which symbol it references"""
+
+    compiled_exprs: dict[int, list[StatementData]]
+
     def lookup_symbol(self, symbol: str, at_node: Ast) -> FpySymbol | None:
+        # first check if there's a symbol defined in the sequence
         parent = self.parent_scope[at_node.id]
         while parent is not None:
             table = self.symbol_tables[parent]
@@ -79,6 +90,27 @@ class CompileState:
                 return table[symbol]
 
             parent = self.parent_scope[parent]
+
+        # check for the symbol in all the global symbol tables
+        builtin = self.builtins.get(symbol, None)
+        if builtin is not None:
+            return builtin
+        type = self.types.get(symbol, None)
+        if type is not None:
+            return type
+        const = self.consts.get(symbol, None)
+        if const is not None:
+            return const
+        cmd = self.cmds.get(symbol, None)
+        if cmd is not None:
+            return cmd
+        tlm = self.tlms.get(symbol, None)
+        if tlm is not None:
+            return tlm
+        prm = self.prms.get(symbol, None)
+        if prm is not None:
+            return prm
+
         return None
 
     def add_symbol(self, symbol_name: str, symbol_type: FpySymbol, at_node: Ast):
@@ -175,7 +207,7 @@ class CreateSymbolTables(TopDownCompilePass):
 
     def visit_AnnAssign(self, parent, node: AnnAssign, state: CompileState):
         if not isinstance(node.variable, Var) or not isinstance(
-            node.variable.value, Name
+            node.variable.value, str
         ):
             state.errors.append(
                 CompileException(
@@ -186,7 +218,7 @@ class CreateSymbolTables(TopDownCompilePass):
             return
 
         if not isinstance(node.ann_type, Var) or not isinstance(
-            node.ann_type.value, Name
+            node.ann_type.value, str
         ):
             state.errors.append(
                 CompileException(
@@ -196,23 +228,23 @@ class CreateSymbolTables(TopDownCompilePass):
             return
 
         # okay we're assigning a variable to something, with an annotation. look it up in the symbol table
-        existing_symbol = state.lookup_symbol(node.variable.value.value, node.variable)
+        existing_symbol = state.lookup_symbol(node.variable.value, node.variable)
         if not existing_symbol:
             # new symbol. put it in the table under this scope
-            sym_type = state.types.get(node.ann_type.value.value, None)
+            sym_type = state.types.get(node.ann_type.value, None)
             if sym_type is None:
                 state.errors.append(
-                    CompileException(f"Unknown type {node.ann_type.value.value}", node)
+                    CompileException(f"Unknown type {node.ann_type.value}", node)
                 )
                 return
             state.add_symbol(
-                node.variable.value.value,
+                node.variable.value,
                 sym_type,
                 node,
             )
         else:
             # already existing. check the type is consistent
-            new_type = state.types[node.ann_type.value.value]
+            new_type = state.types[node.ann_type.value]
             if existing_symbol != new_type:
                 state.errors.append(
                     CompileException(
@@ -225,7 +257,7 @@ class CreateSymbolTables(TopDownCompilePass):
 
     def visit_Assign(self, parent, node: Assign, state: CompileState):
         if not isinstance(node.variable, Var) or not isinstance(
-            node.variable.value, Name
+            node.variable.value, str
         ):
             state.errors.append(
                 CompileException(
@@ -236,7 +268,7 @@ class CreateSymbolTables(TopDownCompilePass):
             return
 
         # okay we're assigning a variable to something, without an annotation. look it up in the symbol table
-        existing = state.lookup_symbol(node.variable.value.value, node.variable)
+        existing = state.lookup_symbol(node.variable.value, node.variable)
         if not existing:
             # error because this isn't an annotated assignment. right now all assignments must be annotated
             state.errors.append(
@@ -245,10 +277,44 @@ class CreateSymbolTables(TopDownCompilePass):
                 )
             )
 
-class CompileBodies(CompilePass):
-    def visit_ScopedBody(self, parent, node: ScopedBody, state: CompileState):
-        for stmt in node.stmts:
-            print(stmt)
+
+class ResolveReferences(TopDownCompilePass):
+    def visit_Attr(self, parent, node: Attr, state: CompileState):
+        def get_fqn(attr: Attr):
+            if isinstance(attr.value, Var):
+                return attr.value.value + "." + attr.name
+            return get_fqn(attr.value) + "." + attr.name
+
+        fqn = get_fqn(node)
+        symbol = state.lookup_symbol(fqn, node)
+        if symbol is not None:
+            state.references[node.id] = symbol
+
+
+class InstantiateTypes(CompilePass):
+    def visit_Call(self, parent, node: Call, state: CompileState):
+        # cmd or directive call
+        # get which dir/cmd it's referring to
+        ref = state.references.get(node.func.id, None)
+        if ref is None:
+            state.errors.append(CompileException("Unknown function", node))
+            return
+
+        if not isinstance(ref, type):
+            # not instantiating a type
+            return
+
+        if issubclass(ref, EnumType):
+            state.errors.append(CompileException("Invalid syntax", node))
+            return
+
+        print(node.args)
+
+        # yes instantiating a type
+
+        # right now we only support initializing types thru consts
+        # for arg in node.args:
+        #     if arg.
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -267,6 +333,15 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     )
     type_name_dict = cmd_json_dict_loader.parsed_types
     type_name_dict.update(ch_json_dict_loader.parsed_types)
+    type_name_dict.update(prm_json_dict_loader.parsed_types)
+
+    enum_consts: dict[str, BaseType] = {}
+
+    for name, typ in type_name_dict.items():
+        if issubclass(typ, EnumType):
+            for enum_const_name, val in typ.ENUM_DICT.items():
+                enum_consts[name + "." + enum_const_name] = typ(enum_const_name)
+
     # insert the implicit types into the dict
     type_name_dict["Fw.Time"] = TimeType
     type_name_dict["U64"] = U64Type
@@ -285,7 +360,6 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     stmt_name_dict = {directive.name: directive for directive in FPY_DIRECTIVES}
     for cmd_template in cmd_name_dict.values():
         stmt_template = StatementTemplate(
-            StatementType.CMD,
             cmd_template.opcode,
             cmd_template.get_full_name(),
             [arg[2] for arg in cmd_template.arguments],
@@ -297,17 +371,28 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         {},
         tlms=ch_name_dict,
         prms=prm_name_dict,
-        stmts=stmt_name_dict,
+        cmds=cmd_name_dict,
         types=type_name_dict,
+        builtins={},
+        references={},
         errors=[],
+        compiled_exprs={},
+        consts=enum_consts
     )
     return state
 
 
 def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
     state = get_base_compile_state(dictionary)
-    passes: list[CompilePass] = [AssignIds(), CreateScopes(), CreateSymbolTables(), CompileBodies()]
+    passes: list[CompilePass] = [
+        AssignIds(),
+        CreateScopes(),
+        CreateSymbolTables(),
+        ResolveReferences(),
+        InstantiateTypes(),
+    ]
     for compile_pass in passes:
         compile_pass.run(body, state)
+        print(state)
         for error in state.errors:
             raise error

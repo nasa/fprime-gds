@@ -26,16 +26,10 @@ def get_type_obj_for(type: str) -> type[ValueType]:
     raise RuntimeError("Unknown FPrime type alias " + str(type))
 
 
-class StatementType(Enum):
-    DIRECTIVE = 0
-    CMD = 1
-
-
 @dataclass
 class StatementTemplate:
     """a statement with unspecified argument values"""
 
-    statement_type: StatementType
     opcode: int
     name: str
     """fully qualified statement name"""
@@ -159,43 +153,36 @@ def prm_id_from_json(js, ctx: BytecodeParseContext):
 
 FPY_DIRECTIVES: list[StatementTemplate] = [
     StatementTemplate(
-        StatementType.DIRECTIVE,
         DirectiveOpcode.WAIT_REL.value,
         "WAIT_REL",
         [U32Type, U32Type],
     ),
     StatementTemplate(
-        StatementType.DIRECTIVE,
         DirectiveOpcode.WAIT_ABS.value,
         "WAIT_ABS",
         [time_type_from_json],
     ),
     StatementTemplate(
-        StatementType.DIRECTIVE,
         DirectiveOpcode.SET_LVAR.value,
         "SET_LVAR",
         [U8Type, arbitrary_type_from_json],
     ),
     StatementTemplate(
-        StatementType.DIRECTIVE,
         DirectiveOpcode.GOTO.value,
         "GOTO",
         [goto_tag_or_idx_from_json],
     ),
     StatementTemplate(
-        StatementType.DIRECTIVE,
         DirectiveOpcode.IF.value,
         "IF",
         [U8Type, goto_tag_or_idx_from_json],
     ),
     StatementTemplate(
-        StatementType.DIRECTIVE,
         DirectiveOpcode.GET_TLM.value,
         "GET_TLM",
         [U8Type, U8Type, tlm_chan_id_from_json],
     ),
     StatementTemplate(
-        StatementType.DIRECTIVE,
         DirectiveOpcode.GET_PRM.value,
         "GET_PRM",
         [U8Type, prm_id_from_json],
