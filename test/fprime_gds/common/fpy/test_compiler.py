@@ -113,3 +113,11 @@ def test_instantiate_type_for_cmd(fprime_test_api):
 Ref.typeDemo.CHOICE_PAIR(Ref.ChoicePair(Ref.Choice.ONE, Ref.Choice.TWO))
 """
     assert_success(fprime_test_api, seq)
+
+
+def test_var_with_enum_type(fprime_test_api):
+    seq = """
+var: Ref.Choice = Ref.Choice.ONE
+"""
+
+    assert_success(fprime_test_api, seq)

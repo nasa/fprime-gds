@@ -103,6 +103,7 @@ class CompileState:
     tlms: dict[str, ChTemplate] = field(repr=False, default_factory=dict)
     prms: dict[str, PrmTemplate] = field(repr=False, default_factory=dict)
     consts: dict[str, BaseType] = field(repr=False, default_factory=dict)
+    types: dict[str, type[BaseType]] = field(repr=False, default_factory=dict)
     callables: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
 
     symbol_tables: dict[int, dict[str, FpySymbol]] = field(default_factory=dict)
@@ -113,9 +114,6 @@ class CompileState:
 
     references: dict[int, FpySymbol] = field(default_factory=dict)
     """a dict mapping ast node uid to which symbol it references"""
-
-    types: dict[int, type[BaseType]] = field(default_factory=dict)
-    """a dict mapping ast node uid to which BaseType it resolves to"""
 
     errors: list[CompileException] = field(default_factory=list)
 
@@ -249,35 +247,29 @@ class CreateSymbolTables(TopDownCompilePass):
             )
             return
 
-        if not isinstance(node.ann_type, Var) or not isinstance(
-            node.ann_type.value, str
-        ):
-            state.errors.append(
-                CompileException(
-                    "Type annotation must be a simple type name", node.ann_type
-                )
-            )
+        ref = state.references.get(node.ann_type.id, None)
+        if ref is None:
+            state.errors.append(CompileException(f"Unknown type {node.ann_type.value}", node))
             return
+
+        if not isinstance(ref, type[BaseType]):
+            state.errors.append(CompileException(f"Expecting a type but found " + str(ref), node))
+            return
+
+        # okay, type exists
 
         # okay we're assigning a variable to something, with an annotation. look it up in the symbol table
         existing_symbol = state.lookup_symbol(node.variable.value, node.variable)
         if not existing_symbol:
             # new symbol. put it in the table under this scope
-            sym_type = state.types.get(node.ann_type.value, None)
-            if sym_type is None:
-                state.errors.append(
-                    CompileException(f"Unknown type {node.ann_type.value}", node)
-                )
-                return
             state.add_symbol(
                 node.variable.value,
-                sym_type,
+                ref,
                 node,
             )
         else:
             # already existing. check the type is consistent
-            new_type = state.types[node.ann_type.value]
-            if existing_symbol != new_type:
+            if existing_symbol != ref:
                 state.errors.append(
                     CompileException(
                         f"Inconsistent type. Was {existing_symbol}, but annotation was {new_type}",
@@ -310,8 +302,13 @@ class CreateSymbolTables(TopDownCompilePass):
             )
 
 
-class ResolveReferences(TopDownCompilePass):
+class ResolveSymbols(TopDownCompilePass):
     def visit_Attr(self, parent, node: Attr, state: CompileState):
+
+        if node.id in state.references:
+            # already resolved this reference
+            return
+
         def get_fqn(attr: Attr):
             if isinstance(attr.value, Var):
                 return attr.value.value + "." + attr.name
@@ -321,7 +318,6 @@ class ResolveReferences(TopDownCompilePass):
         symbol = state.lookup_symbol(fqn, node)
         if symbol is not None:
             state.references[node.id] = symbol
-            print(fqn, symbol)
 
 
 class TypeCheckCalls(CompilePass):
@@ -478,6 +474,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         prms=prm_name_dict,
         consts=enum_consts,
         callables=callable_name_dict,
+        types=type_name_dict,
     )
     return state
 
@@ -486,9 +483,12 @@ def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
     state = get_base_compile_state(dictionary)
     passes: list[CompilePass] = [
         AssignIds(),
+        # resolve everything defined in the dict
+        ResolveSymbols(),
         CreateScopes(),
         CreateSymbolTables(),
-        ResolveReferences(),
+        # resolve everything defined in the seq (vars, funcs, etc)
+        ResolveSymbols(),
         TypeCheckCalls(),
     ]
     for compile_pass in passes:

@@ -1,53 +1,71 @@
-// Adapted from: https://docs.python.org/3/reference/grammar.html and the Lark Python grammar
+# Adapted from: https://docs.python.org/3/reference/grammar.html and the Lark Python grammar
 
 input: (_NEWLINE | stmt)*
 
+?constant: number | string | boolean
+
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
-?small_stmt: (expr_stmt | annassign | assign | pass_stmt )
-expr_stmt: atom_expr
-
-annassign: atom_expr ":" atom_expr "=" atom_expr
-assign: atom_expr "=" atom_expr
-
+?small_stmt: (func_call | typed_assign | assign | pass_stmt )
+?compound_stmt: if_stmt
 pass_stmt: "pass"
 
-?compound_stmt: if_stmt
+
+
+# assignment
+
+# can currently only assign constant values to vars
+type_name: name ("." name)*
+typed_assign: name ":" type_name "=" constant
+assign: name "=" constant
+
+
+
+# branching
+
 if_stmt: "if" test ":" suite elifs ["else" ":" suite]
 elifs: elif_*
 elif_: "elif" test ":" suite
 
-
 suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
+
+
+
+# logical tests
 
 ?test: or_test
 ?or_test: and_test ("or" and_test)*
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
          | comparison
-?comparison: atom_expr (comp_op atom_expr)*
+?comparison: comparable (comp_op comparable)*
+
+?comparable: name ("." name)*
+           | constant
 
 !comp_op: "<"|">"|"=="|">="|"<="|"!="
 
-?atom_expr: atom_expr "(" [arguments] ")"      -> funccall
-          | atom_expr "." name               -> getattr
-          | atom
 
-?atom: name -> var
-     | number
-     | "True"    -> const_true
-     | "False"   -> const_false
-     | "(" atom_expr ")" // the final case--go back to top of parse
 
-arguments: atom_expr ("," atom_expr)*
+# function calling
 
-// not used in grammar, but may appear in "node" passed from Parser to Compiler
+func_name: name ("." name)*
+func_call: func_name "(" [arguments] ")"
+arguments: argument ("," argument)*
+?argument: func_call
+         | name
+         | constant
+
+
+
+# not used in grammar, but may appear in "node" passed from Parser to Compiler
 encoding_decl: name
 
 number: DEC_NUMBER | HEX_NUMBER | BIN_NUMBER | OCT_NUMBER | FLOAT_NUMBER | IMAG_NUMBER
 string: STRING | LONG_STRING
+boolean: CONST_FALSE | CONST_TRUE
 
-// Other terminals
+# Other terminals
 
 _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 
@@ -57,11 +75,13 @@ _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 %declare _INDENT _DEDENT
 
 
-// Python terminals
+# Python terminals
 
 !name: NAME
 NAME: /[^\W\d]\w*/
 COMMENT: /#[^\n]*/
+CONST_TRUE: "True"
+CONST_FALSE: "False"
 
 STRING: /([ubf]?r?|r[ubf])("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 LONG_STRING: /([ubf]?r?|r[ubf])(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
@@ -77,8 +97,3 @@ _EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
 DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
 FLOAT_NUMBER.2: _SPECIAL_DEC _EXP | DECIMAL _EXP?
 IMAG_NUMBER.2: (_SPECIAL_DEC      | FLOAT_NUMBER) ("J" | "j")
-
-
-// Comma-separated list (with an optional trailing comma)
-cs_list{item}: item ("," item)* ","?
-_cs_list{item}: item ("," item)* ","?
