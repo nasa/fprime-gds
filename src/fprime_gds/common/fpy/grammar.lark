@@ -2,7 +2,7 @@
 
 input: (_NEWLINE | stmt)*
 
-?constant: number | string | boolean
+?literal: number | string | boolean
 
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
@@ -16,19 +16,18 @@ pass_stmt: "pass"
 
 # can currently only assign constant values to vars
 type_name: name ("." name)*
-typed_assign: name ":" type_name "=" constant
-assign: name "=" constant
+typed_assign: name ":" type_name "=" literal
+assign: name "=" literal
 
 
 
 # branching
 
-if_stmt: "if" test ":" suite elifs ["else" ":" suite]
+if_stmt: "if" condition ":" suite elifs ["else" ":" suite]
 elifs: elif_*
-elif_: "elif" test ":" suite
-
+elif_: "elif" condition ":" suite
 suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
-
+condition: test
 
 
 # logical tests
@@ -39,10 +38,8 @@ suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
 ?not_test_: "not" not_test_ -> not_test
          | comparison
 ?comparison: comparable (comp_op comparable)*
-
 ?comparable: name ("." name)*
-           | constant
-
+           | literal
 !comp_op: "<"|">"|"=="|">="|"<="|"!="
 
 
@@ -54,7 +51,7 @@ func_call: func_name "(" [arguments] ")"
 arguments: argument ("," argument)*
 ?argument: func_call
          | name
-         | constant
+         | literal
 
 
 

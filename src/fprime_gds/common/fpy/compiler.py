@@ -32,7 +32,7 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
-    AnnAssign,
+    TypedAssign,
     Ast,
     Literal,
     ScopedBody,
@@ -40,7 +40,7 @@ from fprime_gds.common.fpy.parser import (
     FuncDef,
     If,
     Assign,
-    Call,
+    FuncCall,
     Name,
     Var,
     Attr,
@@ -235,21 +235,21 @@ class CreateScopes(TopDownCompilePass):
 
 class CreateSymbolTables(TopDownCompilePass):
 
-    def visit_AnnAssign(self, parent, node: AnnAssign, state: CompileState):
-        if not isinstance(node.variable, Var) or not isinstance(
-            node.variable.value, str
+    def visit_AnnAssign(self, parent, node: TypedAssign, state: CompileState):
+        if not isinstance(node.var, Var) or not isinstance(
+            node.var.value, str
         ):
             state.errors.append(
                 CompileException(
                     "Left hand side of assignment must be a simple variable",
-                    node.variable,
+                    node.var,
                 )
             )
             return
 
-        ref = state.references.get(node.ann_type.id, None)
+        ref = state.references.get(node.var_type.id, None)
         if ref is None:
-            state.errors.append(CompileException(f"Unknown type {node.ann_type.value}", node))
+            state.errors.append(CompileException(f"Unknown type {node.var_type.value}", node))
             return
 
         if not isinstance(ref, type[BaseType]):
@@ -259,11 +259,11 @@ class CreateSymbolTables(TopDownCompilePass):
         # okay, type exists
 
         # okay we're assigning a variable to something, with an annotation. look it up in the symbol table
-        existing_symbol = state.lookup_symbol(node.variable.value, node.variable)
+        existing_symbol = state.lookup_symbol(node.var.value, node.var)
         if not existing_symbol:
             # new symbol. put it in the table under this scope
             state.add_symbol(
-                node.variable.value,
+                node.var.value,
                 ref,
                 node,
             )
@@ -273,7 +273,7 @@ class CreateSymbolTables(TopDownCompilePass):
                 state.errors.append(
                     CompileException(
                         f"Inconsistent type. Was {existing_symbol}, but annotation was {new_type}",
-                        node.ann_type,
+                        node.var_type,
                     )
                 )
                 return
@@ -321,7 +321,7 @@ class ResolveSymbols(TopDownCompilePass):
 
 
 class TypeCheckCalls(CompilePass):
-    def visit_Call(self, parent, node: Call, state: CompileState):
+    def visit_Call(self, parent, node: FuncCall, state: CompileState):
         ref = state.references.get(node.func.id, None)
         if ref is None:
             state.errors.append(CompileException("Unknown reference", node))
@@ -360,7 +360,7 @@ class TypeCheckCalls(CompilePass):
                 # literal value, compatible with expected type
                 continue
 
-            if isinstance(value, Call):
+            if isinstance(value, FuncCall):
                 # a call's type is defined by its function
                 ref = state.references.get(value.func.id, None)
             else:

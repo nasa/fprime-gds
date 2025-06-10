@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from pprint import pprint
-from typing import Any
+from typing import Literal as TypingLiteral
 from lark.indenter import PythonIndenter
 from lark import Lark, Transformer, ast_utils, v_args
 from lark.tree import Meta
@@ -47,38 +47,8 @@ class ScopedBody(Ast):
 
 
 @dataclass()
-class Expr(Ast):
-    value: Ast
-
-
-@dataclass()
-class Call(Ast):
-    func: Ast
-    args: list[Ast]
-
-
-@dataclass()
 class Name(Ast):
     value: str
-
-
-@dataclass()
-class Var(Ast):
-    value: Ast
-
-
-@dataclass()
-class Attr(Ast):
-    value: Ast
-    name: str
-
-
-@dataclass()
-class If(Ast):
-    condition: Ast
-    body: ScopedBody
-    elifs: Ast
-    els: ScopedBody | None
 
 
 @dataclass()
@@ -86,40 +56,68 @@ class String(Ast):
     value: str
 
 
+@dataclass
+class Number(Ast):
+    value: int | float
+
+
+@dataclass
+class Boolean(Ast):
+    value: TypingLiteral[True] | TypingLiteral[False]
+
+
+Literal = String | Number | Boolean
+
+
+@dataclass()
+class FuncCall(Ast):
+    func: list[Name]
+    args: list["Argument"]
+
+
+Argument = FuncCall | Name | Literal
+
+
+@dataclass
+class Condition:
+    value: Ast
+
+
+@dataclass
+class Elif(Ast):
+    condition: Condition
+    body: list[Ast]
+
+
+@dataclass
+class Elifs(Ast):
+    cases: list[Elif]
+
+
+@dataclass()
+class If(Ast):
+    condition: Condition
+    body: list[Ast]
+    elifs: Elifs
+    els: list[Ast] | None
+
+
 @dataclass()
 class Assign(Ast):
-    variable: Var
-    value: Ast
+    variable: Name
+    value: Literal
 
 
 @dataclass()
-class AnnAssign(Ast):
-    variable: Var
-    ann_type: Var
-    value: Ast
-
-
-@dataclass()
-class Elif(Ast):
-    condition: Ast
-    body: ScopedBody
+class TypedAssign(Ast):
+    var: Name
+    var_type: list[Name]
+    value: Literal
 
 
 @dataclass()
 class Pass(Ast):
     pass
-
-
-@dataclass()
-class FuncDef(Ast):
-    name: str
-    parameters: list[Ast]
-    return_type: Ast
-    body: ScopedBody
-
-@dataclass
-class Literal(Ast):
-    value: Any
 
 
 @v_args(meta=False, inline=False)
@@ -128,7 +126,7 @@ def as_list(self, tree):
 
 
 @v_args(meta=True, inline=False)
-def as_body(self, meta, tree):
+def as_scoped_body(self, meta, tree):
     return ScopedBody(meta, tree)
 
 
@@ -139,30 +137,23 @@ def as_str(self, value):
 
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
-    const_true = lambda self, _: True
-    const_false = lambda self, _: False
-    NAME = str
-    # an actual string literal
-    STRING = str
-    FLOAT_NUMBER = float
-    DEC_NUMBER = int
-
-    number = Literal
-    input = as_body
-    expr_stmt = Expr
-    funccall = Call
-    name = as_str
-    var = Var
-    getattr = Attr
-    if_stmt = If
-    suite = as_list
-    arguments = as_list
-    # the string ast node
-    string = String
-    assign = Assign
-    annassign = AnnAssign
-
-    elifs = as_list
-    elif_ = Elif
+    input = as_scoped_body
     pass_stmt = Pass
-    funcdef = FuncDef
+
+    type_name = as_list
+    typed_assign = TypedAssign
+    assign = Assign
+
+    if_stmt = If
+    elifs = Elifs
+    elif_ = Elif
+    suite = as_list
+
+    func_name = as_list
+    func_call = FuncCall
+    arguments = as_list
+
+    string = String
+    number = Number
+    boolean = Boolean
+    name = Name
