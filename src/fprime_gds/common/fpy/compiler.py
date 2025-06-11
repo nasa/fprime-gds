@@ -32,18 +32,19 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
+    Boolean,
+    EnumConst,
+    FuncName,
+    String,
+    TypeName,
     TypedAssign,
     Ast,
     Literal,
     ScopedBody,
-    Expr,
-    FuncDef,
     If,
     Assign,
     FuncCall,
     Name,
-    Var,
-    Attr,
 )
 from fprime.common.models.serialize.type_base import BaseType
 
@@ -94,8 +95,8 @@ class FpyCallable:
     action: CmdTemplate | FpyBuiltin | None
 
 
-# named symbols can be tlm chans, prms, callables, or directly referenced consts (usually enums)
-FpySymbol = ChTemplate | PrmTemplate | FpyCallable | BaseType
+# named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
+FpyVariable = ChTemplate | PrmTemplate | FpyCallable | BaseType
 
 
 @dataclass
@@ -106,46 +107,79 @@ class CompileState:
     types: dict[str, type[BaseType]] = field(repr=False, default_factory=dict)
     callables: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
 
-    symbol_tables: dict[int, dict[str, FpySymbol]] = field(default_factory=dict)
+    resolved_types: dict[int, type[BaseType]] = field(default_factory=dict)
+
+    resolved_callables: dict[int, FpyCallable] = field(default_factory=dict)
+    resolved_enum_consts: dict[int, BaseType] = field(default_factory=dict)
+
+    variable_tables: dict[int, dict[str, type[BaseType]]] = field(default_factory=dict)
     """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
 
     parent_scope: dict[int, int | None] = field(default_factory=dict)
     """a dict tracking the parent scope of each ast node. keys are ast node uid, values are uid of parent scopedbody"""
 
-    references: dict[int, FpySymbol] = field(default_factory=dict)
+    references: dict[int, FpyVariable] = field(default_factory=dict)
     """a dict mapping ast node uid to which symbol it references"""
 
     errors: list[CompileException] = field(default_factory=list)
 
-    def lookup_symbol(self, symbol: str, at_node: Ast) -> FpySymbol | None:
+    def lookup_variable(self, var: str, at_node: Ast) -> type[BaseType] | None:
         # first check if there's a symbol defined in the sequence
         parent = self.parent_scope[at_node.id]
         while parent is not None:
-            table = self.symbol_tables[parent]
-            if symbol in table:
-                return table[symbol]
+            table = self.variable_tables[parent]
+            if var in table:
+                return table[var]
 
             parent = self.parent_scope[parent]
 
-        # check for the symbol in all the global symbol tables
-        callable = self.callables.get(symbol, None)
-        if callable is not None:
-            return callable
-        const = self.consts.get(symbol, None)
-        if const is not None:
-            return const
-        tlm = self.tlms.get(symbol, None)
-        if tlm is not None:
-            return tlm
-        prm = self.prms.get(symbol, None)
-        if prm is not None:
-            return prm
-
         return None
 
-    def add_symbol(self, symbol_name: str, symbol_type: FpySymbol, at_node: Ast):
+        # # check for the symbol in all the global symbol tables
+        # callable = self.callables.get(symbol, None)
+        # if callable is not None:
+        #     return callable
+        # const = self.consts.get(symbol, None)
+        # if const is not None:
+        #     return const
+        # tlm = self.tlms.get(symbol, None)
+        # if tlm is not None:
+        #     return tlm
+        # prm = self.prms.get(symbol, None)
+        # if prm is not None:
+        #     return prm
+
+        # return None
+
+    def add_variable(self, var_name: str, var_type: type[BaseType], at_node: Ast):
         parent_scope = self.parent_scope[at_node.id]
-        self.symbol_tables[parent_scope][symbol_name] = symbol_type
+        self.variable_tables[parent_scope][var_name] = var_type
+
+    def get_node_fprime_type(self, node: Ast) -> type[BaseType] | None:
+        if isinstance(node, FuncCall):
+            callable = self.resolved_callables.get(node.func.id, None)
+            if callable is None:
+                return None
+
+            return callable.return_type
+
+        if isinstance(node, EnumConst):
+            return self.resolved_enum_consts.get(node.id)
+
+        if isinstance(node, Name):
+            return self.lookup_variable(node.value, node)
+
+        if isinstance(node, String):
+            return StringType
+
+        if isinstance(node, Boolean):
+            return BoolType
+
+        # if isinstance(node,)
+        # doesn't work for numeric... one numeric node can be multiple fprime types
+
+
+        
 
 
 class CompilePass:
@@ -218,6 +252,33 @@ class AssignIds(TopDownCompilePass):
         self.next_id += 1
 
 
+class ResolveEnumConsts(CompilePass):
+    def visit_EnumConst(self, parent, node: EnumConst, state: CompileState):
+        fqn = ".".join(name.value for name in node.names)
+        if fqn not in state.consts:
+            state.errors.append(CompileException(f"Unknown enum const {fqn}", node))
+            return
+        state.resolved_enum_consts[node.id] = state.consts[fqn]
+
+
+class ResolveTypeNames(CompilePass):
+    def visit_TypeName(self, parent, node: TypeName, state: CompileState):
+        fqn = ".".join(name.value for name in node.names)
+        if fqn not in state.types:
+            state.errors.append(CompileException(f"Unknown type {fqn}", node))
+            return
+        state.resolved_types[node.id] = state.types[fqn]
+
+
+class ResolveFuncNames(CompilePass):
+    def visit_FuncName(self, parent, node: FuncName, state: CompileState):
+        fqn = ".".join(name.value for name in node.names)
+        if fqn not in state.callables:
+            state.errors.append(CompileException(f"Unknown function {fqn}", node))
+            return
+        state.resolved_callables[node.id] = state.callables[fqn]
+
+
 class CreateScopes(TopDownCompilePass):
 
     def visit_default(self, parent, node, state):
@@ -227,52 +288,37 @@ class CreateScopes(TopDownCompilePass):
             state.parent_scope[node.id] = state.parent_scope[parent.id]
 
     def visit_ScopedBody(self, parent, node: ScopedBody, state: CompileState):
-        state.symbol_tables[node.id] = {}
+        state.variable_tables[node.id] = {}
         state.parent_scope[node.id] = (
             state.parent_scope[parent.id] if parent is not None else None
         )
 
 
-class CreateSymbolTables(TopDownCompilePass):
+class CreateVariables(CompilePass):
 
-    def visit_AnnAssign(self, parent, node: TypedAssign, state: CompileState):
-        if not isinstance(node.var, Var) or not isinstance(
-            node.var.value, str
-        ):
-            state.errors.append(
-                CompileException(
-                    "Left hand side of assignment must be a simple variable",
-                    node.var,
-                )
-            )
-            return
-
-        ref = state.references.get(node.var_type.id, None)
-        if ref is None:
-            state.errors.append(CompileException(f"Unknown type {node.var_type.value}", node))
-            return
-
-        if not isinstance(ref, type[BaseType]):
-            state.errors.append(CompileException(f"Expecting a type but found " + str(ref), node))
+    def visit_TypedAssign(self, parent, node: TypedAssign, state: CompileState):
+        var_type = state.resolved_types.get(node.var_type, None)
+        if var_type is None:
+            state.errors.append(CompileException(f"Unknown type {node.var_type}", node))
             return
 
         # okay, type exists
 
         # okay we're assigning a variable to something, with an annotation. look it up in the symbol table
-        existing_symbol = state.lookup_symbol(node.var.value, node.var)
-        if not existing_symbol:
-            # new symbol. put it in the table under this scope
-            state.add_symbol(
+        existing_variable = state.lookup_variable(node.var.value, node.var)
+        if not existing_variable:
+            # new var. put it in the table under this scope
+            state.add_variable(
                 node.var.value,
-                ref,
+                var_type,
                 node,
             )
         else:
             # already existing. check the type is consistent
-            if existing_symbol != ref:
+            if existing_variable != var_type:
                 state.errors.append(
                     CompileException(
-                        f"Inconsistent type. Was {existing_symbol}, but annotation was {new_type}",
+                        f"Inconsistent type. Was {existing_variable}, but annotation was {var_type}",
                         node.var_type,
                     )
                 )
@@ -280,19 +326,8 @@ class CreateSymbolTables(TopDownCompilePass):
             # okay, type is consistent.
 
     def visit_Assign(self, parent, node: Assign, state: CompileState):
-        if not isinstance(node.variable, Var) or not isinstance(
-            node.variable.value, str
-        ):
-            state.errors.append(
-                CompileException(
-                    "Left hand side of assignment must be a simple variable",
-                    node.variable,
-                )
-            )
-            return
-
-        # okay we're assigning a variable to something, without an annotation. look it up in the symbol table
-        existing = state.lookup_symbol(node.variable.value, node.variable)
+        # okay we're assigning a variable to something, without an annotation. look it up in the variable table
+        existing = state.lookup_variable(node.variable.value, node.variable)
         if not existing:
             # error because this isn't an annotated assignment. right now all assignments must be annotated
             state.errors.append(
@@ -302,39 +337,16 @@ class CreateSymbolTables(TopDownCompilePass):
             )
 
 
-class ResolveSymbols(TopDownCompilePass):
-    def visit_Attr(self, parent, node: Attr, state: CompileState):
-
-        if node.id in state.references:
-            # already resolved this reference
-            return
-
-        def get_fqn(attr: Attr):
-            if isinstance(attr.value, Var):
-                return attr.value.value + "." + attr.name
-            return get_fqn(attr.value) + "." + attr.name
-
-        fqn = get_fqn(node)
-        symbol = state.lookup_symbol(fqn, node)
-        if symbol is not None:
-            state.references[node.id] = symbol
-
-
 class TypeCheckCalls(CompilePass):
     def visit_Call(self, parent, node: FuncCall, state: CompileState):
-        ref = state.references.get(node.func.id, None)
-        if ref is None:
-            state.errors.append(CompileException("Unknown reference", node))
-            return
-
-        if not isinstance(ref, FpyCallable):
-            # calling something that isn't callable
-            state.errors.append(CompileException("Invalid syntax (not callable)", node))
+        func = state.resolved_callables.get(node.func.id, None)
+        if func is None:
+            state.errors.append(CompileException("Unknown function", node.func))
             return
 
         node_arg_count = len(node.args) if node.args is not None else 0
-        if node_arg_count != len(ref.args):
-            if len(node.args) < len(ref.args):
+        if node_arg_count != len(func.args):
+            if len(node.args) < len(func.args):
                 state.errors.append(CompileException("Missing arguments", node))
                 return
             state.errors.append(CompileException("Too many arguments", node))
@@ -344,17 +356,17 @@ class TypeCheckCalls(CompilePass):
             # no args. good 2 go
             return
 
-        for value, arg_template in zip(node.args, ref.args):
+        for value, arg_template in zip(node.args, func.args):
             arg_name, arg_type = arg_template
             # check type of value matches expected type of template
 
             if isinstance(value, Literal):
                 if not is_literal_compatible(value.value, arg_type):
                     state.errors.append(
-                    CompileException(
-                        f"Wrong type for arg {arg_name} ({type(value)} cannot be converted to {arg_type})",
-                        node,
-                    )
+                        CompileException(
+                            f"Wrong type for arg {arg_name} ({type(value)} cannot be converted to {arg_type})",
+                            node,
+                        )
                     )
                     return
                 # literal value, compatible with expected type
@@ -362,21 +374,21 @@ class TypeCheckCalls(CompilePass):
 
             if isinstance(value, FuncCall):
                 # a call's type is defined by its function
-                ref = state.references.get(value.func.id, None)
+                func = state.references.get(value.func.id, None)
             else:
                 # some ast node. get what type it references
-                ref = state.references.get(value.id, None)
+                func = state.references.get(value.id, None)
 
-            if ref is None:
+            if func is None:
                 state.errors.append(
                     CompileException("Invalid syntax (unknown reference)", value)
                 )
                 return
 
-            if isinstance(ref, FpyCallable):
-                existing_value_type = ref.return_type
-            elif isinstance(ref, BaseType):
-                existing_value_type = type(ref)
+            if isinstance(func, FpyCallable):
+                existing_value_type = func.return_type
+            elif isinstance(func, BaseType):
+                existing_value_type = type(func)
             else:
                 state.errors.append(
                     CompileException("Invalid syntax (invalid argument)", value)
@@ -484,9 +496,11 @@ def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
     passes: list[CompilePass] = [
         AssignIds(),
         # resolve everything defined in the dict
-        ResolveSymbols(),
+        ResolveEnumConsts(),
+        ResolveFuncNames(),
+        ResolveTypeNames(),
         CreateScopes(),
-        CreateSymbolTables(),
+        CreateVariables(),
         # resolve everything defined in the seq (vars, funcs, etc)
         ResolveSymbols(),
         TypeCheckCalls(),

@@ -50,7 +50,7 @@ func_name: name ("." name)*
 func_call: func_name "(" [arguments] ")"
 arguments: argument ("," argument)*
 ?argument: func_call
-         | name
+         | name ("." name)* -> enum_const
          | literal
 
 

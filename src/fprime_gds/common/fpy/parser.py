@@ -69,13 +69,23 @@ class Boolean(Ast):
 Literal = String | Number | Boolean
 
 
+@dataclass
+class FuncName(Ast):
+    names: list[Name]
+
+
 @dataclass()
 class FuncCall(Ast):
-    func: list[Name]
+    func: FuncName
     args: list["Argument"]
 
 
-Argument = FuncCall | Name | Literal
+@dataclass
+class EnumConst:
+    names: list[Name]
+
+
+Argument = FuncCall | EnumConst | Literal
 
 
 @dataclass
@@ -108,10 +118,15 @@ class Assign(Ast):
     value: Literal
 
 
+@dataclass
+class TypeName(Ast):
+    names: list[Name]
+
+
 @dataclass()
 class TypedAssign(Ast):
     var: Name
-    var_type: list[Name]
+    var_type: TypeName
     value: Literal
 
 
@@ -130,6 +145,21 @@ def as_scoped_body(self, meta, tree):
     return ScopedBody(meta, tree)
 
 
+@v_args(meta=True, inline=False)
+def as_type_name(self, meta, tree):
+    return TypeName(meta, tree)
+
+
+@v_args(meta=True, inline=False)
+def as_func_name(self, meta, tree):
+    return FuncName(meta, tree)
+
+
+@v_args(meta=True, inline=False)
+def as_enum_const(self, meta, tree):
+    return EnumConst(meta, tree)
+
+
 @v_args(meta=False, inline=True)
 def as_str(self, value):
     return str(value)
@@ -140,7 +170,7 @@ class FpyTransformer(Transformer):
     input = as_scoped_body
     pass_stmt = Pass
 
-    type_name = as_list
+    type_name = as_type_name
     typed_assign = TypedAssign
     assign = Assign
 
@@ -149,9 +179,10 @@ class FpyTransformer(Transformer):
     elif_ = Elif
     suite = as_list
 
-    func_name = as_list
+    func_name = as_func_name
     func_call = FuncCall
     arguments = as_list
+    enum_const = as_enum_const
 
     string = String
     number = Number
