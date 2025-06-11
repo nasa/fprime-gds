@@ -42,114 +42,120 @@ class Ast:
 
 
 @dataclass()
-class ScopedBody(Ast):
+class AstScopedBody(Ast):
     stmts: list[Ast]
 
 
 @dataclass()
-class Name(Ast):
+class AstName(Ast):
     value: str
 
 
 @dataclass()
-class String(Ast):
+class AstString(Ast):
     value: str
 
 
 @dataclass
-class Number(Ast):
+class AstNumber(Ast):
     value: int | float
 
 
 @dataclass
-class Boolean(Ast):
+class AstBoolean(Ast):
     value: TypingLiteral[True] | TypingLiteral[False]
 
 
-Literal = String | Number | Boolean
+Literal = AstString | AstNumber | AstBoolean
 
 
 @dataclass
-class Reference(Ast):
-    names: list[Name]
-
-
-@dataclass()
-class FuncCall(Ast):
-    func: Reference
-    args: list["Argument"]
-
-
-Argument = FuncCall | Reference | Literal
+class AstReference(Ast):
+    names: list[AstName]
 
 
 @dataclass
-class Condition(Ast):
+class AstInfixOp(Ast):
     value: Ast
 
 
 @dataclass
-class Elif(Ast):
-    condition: Condition
+class AstFuncCall(Ast):
+    func: AstReference | AstInfixOp
+    args: list["Argument"]
+
+
+Argument = AstFuncCall | AstReference | Literal
+
+
+@dataclass
+class AstCondition(Ast):
+    value: Ast
+
+
+@dataclass
+class AstElif(Ast):
+    condition: AstCondition
     body: list[Ast]
 
 
 @dataclass
-class Elifs(Ast):
-    cases: list[Elif]
+class AstElifs(Ast):
+    cases: list[AstElif]
 
 
 @dataclass()
-class If(Ast):
-    condition: Condition
+class AstIf(Ast):
+    condition: AstCondition
     body: list[Ast]
-    elifs: Elifs
+    elifs: AstElifs
     els: list[Ast] | None
 
 
-AssignValue = Literal | Reference
+AssignValue = Literal | AstReference
 
 
 @dataclass()
-class Assign(Ast):
-    variable: Name
+class AstAssign(Ast):
+    variable: AstName
     value: AssignValue
 
 
 @dataclass()
-class TypedAssign(Ast):
-    var: Name
-    var_type: Reference
+class AstTypedAssign(Ast):
+    var: AstName
+    var_type: AstReference
     value: AssignValue
 
 
 @dataclass()
-class Pass(Ast):
+class AstPass(Ast):
     pass
 
 
 @dataclass
-class Or(Ast):
+class AstOr(Ast):
     values: list[Ast]
 
 
 @dataclass
-class And(Ast):
+class AstAnd(Ast):
     values: list[Ast]
 
 
 @dataclass
-class Not(Ast):
+class AstNot(Ast):
     values: list[Ast]
 
 
-@dataclass
-class Comparison(Ast):
-    values: list[Ast]
+Comparable = AstReference | Literal
+
 
 @dataclass
-class ComparisonOp(Ast):
-    value: Ast
+class AstComparison(Ast):
+    lhs: Comparable
+    op: AstInfixOp
+    rhs: Comparable
 
 
 @v_args(meta=False, inline=False)
@@ -174,32 +180,37 @@ def no_inline(type):
 
 
 @v_args(meta=True, inline=True)
+def infix_func(self, meta, lhs, op, rhs):
+    return AstFuncCall(meta, op, [lhs, rhs])
+
+
+@v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
-    input = no_inline(ScopedBody)
-    pass_stmt = Pass
+    input = no_inline(AstScopedBody)
+    pass_stmt = AstPass
 
-    reference = no_inline(Reference)
-    typed_assign = TypedAssign
-    assign = Assign
+    reference = no_inline(AstReference)
+    typed_assign = AstTypedAssign
+    assign = AstAssign
 
-    if_stmt = If
-    elifs = no_inline(Elifs)
-    elif_ = Elif
+    if_stmt = AstIf
+    elifs = no_inline(AstElifs)
+    elif_ = AstElif
     suite = no_inline_or_meta(list)
-    condition = no_inline(Condition)
-    or_test = no_inline(Or)
-    and_test = no_inline(And)
-    not_test = no_inline(Not)
-    comparison = no_inline(Comparison)
-    comp_op = ComparisonOp
+    condition = no_inline(AstCondition)
+    or_test = no_inline(AstOr)
+    and_test = no_inline(AstAnd)
+    not_test = no_inline(AstNot)
+    comparison = infix_func
+    comp_op = AstInfixOp
 
-    func_call = FuncCall
+    func_call = AstFuncCall
     arguments = no_inline_or_meta(list)
 
-    string = String
-    number = Number
-    boolean = Boolean
-    name = Name
+    string = AstString
+    number = AstNumber
+    boolean = AstBoolean
+    name = AstName
 
     NAME = str
     DEC_NUMBER = int

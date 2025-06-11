@@ -34,18 +34,20 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
-    Boolean,
-    Number,
-    Reference,
-    String,
-    TypedAssign,
+    AstBoolean,
+    AstComparison,
+    AstInfixOp,
+    AstNumber,
+    AstReference,
+    AstString,
+    AstTypedAssign,
     Ast,
     Literal,
-    ScopedBody,
-    If,
-    Assign,
-    FuncCall,
-    Name,
+    AstScopedBody,
+    AstIf,
+    AstAssign,
+    AstFuncCall,
+    AstName,
 )
 from fprime.common.models.serialize.type_base import BaseType
 
@@ -117,7 +119,10 @@ class CompileState:
     prms: dict[str, PrmTemplate] = field(repr=False, default_factory=dict)
     consts: dict[str, BaseType] = field(repr=False, default_factory=dict)
     types: dict[str, type[BaseType]] = field(repr=False, default_factory=dict)
-    callables: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
+    callables: dict[str, list[FpyCallable]] = field(repr=False, default_factory=dict)
+    infix_callables: dict[str, list[FpyCallable]] = field(
+        repr=False, default_factory=dict
+    )
 
     resolved_references: dict[int, list[FpyReference]] = field(default_factory=dict)
 
@@ -141,10 +146,14 @@ class CompileState:
 
     T = TypeVar("T")
 
-    def lookup_reference(self, node: Ast, interpret_as: type[T]) -> T | None:
+    def lookup_reference(
+        self, node: AstReference, interpret_as: type[T] | None = None
+    ) -> T | list[FpyReference] | None:
         possible_refs = self.resolved_references.get(node.id, None)
         if possible_refs is None:
             return None
+        if interpret_as is None:
+            return possible_refs
 
         for interpretation in possible_refs:
             if isinstance(interpretation, interpret_as):
@@ -170,23 +179,37 @@ class CompileState:
 
 
 def coerce_literal_to_type(literal: Literal, typ: type[BaseType]) -> BaseType | None:
-    if isinstance(literal, String) and typ == StringType:
-        return StringType(literal.value)
 
-    if isinstance(literal, Boolean) and typ == BoolType:
-        return BoolType(literal.value)
+    if isinstance(literal, AstString) and not issubclass(typ, StringType):
+        return None
 
-    if isinstance(literal, Number) and typ in NUMERIC_TYPES:
-        if isinstance(literal.value, float) and typ in FLOAT_TYPES:
-            return typ(literal.value)
+    if isinstance(literal, AstBoolean) and typ != BoolType:
+        return None
 
-        if isinstance(literal.value, float) and typ in FLOAT_TYPES:
-            return typ(literal.value)
+    if isinstance(literal, AstNumber) and typ not in NUMERIC_TYPES:
+        return None
 
-        if isinstance(literal.value, int) and typ in INTEGER_TYPES:
-            return typ(literal.value)
+    if isinstance(literal.value, float) and typ not in FLOAT_TYPES:
+        return None
 
-    return None
+    if isinstance(literal.value, int) and typ not in INTEGER_TYPES:
+        return None
+
+    return typ(literal.value)
+
+
+def check_reference_type(ref: FpyReference, typ: type[BaseType]) -> bool:
+    if isinstance(ref, ChTemplate):
+        return ref.ch_type_obj == typ
+    if isinstance(ref, PrmTemplate):
+        return ref.prm_type_obj == typ
+    if isinstance(ref, BaseType):
+        return type(ref) == typ
+    if isinstance(ref, FpyCallable):
+        return ref.return_type == typ
+    if isinstance(ref, type):
+        return ref == typ
+    assert False, ref
 
 
 class CompilePass:
@@ -203,7 +226,7 @@ class CompilePass:
     def visit_default(self, parent: Ast | None, node: Ast, state: CompileState):
         pass
 
-    def run(self, body: ScopedBody, state: CompileState):
+    def run(self, body: AstScopedBody, state: CompileState):
         def _descend(node: Ast):
             if not isinstance(node, Ast):
                 return
@@ -227,7 +250,7 @@ class CompilePass:
 
 class TopDownCompilePass(CompilePass):
 
-    def run(self, body: ScopedBody, state: CompileState):
+    def run(self, body: AstScopedBody, state: CompileState):
         def _descend(node: Ast):
             if not isinstance(node, Ast):
                 return
@@ -264,20 +287,22 @@ class ResolveReferences(CompilePass):
     def __init__(self, fail_if_unknown: bool = False):
         self.fail_if_unknown = fail_if_unknown
 
-    def visit_Reference(self, parent, node: Reference, state: CompileState):
+    def visit_AstReference(self, parent, node: AstReference, state: CompileState):
         fqn = ".".join(name.value for name in node.names)
 
         tlm = state.tlms.get(fqn, None)
         prm = state.prms.get(fqn, None)
         const = state.consts.get(fqn, None)
         type = state.types.get(fqn, None)
-        callable = state.callables.get(fqn, None)
+        callables = state.callables.get(fqn, None)
         var = state.lookup_variable(fqn, node)
 
-        possible_resolutions = (tlm, prm, const, type, callable, var)
-        possible_resolutions = list(
-            ref for ref in possible_resolutions if ref is not None
-        )
+        possible_resolutions = [tlm, prm, const, type, var]
+
+        if callables is not None:
+            possible_resolutions.extend(callables)
+
+        possible_resolutions = [ref for ref in possible_resolutions if ref is not None]
 
         if node.id in state.resolved_references:
             # already resolved previously
@@ -299,12 +324,12 @@ class ResolveReferences(CompilePass):
 class CreateScopes(TopDownCompilePass):
 
     def visit_default(self, parent, node, state):
-        if isinstance(parent, (ScopedBody, NoneType)):
+        if isinstance(parent, (AstScopedBody, NoneType)):
             state.parent_scope[node.id] = parent.id if parent is not None else None
         else:
             state.parent_scope[node.id] = state.parent_scope[parent.id]
 
-    def visit_ScopedBody(self, parent, node: ScopedBody, state: CompileState):
+    def visit_AstScopedBody(self, parent, node: AstScopedBody, state: CompileState):
         state.variable_tables[node.id] = {}
         state.parent_scope[node.id] = (
             state.parent_scope[parent.id] if parent is not None else None
@@ -313,7 +338,7 @@ class CreateScopes(TopDownCompilePass):
 
 class CreateVariables(CompilePass):
 
-    def visit_TypedAssign(self, parent, node: TypedAssign, state: CompileState):
+    def visit_AstTypedAssign(self, parent, node: AstTypedAssign, state: CompileState):
         var_type = state.lookup_reference(node.var_type, type)
         if var_type is None:
             state.errors.append(CompileException(f"Unknown type", node.var_type))
@@ -342,7 +367,7 @@ class CreateVariables(CompilePass):
                 return
             # okay, type is consistent.
 
-    def visit_Assign(self, parent, node: Assign, state: CompileState):
+    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
         # okay we're assigning a variable to something, without an annotation. look it up in the variable table
         existing = state.lookup_variable(node.variable.value, node.variable)
         if not existing:
@@ -355,8 +380,13 @@ class CreateVariables(CompilePass):
 
 
 class CheckCalls(CompilePass):
-    def visit_FuncCall(self, parent, node: FuncCall, state: CompileState):
-        func = state.lookup_reference(node.func, FpyCallable)
+    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
+        if isinstance(node.func, AstInfixOp):
+            # if this fails, it's a coding error. infix operators are defined in grammar
+            func = state.infix_callables[node.func.value]
+        else:
+            func = state.lookup_reference(node.func)
+
         if func is None:
             state.errors.append(CompileException("Unknown function", node.func))
             return
@@ -410,7 +440,7 @@ class CheckCalls(CompilePass):
                 arg_values[arg_name] = coerced_value
                 continue
 
-            elif isinstance(value_node, Reference):
+            elif isinstance(value_node, AstReference):
                 # only reference that is allowed is a const rn
                 ref = state.lookup_reference(value_node, BaseType)
                 if ref is None:
@@ -423,7 +453,7 @@ class CheckCalls(CompilePass):
                 continue
 
             # otherwise, it's a callable
-            assert isinstance(value_node, FuncCall), value_node
+            assert isinstance(value_node, AstFuncCall), value_node
 
             existing_value = state.values.get(value_node.id, None)
             # we should have already figured out the value of this node
@@ -479,10 +509,19 @@ class CheckCalls(CompilePass):
             return
 
 
+class CheckComparisons(CompilePass):
+    def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
+        # what are we comparing?
+        stmts = []
+        if isinstance(node.lhs, AstReference):
+            ref = state.lookup_reference(node.lhs)
+
+
 class CheckIfStatements(CompilePass):
-    def visit_If(self, parent, node: If, state: CompileState):
+    def visit_AstIf(self, parent, node: AstIf, state: CompileState):
         # so we want to make sure that the condition converts to a bool
-        print(node)
+        # print(node)
+        pass
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -514,7 +553,6 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     type_name_dict["Fw.Time"] = TimeType
     for typ in NUMERIC_TYPES:
         type_name_dict[typ.get_canonical_name()] = typ
-        print(typ, typ.get_canonical_name())
     type_name_dict["bool"] = BoolType
     type_name_dict["str"] = StringType
 
@@ -525,6 +563,11 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
         callable_name_dict[name] = FpyCallable(None, args, cmd)
+
+    infix_callable_name_dict = {}
+    infix_callable_name_dict[">"] = FpyCallable(
+        BoolType,
+    )
 
     for name, typ in type_name_dict.items():
         args = []
@@ -556,7 +599,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     return state
 
 
-def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
+def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
     state = get_base_compile_state(dictionary)
     passes: list[CompilePass] = [
         AssignIds(),
@@ -569,6 +612,7 @@ def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
         ResolveReferences(fail_if_unknown=True),
         # resolve everything defined in the seq (vars, funcs, etc)
         CheckCalls(),
+        CheckComparisons(),
         CheckIfStatements(),
     ]
     for compile_pass in passes:
