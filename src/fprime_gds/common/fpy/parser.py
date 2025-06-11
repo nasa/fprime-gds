@@ -81,7 +81,7 @@ class FuncCall(Ast):
 
 
 @dataclass
-class EnumConst:
+class EnumConst(Ast):
     names: list[Name]
 
 
@@ -112,10 +112,13 @@ class If(Ast):
     els: list[Ast] | None
 
 
+AssignValue = Literal | EnumConst
+
+
 @dataclass()
 class Assign(Ast):
     variable: Name
-    value: Literal
+    value: AssignValue
 
 
 @dataclass
@@ -127,7 +130,7 @@ class TypeName(Ast):
 class TypedAssign(Ast):
     var: Name
     var_type: TypeName
-    value: Literal
+    value: AssignValue
 
 
 @dataclass()
@@ -188,3 +191,7 @@ class FpyTransformer(Transformer):
     number = Number
     boolean = Boolean
     name = Name
+
+    NAME = str
+    DEC_NUMBER = int
+    FLOAT_NUMBER = float

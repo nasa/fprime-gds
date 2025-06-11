@@ -2,6 +2,7 @@ from ast import Pass
 from dataclasses import dataclass, field, fields
 from types import NoneType
 
+from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.fpy.bytecode.types import (
     FPY_DIRECTIVES,
     StatementData,
@@ -35,6 +36,7 @@ from fprime_gds.common.fpy.parser import (
     Boolean,
     EnumConst,
     FuncName,
+    Number,
     String,
     TypeName,
     TypedAssign,
@@ -70,6 +72,12 @@ INTEGER_TYPES = (
     I64Type,
     I8Type,
 )
+UNSIGNED_INTEGER_TYPES = (
+    U32Type,
+    U16Type,
+    U64Type,
+    U8Type,
+)
 FLOAT_TYPES = (
     F32Type,
     F64Type,
@@ -85,7 +93,7 @@ class CompileException(BaseException):
         return f"At line {self.node.meta.line} {self.node}: {self.msg}"
 
 
-FpyBuiltin = str
+FpyBuiltin = int
 
 
 @dataclass
@@ -110,7 +118,16 @@ class CompileState:
     resolved_types: dict[int, type[BaseType]] = field(default_factory=dict)
 
     resolved_callables: dict[int, FpyCallable] = field(default_factory=dict)
-    resolved_enum_consts: dict[int, BaseType] = field(default_factory=dict)
+
+    values: dict[int, BaseType] = field(default_factory=dict)
+
+    commands: dict[int, tuple[CmdTemplate, list[BaseType]]] = field(
+        default_factory=dict
+    )
+
+    directives: dict[int, tuple[FpyBuiltin, list[BaseType]]] = field(
+        default_factory=dict
+    )
 
     variable_tables: dict[int, dict[str, type[BaseType]]] = field(default_factory=dict)
     """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
@@ -135,51 +152,29 @@ class CompileState:
 
         return None
 
-        # # check for the symbol in all the global symbol tables
-        # callable = self.callables.get(symbol, None)
-        # if callable is not None:
-        #     return callable
-        # const = self.consts.get(symbol, None)
-        # if const is not None:
-        #     return const
-        # tlm = self.tlms.get(symbol, None)
-        # if tlm is not None:
-        #     return tlm
-        # prm = self.prms.get(symbol, None)
-        # if prm is not None:
-        #     return prm
-
-        # return None
-
     def add_variable(self, var_name: str, var_type: type[BaseType], at_node: Ast):
         parent_scope = self.parent_scope[at_node.id]
         self.variable_tables[parent_scope][var_name] = var_type
 
-    def get_node_fprime_type(self, node: Ast) -> type[BaseType] | None:
-        if isinstance(node, FuncCall):
-            callable = self.resolved_callables.get(node.func.id, None)
-            if callable is None:
-                return None
 
-            return callable.return_type
+def coerce_literal_to_type(literal: Literal, typ: type[BaseType]) -> BaseType | None:
+    if isinstance(literal, String) and typ == StringType:
+        return StringType(literal.value)
 
-        if isinstance(node, EnumConst):
-            return self.resolved_enum_consts.get(node.id)
+    if isinstance(literal, Boolean) and typ == BoolType:
+        return BoolType(literal.value)
 
-        if isinstance(node, Name):
-            return self.lookup_variable(node.value, node)
+    if isinstance(literal, Number) and typ in NUMERIC_TYPES:
+        if isinstance(literal.value, float) and typ in FLOAT_TYPES:
+            return typ(literal.value)
 
-        if isinstance(node, String):
-            return StringType
+        if isinstance(literal.value, float) and typ in FLOAT_TYPES:
+            return typ(literal.value)
 
-        if isinstance(node, Boolean):
-            return BoolType
+        if isinstance(literal.value, int) and typ in INTEGER_TYPES:
+            return typ(literal.value)
 
-        # if isinstance(node,)
-        # doesn't work for numeric... one numeric node can be multiple fprime types
-
-
-        
+    return None
 
 
 class CompilePass:
@@ -258,7 +253,7 @@ class ResolveEnumConsts(CompilePass):
         if fqn not in state.consts:
             state.errors.append(CompileException(f"Unknown enum const {fqn}", node))
             return
-        state.resolved_enum_consts[node.id] = state.consts[fqn]
+        state.values[node.id] = state.consts[fqn]
 
 
 class ResolveTypeNames(CompilePass):
@@ -297,7 +292,7 @@ class CreateScopes(TopDownCompilePass):
 class CreateVariables(CompilePass):
 
     def visit_TypedAssign(self, parent, node: TypedAssign, state: CompileState):
-        var_type = state.resolved_types.get(node.var_type, None)
+        var_type = state.resolved_types.get(node.var_type.id, None)
         if var_type is None:
             state.errors.append(CompileException(f"Unknown type {node.var_type}", node))
             return
@@ -337,87 +332,115 @@ class CreateVariables(CompilePass):
             )
 
 
-class TypeCheckCalls(CompilePass):
-    def visit_Call(self, parent, node: FuncCall, state: CompileState):
+class CheckCalls(CompilePass):
+    def visit_FuncCall(self, parent, node: FuncCall, state: CompileState):
         func = state.resolved_callables.get(node.func.id, None)
         if func is None:
             state.errors.append(CompileException("Unknown function", node.func))
             return
 
-        node_arg_count = len(node.args) if node.args is not None else 0
-        if node_arg_count != len(func.args):
-            if len(node.args) < len(func.args):
-                state.errors.append(CompileException("Missing arguments", node))
+        node_args = node.args if node.args is not None else []
+
+        if len(node_args) != len(func.args):
+            if len(node_args) < len(func.args):
+                state.errors.append(
+                    CompileException(
+                        f"Missing arguments (expected {len(func.args)} found {len(node_args)})",
+                        node,
+                    )
+                )
                 return
-            state.errors.append(CompileException("Too many arguments", node))
+            state.errors.append(
+                CompileException(
+                    f"Too many arguments (expected {len(func.args)} found {len(node_args)})",
+                    node,
+                )
+            )
             return
 
-        if node_arg_count == 0:
-            # no args. good 2 go
-            return
+        arg_values: dict[str, BaseType] = {}
 
-        for value, arg_template in zip(node.args, func.args):
+        for value_node, arg_template in zip(node_args, func.args):
             arg_name, arg_type = arg_template
             # check type of value matches expected type of template
 
-            if isinstance(value, Literal):
-                if not is_literal_compatible(value.value, arg_type):
+            if isinstance(value_node, Literal):
+                try:
+                    coerced_value = coerce_literal_to_type(value_node, arg_type)
+                except BaseException as e:
                     state.errors.append(
                         CompileException(
-                            f"Wrong type for arg {arg_name} ({type(value)} cannot be converted to {arg_type})",
+                            f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type} ({e})",
+                            node,
+                        )
+                    )
+                    return
+                if coerced_value is None:
+                    state.errors.append(
+                        CompileException(
+                            f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type}",
                             node,
                         )
                     )
                     return
                 # literal value, compatible with expected type
+                state.values[value_node.id] = coerced_value
+                arg_values[arg_name] = coerced_value
                 continue
 
-            if isinstance(value, FuncCall):
-                # a call's type is defined by its function
-                func = state.references.get(value.func.id, None)
-            else:
-                # some ast node. get what type it references
-                func = state.references.get(value.id, None)
+            existing_value = state.values.get(value_node.id, None)
 
-            if func is None:
-                state.errors.append(
-                    CompileException("Invalid syntax (unknown reference)", value)
-                )
-                return
+            # all arguments should have already gotten their values at this point
+            assert existing_value is not None
 
-            if isinstance(func, FpyCallable):
-                existing_value_type = func.return_type
-            elif isinstance(func, BaseType):
-                existing_value_type = type(func)
-            else:
-                state.errors.append(
-                    CompileException("Invalid syntax (invalid argument)", value)
-                )
-                return
-
-            if existing_value_type != arg_type:
+            if not isinstance(existing_value, arg_type):
                 state.errors.append(
                     CompileException(
-                        f"Wrong type for arg {arg_name} (expected {arg_type} found {existing_value_type})",
-                        node,
+                        f"For arg {arg_name}: {existing_value} cannot be converted to {arg_type}"
                     )
                 )
                 return
 
+            arg_values[arg_name] = existing_value
 
-def is_literal_compatible(literal, typ):
-    if isinstance(literal, int) and issubclass(typ, NUMERIC_TYPES):
-        # fine to coerce an int to a float
-        return True
-    if isinstance(literal, float) and issubclass(typ, FLOAT_TYPES):
-        # can't convert float to int
-        return True
-    if isinstance(literal, str) and typ == StringType:
-        return True
-    if isinstance(literal, bool) and typ == BoolType:
-        return True
+        assert len(arg_values) == len(func.args), len(arg_values)
 
-    return False
+        # if it has a return type, it doesn't have an action
+        # if it has an action, it doesn't have a return type
+        assert (func.return_type is None and func.action is not None) or (
+            func.return_type is not None and func.action is None
+        ), (func.return_type, func.action)
+
+        # okay we have all arg values
+
+        # if it is a type ctor call, instantiate it
+        if func.return_type is not None:
+            if issubclass(func.return_type, SerializableType):
+                # pass in args as a dict
+                instance = func.return_type()
+                instance._val = arg_values
+                state.values[node.id] = instance
+
+            elif issubclass(func.return_type, ArrayType):
+                state.values[node.id] = func.return_type(tuple(arg_values.values()))
+
+            elif func.return_type == TimeType:
+                state.values[node.id] = TimeType(**arg_values)
+
+            else:
+                assert False, func.return_type
+
+            return
+
+        # if it is an action, save it in state
+        if func.action is not None:
+            if isinstance(func.action, CmdTemplate):
+                state.commands[node.id] = (func.action, list(arg_values.values()))
+                return
+
+            assert isinstance(func.action, FpyBuiltin)
+            state.directives[node.id] = (func.action, list(arg_values.values()))
+            return
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -502,8 +525,7 @@ def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
         CreateScopes(),
         CreateVariables(),
         # resolve everything defined in the seq (vars, funcs, etc)
-        ResolveSymbols(),
-        TypeCheckCalls(),
+        CheckCalls(),
     ]
     for compile_pass in passes:
         compile_pass.run(body, state)

@@ -16,8 +16,10 @@ pass_stmt: "pass"
 
 # can currently only assign constant values to vars
 type_name: name ("." name)*
-typed_assign: name ":" type_name "=" literal
-assign: name "=" literal
+typed_assign: name ":" type_name "=" assign_value
+assign: name "=" assign_value
+?assign_value: literal
+             | name ("." name)+ -> enum_const
 
 
 
@@ -50,7 +52,7 @@ func_name: name ("." name)*
 func_call: func_name "(" [arguments] ")"
 arguments: argument ("," argument)*
 ?argument: func_call
-         | name ("." name)* -> enum_const
+         | name ("." name)+ -> enum_const
          | literal
 
 

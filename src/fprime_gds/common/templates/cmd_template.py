@@ -175,3 +175,11 @@ class CmdTemplate(data_template.DataTemplate):
 
     def getArgs(self):
         return self.get_args()
+
+    def __repr__(self):
+        arg_strs = []
+        for arg in self.arguments:
+            arg_strs.append(arg[0] + ": " + str(arg[2]))
+            
+        args_str = ", ".join(arg_strs)
+        return f"CmdTemplate({self.comp_name}.{self.mnemonic}, args: ({args_str}))"
