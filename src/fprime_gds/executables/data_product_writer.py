@@ -88,126 +88,7 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-# This defines the data in the container header.  When this is ultimately defined in the json dictionary,
-# then this can be removed.
-
-default_header_data = {
-"typeDefinitions" : [
-        {
-            "kind": "array",
-            "qualifiedName": "UserDataArray",
-            "size": 32,
-            "elementType": {
-                "name": "U8",
-                "kind": "integer",
-                "signed": False,
-                "size": 8
-            }
-        },
-
-        {
-            "kind": "struct",
-            "qualifiedName": "timeStruct",
-            "members": {
-                "seconds": {
-                    "type": {
-                        "name": "U32",
-                        "kind": "integer",
-                        "signed": False,
-                        "size": 32
-                    }
-                },
-                "useconds": {
-                    "type": {
-                        "name": "U32",
-                        "kind": "integer",
-                        "signed": False,
-                        "size": 32
-                    }
-                },
-                "timeBase": {
-                    "type": {
-                        "name": "U16",
-                        "kind": "integer",
-                        "signed": False,
-                        "size": 16
-                    }
-                },
-                "context": {
-                    "type": {
-                        "name": "U8",
-                        "kind": "integer",
-                        "signed": False,
-                        "size": 8
-                    }
-                }
-            }
-        }
-    ],
-    "header": {
-        "PacketDescriptor": {
-            "type": {
-                "name": "U32",
-                "kind": "integer",
-                "signed": False,
-                "size": 32
-            }
-        },
-        "Id": {
-            "type": {
-                "name": "U32",
-                "kind": "integer",
-                "signed": False,
-                "size": 32
-            }
-        },
-        "Priority": {
-            "type": {
-                "name": "U32",
-                "kind": "integer",
-                "signed": False,
-                "size": 32
-            }
-        },
-        "TimeTag": {
-            "type": {
-                "name": "timeStruct",
-                "kind": "qualifiedIdentifier"
-            }
-        },
-        "ProcTypes": {
-            "type": {
-                "name": "U8",
-                "kind": "integer",
-                "signed": False,
-                "size": 8
-            }
-        },
-        "UserData": {
-            "type": {
-                "name": "UserDataArray",
-                "kind": "qualifiedIdentifier"
-            }
-        },
-        "DpState": {
-            "type": {
-                "name": "U8",
-                "kind": "integer",
-                "signed": False,
-                "size": 8
-            }
-        },
-        "DataSize": {
-            "type": {
-                "name": "U16",
-                "kind": "integer",
-                "signed": False,
-                "size": 16
-            }       
-        }
-    },
-}
-additional_header_data = {
+header_hash_data = {
     "headerHash": {
         "type": {
             "name": "U32",
@@ -216,25 +97,6 @@ additional_header_data = {
             "size": 32
         }
     },
-
-    "dataId": {
-        "type": {
-            "name": "U32",
-            "kind": "integer",
-            "signed": False,
-            "size": 32
-        }
-    },
-
-    "dataSize": {
-        "type": {
-            "name": "U16",
-            "kind": "integer",
-            "signed": False,
-            "size": 16
-        }
-    },
-
     "dataHash": {
         "type": {
             "name": "U32",
@@ -369,16 +231,10 @@ class ArrayType(BaseModel):
         return v
 
 class Constant(BaseModel):
-    kind: str
     qualifiedName: str
     type: Union[IntegerType, FloatType, BoolType, StringType]
     value: Union[int, float, bool, str]
 
-    @field_validator('kind')
-    def kind_qualifiedIdentifier(cls, v):
-        if v != "constant":
-            raise ValueError('Check the "kind" field')
-        return v
 
 class EnumeratedConstant(BaseModel):
     name: str
@@ -436,8 +292,6 @@ class DPHeader(BaseModel):
     typeDefinitions: List[Union[AliasType, ArrayType, StructType, EnumType]]
     constants: List[Constant]
     headerHash: Type
-    dataId: Type
-    dataSize: Type
     dataHash: Type
 
     @computed_field
@@ -479,6 +333,16 @@ class DPHeader(BaseModel):
                         break
 
         return header_dict
+    
+    @computed_field
+    @property
+    def dataId(self) -> Type:
+        return self.header.get("FwDpIdType")
+    
+    @computed_field
+    @property
+    def dataSize(self) -> Type:
+        return self.header.get("FwSizeStoreType")
 
     @model_validator(mode='after')
     def validate_header(self) -> 'DPHeader':
@@ -492,7 +356,7 @@ AliasType.model_rebuild()
 StructType.model_rebuild()
 Type.model_rebuild()
 
-TypeKind = Union[AliasType, ArrayType, Constant, StructType, IntegerType, FloatType, EnumType, BoolType, QualifiedType, StringType]
+TypeKind = Union[AliasType, ArrayType, StructType, IntegerType, FloatType, EnumType, BoolType, QualifiedType, StringType]
 TypeDef = Union[AliasType, ArrayType, StructType]
 
 # Map the JSON types to struct format strings
@@ -960,7 +824,7 @@ class DataProductWriter:
                     dict_json = json.load(fprimeDictFile)
                     dictJSON = FprimeDict(**dict_json)
 
-                    header_json = additional_header_data
+                    header_json = header_hash_data
                     if "typeDefinitions" in dict_json:
                         header_json["typeDefinitions"] = dict_json["typeDefinitions"]
                     if "constants" in dict_json:
