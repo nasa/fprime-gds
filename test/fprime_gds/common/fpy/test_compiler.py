@@ -37,6 +37,14 @@ var = 1
 
     assert_failure(fprime_test_api, seq)
 
+def test_create_after_assign_var(fprime_test_api):
+    seq = """
+var = 1
+var: U32 = 2
+"""
+
+    assert_failure(fprime_test_api, seq)
+
 
 def test_bad_assign_type(fprime_test_api):
     seq = """
@@ -120,4 +128,14 @@ def test_var_with_enum_type(fprime_test_api):
 var: Ref.Choice = Ref.Choice.ONE
 """
 
+    assert_success(fprime_test_api, seq)
+
+
+def test_simple_if(fprime_test_api):
+    seq = """
+var: bool = True
+
+if var:
+    pass
+"""
     assert_success(fprime_test_api, seq)

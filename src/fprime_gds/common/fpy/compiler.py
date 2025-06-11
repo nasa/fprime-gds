@@ -1,6 +1,7 @@
 from ast import Pass
 from dataclasses import dataclass, field, fields
 from types import NoneType
+from typing import TypeVar
 
 from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.fpy.bytecode.types import (
@@ -34,11 +35,9 @@ from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
     Boolean,
-    EnumConst,
-    FuncName,
     Number,
+    Reference,
     String,
-    TypeName,
     TypedAssign,
     Ast,
     Literal,
@@ -104,7 +103,12 @@ class FpyCallable:
 
 
 # named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
-FpyVariable = ChTemplate | PrmTemplate | FpyCallable | BaseType
+@dataclass
+class FpyVariable:
+    type: type[BaseType]
+
+
+FpyReference = ChTemplate | PrmTemplate | BaseType | FpyCallable | type[BaseType]
 
 
 @dataclass
@@ -115,9 +119,7 @@ class CompileState:
     types: dict[str, type[BaseType]] = field(repr=False, default_factory=dict)
     callables: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
 
-    resolved_types: dict[int, type[BaseType]] = field(default_factory=dict)
-
-    resolved_callables: dict[int, FpyCallable] = field(default_factory=dict)
+    resolved_references: dict[int, list[FpyReference]] = field(default_factory=dict)
 
     values: dict[int, BaseType] = field(default_factory=dict)
 
@@ -129,18 +131,28 @@ class CompileState:
         default_factory=dict
     )
 
-    variable_tables: dict[int, dict[str, type[BaseType]]] = field(default_factory=dict)
+    variable_tables: dict[int, dict[str, FpyVariable]] = field(default_factory=dict)
     """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
 
     parent_scope: dict[int, int | None] = field(default_factory=dict)
     """a dict tracking the parent scope of each ast node. keys are ast node uid, values are uid of parent scopedbody"""
 
-    references: dict[int, FpyVariable] = field(default_factory=dict)
-    """a dict mapping ast node uid to which symbol it references"""
-
     errors: list[CompileException] = field(default_factory=list)
 
-    def lookup_variable(self, var: str, at_node: Ast) -> type[BaseType] | None:
+    T = TypeVar("T")
+
+    def lookup_reference(self, node: Ast, interpret_as: type[T]) -> T | None:
+        possible_refs = self.resolved_references.get(node.id, None)
+        if possible_refs is None:
+            return None
+
+        for interpretation in possible_refs:
+            if isinstance(interpretation, interpret_as):
+                return interpretation
+
+        return None
+
+    def lookup_variable(self, var: str, at_node: Ast) -> FpyVariable | None:
         # first check if there's a symbol defined in the sequence
         parent = self.parent_scope[at_node.id]
         while parent is not None:
@@ -154,7 +166,7 @@ class CompileState:
 
     def add_variable(self, var_name: str, var_type: type[BaseType], at_node: Ast):
         parent_scope = self.parent_scope[at_node.id]
-        self.variable_tables[parent_scope][var_name] = var_type
+        self.variable_tables[parent_scope][var_name] = FpyVariable(var_type)
 
 
 def coerce_literal_to_type(literal: Literal, typ: type[BaseType]) -> BaseType | None:
@@ -247,31 +259,41 @@ class AssignIds(TopDownCompilePass):
         self.next_id += 1
 
 
-class ResolveEnumConsts(CompilePass):
-    def visit_EnumConst(self, parent, node: EnumConst, state: CompileState):
+class ResolveReferences(CompilePass):
+
+    def __init__(self, fail_if_unknown: bool = False):
+        self.fail_if_unknown = fail_if_unknown
+
+    def visit_Reference(self, parent, node: Reference, state: CompileState):
         fqn = ".".join(name.value for name in node.names)
-        if fqn not in state.consts:
-            state.errors.append(CompileException(f"Unknown enum const {fqn}", node))
+
+        tlm = state.tlms.get(fqn, None)
+        prm = state.prms.get(fqn, None)
+        const = state.consts.get(fqn, None)
+        type = state.types.get(fqn, None)
+        callable = state.callables.get(fqn, None)
+        var = state.lookup_variable(fqn, node)
+
+        possible_resolutions = (tlm, prm, const, type, callable, var)
+        possible_resolutions = list(
+            ref for ref in possible_resolutions if ref is not None
+        )
+
+        if node.id in state.resolved_references:
+            # already resolved previously
+            # make sure we're resolving it the same way now
+            assert (
+                state.resolved_references[node.id] == possible_resolutions
+            ), state.resolved_references[node.id]
+            # okay all good, same resolution
             return
-        state.values[node.id] = state.consts[fqn]
 
-
-class ResolveTypeNames(CompilePass):
-    def visit_TypeName(self, parent, node: TypeName, state: CompileState):
-        fqn = ".".join(name.value for name in node.names)
-        if fqn not in state.types:
-            state.errors.append(CompileException(f"Unknown type {fqn}", node))
+        if len(possible_resolutions) == 0:
+            if self.fail_if_unknown:
+                state.errors.append(CompileException(f"Unknown reference {fqn}", node))
             return
-        state.resolved_types[node.id] = state.types[fqn]
 
-
-class ResolveFuncNames(CompilePass):
-    def visit_FuncName(self, parent, node: FuncName, state: CompileState):
-        fqn = ".".join(name.value for name in node.names)
-        if fqn not in state.callables:
-            state.errors.append(CompileException(f"Unknown function {fqn}", node))
-            return
-        state.resolved_callables[node.id] = state.callables[fqn]
+        state.resolved_references[node.id] = possible_resolutions
 
 
 class CreateScopes(TopDownCompilePass):
@@ -292,9 +314,9 @@ class CreateScopes(TopDownCompilePass):
 class CreateVariables(CompilePass):
 
     def visit_TypedAssign(self, parent, node: TypedAssign, state: CompileState):
-        var_type = state.resolved_types.get(node.var_type.id, None)
+        var_type = state.lookup_reference(node.var_type, type)
         if var_type is None:
-            state.errors.append(CompileException(f"Unknown type {node.var_type}", node))
+            state.errors.append(CompileException(f"Unknown type", node.var_type))
             return
 
         # okay, type exists
@@ -310,10 +332,10 @@ class CreateVariables(CompilePass):
             )
         else:
             # already existing. check the type is consistent
-            if existing_variable != var_type:
+            if existing_variable.type != var_type:
                 state.errors.append(
                     CompileException(
-                        f"Inconsistent type. Was {existing_variable}, but annotation was {var_type}",
+                        f"Inconsistent type. Was {existing_variable.type}, but annotation was {var_type}",
                         node.var_type,
                     )
                 )
@@ -334,7 +356,7 @@ class CreateVariables(CompilePass):
 
 class CheckCalls(CompilePass):
     def visit_FuncCall(self, parent, node: FuncCall, state: CompileState):
-        func = state.resolved_callables.get(node.func.id, None)
+        func = state.lookup_reference(node.func, FpyCallable)
         if func is None:
             state.errors.append(CompileException("Unknown function", node.func))
             return
@@ -371,7 +393,7 @@ class CheckCalls(CompilePass):
                     state.errors.append(
                         CompileException(
                             f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type} ({e})",
-                            node,
+                            value_node,
                         )
                     )
                     return
@@ -379,7 +401,7 @@ class CheckCalls(CompilePass):
                     state.errors.append(
                         CompileException(
                             f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type}",
-                            node,
+                            value_node,
                         )
                     )
                     return
@@ -388,9 +410,23 @@ class CheckCalls(CompilePass):
                 arg_values[arg_name] = coerced_value
                 continue
 
-            existing_value = state.values.get(value_node.id, None)
+            elif isinstance(value_node, Reference):
+                # only reference that is allowed is a const rn
+                ref = state.lookup_reference(value_node, BaseType)
+                if ref is None:
+                    state.errors.append(
+                        CompileException(f"Unknown constant reference", value_node)
+                    )
+                    return
+                state.values[value_node.id] = ref
+                arg_values[arg_name] = ref
+                continue
 
-            # all arguments should have already gotten their values at this point
+            # otherwise, it's a callable
+            assert isinstance(value_node, FuncCall), value_node
+
+            existing_value = state.values.get(value_node.id, None)
+            # we should have already figured out the value of this node
             assert existing_value is not None
 
             if not isinstance(existing_value, arg_type):
@@ -441,6 +477,11 @@ class CheckCalls(CompilePass):
             assert isinstance(func.action, FpyBuiltin)
             state.directives[node.id] = (func.action, list(arg_values.values()))
             return
+
+
+class CheckIfStatements(CompilePass):
+    def visit_If(self, parent, node: If, state: CompileState):
+        print(node.condition)
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -519,13 +560,15 @@ def compile(body: ScopedBody, dictionary: str) -> list[StatementData]:
     passes: list[CompilePass] = [
         AssignIds(),
         # resolve everything defined in the dict
-        ResolveEnumConsts(),
-        ResolveFuncNames(),
-        ResolveTypeNames(),
         CreateScopes(),
+        ResolveReferences(),
         CreateVariables(),
+        # now that variables have been defined, try resolving references
+        # again and fail if anything isn't found
+        ResolveReferences(fail_if_unknown=True),
         # resolve everything defined in the seq (vars, funcs, etc)
         CheckCalls(),
+        CheckIfStatements(),
     ]
     for compile_pass in passes:
         compile_pass.run(body, state)

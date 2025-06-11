@@ -3,6 +3,7 @@
 input: (_NEWLINE | stmt)*
 
 ?literal: number | string | boolean
+reference: name ("." name)*
 
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
@@ -15,11 +16,11 @@ pass_stmt: "pass"
 # assignment
 
 # can currently only assign constant values to vars
-type_name: name ("." name)*
+?type_name: reference
 typed_assign: name ":" type_name "=" assign_value
 assign: name "=" assign_value
 ?assign_value: literal
-             | name ("." name)+ -> enum_const
+             | reference # can only be a ref to enum const
 
 
 
@@ -40,7 +41,7 @@ condition: test
 ?not_test_: "not" not_test_ -> not_test
          | comparison
 ?comparison: comparable (comp_op comparable)*
-?comparable: name ("." name)*
+?comparable: reference
            | literal
 !comp_op: "<"|">"|"=="|">="|"<="|"!="
 
@@ -48,11 +49,11 @@ condition: test
 
 # function calling
 
-func_name: name ("." name)*
+?func_name: reference
 func_call: func_name "(" [arguments] ")"
 arguments: argument ("," argument)*
 ?argument: func_call
-         | name ("." name)+ -> enum_const
+         | reference # can only be enum const
          | literal
 
 

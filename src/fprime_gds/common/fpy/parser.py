@@ -70,22 +70,17 @@ Literal = String | Number | Boolean
 
 
 @dataclass
-class FuncName(Ast):
+class Reference(Ast):
     names: list[Name]
 
 
 @dataclass()
 class FuncCall(Ast):
-    func: FuncName
+    func: Reference
     args: list["Argument"]
 
 
-@dataclass
-class EnumConst(Ast):
-    names: list[Name]
-
-
-Argument = FuncCall | EnumConst | Literal
+Argument = FuncCall | Reference | Literal
 
 
 @dataclass
@@ -112,7 +107,7 @@ class If(Ast):
     els: list[Ast] | None
 
 
-AssignValue = Literal | EnumConst
+AssignValue = Literal | Reference
 
 
 @dataclass()
@@ -121,15 +116,10 @@ class Assign(Ast):
     value: AssignValue
 
 
-@dataclass
-class TypeName(Ast):
-    names: list[Name]
-
-
 @dataclass()
 class TypedAssign(Ast):
     var: Name
-    var_type: TypeName
+    var_type: Reference
     value: AssignValue
 
 
@@ -143,49 +133,38 @@ def as_list(self, tree):
     return list(tree)
 
 
-@v_args(meta=True, inline=False)
-def as_scoped_body(self, meta, tree):
-    return ScopedBody(meta, tree)
+def no_inline_or_meta(type):
+    @v_args(meta=False, inline=False)
+    def wrapper(self, tree):
+        return type(tree)
+
+    return wrapper
 
 
-@v_args(meta=True, inline=False)
-def as_type_name(self, meta, tree):
-    return TypeName(meta, tree)
+def no_inline(type):
+    @v_args(meta=True, inline=False)
+    def wrapper(self, meta, tree):
+        return type(meta, tree)
 
-
-@v_args(meta=True, inline=False)
-def as_func_name(self, meta, tree):
-    return FuncName(meta, tree)
-
-
-@v_args(meta=True, inline=False)
-def as_enum_const(self, meta, tree):
-    return EnumConst(meta, tree)
-
-
-@v_args(meta=False, inline=True)
-def as_str(self, value):
-    return str(value)
+    return wrapper
 
 
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
-    input = as_scoped_body
+    input = no_inline(ScopedBody)
     pass_stmt = Pass
 
-    type_name = as_type_name
+    reference = no_inline(Reference)
     typed_assign = TypedAssign
     assign = Assign
 
     if_stmt = If
-    elifs = Elifs
+    elifs = no_inline(Elifs)
     elif_ = Elif
-    suite = as_list
+    suite = no_inline_or_meta(list)
 
-    func_name = as_func_name
     func_call = FuncCall
-    arguments = as_list
-    enum_const = as_enum_const
+    arguments = no_inline_or_meta(list)
 
     string = String
     number = Number
