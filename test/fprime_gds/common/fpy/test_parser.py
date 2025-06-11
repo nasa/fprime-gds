@@ -1,5 +1,4 @@
 import ast
-from fprime_gds.common.fpy.old_compiler import compile_fpy
 from fprime_gds.common.fpy.parser import parse
 
 

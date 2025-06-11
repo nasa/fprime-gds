@@ -84,7 +84,7 @@ Argument = FuncCall | Reference | Literal
 
 
 @dataclass
-class Condition:
+class Condition(Ast):
     value: Ast
 
 
@@ -128,6 +128,30 @@ class Pass(Ast):
     pass
 
 
+@dataclass
+class Or(Ast):
+    values: list[Ast]
+
+
+@dataclass
+class And(Ast):
+    values: list[Ast]
+
+
+@dataclass
+class Not(Ast):
+    values: list[Ast]
+
+
+@dataclass
+class Comparison(Ast):
+    values: list[Ast]
+
+@dataclass
+class ComparisonOp(Ast):
+    value: Ast
+
+
 @v_args(meta=False, inline=False)
 def as_list(self, tree):
     return list(tree)
@@ -162,6 +186,12 @@ class FpyTransformer(Transformer):
     elifs = no_inline(Elifs)
     elif_ = Elif
     suite = no_inline_or_meta(list)
+    condition = no_inline(Condition)
+    or_test = no_inline(Or)
+    and_test = no_inline(And)
+    not_test = no_inline(Not)
+    comparison = no_inline(Comparison)
+    comp_op = ComparisonOp
 
     func_call = FuncCall
     arguments = no_inline_or_meta(list)
@@ -174,3 +204,4 @@ class FpyTransformer(Transformer):
     NAME = str
     DEC_NUMBER = int
     FLOAT_NUMBER = float
+    COMPARISON_OP = str

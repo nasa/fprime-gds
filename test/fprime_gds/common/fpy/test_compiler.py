@@ -37,6 +37,7 @@ var = 1
 
     assert_failure(fprime_test_api, seq)
 
+
 def test_create_after_assign_var(fprime_test_api):
     seq = """
 var = 1
@@ -136,6 +137,41 @@ def test_simple_if(fprime_test_api):
 var: bool = True
 
 if var:
+    pass
+"""
+    assert_success(fprime_test_api, seq)
+
+
+def test_or_expr(fprime_test_api):
+    seq = """
+if True or False:
+    pass
+"""
+    assert_success(fprime_test_api, seq)
+
+
+def test_not_expr(fprime_test_api):
+    seq = """
+if not False:
+    pass
+"""
+    assert_success(fprime_test_api, seq)
+
+
+def test_or_expr_with_vars(fprime_test_api):
+    seq = """
+var1: bool = True
+var2: bool = False
+
+if var1 or var2:
+    pass
+"""
+    assert_success(fprime_test_api, seq)
+
+
+def test_geq(fprime_test_api):
+    seq = """
+if 2 >= 1:
     pass
 """
     assert_success(fprime_test_api, seq)

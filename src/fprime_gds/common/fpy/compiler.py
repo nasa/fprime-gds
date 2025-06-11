@@ -481,7 +481,8 @@ class CheckCalls(CompilePass):
 
 class CheckIfStatements(CompilePass):
     def visit_If(self, parent, node: If, state: CompileState):
-        print(node.condition)
+        # so we want to make sure that the condition converts to a bool
+        print(node)
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:

@@ -39,11 +39,11 @@ condition: test
 ?or_test: and_test ("or" and_test)*
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
-         | comparison
+          | comparison
 ?comparison: comparable (comp_op comparable)*
 ?comparable: reference
            | literal
-!comp_op: "<"|">"|"=="|">="|"<="|"!="
+comp_op: COMPARISON_OP
 
 
 
@@ -82,6 +82,7 @@ NAME: /[^\W\d]\w*/
 COMMENT: /#[^\n]*/
 CONST_TRUE: "True"
 CONST_FALSE: "False"
+COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
 STRING: /([ubf]?r?|r[ubf])("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 LONG_STRING: /([ubf]?r?|r[ubf])(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
