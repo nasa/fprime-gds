@@ -134,6 +134,7 @@ class Dictionaries:
                 names = packet_loader.get_packet_set_names(None)
                 if len(names) == 0:
                     self._packet_dict = None
+                    return
                 elif len(names) > 1:
                     raise Exception("[ERROR] Multiple packet sets, must set --packet-set-name")
                 packet_set_name = names[0]
