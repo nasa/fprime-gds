@@ -201,7 +201,7 @@ class FpyTransformer(Transformer):
     or_test = no_inline(AstOr)
     and_test = no_inline(AstAnd)
     not_test = no_inline(AstNot)
-    comparison = infix_func
+    comparison = AstComparison
     comp_op = AstInfixOp
 
     func_call = AstFuncCall

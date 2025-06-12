@@ -1,7 +1,8 @@
 from ast import Pass
+from collections import defaultdict
 from dataclasses import dataclass, field, fields
 from types import NoneType
-from typing import TypeVar
+from typing import TypeVar, overload
 
 from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.fpy.bytecode.types import (
@@ -34,6 +35,7 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
+    Argument,
     AstBoolean,
     AstComparison,
     AstInfixOp,
@@ -85,6 +87,12 @@ FLOAT_TYPES = (
 )
 
 
+# mock type, used as a placeholder for a func/op that takes any numeric
+# type
+class AnyNumericType:
+    pass
+
+
 class CompileException(BaseException):
     def __init__(self, msg, node: Ast):
         self.msg = msg
@@ -100,7 +108,7 @@ FpyBuiltin = int
 @dataclass
 class FpyCallable:
     return_type: type[BaseType] | None
-    args: list[tuple[str, type[BaseType]]]
+    args: list[tuple[str, type[BaseType]]] | None
     action: CmdTemplate | FpyBuiltin | None
 
 
@@ -120,7 +128,7 @@ class CompileState:
     consts: dict[str, BaseType] = field(repr=False, default_factory=dict)
     types: dict[str, type[BaseType]] = field(repr=False, default_factory=dict)
     callables: dict[str, list[FpyCallable]] = field(repr=False, default_factory=dict)
-    infix_callables: dict[str, list[FpyCallable]] = field(
+    infix_operators: dict[str, list[FpyCallable]] = field(
         repr=False, default_factory=dict
     )
 
@@ -144,22 +152,43 @@ class CompileState:
 
     errors: list[CompileException] = field(default_factory=list)
 
+    def lookup_ref(self, node: AstReference, error_if_none=False) -> list[FpyReference]:
+        refs = self.resolved_references.get(node.id, [])
+        if len(refs) == 0 and error_if_none:
+            self.errors.append(CompileException("Unknown reference", node))
+        return refs
+
     T = TypeVar("T")
 
-    def lookup_reference(
-        self, node: AstReference, interpret_as: type[T] | None = None
-    ) -> T | list[FpyReference] | None:
-        possible_refs = self.resolved_references.get(node.id, None)
-        if possible_refs is None:
+    def lookup_ref_with_type(
+        self, node: AstReference, type: type[T], error_if_none=True
+    ) -> list[T]:
+        refs = self.lookup_ref(node, error_if_none)
+
+        if len(refs) > 0:
+            refs_of_type = [ref for ref in refs if isinstance(ref, type)]
+            if len(refs_of_type) == 0 and error_if_none:
+                self.errors.append(
+                    CompileException(
+                        f"Expecting reference to {type}, found {refs}", node
+                    )
+                )
+
+            refs = refs_of_type
+
+        return refs
+
+    def lookup_single_ref_with_type(
+        self, node: AstReference, type: type[T], dont_create_errors=False
+    ) -> T | None:
+        refs = self.lookup_ref_with_type(node, type, not dont_create_errors)
+        if len(refs) > 1:
+            if not dont_create_errors:
+                self.errors.append(
+                    CompileException(f"Ambiguous reference to {type}, found {refs}")
+                )
             return None
-        if interpret_as is None:
-            return possible_refs
-
-        for interpretation in possible_refs:
-            if isinstance(interpretation, interpret_as):
-                return interpretation
-
-        return None
+        return refs[0]
 
     def lookup_variable(self, var: str, at_node: Ast) -> FpyVariable | None:
         # first check if there's a symbol defined in the sequence
@@ -294,13 +323,10 @@ class ResolveReferences(CompilePass):
         prm = state.prms.get(fqn, None)
         const = state.consts.get(fqn, None)
         type = state.types.get(fqn, None)
-        callables = state.callables.get(fqn, None)
+        callables = state.callables.get(fqn, [])
         var = state.lookup_variable(fqn, node)
 
-        possible_resolutions = [tlm, prm, const, type, var]
-
-        if callables is not None:
-            possible_resolutions.extend(callables)
+        possible_resolutions = callables + [tlm, prm, const, type, var]
 
         possible_resolutions = [ref for ref in possible_resolutions if ref is not None]
 
@@ -339,9 +365,9 @@ class CreateScopes(TopDownCompilePass):
 class CreateVariables(CompilePass):
 
     def visit_AstTypedAssign(self, parent, node: AstTypedAssign, state: CompileState):
-        var_type = state.lookup_reference(node.var_type, type)
-        if var_type is None:
-            state.errors.append(CompileException(f"Unknown type", node.var_type))
+        var_type = state.lookup_single_ref_with_type(node.var_type, type)
+        if not var_type:
+            # error is generated in the above method
             return
 
         # okay, type exists
@@ -380,35 +406,20 @@ class CreateVariables(CompilePass):
 
 
 class CheckCalls(CompilePass):
-    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        if isinstance(node.func, AstInfixOp):
-            # if this fails, it's a coding error. infix operators are defined in grammar
-            func = state.infix_callables[node.func.value]
-        else:
-            func = state.lookup_reference(node.func)
 
-        if func is None:
-            state.errors.append(CompileException("Unknown function", node.func))
-            return
-
-        node_args = node.args if node.args is not None else []
-
-        if len(node_args) != len(func.args):
-            if len(node_args) < len(func.args):
-                state.errors.append(
-                    CompileException(
-                        f"Missing arguments (expected {len(func.args)} found {len(node_args)})",
-                        node,
-                    )
-                )
-                return
-            state.errors.append(
-                CompileException(
-                    f"Too many arguments (expected {len(func.args)} found {len(node_args)})",
-                    node,
-                )
+    def check_args_compatible(
+        self, node: Ast, node_args: list[Argument], func: FpyCallable, state: CompileState
+    ) -> tuple[dict[str, BaseType], CompileException]:
+        if len(node_args) < len(func.args):
+            return dict(), CompileException(
+                f"Missing arguments (expected {len(func.args)} found {len(node_args)})",
+                node,
             )
-            return
+        if len(node_args) > len(func.args):
+            return dict(), CompileException(
+                f"Too many arguments (expected {len(func.args)} found {len(node_args)})",
+                node,
+            )
 
         arg_values: dict[str, BaseType] = {}
 
@@ -420,36 +431,41 @@ class CheckCalls(CompilePass):
                 try:
                     coerced_value = coerce_literal_to_type(value_node, arg_type)
                 except BaseException as e:
-                    state.errors.append(
-                        CompileException(
-                            f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type} ({e})",
-                            value_node,
-                        )
+                    return dict(), CompileException(
+                        f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type} ({e})",
+                        value_node,
                     )
-                    return
                 if coerced_value is None:
-                    state.errors.append(
-                        CompileException(
-                            f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type}",
-                            value_node,
-                        )
+                    return dict(), CompileException(
+                        f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type}",
+                        value_node,
                     )
-                    return
                 # literal value, compatible with expected type
                 state.values[value_node.id] = coerced_value
                 arg_values[arg_name] = coerced_value
                 continue
 
             elif isinstance(value_node, AstReference):
-                # only reference that is allowed is a const rn
-                ref = state.lookup_reference(value_node, BaseType)
-                if ref is None:
-                    state.errors.append(
-                        CompileException(f"Unknown constant reference", value_node)
+                refs = state.lookup_ref(value_node)
+                if len(refs) == 0:
+                    return dict(), CompileException(
+                        f"For arg {arg_name}: Unknown reference", value_node
                     )
-                    return
-                state.values[value_node.id] = ref
-                arg_values[arg_name] = ref
+                # only reference that is allowed is a const rn
+                const_refs = [r for r in refs if isinstance(r, BaseType)]
+                if len(const_refs) == 0:
+                    return dict(), CompileException(
+                        f"For arg {arg_name}: Expecting reference to BaseType, found {refs}",
+                        value_node,
+                    )
+                if len(const_refs) > 1:
+                    return dict(), CompileException(
+                        f"For arg {arg_name}: Ambiguous reference to BaseType, found {const_refs}",
+                        value_node,
+                    )
+                const_ref = const_refs[0]
+                state.values[value_node.id] = const_ref
+                arg_values[arg_name] = const_ref
                 continue
 
             # otherwise, it's a callable
@@ -460,14 +476,43 @@ class CheckCalls(CompilePass):
             assert existing_value is not None
 
             if not isinstance(existing_value, arg_type):
-                state.errors.append(
-                    CompileException(
-                        f"For arg {arg_name}: {existing_value} cannot be converted to {arg_type}"
-                    )
+                return dict(), CompileException(
+                    f"For arg {arg_name}: {existing_value} cannot be converted to {arg_type}"
                 )
-                return
 
             arg_values[arg_name] = existing_value
+
+        # got thru all args successfully
+
+        return arg_values, None
+
+    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
+        funcs = state.lookup_ref_with_type(node.func, FpyCallable)
+
+        if len(funcs) == 0:
+            # error is generated in lookup
+            return
+
+        # resolve polymorphic funcs by trying each possible func
+
+        # tuples of all funcs that we checked, their arg vals if they were compatible, and exception if not
+        checked_funcs: list[tuple[FpyCallable, list[BaseType], CompileException]] = []
+        # tuples of all matching funcs, arg vals
+        matching_funcs: list[tuple[FpyCallable, list[BaseType]]] = []
+
+        for func in funcs:
+            arg_values, exception = self.check_args_compatible(node, node.args if node.args is not None else [], func, state)
+            checked_funcs.append((func, arg_values, exception))
+            if exception is None:
+                matching_funcs.append((func, arg_values))
+
+        if len(matching_funcs) == 0:
+            state.errors.append(f"No matching function. Tried {checked_funcs}")
+            return
+
+        if len(matching_funcs) > 1:
+            state.errors.append(f"Ambiguous functions {matching_funcs}")
+            return
 
         assert len(arg_values) == len(func.args), len(arg_values)
 
@@ -514,7 +559,7 @@ class CheckComparisons(CompilePass):
         # what are we comparing?
         stmts = []
         if isinstance(node.lhs, AstReference):
-            ref = state.lookup_reference(node.lhs)
+            ref = state.lookup_ref(node.lhs)
 
 
 class CheckIfStatements(CompilePass):
@@ -556,18 +601,21 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     type_name_dict["bool"] = BoolType
     type_name_dict["str"] = StringType
 
-    callable_name_dict = {}
+    callable_name_dict = defaultdict(list)
     for name, cmd in cmd_name_dict.items():
         cmd: CmdTemplate
         args = []
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
-        callable_name_dict[name] = FpyCallable(None, args, cmd)
+        callable_name_dict[name].append(FpyCallable(None, args, cmd))
 
     infix_callable_name_dict = {}
-    infix_callable_name_dict[">"] = FpyCallable(
-        BoolType,
-    )
+
+    numeric_infix_ops = ["<", ">", "<=", ">=", "==", "!="]
+    for op in numeric_infix_ops:
+        infix_callable_name_dict[op] = FpyCallable(
+            BoolType, [("lhs", AnyNumericType), ("rhs", AnyNumericType)], None
+        )
 
     for name, typ in type_name_dict.items():
         args = []
@@ -587,7 +635,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
             # none of these have callable ctors
             continue
 
-        callable_name_dict[name] = FpyCallable(typ, args, None)
+        callable_name_dict[name].append(FpyCallable(typ, args, None))
 
     state = CompileState(
         tlms=ch_name_dict,
@@ -595,6 +643,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         consts=enum_consts,
         callables=callable_name_dict,
         types=type_name_dict,
+        infix_operators=infix_callable_name_dict
     )
     return state
 
