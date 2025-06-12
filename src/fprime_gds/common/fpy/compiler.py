@@ -408,7 +408,11 @@ class CreateVariables(CompilePass):
 class CheckCalls(CompilePass):
 
     def check_args_compatible(
-        self, node: Ast, node_args: list[Argument], func: FpyCallable, state: CompileState
+        self,
+        node: Ast,
+        node_args: list[Argument],
+        func: FpyCallable,
+        state: CompileState,
     ) -> tuple[dict[str, BaseType], CompileException]:
         if len(node_args) < len(func.args):
             return dict(), CompileException(
@@ -486,9 +490,18 @@ class CheckCalls(CompilePass):
 
         return arg_values, None
 
-    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        funcs = state.lookup_ref_with_type(node.func, FpyCallable)
+    def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
+        # op exists at syntax level, coding error if no exist
+        funcs = state.infix_operators[node.op.value]
+        self.resolve_polymorphic_funcs(node, [node.lhs, node.rhs], funcs, state)
 
+    def resolve_polymorphic_funcs(
+        self,
+        node: Ast,
+        node_args: list[Argument],
+        funcs: list[FpyCallable],
+        state: CompileState,
+    ):
         if len(funcs) == 0:
             # error is generated in lookup
             return
@@ -501,7 +514,9 @@ class CheckCalls(CompilePass):
         matching_funcs: list[tuple[FpyCallable, list[BaseType]]] = []
 
         for func in funcs:
-            arg_values, exception = self.check_args_compatible(node, node.args if node.args is not None else [], func, state)
+            arg_values, exception = self.check_args_compatible(
+                node, node_args, func, state
+            )
             checked_funcs.append((func, arg_values, exception))
             if exception is None:
                 matching_funcs.append((func, arg_values))
@@ -513,6 +528,8 @@ class CheckCalls(CompilePass):
         if len(matching_funcs) > 1:
             state.errors.append(f"Ambiguous functions {matching_funcs}")
             return
+
+        func, arg_values = matching_funcs[0]
 
         assert len(arg_values) == len(func.args), len(arg_values)
 
@@ -552,6 +569,12 @@ class CheckCalls(CompilePass):
             assert isinstance(func.action, FpyBuiltin)
             state.directives[node.id] = (func.action, list(arg_values.values()))
             return
+
+    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
+        funcs = state.lookup_ref_with_type(node.func, FpyCallable)
+        self.resolve_polymorphic_funcs(
+            node, node.args if node.args else [], funcs, state
+        )
 
 
 class CheckComparisons(CompilePass):
@@ -609,12 +632,14 @@ def get_base_compile_state(dictionary: str) -> CompileState:
             args.append((arg_name, arg_type))
         callable_name_dict[name].append(FpyCallable(None, args, cmd))
 
-    infix_callable_name_dict = {}
+    infix_callable_name_dict = defaultdict(list)
 
     numeric_infix_ops = ["<", ">", "<=", ">=", "==", "!="]
     for op in numeric_infix_ops:
-        infix_callable_name_dict[op] = FpyCallable(
-            BoolType, [("lhs", AnyNumericType), ("rhs", AnyNumericType)], None
+        infix_callable_name_dict[op].append(
+            FpyCallable(
+                BoolType, [("lhs", AnyNumericType), ("rhs", AnyNumericType)], None
+            )
         )
 
     for name, typ in type_name_dict.items():
@@ -643,7 +668,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         consts=enum_consts,
         callables=callable_name_dict,
         types=type_name_dict,
-        infix_operators=infix_callable_name_dict
+        infix_operators=infix_callable_name_dict,
     )
     return state
 
@@ -668,4 +693,5 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         compile_pass.run(body, state)
         print(state)
         for error in state.errors:
+            print(error)
             raise error

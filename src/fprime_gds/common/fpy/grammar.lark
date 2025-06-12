@@ -40,9 +40,7 @@ condition: test
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
           | comparison
-?comparison: comparable [comp_op comparable]
-?comparable: reference
-           | literal
+?comparison: argument [comp_op argument]
 comp_op: COMPARISON_OP
 
 

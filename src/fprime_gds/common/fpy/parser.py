@@ -148,14 +148,11 @@ class AstNot(Ast):
     values: list[Ast]
 
 
-Comparable = AstReference | Literal
-
-
 @dataclass
 class AstComparison(Ast):
-    lhs: Comparable
+    lhs: Argument
     op: AstInfixOp
-    rhs: Comparable
+    rhs: Argument
 
 
 @v_args(meta=False, inline=False)
