@@ -15,7 +15,6 @@ from .apid import APID
 import logging
 
 LOGGER = logging.getLogger("framing")
-LOGGER.setLevel(logging.DEBUG)
 
 
 @gds_plugin(FramerDeframer)
