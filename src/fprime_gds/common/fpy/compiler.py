@@ -1,6 +1,7 @@
 from ast import Pass
 from collections import defaultdict
 from dataclasses import dataclass, field, fields
+from enum import Enum
 from types import NoneType
 from typing import TypeVar, overload
 
@@ -104,12 +105,14 @@ class CompileException(BaseException):
 
 FpyBuiltin = int
 
+class FpyCallableActionType(Enum):
+    CONSTRUCT_TYPE = 0
 
 @dataclass
 class FpyCallable:
     return_type: type[BaseType] | None
     args: list[tuple[str, type[BaseType]]] | None
-    action: CmdTemplate | FpyBuiltin | None
+    action: CmdTemplate | FpyBuiltin | FpyCallableActionType
 
 
 # named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
@@ -214,6 +217,13 @@ def coerce_literal_to_type(literal: Literal, typ: type[BaseType]) -> BaseType | 
 
     if isinstance(literal, AstBoolean) and typ != BoolType:
         return None
+
+    if typ == AnyNumericType:
+        # our choice what the type is
+        if isinstance(literal.value, int):
+            return I64Type(literal.value)
+        elif isinstance(literal.value, float):
+            return F64Type(literal.value)
 
     if isinstance(literal, AstNumber) and typ not in NUMERIC_TYPES:
         return None
@@ -414,6 +424,7 @@ class CheckCalls(CompilePass):
         func: FpyCallable,
         state: CompileState,
     ) -> tuple[dict[str, BaseType], CompileException]:
+        print("checking args", node_args, func)
         if len(node_args) < len(func.args):
             return dict(), CompileException(
                 f"Missing arguments (expected {len(func.args)} found {len(node_args)})",
@@ -430,6 +441,7 @@ class CheckCalls(CompilePass):
         for value_node, arg_template in zip(node_args, func.args):
             arg_name, arg_type = arg_template
             # check type of value matches expected type of template
+            print("checking", arg_type, value_node)
 
             if isinstance(value_node, Literal):
                 try:
@@ -495,6 +507,12 @@ class CheckCalls(CompilePass):
         funcs = state.infix_operators[node.op.value]
         self.resolve_polymorphic_funcs(node, [node.lhs, node.rhs], funcs, state)
 
+    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
+        funcs = state.lookup_ref_with_type(node.func, FpyCallable)
+        self.resolve_polymorphic_funcs(
+            node, node.args if node.args else [], funcs, state
+        )
+
     def resolve_polymorphic_funcs(
         self,
         node: Ast,
@@ -522,27 +540,21 @@ class CheckCalls(CompilePass):
                 matching_funcs.append((func, arg_values))
 
         if len(matching_funcs) == 0:
-            state.errors.append(f"No matching function. Tried {checked_funcs}")
+            state.errors.append(CompileException(f"No matching function. Tried {checked_funcs}", node))
             return
 
         if len(matching_funcs) > 1:
-            state.errors.append(f"Ambiguous functions {matching_funcs}")
+            state.errors.append(CompileException(f"Ambiguous functions {matching_funcs}", node))
             return
 
         func, arg_values = matching_funcs[0]
 
         assert len(arg_values) == len(func.args), len(arg_values)
 
-        # if it has a return type, it doesn't have an action
-        # if it has an action, it doesn't have a return type
-        assert (func.return_type is None and func.action is not None) or (
-            func.return_type is not None and func.action is None
-        ), (func.return_type, func.action)
-
         # okay we have all arg values
 
         # if it is a type ctor call, instantiate it
-        if func.return_type is not None:
+        if func.return_type is not None and func.action is None:
             if issubclass(func.return_type, SerializableType):
                 # pass in args as a dict
                 instance = func.return_type()
@@ -569,12 +581,6 @@ class CheckCalls(CompilePass):
             assert isinstance(func.action, FpyBuiltin)
             state.directives[node.id] = (func.action, list(arg_values.values()))
             return
-
-    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        funcs = state.lookup_ref_with_type(node.func, FpyCallable)
-        self.resolve_polymorphic_funcs(
-            node, node.args if node.args else [], funcs, state
-        )
 
 
 class CheckComparisons(CompilePass):
@@ -693,5 +699,4 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         compile_pass.run(body, state)
         print(state)
         for error in state.errors:
-            print(error)
             raise error
