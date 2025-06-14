@@ -76,6 +76,12 @@ INTEGER_TYPES = (
     I64Type,
     I8Type,
 )
+SIGNED_INTEGER_TYPES = (
+    I16Type,
+    I32Type,
+    I64Type,
+    I8Type,
+)
 UNSIGNED_INTEGER_TYPES = (
     U32Type,
     U16Type,
@@ -103,16 +109,33 @@ class CompileException(BaseException):
         return f"At line {self.node.meta.line} {self.node}: {self.msg}"
 
 
-FpyBuiltin = int
+FpyGenericType = type[BaseType] | type[AnyNumericType]
 
-class FpyCallableActionType(Enum):
-    CONSTRUCT_TYPE = 0
 
 @dataclass
 class FpyCallable:
     return_type: type[BaseType] | None
-    args: list[tuple[str, type[BaseType]]] | None
-    action: CmdTemplate | FpyBuiltin | FpyCallableActionType
+    args: list[tuple[str, FpyGenericType]] | None
+
+
+@dataclass
+class FpyCmd(FpyCallable):
+    cmd: CmdTemplate
+
+
+@dataclass
+class FpyBuiltin(FpyCallable):
+    id: int
+
+
+@dataclass
+class FpyTypeCtor(FpyCallable):
+    type: type[BaseType]
+
+
+@dataclass
+class FpyOperator(FpyCallable):
+    op: str
 
 
 # named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
@@ -210,45 +233,147 @@ class CompileState:
         self.variable_tables[parent_scope][var_name] = FpyVariable(var_type)
 
 
-def coerce_literal_to_type(literal: Literal, typ: type[BaseType]) -> BaseType | None:
+def check_node_converts_to_type(
+    node: Ast, type: FpyGenericType, state: CompileState
+) -> bool:
+    if isinstance(node, Literal):
+        return check_literal_converts_to_type(node, type)
+    elif isinstance(node, (AstFuncCall, AstComparison)):
+        return state.resolved_calls[node.id].return_type
+    elif isinstance(node, AstReference):
+        # if any reference converts to this type, we're good
+        for ref in state.lookup_ref(node):
+            if check_reference_converts_to_type(ref, type):
+                return True
+        return False
 
-    if isinstance(literal, AstString) and not issubclass(typ, StringType):
-        return None
 
-    if isinstance(literal, AstBoolean) and typ != BoolType:
-        return None
+def check_literal_converts_to_type(literal: Literal, type: FpyGenericType) -> bool:
 
-    if typ == AnyNumericType:
-        # our choice what the type is
+    if isinstance(literal, AstString):
+        return issubclass(type, StringType)
+    if isinstance(literal, AstBoolean):
+        return type == BoolType
+    if isinstance(literal, AstNumber):
+        if type == AnyNumericType:
+            return True
+        if isinstance(literal.value, float):
+            return type in FLOAT_TYPES
         if isinstance(literal.value, int):
-            return I64Type(literal.value)
-        elif isinstance(literal.value, float):
-            return F64Type(literal.value)
+            if literal.value < 0:
+                return type in SIGNED_INTEGER_TYPES
+            return type in INTEGER_TYPES
 
-    if isinstance(literal, AstNumber) and typ not in NUMERIC_TYPES:
-        return None
-
-    if isinstance(literal.value, float) and typ not in FLOAT_TYPES:
-        return None
-
-    if isinstance(literal.value, int) and typ not in INTEGER_TYPES:
-        return None
-
-    return typ(literal.value)
+    assert False, literal
 
 
-def check_reference_type(ref: FpyReference, typ: type[BaseType]) -> bool:
+def check_reference_converts_to_type(
+    ref: FpyReference, typ: FpyGenericType
+) -> bool:
+    base_type = None
+
     if isinstance(ref, ChTemplate):
-        return ref.ch_type_obj == typ
-    if isinstance(ref, PrmTemplate):
-        return ref.prm_type_obj == typ
-    if isinstance(ref, BaseType):
-        return type(ref) == typ
-    if isinstance(ref, FpyCallable):
-        return ref.return_type == typ
-    if isinstance(ref, type):
-        return ref == typ
-    assert False, ref
+        base_type = ref.ch_type_obj
+    elif isinstance(ref, PrmTemplate):
+        base_type = ref.prm_type_obj
+    elif isinstance(ref, BaseType):
+        base_type = type(ref)
+    elif isinstance(ref, FpyCallable):
+        base_type = ref.return_type
+    elif isinstance(ref, type):
+        base_type = ref
+    else:
+        assert False, ref
+
+    if base_type in NUMERIC_TYPES and typ == AnyNumericType:
+        return True
+
+    return base_type == typ
+
+
+def unsafe_coerce_node_to_type(node: Ast, typ: FpyGenericType) -> BaseType:
+    if isinstance(node, Literal):
+        return unsafe_coerce_literal_to_type(node, typ)
+    if isinstance(node, AstFuncCall):gh
+
+def unsafe_coerce_literal_to_type(literal: Literal, typ: FpyGenericType) -> BaseType:
+    if isinstance(literal, AstBoolean):
+        return BoolType(literal.value)
+    if isinstance(literal, AstString):
+        return typ(literal.value)
+    if isinstance(literal, AstNumber):
+        if typ == AnyNumericType:
+            # we get to choose
+            if isinstance(literal.value, float):
+                return F64Type(literal.value)
+            return I64Type(literal.value)
+        return typ(literal.value)
+
+    assert False, (literal, typ)
+    
+
+
+def resolve_polymorphic_funcs(
+    node: Ast,
+    node_args: list[Argument],
+    funcs: list[FpyCallable],
+    state: CompileState,
+) -> FpyCallable | None:
+    # resolve polymorphic funcs by trying each possible func
+
+    # tuples of all funcs that we checked, their arg vals if they were compatible, and exception if not
+    checked_funcs: list[tuple[FpyCallable, bool, CompileException]] = []
+    matching_funcs: list[FpyCallable] = []
+
+    for func in funcs:
+        compatible, exception = check_args_compatible(func, node, node_args, state)
+        checked_funcs.append((func, compatible, exception))
+        if compatible:
+            matching_funcs.append(func)
+
+    if len(matching_funcs) == 0:
+        state.errors.append(
+            CompileException(f"No matching function. Tried {checked_funcs}", node)
+        )
+        return None
+
+    if len(matching_funcs) > 1:
+        state.errors.append(
+            CompileException(f"Ambiguous functions {matching_funcs}", node)
+        )
+        return None
+
+    func = matching_funcs[0]
+
+    return func
+
+
+def check_args_compatible(
+    func: FpyCallable, node: Ast, node_args: list[Argument]
+) -> tuple[bool, CompileException]:
+    if len(node_args) < len(func.args):
+        return False, CompileException(
+            f"Missing arguments (expected {len(func.args)} found {len(node_args)})",
+            node,
+        )
+    if len(node_args) > len(func.args):
+        return False, CompileException(
+            f"Too many arguments (expected {len(func.args)} found {len(node_args)})",
+            node,
+        )
+
+    for value_node, arg_template in zip(node_args, func.args):
+        arg_name, arg_type = arg_template
+        arg_type: FpyGenericType
+        # check type of value matches expected type of template
+        if not check_node_converts_to_type(value_node, arg_type):
+            return False, CompileException(
+                f"Cannot interpret {value_node} as {arg_type}"
+            )
+
+    # got thru all args successfully
+
+    return True, None
 
 
 class CompilePass:
@@ -321,7 +446,7 @@ class AssignIds(TopDownCompilePass):
         self.next_id += 1
 
 
-class ResolveReferences(CompilePass):
+class ResolveReferencesByName(CompilePass):
 
     def __init__(self, fail_if_unknown: bool = False):
         self.fail_if_unknown = fail_if_unknown
@@ -415,172 +540,64 @@ class CreateVariables(CompilePass):
             )
 
 
-class CheckCalls(CompilePass):
-
-    def check_args_compatible(
-        self,
-        node: Ast,
-        node_args: list[Argument],
-        func: FpyCallable,
-        state: CompileState,
-    ) -> tuple[dict[str, BaseType], CompileException]:
-        print("checking args", node_args, func)
-        if len(node_args) < len(func.args):
-            return dict(), CompileException(
-                f"Missing arguments (expected {len(func.args)} found {len(node_args)})",
-                node,
-            )
-        if len(node_args) > len(func.args):
-            return dict(), CompileException(
-                f"Too many arguments (expected {len(func.args)} found {len(node_args)})",
-                node,
-            )
-
-        arg_values: dict[str, BaseType] = {}
-
-        for value_node, arg_template in zip(node_args, func.args):
-            arg_name, arg_type = arg_template
-            # check type of value matches expected type of template
-            print("checking", arg_type, value_node)
-
-            if isinstance(value_node, Literal):
-                try:
-                    coerced_value = coerce_literal_to_type(value_node, arg_type)
-                except BaseException as e:
-                    return dict(), CompileException(
-                        f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type} ({e})",
-                        value_node,
-                    )
-                if coerced_value is None:
-                    return dict(), CompileException(
-                        f"For arg {arg_name}: literal {type(value_node)} cannot be converted to {arg_type}",
-                        value_node,
-                    )
-                # literal value, compatible with expected type
-                state.values[value_node.id] = coerced_value
-                arg_values[arg_name] = coerced_value
-                continue
-
-            elif isinstance(value_node, AstReference):
-                refs = state.lookup_ref(value_node)
-                if len(refs) == 0:
-                    return dict(), CompileException(
-                        f"For arg {arg_name}: Unknown reference", value_node
-                    )
-                # only reference that is allowed is a const rn
-                const_refs = [r for r in refs if isinstance(r, BaseType)]
-                if len(const_refs) == 0:
-                    return dict(), CompileException(
-                        f"For arg {arg_name}: Expecting reference to BaseType, found {refs}",
-                        value_node,
-                    )
-                if len(const_refs) > 1:
-                    return dict(), CompileException(
-                        f"For arg {arg_name}: Ambiguous reference to BaseType, found {const_refs}",
-                        value_node,
-                    )
-                const_ref = const_refs[0]
-                state.values[value_node.id] = const_ref
-                arg_values[arg_name] = const_ref
-                continue
-
-            # otherwise, it's a callable
-            assert isinstance(value_node, AstFuncCall), value_node
-
-            existing_value = state.values.get(value_node.id, None)
-            # we should have already figured out the value of this node
-            assert existing_value is not None
-
-            if not isinstance(existing_value, arg_type):
-                return dict(), CompileException(
-                    f"For arg {arg_name}: {existing_value} cannot be converted to {arg_type}"
-                )
-
-            arg_values[arg_name] = existing_value
-
-        # got thru all args successfully
-
-        return arg_values, None
+class ResolvePolymorphicCallsByArgType(CompilePass):
 
     def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
         # op exists at syntax level, coding error if no exist
         funcs = state.infix_operators[node.op.value]
-        self.resolve_polymorphic_funcs(node, [node.lhs, node.rhs], funcs, state)
+        func = resolve_polymorphic_funcs(node, [node.lhs, node.rhs], funcs, state)
+        if func is None:
+            # error is handled in resolve_poly
+            return
+        state.resolved_references[node.op.id] = [func]
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
         funcs = state.lookup_ref_with_type(node.func, FpyCallable)
-        self.resolve_polymorphic_funcs(
+        func = resolve_polymorphic_funcs(
             node, node.args if node.args else [], funcs, state
         )
+        if func is None:
+            # error is handled in resolve_poly
+            return
+        state.resolved_references[node.func.id] = [func]
 
-    def resolve_polymorphic_funcs(
-        self,
-        node: Ast,
-        node_args: list[Argument],
-        funcs: list[FpyCallable],
-        state: CompileState,
-    ):
-        if len(funcs) == 0:
-            # error is generated in lookup
+
+class ConstructConstTypes(CompilePass):
+
+    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
+        func = state.lookup_single_ref_with_type(node, FpyCallable)
+        if func is None:
+            # error generated in lookup
             return
 
-        # resolve polymorphic funcs by trying each possible func
-
-        # tuples of all funcs that we checked, their arg vals if they were compatible, and exception if not
-        checked_funcs: list[tuple[FpyCallable, list[BaseType], CompileException]] = []
-        # tuples of all matching funcs, arg vals
-        matching_funcs: list[tuple[FpyCallable, list[BaseType]]] = []
-
-        for func in funcs:
-            arg_values, exception = self.check_args_compatible(
-                node, node_args, func, state
-            )
-            checked_funcs.append((func, arg_values, exception))
-            if exception is None:
-                matching_funcs.append((func, arg_values))
-
-        if len(matching_funcs) == 0:
-            state.errors.append(CompileException(f"No matching function. Tried {checked_funcs}", node))
+        if not isinstance(func, FpyTypeCtor):
             return
 
-        if len(matching_funcs) > 1:
-            state.errors.append(CompileException(f"Ambiguous functions {matching_funcs}", node))
-            return
+        # it is a type ctor call
 
-        func, arg_values = matching_funcs[0]
+        # gather arg values
+        for arg_node in node.args:
+            # we can already be assured that the node converts to our desired type
+            
 
-        assert len(arg_values) == len(func.args), len(arg_values)
 
-        # okay we have all arg values
 
-        # if it is a type ctor call, instantiate it
-        if func.return_type is not None and func.action is None:
-            if issubclass(func.return_type, SerializableType):
-                # pass in args as a dict
-                instance = func.return_type()
-                instance._val = arg_values
-                state.values[node.id] = instance
+        if issubclass(func.type, SerializableType):
+            # pass in args as a dict
+            instance = func.type()
+            instance._val = arg_values
+            state.values[node.id] = instance
 
-            elif issubclass(func.return_type, ArrayType):
-                state.values[node.id] = func.return_type(tuple(arg_values.values()))
+        elif issubclass(func.return_type, ArrayType):
+            state.values[node.id] = func.return_type(arg_values)
 
-            elif func.return_type == TimeType:
-                state.values[node.id] = TimeType(**arg_values)
+        elif func.return_type == TimeType:
+            state.values[node.id] = TimeType(**arg_values)
 
-            else:
-                assert False, func.return_type
+        else:
+            assert False, func.return_type
 
-            return
-
-        # if it is an action, save it in state
-        if func.action is not None:
-            if isinstance(func.action, CmdTemplate):
-                state.commands[node.id] = (func.action, list(arg_values.values()))
-                return
-
-            assert isinstance(func.action, FpyBuiltin)
-            state.directives[node.id] = (func.action, list(arg_values.values()))
-            return
+        return
 
 
 class CheckComparisons(CompilePass):
@@ -636,15 +653,15 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         args = []
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
-        callable_name_dict[name].append(FpyCallable(None, args, cmd))
+        callable_name_dict[name].append(FpyCmd(None, args, cmd))
 
     infix_callable_name_dict = defaultdict(list)
 
     numeric_infix_ops = ["<", ">", "<=", ">=", "==", "!="]
     for op in numeric_infix_ops:
         infix_callable_name_dict[op].append(
-            FpyCallable(
-                BoolType, [("lhs", AnyNumericType), ("rhs", AnyNumericType)], None
+            FpyOperator(
+                BoolType, [("lhs", AnyNumericType), ("rhs", AnyNumericType)], op
             )
         )
 
@@ -666,7 +683,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
             # none of these have callable ctors
             continue
 
-        callable_name_dict[name].append(FpyCallable(typ, args, None))
+        callable_name_dict[name].append(FpyTypeCtor(typ, args, typ))
 
     state = CompileState(
         tlms=ch_name_dict,
@@ -683,15 +700,20 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
     state = get_base_compile_state(dictionary)
     passes: list[CompilePass] = [
         AssignIds(),
-        # resolve everything defined in the dict
         CreateScopes(),
-        ResolveReferences(),
+        # resolve everything defined in the dict
+        ResolveReferencesByName(),
         CreateVariables(),
         # now that variables have been defined, try resolving references
         # again and fail if anything isn't found
-        ResolveReferences(fail_if_unknown=True),
-        # resolve everything defined in the seq (vars, funcs, etc)
-        CheckCalls(),
+        ResolveReferencesByName(fail_if_unknown=True),
+        # okay, we know what all the different names could be pointing to,
+        # at least according to the name of the symbol.
+        # but in the case of polymorphic functions, multiple funcs can have
+        # the same name. let's use arg types to figure out which one we're calling
+        ResolvePolymorphicCallsByArgType(),
+        # now we know what each call points to
+        ConstructConstTypes(),
         CheckComparisons(),
         CheckIfStatements(),
     ]
