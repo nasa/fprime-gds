@@ -118,13 +118,7 @@ AssignValue = Literal | AstReference
 @dataclass()
 class AstAssign(Ast):
     variable: AstName
-    value: AssignValue
-
-
-@dataclass()
-class AstTypedAssign(Ast):
-    var: AstName
-    var_type: AstReference
+    var_type: AstReference | None
     value: AssignValue
 
 
@@ -187,7 +181,6 @@ class FpyTransformer(Transformer):
     pass_stmt = AstPass
 
     reference = no_inline(AstReference)
-    typed_assign = AstTypedAssign
     assign = AstAssign
 
     if_stmt = AstIf

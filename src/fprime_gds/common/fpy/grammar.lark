@@ -5,8 +5,7 @@ input: (_NEWLINE | stmt)*
 ?literal: number | string | boolean
 reference: name ("." name)*
 
-?stmt: simple_stmt | compound_stmt
-?simple_stmt: small_stmt (";" small_stmt)* [";"] _NEWLINE
+?stmt: small_stmt _NEWLINE | compound_stmt
 ?small_stmt: (func_call | typed_assign | assign | pass_stmt )
 ?compound_stmt: if_stmt
 pass_stmt: "pass"
@@ -17,8 +16,8 @@ pass_stmt: "pass"
 
 # can currently only assign constant values to vars
 ?type_name: reference
-typed_assign: name ":" type_name "=" assign_value
-assign: name "=" assign_value
+assign: name [":" type_name] "=" assign_value
+# rename assign_value to an assign_expr
 ?assign_value: literal
              | reference # can only be a ref to enum const
 
@@ -29,7 +28,7 @@ assign: name "=" assign_value
 if_stmt: "if" condition ":" suite elifs ["else" ":" suite]
 elifs: elif_*
 elif_: "elif" condition ":" suite
-suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
+suite: _NEWLINE _INDENT stmt+ _DEDENT
 condition: test
 
 
@@ -50,7 +49,7 @@ comp_op: COMPARISON_OP
 ?func_name: reference
 func_call: func_name "(" [arguments] ")"
 arguments: argument ("," argument)*
-?argument: func_call
+?argument: func_call # can only be a type ctor call
          | reference # can only be enum const
          | literal
 

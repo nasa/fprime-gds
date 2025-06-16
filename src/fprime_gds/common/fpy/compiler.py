@@ -18,6 +18,7 @@ from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime.common.models.serialize.time_type import TimeType
+from fprime.common.models.serialize.type_exceptions import TypeException
 from fprime.common.models.serialize.enum_type import EnumType, REPRESENTATION_TYPE_MAP
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.array_type import ArrayType
@@ -151,7 +152,7 @@ FpyReference = ChTemplate | PrmTemplate | BaseType | FpyCallable | type[BaseType
 class CompileState:
     tlms: dict[str, ChTemplate] = field(repr=False, default_factory=dict)
     prms: dict[str, PrmTemplate] = field(repr=False, default_factory=dict)
-    consts: dict[str, BaseType] = field(repr=False, default_factory=dict)
+    global_consts: dict[str, BaseType] = field(repr=False, default_factory=dict)
     types: dict[str, type[BaseType]] = field(repr=False, default_factory=dict)
     callables: dict[str, list[FpyCallable]] = field(repr=False, default_factory=dict)
     infix_operators: dict[str, list[FpyCallable]] = field(
@@ -160,7 +161,7 @@ class CompileState:
 
     resolved_references: dict[int, list[FpyReference]] = field(default_factory=dict)
 
-    values: dict[int, BaseType] = field(default_factory=dict)
+    constant_values: dict[int, BaseType] = field(default_factory=dict)
 
     commands: dict[int, tuple[CmdTemplate, list[BaseType]]] = field(
         default_factory=dict
@@ -291,12 +292,14 @@ def check_reference_converts_to_type(
     return base_type == typ
 
 
-def unsafe_coerce_node_to_type(node: Ast, typ: FpyGenericType) -> BaseType:
-    if isinstance(node, Literal):
-        return unsafe_coerce_literal_to_type(node, typ)
-    if isinstance(node, AstFuncCall):gh
 
-def unsafe_coerce_literal_to_type(literal: Literal, typ: FpyGenericType) -> BaseType:
+
+
+def unsafe_coerce_reference_to_type(ref: FpyReference, typ: FpyGenericType) -> BaseType:
+
+
+
+def unsafe_coerce_literal_to_value(literal: Literal, typ: FpyGenericType) -> BaseType:
     if isinstance(literal, AstBoolean):
         return BoolType(literal.value)
     if isinstance(literal, AstString):
@@ -456,7 +459,7 @@ class ResolveReferencesByName(CompilePass):
 
         tlm = state.tlms.get(fqn, None)
         prm = state.prms.get(fqn, None)
-        const = state.consts.get(fqn, None)
+        const = state.global_consts.get(fqn, None)
         type = state.types.get(fqn, None)
         callables = state.callables.get(fqn, [])
         var = state.lookup_variable(fqn, node)
@@ -539,6 +542,20 @@ class CreateVariables(CompilePass):
                 )
             )
 
+class CheckVariableTypesAndValues(CompilePass):
+    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
+        if node.var_type is not None:
+            # lookup whatever the var type node refers to
+            ref = state.lookup_single_ref_with_type(node.var_type, type[BaseType])
+            if ref is None:
+                # error is generated if unable to find a ref of this type
+                return
+        
+        if isinstance(node.value, AstReference):
+            
+
+
+
 
 class ResolvePolymorphicCallsByArgType(CompilePass):
 
@@ -576,23 +593,43 @@ class ConstructConstTypes(CompilePass):
         # it is a type ctor call
 
         # gather arg values
-        for arg_node in node.args:
+        arg_values = {}
+        for arg_node, arg_template in zip(node.args, func.args):
+            arg_name, arg_type = arg_template
             # we can already be assured that the node converts to our desired type
-            
+            # but it might not have a constant value. if it doesn't, skip it and skip this type
+            arg_value = None
+            if isinstance(node, Literal):
+                try:
+                    arg_value = unsafe_coerce_literal_to_value(node, typ)
+                except TypeException:
+                    arg_value = None
+            elif isinstance(node, AstFuncCall):
+                arg_value = state.constant_values.get(node.id, None)
+            elif isinstance(node, AstReference):
+                refs = state.lookup_ref(node)
+                for ref in refs:
+                    if check_reference_converts_to_type(ref, typ):
 
+            
+            if not isinstance(arg_value, typ):
+                return None
+            
+            return arg_value
+            
 
 
         if issubclass(func.type, SerializableType):
             # pass in args as a dict
             instance = func.type()
             instance._val = arg_values
-            state.values[node.id] = instance
+            state.constant_values[node.id] = instance
 
         elif issubclass(func.return_type, ArrayType):
-            state.values[node.id] = func.return_type(arg_values)
+            state.constant_values[node.id] = func.return_type(arg_values)
 
         elif func.return_type == TimeType:
-            state.values[node.id] = TimeType(**arg_values)
+            state.constant_values[node.id] = TimeType(**arg_values)
 
         else:
             assert False, func.return_type
@@ -688,7 +725,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     state = CompileState(
         tlms=ch_name_dict,
         prms=prm_name_dict,
-        consts=enum_consts,
+        global_consts=enum_consts,
         callables=callable_name_dict,
         types=type_name_dict,
         infix_operators=infix_callable_name_dict,
@@ -703,6 +740,10 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         CreateScopes(),
         # resolve everything defined in the dict
         ResolveReferencesByName(),
+        # break this up into definition, and then later check for cycles
+        # match uses back to definitions after we have definitions
+        # and then third check for cycles
+        # might want to error if you're overriding smth from the dict
         CreateVariables(),
         # now that variables have been defined, try resolving references
         # again and fail if anything isn't found
