@@ -2,6 +2,7 @@ from ast import Pass
 from collections import defaultdict
 from dataclasses import dataclass, field, fields
 from enum import Enum
+import traceback
 from types import NoneType
 from typing import TypeVar, overload
 
@@ -44,7 +45,6 @@ from fprime_gds.common.fpy.parser import (
     AstNumber,
     AstReference,
     AstString,
-    AstTypedAssign,
     Ast,
     Literal,
     AstScopedBody,
@@ -107,9 +107,10 @@ class CompileException(BaseException):
     def __init__(self, msg, node: Ast):
         self.msg = msg
         self.node = node
+        self.stack_trace = "\n".join(traceback.format_stack(limit=6)[:-1])
 
     def __str__(self):
-        return f"At line {self.node.meta.line} {self.node}: {self.msg}"
+        return f"{self.stack_trace}\nAt line {self.node.meta.line} {self.node}: {self.msg}"
 
 
 FpyGenericType = FppTypeClass | type[AnyNumericType]
@@ -163,26 +164,24 @@ class CompileState:
         repr=False, default_factory=dict
     )
 
-    resolved_references: dict[int, list[FpyReference]] = field(default_factory=dict)
-
-    runtime_consts: dict[int, FppType] = field(default_factory=dict)
-
-    commands: dict[int, tuple[CmdTemplate, list[FppType]]] = field(default_factory=dict)
-
-    directives: dict[int, tuple[FpyBuiltin, list[FppType]]] = field(
+    resolved_references: dict[AstReference, list[FpyReference]] = field(
         default_factory=dict
     )
 
-    variable_tables: dict[int, dict[str, FpyVariable]] = field(default_factory=dict)
+    runtime_consts: dict[int, FppType] = field(default_factory=dict)
+
+    variable_tables: dict[AstScopedBody, dict[str, FpyVariable]] = field(
+        repr=False, default_factory=dict
+    )
     """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
 
-    parent_scope: dict[int, int | None] = field(default_factory=dict)
+    parent_scope: dict[Ast, AstScopedBody | None] = field(repr=False, default_factory=dict)
     """a dict tracking the parent scope of each ast node. keys are ast node uid, values are uid of parent scopedbody"""
 
     errors: list[CompileException] = field(default_factory=list)
 
     def lookup_ref(self, node: AstReference, error_if_none=False) -> list[FpyReference]:
-        refs = self.resolved_references.get(node.id, [])
+        refs = self.resolved_references.get(node, [])
         if len(refs) == 0 and error_if_none:
             self.errors.append(CompileException("Unknown reference", node))
         return refs
@@ -217,11 +216,13 @@ class CompileState:
                     CompileException(f"Ambiguous reference to {type}, found {refs}")
                 )
             return None
+        if len(refs) == 0:
+            return None
         return refs[0]
 
     def lookup_variable(self, var: str, at_node: Ast) -> FpyVariable | None:
         # first check if there's a symbol defined in the sequence
-        parent = self.parent_scope[at_node.id]
+        parent = self.parent_scope[at_node]
         while parent is not None:
             table = self.variable_tables[parent]
             if var in table:
@@ -230,21 +231,6 @@ class CompileState:
             parent = self.parent_scope[parent]
 
         return None
-
-
-def check_node_converts_to_type(
-    node: Ast, type: FpyGenericType, state: CompileState
-) -> bool:
-    if isinstance(node, Literal):
-        return check_literal_converts_to_type(node, type)
-    elif isinstance(node, (AstFuncCall, AstComparison)):
-        return state.resolved_calls[node.id].return_type
-    elif isinstance(node, AstReference):
-        # if any reference converts to this type, we're good
-        for ref in state.lookup_ref(node):
-            if check_reference_converts_to_type(ref, type):
-                return True
-        return False
 
 
 def check_literal_converts_to_type(literal: Literal, type: FpyGenericType) -> bool:
@@ -276,7 +262,9 @@ def check_reference_converts_to_type(ref: FpyReference, typ: FpyGenericType) -> 
     elif isinstance(ref, FppType):
         base_type = type(ref)
     elif isinstance(ref, FpyCallable):
-        base_type = ref.return_type
+        # a reference to a callable isn't a type in and of itself
+        # it has a return type but you have to call it
+        base_type = None
     elif isinstance(ref, type):
         base_type = ref
     else:
@@ -340,7 +328,7 @@ def resolve_polymorphic_funcs(
 
 
 def check_args_compatible(
-    func: FpyCallable, node: Ast, node_args: list[Argument]
+    func: FpyCallable, node: Ast, node_args: list[Argument], state: CompileState
 ) -> tuple[bool, CompileException]:
     if len(node_args) < len(func.args):
         return False, CompileException(
@@ -356,8 +344,28 @@ def check_args_compatible(
     for value_node, arg_template in zip(node_args, func.args):
         arg_name, arg_type = arg_template
         arg_type: FpyGenericType
+
         # check type of value matches expected type of template
-        if not check_node_converts_to_type(value_node, arg_type):
+        compatible = False
+        if isinstance(value_node, Literal):
+            compatible = check_literal_converts_to_type(value_node, arg_type)
+        elif isinstance(value_node, (AstFuncCall, AstComparison)):
+            fpy_callable = state.lookup_single_ref_with_type(
+                value_node.func, FpyCallable
+            )
+            if fpy_callable is None:
+                # this function could not be resolved to a single callable
+                # error was already generated by lookup
+                return
+            compatible = fpy_callable.return_type == arg_type
+        elif isinstance(value_node, AstReference):
+            # if any reference converts to this type, we're good
+            for ref in state.lookup_ref(value_node):
+                compatible = check_reference_converts_to_type(ref, arg_type)
+                if compatible:
+                    break
+
+        if not compatible:
             return False, CompileException(
                 f"Cannot interpret {value_node} as {arg_type}"
             )
@@ -453,12 +461,12 @@ class ResolveReferencesByName(CompilePass):
 
         possible_resolutions = [ref for ref in possible_resolutions if ref is not None]
 
-        if node.id in state.resolved_references:
+        if node in state.resolved_references:
             # already resolved previously
             # make sure we're resolving it the same way now
             assert (
-                state.resolved_references[node.id] == possible_resolutions
-            ), state.resolved_references[node.id]
+                state.resolved_references[node] == possible_resolutions
+            ), state.resolved_references[node]
             # okay all good, same resolution
             return
 
@@ -466,21 +474,21 @@ class ResolveReferencesByName(CompilePass):
             state.errors.append(CompileException(f"Unknown reference {fqn}", node))
             return
 
-        state.resolved_references[node.id] = possible_resolutions
+        state.resolved_references[node] = possible_resolutions
 
 
 class CreateScopes(TopDownCompilePass):
 
     def visit_default(self, parent, node, state):
         if isinstance(parent, (AstScopedBody, NoneType)):
-            state.parent_scope[node.id] = parent.id if parent is not None else None
+            state.parent_scope[node] = parent if parent is not None else None
         else:
-            state.parent_scope[node.id] = state.parent_scope[parent.id]
+            state.parent_scope[node] = state.parent_scope[parent]
 
     def visit_AstScopedBody(self, parent, node: AstScopedBody, state: CompileState):
-        state.variable_tables[node.id] = {}
-        state.parent_scope[node.id] = (
-            state.parent_scope[parent.id] if parent is not None else None
+        state.variable_tables[node] = {}
+        state.parent_scope[node] = (
+            state.parent_scope[parent] if parent is not None else None
         )
 
 
@@ -502,7 +510,7 @@ class CreateVariables(CompilePass):
                 return
 
             # new var. put it in the table under this scope
-            parent_scope = state.parent_scope[node.id]
+            parent_scope = state.parent_scope[node]
             state.variable_tables[parent_scope][node.variable.value] = FpyVariable(
                 node.var_type, None
             )
@@ -519,7 +527,7 @@ class CheckVariableTypesAndValues(CompilePass):
 
         if node.var_type is not None:
             # lookup whatever the var type node refers to
-            ref = state.lookup_single_ref_with_type(node.var_type, FppTypeClass)
+            ref = state.lookup_single_ref_with_type(node.var_type, type)
             # if it is not a FppTypeClass, error
             if ref is None:
                 # error is generated in lookup
@@ -578,7 +586,7 @@ class CheckVariableTypesAndValues(CompilePass):
 
         # type of value is compatible
         # something like...
-        # state.instructions[node.id] = FpyInstruction(node.variable.value, value)
+        # state.instructions[node] = FpyInstruction(node.variable.value, value)
 
 
 class ResolvePolymorphicCallsByArgType(CompilePass):
@@ -590,7 +598,8 @@ class ResolvePolymorphicCallsByArgType(CompilePass):
         if func is None:
             # error is handled in resolve_poly
             return
-        state.resolved_references[node.op.id] = [func]
+        state.resolved_references[node.op] = [func]
+
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
         funcs = state.lookup_ref_with_type(node.func, FpyCallable)
@@ -600,13 +609,14 @@ class ResolvePolymorphicCallsByArgType(CompilePass):
         if func is None:
             # error is handled in resolve_poly
             return
-        state.resolved_references[node.func.id] = [func]
+        state.resolved_references[node.func] = [func]
+
 
 
 class ConstructRuntimeConstants(CompilePass):
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        func = state.lookup_single_ref_with_type(node, FpyCallable)
+        func = state.lookup_single_ref_with_type(node.func, FpyCallable)
         if func is None:
             # error generated in lookup
             return
@@ -616,33 +626,37 @@ class ConstructRuntimeConstants(CompilePass):
             return
 
         # it is a type ctor call
+        # try gathering arg values. if we fail to gather an arg value, assume it is not a
+        # runtime constant and skip it
 
         # gather arg values
         arg_values = {}
         for arg_node, arg_template in zip(node.args, func.args):
             arg_name, arg_type = arg_template
-            # we can already be assured that the node converts to our desired type
+            # we can already be assured that the node converts to our desired type because of
+            # the previous compiler pass
             # but it might not have a constant value. if it doesn't, skip it and skip this type
             arg_value = None
-            if isinstance(node, Literal):
+            if isinstance(arg_node, Literal):
                 # should not error, if it does, coding error
-                arg_value = unsafe_coerce_literal_to_value(node, arg_type)
-            elif isinstance(node, AstFuncCall):
+                arg_value = unsafe_coerce_literal_to_value(arg_node, arg_type)
+            elif isinstance(arg_node, AstFuncCall):
                 # if it's a func call with a constant result we should already
-                # have calculated its value. try to get it
-                arg_value = state.runtime_consts.get(node.id, None)
-            elif isinstance(node, AstReference):
+                # have calculated its value at this point in the traverse. try to get it
+                arg_value = state.runtime_consts.get(arg_node, None)
+            elif isinstance(arg_node, AstReference):
                 # TODO next thing to do is error if this isn't a const, or pull this out into a diff step
-                refs = state.lookup_ref(node)
-                for ref in refs:
-                    if check_reference_converts_to_type(ref, arg_type):
-                        arg_value = None
+                arg_value = state.lookup_single_ref_with_type(arg_node, FppType, dont_create_errors=True)
             else:
-                assert False, node
+                assert False, arg_node
 
             if not isinstance(arg_value, arg_type):
                 # do not have a runtime constant value for this node
                 # skip on constructing this type
+                
+                # right now this is an error. all types must be const constructable
+                state.errors.append(CompileException(f"Unable to construct type {func.type} because {arg_name}'s value was not known at compile time", arg_node))
+
                 return
 
         # actually construct the type
@@ -650,13 +664,13 @@ class ConstructRuntimeConstants(CompilePass):
             # pass in args as a dict
             instance = func.type()
             instance._val = arg_values
-            state.runtime_consts[node.id] = instance
+            state.runtime_consts[node] = instance
 
         elif issubclass(func.return_type, ArrayType):
-            state.runtime_consts[node.id] = func.return_type(arg_values)
+            state.runtime_consts[node] = func.return_type(arg_values)
 
         elif func.return_type == TimeType:
-            state.runtime_consts[node.id] = TimeType(**arg_values)
+            state.runtime_consts[node] = TimeType(**arg_values)
 
         else:
             # no other FppTypeClasses have ctors
@@ -766,10 +780,10 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         CreateScopes(),
         # might want to error if you're overriding smth from the dict
         CreateVariables(),
-        CheckVariableTypesAndValues(),
         # now that variables have been defined, try resolving references
         # again and fail if anything isn't found
-        ResolveReferencesByName(fail_if_unknown=True),
+        ResolveReferencesByName(),
+        CheckVariableTypesAndValues(),
         # okay, we know what all the different names could be pointing to,
         # at least according to the name of the symbol.
         # but in the case of polymorphic functions, multiple funcs can have

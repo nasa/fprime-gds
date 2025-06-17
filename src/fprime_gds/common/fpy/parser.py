@@ -35,13 +35,16 @@ def flatten_ast_node(cls):
     return datacls
 
 
-@dataclass()
+@dataclass
 class Ast:
     meta: Meta = field(repr=False)
     id: int = field(init=False, repr=False, default=None)
 
+    def __hash__(self):
+        return hash(self.id)
 
-@dataclass()
+
+@dataclass
 class AstScopedBody(Ast):
     stmts: list[Ast]
 
@@ -148,6 +151,10 @@ class AstComparison(Ast):
     op: AstInfixOp
     rhs: Argument
 
+for cls in Ast.__subclasses__():
+    cls.__hash__ = Ast.__hash__
+    # cls.__repr__ = Ast.__repr__
+
 
 @v_args(meta=False, inline=False)
 def as_list(self, tree):
@@ -206,3 +213,5 @@ class FpyTransformer(Transformer):
     DEC_NUMBER = int
     FLOAT_NUMBER = float
     COMPARISON_OP = str
+    CONST_TRUE = lambda a, b: True
+    CONST_FALSE = lambda a, b: False

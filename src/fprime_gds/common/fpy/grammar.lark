@@ -6,7 +6,7 @@ input: (_NEWLINE | stmt)*
 reference: name ("." name)*
 
 ?stmt: small_stmt _NEWLINE | compound_stmt
-?small_stmt: (func_call | typed_assign | assign | pass_stmt )
+?small_stmt: (func_call | assign | pass_stmt )
 ?compound_stmt: if_stmt
 pass_stmt: "pass"
 
@@ -39,7 +39,8 @@ condition: test
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
           | comparison
-?comparison: argument [comp_op argument]
+          | argument
+comparison: argument comp_op argument
 comp_op: COMPARISON_OP
 
 
