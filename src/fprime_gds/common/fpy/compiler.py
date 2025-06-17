@@ -53,7 +53,7 @@ from fprime_gds.common.fpy.parser import (
     AstFuncCall,
     AstName,
 )
-from fprime.common.models.serialize.type_base import BaseType
+from fprime.common.models.serialize.type_base import BaseType as FppType
 
 NUMERIC_TYPES = (
     U32Type,
@@ -94,6 +94,8 @@ FLOAT_TYPES = (
     F64Type,
 )
 
+FppTypeClass = type[FppType]
+
 
 # mock type, used as a placeholder for a func/op that takes any numeric
 # type
@@ -110,12 +112,12 @@ class CompileException(BaseException):
         return f"At line {self.node.meta.line} {self.node}: {self.msg}"
 
 
-FpyGenericType = type[BaseType] | type[AnyNumericType]
+FpyGenericType = FppTypeClass | type[AnyNumericType]
 
 
 @dataclass
 class FpyCallable:
-    return_type: type[BaseType] | None
+    return_type: FppTypeClass | None
     args: list[tuple[str, FpyGenericType]] | None
 
 
@@ -131,7 +133,7 @@ class FpyBuiltin(FpyCallable):
 
 @dataclass
 class FpyTypeCtor(FpyCallable):
-    type: type[BaseType]
+    type: FppTypeClass
 
 
 @dataclass
@@ -142,18 +144,20 @@ class FpyOperator(FpyCallable):
 # named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
 @dataclass
 class FpyVariable:
-    type: type[BaseType]
+    type_ref: AstReference
+    type: FppTypeClass | None = None
+    """type of the variable. None if type unsure at the moment"""
 
 
-FpyReference = ChTemplate | PrmTemplate | BaseType | FpyCallable | type[BaseType]
+FpyReference = ChTemplate | PrmTemplate | FppType | FpyCallable | FppTypeClass
 
 
 @dataclass
 class CompileState:
     tlms: dict[str, ChTemplate] = field(repr=False, default_factory=dict)
     prms: dict[str, PrmTemplate] = field(repr=False, default_factory=dict)
-    global_consts: dict[str, BaseType] = field(repr=False, default_factory=dict)
-    types: dict[str, type[BaseType]] = field(repr=False, default_factory=dict)
+    global_consts: dict[str, FppType] = field(repr=False, default_factory=dict)
+    types: dict[str, FppTypeClass] = field(repr=False, default_factory=dict)
     callables: dict[str, list[FpyCallable]] = field(repr=False, default_factory=dict)
     infix_operators: dict[str, list[FpyCallable]] = field(
         repr=False, default_factory=dict
@@ -161,13 +165,11 @@ class CompileState:
 
     resolved_references: dict[int, list[FpyReference]] = field(default_factory=dict)
 
-    constant_values: dict[int, BaseType] = field(default_factory=dict)
+    runtime_consts: dict[int, FppType] = field(default_factory=dict)
 
-    commands: dict[int, tuple[CmdTemplate, list[BaseType]]] = field(
-        default_factory=dict
-    )
+    commands: dict[int, tuple[CmdTemplate, list[FppType]]] = field(default_factory=dict)
 
-    directives: dict[int, tuple[FpyBuiltin, list[BaseType]]] = field(
+    directives: dict[int, tuple[FpyBuiltin, list[FppType]]] = field(
         default_factory=dict
     )
 
@@ -229,10 +231,6 @@ class CompileState:
 
         return None
 
-    def add_variable(self, var_name: str, var_type: type[BaseType], at_node: Ast):
-        parent_scope = self.parent_scope[at_node.id]
-        self.variable_tables[parent_scope][var_name] = FpyVariable(var_type)
-
 
 def check_node_converts_to_type(
     node: Ast, type: FpyGenericType, state: CompileState
@@ -268,16 +266,14 @@ def check_literal_converts_to_type(literal: Literal, type: FpyGenericType) -> bo
     assert False, literal
 
 
-def check_reference_converts_to_type(
-    ref: FpyReference, typ: FpyGenericType
-) -> bool:
+def check_reference_converts_to_type(ref: FpyReference, typ: FpyGenericType) -> bool:
     base_type = None
 
     if isinstance(ref, ChTemplate):
         base_type = ref.ch_type_obj
     elif isinstance(ref, PrmTemplate):
         base_type = ref.prm_type_obj
-    elif isinstance(ref, BaseType):
+    elif isinstance(ref, FppType):
         base_type = type(ref)
     elif isinstance(ref, FpyCallable):
         base_type = ref.return_type
@@ -292,14 +288,7 @@ def check_reference_converts_to_type(
     return base_type == typ
 
 
-
-
-
-def unsafe_coerce_reference_to_type(ref: FpyReference, typ: FpyGenericType) -> BaseType:
-
-
-
-def unsafe_coerce_literal_to_value(literal: Literal, typ: FpyGenericType) -> BaseType:
+def unsafe_coerce_literal_to_value(literal: Literal, typ: FpyGenericType) -> FppType:
     if isinstance(literal, AstBoolean):
         return BoolType(literal.value)
     if isinstance(literal, AstString):
@@ -313,7 +302,6 @@ def unsafe_coerce_literal_to_value(literal: Literal, typ: FpyGenericType) -> Bas
         return typ(literal.value)
 
     assert False, (literal, typ)
-    
 
 
 def resolve_polymorphic_funcs(
@@ -451,9 +439,6 @@ class AssignIds(TopDownCompilePass):
 
 class ResolveReferencesByName(CompilePass):
 
-    def __init__(self, fail_if_unknown: bool = False):
-        self.fail_if_unknown = fail_if_unknown
-
     def visit_AstReference(self, parent, node: AstReference, state: CompileState):
         fqn = ".".join(name.value for name in node.names)
 
@@ -478,8 +463,7 @@ class ResolveReferencesByName(CompilePass):
             return
 
         if len(possible_resolutions) == 0:
-            if self.fail_if_unknown:
-                state.errors.append(CompileException(f"Unknown reference {fqn}", node))
+            state.errors.append(CompileException(f"Unknown reference {fqn}", node))
             return
 
         state.resolved_references[node.id] = possible_resolutions
@@ -502,59 +486,99 @@ class CreateScopes(TopDownCompilePass):
 
 class CreateVariables(CompilePass):
 
-    def visit_AstTypedAssign(self, parent, node: AstTypedAssign, state: CompileState):
-        var_type = state.lookup_single_ref_with_type(node.var_type, type)
-        if not var_type:
-            # error is generated in the above method
-            return
-
-        # okay, type exists
-
-        # okay we're assigning a variable to something, with an annotation. look it up in the symbol table
-        existing_variable = state.lookup_variable(node.var.value, node.var)
-        if not existing_variable:
-            # new var. put it in the table under this scope
-            state.add_variable(
-                node.var.value,
-                var_type,
-                node,
-            )
-        else:
-            # already existing. check the type is consistent
-            if existing_variable.type != var_type:
+    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
+        # okay we're assigning a variable to something. look it up in the variable table
+        existing = state.lookup_variable(node.variable.value, node.variable)
+        if not existing:
+            # idk what this var is. make sure it's a valid declaration
+            if node.var_type is None:
+                # error because this isn't an annotated assignment. right now all declarations must be annotated
                 state.errors.append(
                     CompileException(
-                        f"Inconsistent type. Was {existing_variable.type}, but annotation was {var_type}",
-                        node.var_type,
+                        "Must provide a type annotation for new variables",
+                        node.variable,
                     )
                 )
                 return
-            # okay, type is consistent.
 
-    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
-        # okay we're assigning a variable to something, without an annotation. look it up in the variable table
-        existing = state.lookup_variable(node.variable.value, node.variable)
-        if not existing:
-            # error because this isn't an annotated assignment. right now all assignments must be annotated
-            state.errors.append(
-                CompileException(
-                    "Must provide a type annotation for new variables", node.variable
-                )
+            # new var. put it in the table under this scope
+            parent_scope = state.parent_scope[node.id]
+            state.variable_tables[parent_scope][node.variable.value] = FpyVariable(
+                node.var_type, None
             )
 
+
 class CheckVariableTypesAndValues(CompilePass):
+
     def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
+        existing_var = state.lookup_variable(node.variable.value, node)
+        # should already have been put in var table
+        assert existing_var is not None
+
+        # start by checking the type node is a reference to a valid type
+
         if node.var_type is not None:
             # lookup whatever the var type node refers to
-            ref = state.lookup_single_ref_with_type(node.var_type, type[BaseType])
+            ref = state.lookup_single_ref_with_type(node.var_type, FppTypeClass)
+            # if it is not a FppTypeClass, error
             if ref is None:
-                # error is generated if unable to find a ref of this type
+                # error is generated in lookup
                 return
-        
+
+            # okay, type node is a valid type
+
+            if existing_var.type == None:
+                # we haven't resolved this variable's type ref before
+                existing_var.type = ref
+            else:
+                # we have resolved this variable's type ref before
+                # make sure consistent resolution
+                if existing_var.type != ref:
+                    state.errors.append(
+                        CompileException(
+                            f"Inconsistent type. Was {existing_var.type}, but annotation was {ref}",
+                            node.var_type,
+                        )
+                    )
+                    return
+
+        assert existing_var.type is not None
+
+        # okay we now have type information about our variable
+        # check the value
+
+        value_type_compatible = False
+        value = None
+
         if isinstance(node.value, AstReference):
-            
+            # lookup whatever the value node refers to
+            ref = state.lookup_single_ref_with_type(node.value, FppType)
+            # if it is not an fpptype, error
+            if ref is None:
+                # error is generated in lookup
+                return
+            value_type_compatible = type(ref) == existing_var.type
+            value = ref
+        else:
+            assert isinstance(node.value, Literal), node.value
+            value_type_compatible = check_literal_converts_to_type(
+                node.value, existing_var.type
+            )
+            if value_type_compatible:
+                value = unsafe_coerce_literal_to_value(node.value, existing_var.type)
 
+        if not value_type_compatible:
+            state.errors.append(
+                CompileException(
+                    f"Variable is of type {existing_var.type}, but value {node.value} could not be converted to this",
+                    node.value,
+                )
+            )
+            return
 
+        # type of value is compatible
+        # something like...
+        # state.instructions[node.id] = FpyInstruction(node.variable.value, value)
 
 
 class ResolvePolymorphicCallsByArgType(CompilePass):
@@ -579,7 +603,7 @@ class ResolvePolymorphicCallsByArgType(CompilePass):
         state.resolved_references[node.func.id] = [func]
 
 
-class ConstructConstTypes(CompilePass):
+class ConstructRuntimeConstants(CompilePass):
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
         func = state.lookup_single_ref_with_type(node, FpyCallable)
@@ -588,6 +612,7 @@ class ConstructConstTypes(CompilePass):
             return
 
         if not isinstance(func, FpyTypeCtor):
+            # ignore this call, not constructing a type
             return
 
         # it is a type ctor call
@@ -600,41 +625,42 @@ class ConstructConstTypes(CompilePass):
             # but it might not have a constant value. if it doesn't, skip it and skip this type
             arg_value = None
             if isinstance(node, Literal):
-                try:
-                    arg_value = unsafe_coerce_literal_to_value(node, typ)
-                except TypeException:
-                    arg_value = None
+                # should not error, if it does, coding error
+                arg_value = unsafe_coerce_literal_to_value(node, arg_type)
             elif isinstance(node, AstFuncCall):
-                arg_value = state.constant_values.get(node.id, None)
+                # if it's a func call with a constant result we should already
+                # have calculated its value. try to get it
+                arg_value = state.runtime_consts.get(node.id, None)
             elif isinstance(node, AstReference):
+                # TODO next thing to do is error if this isn't a const, or pull this out into a diff step
                 refs = state.lookup_ref(node)
                 for ref in refs:
-                    if check_reference_converts_to_type(ref, typ):
+                    if check_reference_converts_to_type(ref, arg_type):
+                        arg_value = None
+            else:
+                assert False, node
 
-            
-            if not isinstance(arg_value, typ):
-                return None
-            
-            return arg_value
-            
+            if not isinstance(arg_value, arg_type):
+                # do not have a runtime constant value for this node
+                # skip on constructing this type
+                return
 
-
+        # actually construct the type
         if issubclass(func.type, SerializableType):
             # pass in args as a dict
             instance = func.type()
             instance._val = arg_values
-            state.constant_values[node.id] = instance
+            state.runtime_consts[node.id] = instance
 
         elif issubclass(func.return_type, ArrayType):
-            state.constant_values[node.id] = func.return_type(arg_values)
+            state.runtime_consts[node.id] = func.return_type(arg_values)
 
         elif func.return_type == TimeType:
-            state.constant_values[node.id] = TimeType(**arg_values)
+            state.runtime_consts[node.id] = TimeType(**arg_values)
 
         else:
+            # no other FppTypeClasses have ctors
             assert False, func.return_type
-
-        return
 
 
 class CheckComparisons(CompilePass):
@@ -670,7 +696,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     type_name_dict.update(ch_json_dict_loader.parsed_types)
     type_name_dict.update(prm_json_dict_loader.parsed_types)
 
-    enum_consts: dict[str, BaseType] = {}
+    enum_consts: dict[str, FppType] = {}
 
     for name, typ in type_name_dict.items():
         if issubclass(typ, EnumType):
@@ -738,13 +764,9 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
     passes: list[CompilePass] = [
         AssignIds(),
         CreateScopes(),
-        # resolve everything defined in the dict
-        ResolveReferencesByName(),
-        # break this up into definition, and then later check for cycles
-        # match uses back to definitions after we have definitions
-        # and then third check for cycles
         # might want to error if you're overriding smth from the dict
         CreateVariables(),
+        CheckVariableTypesAndValues(),
         # now that variables have been defined, try resolving references
         # again and fail if anything isn't found
         ResolveReferencesByName(fail_if_unknown=True),
@@ -754,7 +776,7 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         # the same name. let's use arg types to figure out which one we're calling
         ResolvePolymorphicCallsByArgType(),
         # now we know what each call points to
-        ConstructConstTypes(),
+        ConstructRuntimeConstants(),
         CheckComparisons(),
         CheckIfStatements(),
     ]
