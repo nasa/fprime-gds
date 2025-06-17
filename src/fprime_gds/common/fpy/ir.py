@@ -1,10 +1,18 @@
 from dataclasses import dataclass
 
+from fprime_gds.common.fpy.bytecode.types import DirectiveOpcode
+from fprime_gds.common.fpy.parser import AstCondition
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime.common.models.serialize.type_base import BaseType
 
 
 Register = int
+
+
+@dataclass
+class ConstDirective:
+    id: DirectiveOpcode
+    args: list[tuple[str, FppType]]
 
 
 @dataclass
@@ -14,13 +22,8 @@ class ConstCmd:
 
 
 @dataclass
-class ConstDirective:
-    id: int
-    args: list[BaseType]
-
-@dataclass
 class If:
-    conditional: Register
+    conditional: AstCondition
     if_true: "Body"
     if_false: "If" | "Body" | None
 

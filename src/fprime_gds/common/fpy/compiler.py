@@ -13,6 +13,7 @@ from fprime_gds.common.fpy.bytecode.types import (
     StatementData,
     StatementTemplate,
 )
+from fprime_gds.common.fpy.ir import ConstDirective
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
@@ -156,10 +157,7 @@ class FpyVariable:
 FpyReference = ChTemplate | PrmTemplate | FppType | FpyCallable | FppTypeClass
 
 
-@dataclass
-class FpyGeneratedDirective:
-    id: DirectiveOpcode
-    args: list[tuple[str, FppType]]
+
 
 
 @dataclass
@@ -189,11 +187,11 @@ class CompileState:
 
     runtime_consts: dict[Ast, FppType] = field(default_factory=dict)
 
-    generated_directives: dict[Ast, list[FpyGeneratedDirective]] = field(
+    generated_directives: dict[Ast, list[ConstDirective]] = field(
         default_factory=dict
     )
 
-    linearized_directives: list[FpyGeneratedDirective] = field(default_factory=list)
+    linearized_directives: list[ConstDirective] = field(default_factory=list)
 
     errors: list[CompileException] = field(default_factory=list)
 
@@ -604,6 +602,7 @@ class CheckVariableTypesAndValues(CompilePass):
         # type of value is compatible
         # something like...
         # state.instructions[node] = FpyInstruction(node.variable.value, value)
+        state.generated_directives[node] = ConstDirective(DirectiveOpcode.)
 
 
 class ResolvePolymorphicCallsByArgType(CompilePass):
@@ -666,7 +665,7 @@ class ConstructRuntimeConstants(CompilePass):
                 # do not have a runtime constant value for this node
                 # skip on constructing this type
 
-                # right now this is an error. all types must be const constructable
+                # right now this is an error. all function calls must have const args
                 # in the future this shouldn't be an error
                 state.errors.append(
                     CompileException(
@@ -700,11 +699,11 @@ class ConstructRuntimeConstants(CompilePass):
             # convert the cmd to a cmd directive
             arg_values.insert(0, ("opcode", func.cmd.get_op_code()))
             state.generated_directives[node] = [
-                FpyGeneratedDirective(DirectiveOpcode.CMD, arg_values)
+                ConstDirective(DirectiveOpcode.CMD, arg_values)
             ]
         elif isinstance(func, FpyBuiltin):
             state.generated_directives[node] = [
-                FpyGeneratedDirective(func.opcode, arg_values)
+                ConstDirective(func.opcode, arg_values)
             ]
 
 
