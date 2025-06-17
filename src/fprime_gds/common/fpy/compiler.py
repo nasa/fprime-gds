@@ -9,6 +9,7 @@ from typing import TypeVar, overload
 from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.fpy.bytecode.types import (
     FPY_DIRECTIVES,
+    DirectiveOpcode,
     StatementData,
     StatementTemplate,
 )
@@ -110,7 +111,9 @@ class CompileException(BaseException):
         self.stack_trace = "\n".join(traceback.format_stack(limit=6)[:-1])
 
     def __str__(self):
-        return f"{self.stack_trace}\nAt line {self.node.meta.line} {self.node}: {self.msg}"
+        return (
+            f"{self.stack_trace}\nAt line {self.node.meta.line} {self.node}: {self.msg}"
+        )
 
 
 FpyGenericType = FppTypeClass | type[AnyNumericType]
@@ -129,7 +132,7 @@ class FpyCmd(FpyCallable):
 
 @dataclass
 class FpyBuiltin(FpyCallable):
-    id: int
+    opcode: int
 
 
 @dataclass
@@ -154,6 +157,12 @@ FpyReference = ChTemplate | PrmTemplate | FppType | FpyCallable | FppTypeClass
 
 
 @dataclass
+class FpyGeneratedDirective:
+    id: DirectiveOpcode
+    args: list[tuple[str, FppType]]
+
+
+@dataclass
 class CompileState:
     tlms: dict[str, ChTemplate] = field(repr=False, default_factory=dict)
     prms: dict[str, PrmTemplate] = field(repr=False, default_factory=dict)
@@ -164,19 +173,27 @@ class CompileState:
         repr=False, default_factory=dict
     )
 
-    resolved_references: dict[AstReference, list[FpyReference]] = field(
-        default_factory=dict
+    parent_scope: dict[Ast, AstScopedBody | None] = field(
+        repr=False, default_factory=dict
     )
-
-    runtime_consts: dict[int, FppType] = field(default_factory=dict)
+    """a dict tracking the parent scope of each ast node. keys are ast node uid, values are uid of parent scopedbody"""
 
     variable_tables: dict[AstScopedBody, dict[str, FpyVariable]] = field(
         repr=False, default_factory=dict
     )
     """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
 
-    parent_scope: dict[Ast, AstScopedBody | None] = field(repr=False, default_factory=dict)
-    """a dict tracking the parent scope of each ast node. keys are ast node uid, values are uid of parent scopedbody"""
+    resolved_references: dict[AstReference, list[FpyReference]] = field(
+        default_factory=dict
+    )
+
+    runtime_consts: dict[Ast, FppType] = field(default_factory=dict)
+
+    generated_directives: dict[Ast, list[FpyGeneratedDirective]] = field(
+        default_factory=dict
+    )
+
+    linearized_directives: list[FpyGeneratedDirective] = field(default_factory=list)
 
     errors: list[CompileException] = field(default_factory=list)
 
@@ -600,7 +617,6 @@ class ResolvePolymorphicCallsByArgType(CompilePass):
             return
         state.resolved_references[node.op] = [func]
 
-
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
         funcs = state.lookup_ref_with_type(node.func, FpyCallable)
         func = resolve_polymorphic_funcs(
@@ -612,7 +628,6 @@ class ResolvePolymorphicCallsByArgType(CompilePass):
         state.resolved_references[node.func] = [func]
 
 
-
 class ConstructRuntimeConstants(CompilePass):
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
@@ -621,17 +636,12 @@ class ConstructRuntimeConstants(CompilePass):
             # error generated in lookup
             return
 
-        if not isinstance(func, FpyTypeCtor):
-            # ignore this call, not constructing a type
-            return
-
-        # it is a type ctor call
         # try gathering arg values. if we fail to gather an arg value, assume it is not a
         # runtime constant and skip it
 
         # gather arg values
-        arg_values = {}
-        for arg_node, arg_template in zip(node.args, func.args):
+        arg_values = []
+        for arg_node, arg_template in zip(node.args if node.args is not None else [], func.args):
             arg_name, arg_type = arg_template
             # we can already be assured that the node converts to our desired type because of
             # the previous compiler pass
@@ -646,35 +656,56 @@ class ConstructRuntimeConstants(CompilePass):
                 arg_value = state.runtime_consts.get(arg_node, None)
             elif isinstance(arg_node, AstReference):
                 # TODO next thing to do is error if this isn't a const, or pull this out into a diff step
-                arg_value = state.lookup_single_ref_with_type(arg_node, FppType, dont_create_errors=True)
+                arg_value = state.lookup_single_ref_with_type(
+                    arg_node, FppType, dont_create_errors=True
+                )
             else:
                 assert False, arg_node
 
             if not isinstance(arg_value, arg_type):
                 # do not have a runtime constant value for this node
                 # skip on constructing this type
-                
+
                 # right now this is an error. all types must be const constructable
-                state.errors.append(CompileException(f"Unable to construct type {func.type} because {arg_name}'s value was not known at compile time", arg_node))
+                # in the future this shouldn't be an error
+                state.errors.append(
+                    CompileException(
+                        f"Unable to call {func} because {arg_name}'s value was not known at compile time",
+                        arg_node,
+                    )
+                )
 
                 return
 
-        # actually construct the type
-        if issubclass(func.type, SerializableType):
-            # pass in args as a dict
-            instance = func.type()
-            instance._val = arg_values
-            state.runtime_consts[node] = instance
+            arg_values.append((arg_name, arg_value))
 
-        elif issubclass(func.return_type, ArrayType):
-            state.runtime_consts[node] = func.return_type(arg_values)
+        if isinstance(func, FpyTypeCtor):
+            # actually construct the type
+            if issubclass(func.type, SerializableType):
+                # pass in args as a dict
+                instance = func.type()
+                instance._val = arg_values
+                state.runtime_consts[node] = instance
 
-        elif func.return_type == TimeType:
-            state.runtime_consts[node] = TimeType(**arg_values)
+            elif issubclass(func.return_type, ArrayType):
+                state.runtime_consts[node] = func.return_type(arg_values)
 
-        else:
-            # no other FppTypeClasses have ctors
-            assert False, func.return_type
+            elif func.return_type == TimeType:
+                state.runtime_consts[node] = TimeType(**arg_values)
+
+            else:
+                # no other FppTypeClasses have ctors
+                assert False, func.return_type
+        elif isinstance(func, FpyCmd):
+            # convert the cmd to a cmd directive
+            arg_values.insert(0, ("opcode", func.cmd.get_op_code()))
+            state.generated_directives[node] = [
+                FpyGeneratedDirective(DirectiveOpcode.CMD, arg_values)
+            ]
+        elif isinstance(func, FpyBuiltin):
+            state.generated_directives[node] = [
+                FpyGeneratedDirective(func.opcode, arg_values)
+            ]
 
 
 class CheckComparisons(CompilePass):
@@ -690,6 +721,12 @@ class CheckIfStatements(CompilePass):
         # so we want to make sure that the condition converts to a bool
         # print(node)
         pass
+
+
+class LinearizeGeneratedDirectives(CompilePass):
+    def visit_default(self, parent, node, state):
+        directives = state.generated_directives.get(node, [])
+        state.linearized_directives.extend(directives)
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -793,9 +830,13 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         ConstructRuntimeConstants(),
         CheckComparisons(),
         CheckIfStatements(),
+        LinearizeGeneratedDirectives(),
     ]
     for compile_pass in passes:
         compile_pass.run(body, state)
         print(state)
         for error in state.errors:
             raise error
+
+    print()
+    print(state.linearized_directives)

@@ -68,15 +68,36 @@ class Footer:
 
 
 class DirectiveOpcode(Enum):
-    INVALID = 0x00000000
-    WAIT_REL = 0x00000001
-    WAIT_ABS = 0x00000002
-    SET_LVAR = 0x00000003
-    GOTO = 0x00000004
-    IF = 0x00000005
-    NO_OP = 0x00000006
-    GET_TLM = 0x00000007
-    GET_PRM = 0x00000008
+    INVALID = 0
+    WAIT_REL = 1
+    WAIT_ABS = 2
+    SET_LVAR = 3
+    GOTO = 4
+    IF = 5
+    NO_OP = 6
+    GET_TLM = 7
+    GET_PRM = 8
+    CMD = 9
+    SET_REG = 10
+    DESER_LVAR_8 = 11
+    DESER_LVAR_4 = 12
+    DESER_LVAR_2 = 13
+    DESER_LVAR_1 = 14
+    OR = 15
+    # NO REORDER
+    EQ = 16
+    NE = 17
+    # unsigned inequalities
+    ULT = 18
+    ULE = 19
+    UGT = 20
+    UGE = 21
+    # signed inequalities
+    SLT = 22
+    SLE = 23
+    SGT = 24
+    SGE = 25
+    # END NO REORDER
 
 
 @dataclass
