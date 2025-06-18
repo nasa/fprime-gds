@@ -593,6 +593,7 @@ class DataProductWriter:
     #   The process varies depending on the field's type:
     #   - For basic types (IntegerType, FloatType, BoolType), it directly reads and assigns the value.
     #   - For EnumType, it reads the value, finds the corresponding enum identifier, and assigns it.
+    #   - For AliasType, it reads and assigns the value based on the alias' underlying type.
     #   - For ArrayType, it creates a list, iteratively fills it with elements read recursively, and assigns the list.
     #   - For StructType, it constructs a nested dictionary by recursively processing each struct member.
     #   - For QualifiedType, it resolves the actual type from typeList and recursively processes the field.
@@ -633,7 +634,7 @@ class DataProductWriter:
             parent_dict[field_name] = reverse_mapping[value]
 
         elif isinstance(typeKind, AliasType):
-            self.get_struct_item(field_name, typeKind.underlyingType, typeList, element_dict)
+            self.get_struct_item(field_name, typeKind.underlyingType, typeList, parent_dict)
 
         elif isinstance(typeKind, ArrayType):
             array_list = []
