@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from pprint import pprint
-from typing import Literal as TypingLiteral
+from typing import Literal as TypingLiteral, Union
 from lark.indenter import PythonIndenter
 from lark import Lark, Transformer, ast_utils, v_args
 from lark.tree import Meta
@@ -44,11 +44,6 @@ class Ast:
         return hash(self.id)
 
 
-@dataclass
-class AstScopedBody(Ast):
-    stmts: list[Ast]
-
-
 @dataclass()
 class AstName(Ast):
     value: str
@@ -79,7 +74,7 @@ class AstReference(Ast):
 
 @dataclass
 class AstInfixOp(Ast):
-    value: Ast
+    value: str
 
 
 @dataclass
@@ -128,15 +123,26 @@ class AstOr(Ast):
     values: list[AstAnd | AstNot | AstComparison | AstArgument]
 
 
+AstCondition = AstOr | AstAnd | AstNot | AstComparison | AstArgument
+
+
+AstStmt = Union[AstFuncCall, AstAssign, AstPass, "AstIf"]
+
+
 @dataclass
-class AstCondition(Ast):
-    value: list[AstOr | AstAnd | AstNot | AstComparison | AstArgument]
+class AstUnscopedBody(Ast):
+    stmts: list[AstStmt]
+
+
+@dataclass
+class AstScopedBody(Ast):
+    stmts: list[AstStmt]
 
 
 @dataclass
 class AstElif(Ast):
     condition: AstCondition
-    body: list[Ast]
+    body: AstUnscopedBody
 
 
 @dataclass
@@ -147,9 +153,9 @@ class AstElifs(Ast):
 @dataclass()
 class AstIf(Ast):
     condition: AstCondition
-    body: list[Ast]
-    elifs: AstElifs
-    els: list[Ast] | None
+    body: AstUnscopedBody
+    elifs: AstElifs | None
+    els: AstUnscopedBody | None
 
 
 for cls in Ast.__subclasses__():
@@ -194,8 +200,7 @@ class FpyTransformer(Transformer):
     if_stmt = AstIf
     elifs = no_inline(AstElifs)
     elif_ = AstElif
-    suite = no_inline_or_meta(list)
-    condition = no_inline(AstCondition)
+    body = no_inline(AstUnscopedBody)
     or_test = no_inline(AstOr)
     and_test = no_inline(AstAnd)
     not_test = no_inline(AstNot)

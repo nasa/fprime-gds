@@ -2,12 +2,12 @@
 
 input: (_NEWLINE | stmt)*
 
-?literal: number | string | boolean
+_literal: number | string | boolean
 reference: name ("." name)*
 
-?stmt: small_stmt _NEWLINE | compound_stmt
-?small_stmt: (func_call | assign | pass_stmt )
-?compound_stmt: if_stmt
+_stmt: small_stmt _NEWLINE | compound_stmt
+_small_stmt: (func_call | assign | pass_stmt )
+_compound_stmt: if_stmt
 pass_stmt: "pass"
 
 
@@ -15,26 +15,25 @@ pass_stmt: "pass"
 # assignment
 
 # can currently only assign constant values to vars
-?type_name: reference
+_type_name: reference
 assign: name [":" type_name] "=" assign_value
 # rename assign_value to an assign_expr
-?assign_value: literal
+_assign_value: literal
              | reference # can only be a ref to enum const
 
 
 
 # branching
 
-if_stmt: "if" condition ":" suite elifs ["else" ":" suite]
+if_stmt: "if" condition ":" body elifs ["else" ":" body]
 elifs: elif_*
-elif_: "elif" condition ":" suite
-suite: _NEWLINE _INDENT stmt+ _DEDENT
-condition: test
+elif_: "elif" condition ":" body
+body: _NEWLINE _INDENT stmt+ _DEDENT
+_condition: or_test
 
 
 # logical tests
 
-?test: or_test
 ?or_test: and_test ("or" and_test)*
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
@@ -47,10 +46,10 @@ comp_op: COMPARISON_OP
 
 # function calling
 
-?func_name: reference
+_func_name: reference
 func_call: func_name "(" [arguments] ")"
 arguments: argument ("," argument)*
-?argument: func_call # can only be a type ctor call
+_argument: func_call # can only be a type ctor call
          | reference # can only be enum const
          | literal
 

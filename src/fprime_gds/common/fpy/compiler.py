@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, fields
 from enum import Enum
 import traceback
 from types import NoneType
-from typing import TypeVar
+from typing import TypeVar, Union
 
 from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.fpy.bytecode.types import (
@@ -26,6 +26,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     EqualDirective,
     GetPrmDirective,
     GetTlmDirective,
+    IfDirective,
     NotDirective,
     NotEqualDirective,
     OrDirective,
@@ -65,13 +66,16 @@ from fprime_gds.common.fpy.parser import (
     AstBoolean,
     AstComparison,
     AstCondition,
+    AstElif,
     AstInfixOp,
     AstNot,
     AstNumber,
     AstOr,
     AstReference,
+    AstStmt,
     AstString,
     Ast,
+    AstUnscopedBody,
     Literal,
     AstScopedBody,
     AstIf,
@@ -217,8 +221,14 @@ class CompileState:
     conditionals: dict[AstComparison, "ConditionalAnalysis"] = field(
         default_factory=dict
     )
+    ifs: dict[AstIf, "IfAnalysis"] = field(default_factory=dict)
 
+    prerequisite_nodes: dict[Ast, list[Ast]] = field(default_factory=dict)
     generated_directives: dict[Ast, list[Directive]] = field(default_factory=dict)
+
+    body_directives: dict[
+        AstScopedBody | AstUnscopedBody, list[Union[Directive | "IfAnalysis"]]
+    ] = field(default_factory=dict)
 
     linearized_directives: list[Directive] = field(default_factory=list)
 
@@ -738,6 +748,8 @@ class ConstructRuntimeConstants(CompilePass):
         elif isinstance(func, FpyBuiltin):
             directive_args = [a for a, n in arg_values]
             state.generated_directives[node] = [func.dir(*directive_args)]
+        # require that all node argument directives are included before this directive
+        state.prerequisite_nodes[node] = node.args
 
 
 def put_const_in_register(
@@ -903,7 +915,6 @@ class ConditionalAnalysis:
 
     @dataclass
     class BranchFromRegister:
-        directives: list[Directive]
         result_reg: int
 
 
@@ -963,9 +974,10 @@ class CheckConditionals(CompilePass):
 
             comparison_dirs.append(dir_type(lhs_reg, rhs_reg, res_reg))
 
-        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(
-            lhs_dirs + rhs_dirs + comparison_dirs, res_reg
-        )
+        # require that all directives for lhs and rhs are included before these dirs
+        state.prerequisite_nodes[node] = [node.lhs, node.rhs]
+        state.generated_directives[node] = lhs_dirs + rhs_dirs + comparison_dirs
+        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
 
     def visit_AstNot(self, parent, node: AstNot, state: CompileState):
         value_analysis = state.conditionals.get(node.value, None)
@@ -980,8 +992,11 @@ class CheckConditionals(CompilePass):
                 value_reg = value_analysis.result_reg
                 res_reg = state.next_register
                 state.next_register += 1
+                # make sure that all directives needed to create the value are included before these ones
+                state.prerequisite_nodes[node] = [node.value]
+                state.generated_directives[node] = [NotDirective(value_reg, res_reg)]
                 state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(
-                    [NotDirective(value_reg, res_reg)], res_reg
+                    res_reg
                 )
                 return
             else:
@@ -998,42 +1013,37 @@ class CheckConditionals(CompilePass):
         res_reg = state.next_register
         state.next_register += 1
         dirs.append(NotDirective(value_reg, res_reg))
-        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(dirs, res_reg)
+        # make sure that all directives needed to create the value are included before these ones
+        state.prerequisite_nodes[node] = [node.value]
+        state.generated_directives[node] = dirs
+        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
 
     def visit_AstAnd(self, parent, node: AstAnd, state: CompileState):
-
-        booleans: list[ConditionalAnalysis | AstArgument] = []
-        for boolean in node.values:
-            value_analysis = state.conditionals.get(boolean, None)
-            if value_analysis is not None:
-                # it is a conditional
-                booleans.append(value_analysis)
-                continue
-            # it is an argument
-            assert isinstance(boolean, AstArgument), boolean
-            booleans.append(boolean)
-
-        assert len(booleans) > 0
 
         registers_to_compare = []
         dirs = []
 
-        for boolean in booleans:
-            if boolean == ConditionalAnalysis.Never:
+        state.prerequisite_nodes[node] = []
+        for value in node.values:
+            conditional_analysis = state.conditionals.get(value, None)
+            if conditional_analysis == ConditionalAnalysis.Never:
                 # this "and" can never be true because some arg is never true
                 state.conditionals[node] = ConditionalAnalysis.Never
                 return
-            if boolean == ConditionalAnalysis.Always:
+            if conditional_analysis == ConditionalAnalysis.Always:
                 # this arg is always true, don't have to calculate anything with it
                 continue
-            if isinstance(boolean, ConditionalAnalysis.BranchFromRegister):
-                registers_to_compare.append(boolean.result_reg)
+            # otherwise, we actually have to calculate something here
+            # include the directives necessary for this conditional
+            state.prerequisite_nodes[node].append(value)
+            if isinstance(conditional_analysis, ConditionalAnalysis.BranchFromRegister):
+                registers_to_compare.append(conditional_analysis.result_reg)
                 continue
-            assert isinstance(boolean, AstArgument)
+            assert isinstance(value, AstArgument)
             value_reg = state.next_register
             state.next_register += 1
             argument_in_register_dirs = put_argument_in_register(
-                boolean, value_reg, state
+                value, value_reg, state
             )
             if argument_in_register_dirs is None:
                 # unable to put arg in register
@@ -1057,42 +1067,35 @@ class CheckConditionals(CompilePass):
         for i in range(2, len(registers_to_compare)):
             dirs.append(AndDirective(res_reg, registers_to_compare[i], res_reg))
 
-        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(dirs, res_reg)
+        state.generated_directives[node] = dirs
+        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
 
     def visit_AstOr(self, parent, node: AstOr, state: CompileState):
-
-        booleans: list[ConditionalAnalysis | AstArgument] = []
-        for boolean in node.values:
-            value_analysis = state.conditionals.get(boolean, None)
-            if value_analysis is not None:
-                # it is a conditional
-                booleans.append(value_analysis)
-                continue
-            # it is an argument
-            assert isinstance(boolean, AstArgument), boolean
-            booleans.append(boolean)
-
-        assert len(booleans) > 0
 
         registers_to_compare = []
         dirs = []
 
-        for boolean in booleans:
-            if boolean == ConditionalAnalysis.Always:
-                # this "or" is always true because an argument is always true
+        state.prerequisite_nodes[node] = []
+        for value in node.values:
+            conditional_analysis = state.conditionals.get(value, None)
+            if conditional_analysis == ConditionalAnalysis.Always:
+                # this "or" is always true because some arg is always true
                 state.conditionals[node] = ConditionalAnalysis.Always
                 return
-            if boolean == ConditionalAnalysis.Never:
+            if conditional_analysis == ConditionalAnalysis.Never:
                 # this arg is never true, don't have to calculate anything with it
                 continue
-            if isinstance(boolean, ConditionalAnalysis.BranchFromRegister):
-                registers_to_compare.append(boolean.result_reg)
+            # otherwise, we actually have to calculate something here
+            # include the directives necessary for this conditional
+            state.prerequisite_nodes[node].append(value)
+            if isinstance(conditional_analysis, ConditionalAnalysis.BranchFromRegister):
+                registers_to_compare.append(conditional_analysis.result_reg)
                 continue
-            assert isinstance(boolean, AstArgument)
+            assert isinstance(value, AstArgument)
             value_reg = state.next_register
             state.next_register += 1
             argument_in_register_dirs = put_argument_in_register(
-                boolean, value_reg, state
+                value, value_reg, state
             )
             if argument_in_register_dirs is None:
                 # unable to put arg in register
@@ -1116,13 +1119,85 @@ class CheckConditionals(CompilePass):
         for i in range(2, len(registers_to_compare)):
             dirs.append(OrDirective(res_reg, registers_to_compare[i], res_reg))
 
-        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(dirs, res_reg)
+        state.generated_directives[node] = dirs
+        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
 
+    def visit_AstElif(self, parent, node: AstElif, state: CompileState):
+        # include all code necessary to calculate the condition
+        state.prerequisite_nodes[node] = [node.condition]
+        if isinstance(node.condition, AstArgument):
+            res_reg = state.next_register
+            state.next_register += 1
+            dirs = put_argument_in_register(node.condition, res_reg, state)
+            if dirs is None:
+                # could not put arg in register
+                return
+            state.generated_directives[node] = dirs
+            state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
+        else:
+            # it should already be analyzed
+            state.conditionals[node] = state.conditionals[node.condition]
 
-class GenerateIfDirectives(CompilePass):
     def visit_AstIf(self, parent, node: AstIf, state: CompileState):
-        # state.generated_directives[node] =
-        pass
+        # elif and if are handled the same way
+        self.visit_AstElif(parent, node, state)
+
+
+@dataclass
+class IfAnalysis:
+    conditions_and_bodies: list[tuple[ConditionalAnalysis, AstUnscopedBody]]
+
+
+class AnalyzeControlFlow(CompilePass):
+    def visit_AstIf(self, parent, node: AstIf, state: CompileState):
+
+        # the bodies, before filtering for always true/false conditions
+        unfiltered_bodies: list[tuple[AstCondition, ConditionalAnalysis, AstUnscopedBody]] = []
+        # all conditionals should already be analyzed
+        unfiltered_bodies.append((node.condition, state.conditionals[node.condition], node.body))
+        for elif_case in node.elifs if node.elifs is not None else []:
+            conditional_analysis = state.conditionals[elif_case.condition]
+            unfiltered_bodies.append((elif_case.condition, conditional_analysis, elif_case.body))
+
+        # the bodies, after optimizing away always false, and not including
+        # anything after an always true cond
+        bodies: list[tuple[AstCondition, ConditionalAnalysis, AstUnscopedBody]] = []
+        for condition_node, conditional_analysis, body in unfiltered_bodies:
+            # all conditionals should already be analyzed
+            if conditional_analysis == ConditionalAnalysis.Never:
+                # don't bother including this branch
+                continue
+            bodies.append((condition_node, conditional_analysis, body))
+            if conditional_analysis == ConditionalAnalysis.Always:
+                # this one always happens, don't include anything after
+                break
+
+        # okay, now we know which ones will/won't happen
+        # generate code
+        state.prerequisite_nodes[node] = []
+        state.generated_directives[node] = []
+        for condition_node, conditional_analysis, body in bodies:
+            # include all code to calculate this condition
+            state.prerequisite_nodes[node].append(condition_node)
+            #
+
+    def visit_AstUnscopedBody(self, parent, node: AstUnscopedBody, state: CompileState):
+        # descend the tree of prerequisites
+        # add all generated nodes to list
+
+        def get_dirs(n: Ast) -> list[Union[Directive | IfAnalysis]]:
+            prereq_directives = []
+            for prereq in state.prerequisite_nodes.get(n, []):
+                prereq_directives.extend(get_dirs(prereq))
+
+            return prereq_directives + state.generated_directives.get(n, [])
+
+        state.prerequisite_nodes[node] = node.stmts
+        state.body_directives[node] = get_dirs(node)
+
+    def visit_AstScopedBody(self, parent, node: AstScopedBody, state: CompileState):
+        # unscoped and scoped are handled the same way
+        self.visit_AstUnscopedBody(parent, node, state)
 
 
 class LinearizeGeneratedDirectives(CompilePass):
@@ -1230,8 +1305,8 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         ResolvePolymorphicCallsByArgType(),
         # now we know what each call points to
         ConstructRuntimeConstants(),
-        CheckComparisons(),
-        GenerateIfDirectives(),
+        CheckConditionals(),
+        AnalyzeControlFlow(),
         LinearizeGeneratedDirectives(),
     ]
     for compile_pass in passes:
