@@ -85,15 +85,52 @@ class AstInfixOp(Ast):
 @dataclass
 class AstFuncCall(Ast):
     func: AstReference | AstInfixOp
-    args: list["Argument"]
+    args: list["AstArgument"]
 
 
-Argument = AstFuncCall | AstReference | Literal
+AstArgument = AstFuncCall | AstReference | Literal
+
+
+AstAssignValue = Literal | AstReference
+
+
+@dataclass()
+class AstAssign(Ast):
+    variable: AstName
+    var_type: AstReference | None
+    value: AstAssignValue
+
+
+@dataclass()
+class AstPass(Ast):
+    pass
+
+
+@dataclass
+class AstComparison(Ast):
+    lhs: AstArgument
+    op: AstInfixOp
+    rhs: AstArgument
+
+
+@dataclass
+class AstNot(Ast):
+    value: "AstNot" | AstComparison | AstArgument
+
+
+@dataclass
+class AstAnd(Ast):
+    values: list[AstNot | AstComparison | AstArgument]
+
+
+@dataclass
+class AstOr(Ast):
+    values: list[AstAnd | AstNot | AstComparison | AstArgument]
 
 
 @dataclass
 class AstCondition(Ast):
-    value: Ast
+    value: list[AstOr | AstAnd | AstNot | AstComparison | AstArgument]
 
 
 @dataclass
@@ -114,42 +151,6 @@ class AstIf(Ast):
     elifs: AstElifs
     els: list[Ast] | None
 
-
-AssignValue = Literal | AstReference
-
-
-@dataclass()
-class AstAssign(Ast):
-    variable: AstName
-    var_type: AstReference | None
-    value: AssignValue
-
-
-@dataclass()
-class AstPass(Ast):
-    pass
-
-
-@dataclass
-class AstOr(Ast):
-    values: list[Ast]
-
-
-@dataclass
-class AstAnd(Ast):
-    values: list[Ast]
-
-
-@dataclass
-class AstNot(Ast):
-    values: list[Ast]
-
-
-@dataclass
-class AstComparison(Ast):
-    lhs: Argument
-    op: AstInfixOp
-    rhs: Argument
 
 for cls in Ast.__subclasses__():
     cls.__hash__ = Ast.__hash__

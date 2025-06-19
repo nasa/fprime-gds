@@ -175,3 +175,12 @@ if 2 >= 1:
     pass
 """
     assert_success(fprime_test_api, seq)
+
+
+def test_geq_tlm(fprime_test_api):
+    seq = """
+if Ref.cmdSeq.StatementsDispatched > 1:
+    pass
+"""
+
+    assert_success(fprime_test_api, seq)
