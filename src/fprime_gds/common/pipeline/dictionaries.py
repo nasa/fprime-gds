@@ -128,7 +128,13 @@ class Dictionaries:
             msg = f"[ERROR] Dictionary '{dictionary}' does not exist."
             raise Exception(msg)
         # Check for packet specification
-        if self._metadata["dictionary_type"] == "json":
+        if packet_spec is not None:
+            packet_loader = fprime_gds.common.loaders.pkt_xml_loader.PktXmlLoader()
+            self._packet_dict = packet_loader.get_id_dict(
+                packet_spec, self._channel_name_dict
+            )
+        # Otherwise use JSON dictionary to attempt automatic packet loading
+        elif self._metadata["dictionary_type"] == "json":
             packet_loader = fprime_gds.common.loaders.pkt_json_loader.PktJsonLoader(dictionary)
             if packet_set_name is None:
                 names = packet_loader.get_packet_set_names(None)
@@ -140,11 +146,6 @@ class Dictionaries:
                 packet_set_name = names[0]
             self._packet_dict = packet_loader.get_id_dict(
                 None, packet_set_name, self._channel_name_dict
-            )
-        elif packet_spec is not None:
-            packet_loader = fprime_gds.common.loaders.pkt_xml_loader.PktXmlLoader(dictionary)
-            self._packet_dict = packet_loader.get_id_dict(
-                packet_spec, self._channel_name_dict
             )
         else:
             self._packet_dict = None
