@@ -1,8 +1,0 @@
-while gncExec.tumbling:
-    attCtrl.set_rate_target(attCtrl.NULL_RATES)
-
-def mode_to_safe():
-    attCtrl.set_pointing_target(Targets.SUN_POINT)
-
-def function():
-    return Vec3()

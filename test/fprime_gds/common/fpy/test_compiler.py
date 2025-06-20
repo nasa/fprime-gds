@@ -8,10 +8,7 @@ def compile_seq(fprime_test_api, seq: str):
 
 
 def assert_success(fprime_test_api, seq: str):
-    try:
-        compile_seq(fprime_test_api, seq)
-    except BaseException as e:
-        raise RuntimeError("compile_seq failed") from e
+    compile_seq(fprime_test_api, seq)
 
 
 def assert_failure(fprime_test_api, seq: str):
@@ -179,7 +176,7 @@ if 2 >= 1:
 
 def test_geq_tlm(fprime_test_api):
     seq = """
-if Ref.cmdSeq.StatementsDispatched > 1:
+if Ref.cmdDisp.CommandsDispatched > 1:
     pass
 """
 

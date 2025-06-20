@@ -15,8 +15,8 @@ pass_stmt: "pass"
 # assignment
 
 # can currently only assign constant values to vars
-_type_name: reference
-assign: name [":" _type_name] "=" _assign_value
+assign: name [":" reference] "=" _assign_value
+
 # rename assign_value to an assign_expr
 _assign_value: _literal
              | reference # can only be a ref to enum const

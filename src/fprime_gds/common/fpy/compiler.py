@@ -1,3 +1,4 @@
+from pprint import pprint
 from ast import Pass
 from collections import defaultdict
 from dataclasses import dataclass, field, fields
@@ -13,6 +14,8 @@ from fprime_gds.common.fpy.bytecode.types import (
     StatementTemplate,
 )
 from fprime_gds.common.fpy.bytecode.directives import (
+    BINARY_COMPARISON_DIRECTIVES,
+    EQUALITY_DIRECTIVES,
     SIGNED_INEQUALITY_DIRECTIVES,
     UNSIGNED_INEQUALITY_DIRECTIVES,
     AndDirective,
@@ -34,7 +37,6 @@ from fprime_gds.common.fpy.bytecode.directives import (
     SetRegDirective,
     WaitRelDirective,
 )
-from fprime_gds.common.fpy.ir import ConstDirective
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
@@ -76,7 +78,7 @@ from fprime_gds.common.fpy.parser import (
     AstString,
     Ast,
     AstUnscopedBody,
-    Literal,
+    AstLiteral,
     AstScopedBody,
     AstIf,
     AstAssign,
@@ -140,7 +142,7 @@ class CompileException(BaseException):
     def __init__(self, msg, node: Ast):
         self.msg = msg
         self.node = node
-        self.stack_trace = "\n".join(traceback.format_stack(limit=6)[:-1])
+        self.stack_trace = "\n".join(traceback.format_stack(limit=8)[:-1])
 
     def __str__(self):
         return (
@@ -175,6 +177,7 @@ class FpyTypeCtor(FpyCallable):
 @dataclass
 class FpyOperator(FpyCallable):
     op: str
+    directive: type[Directive]
 
 
 # named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
@@ -183,9 +186,13 @@ class FpyVariable:
     type_ref: AstReference
     type: FppTypeClass | None = None
     """type of the variable. None if type unsure at the moment"""
+    lvar_idx: int | None = None
+    """the index of the lvar it is stored in"""
 
 
-FpyReference = ChTemplate | PrmTemplate | FppType | FpyCallable | FppTypeClass
+FpyReference = (
+    ChTemplate | PrmTemplate | FppType | FpyCallable | FppTypeClass | FpyVariable
+)
 
 
 @dataclass
@@ -210,17 +217,17 @@ class CompileState:
     """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
 
     resolved_references: dict[AstReference, list[FpyReference]] = field(
-        default_factory=dict
+        default_factory=dict, repr=False
     )
+
+    implied_types: dict[Ast, FpyGenericType] = field(default_factory=dict)
 
     runtime_consts: dict[Ast, FppType] = field(default_factory=dict)
 
     next_register: int = 0
     next_lvar: int = 0
 
-    conditionals: dict[AstComparison, "ConditionalAnalysis"] = field(
-        default_factory=dict
-    )
+    conditionals: dict[AstCondition, "ConditionAnalysis"] = field(default_factory=dict)
     ifs: dict[AstIf, "IfAnalysis"] = field(default_factory=dict)
 
     prerequisite_nodes: dict[Ast, list[Ast]] = field(default_factory=dict)
@@ -289,7 +296,7 @@ class CompileState:
         return None
 
 
-def check_literal_converts_to_type(literal: Literal, type: FpyGenericType) -> bool:
+def check_literal_converts_to_type(literal: AstLiteral, type: FpyGenericType) -> bool:
 
     if isinstance(literal, AstString):
         return issubclass(type, StringType)
@@ -321,6 +328,8 @@ def check_reference_converts_to_type(ref: FpyReference, typ: FpyGenericType) -> 
         # a reference to a callable isn't a type in and of itself
         # it has a return type but you have to call it
         base_type = None
+    elif isinstance(ref, FpyVariable):
+        base_type = ref.type
     elif isinstance(ref, type):
         base_type = ref
     else:
@@ -332,7 +341,7 @@ def check_reference_converts_to_type(ref: FpyReference, typ: FpyGenericType) -> 
     return base_type == typ
 
 
-def unsafe_coerce_literal_to_value(literal: Literal, typ: FpyGenericType) -> FppType:
+def unsafe_coerce_literal_to_value(literal: AstLiteral, typ: FpyGenericType) -> FppType:
     if isinstance(literal, AstBoolean):
         return BoolType(literal.value)
     if isinstance(literal, AstString):
@@ -383,6 +392,27 @@ def resolve_polymorphic_funcs(
     return func
 
 
+def check_argument_converts_to_type(
+    arg: AstArgument, type: FpyGenericType, state: CompileState
+) -> bool:
+    if isinstance(arg, AstLiteral):
+        return check_literal_converts_to_type(arg, type)
+    elif isinstance(arg, (AstFuncCall, AstComparison)):
+        fpy_callable = state.lookup_single_ref_with_type(
+            arg.func, FpyCallable, dont_create_errors=True
+        )
+        if fpy_callable is None:
+            # this function could not be resolved to a single callable
+            return False
+        return fpy_callable.return_type == type
+    elif isinstance(arg, AstReference):
+        # if any reference converts to this type, we're good
+        for ref in state.lookup_ref(arg):
+            if check_reference_converts_to_type(ref, type):
+                return True
+    assert False, arg
+
+
 def check_args_compatible(
     func: FpyCallable, node: Ast, node_args: list[AstArgument], state: CompileState
 ) -> tuple[bool, CompileException]:
@@ -402,26 +432,7 @@ def check_args_compatible(
         arg_type: FpyGenericType
 
         # check type of value matches expected type of template
-        compatible = False
-        if isinstance(value_node, Literal):
-            compatible = check_literal_converts_to_type(value_node, arg_type)
-        elif isinstance(value_node, (AstFuncCall, AstComparison)):
-            fpy_callable = state.lookup_single_ref_with_type(
-                value_node.func, FpyCallable
-            )
-            if fpy_callable is None:
-                # this function could not be resolved to a single callable
-                # error was already generated by lookup
-                return
-            compatible = fpy_callable.return_type == arg_type
-        elif isinstance(value_node, AstReference):
-            # if any reference converts to this type, we're good
-            for ref in state.lookup_ref(value_node):
-                compatible = check_reference_converts_to_type(ref, arg_type)
-                if compatible:
-                    break
-
-        if not compatible:
+        if not check_argument_converts_to_type(value_node, arg_type, state):
             return False, CompileException(
                 f"Cannot interpret {value_node} as {arg_type}"
             )
@@ -621,10 +632,12 @@ class CheckVariableTypesAndValues(CompilePass):
             if ref is None:
                 # error is generated in lookup
                 return
-            value_type_compatible = type(ref) == existing_var.type
+            value_type_compatible = check_reference_converts_to_type(
+                ref, existing_var.type
+            )
             value = ref
         else:
-            assert isinstance(node.value, Literal), node.value
+            assert isinstance(node.value, AstLiteral), node.value
             value_type_compatible = check_literal_converts_to_type(
                 node.value, existing_var.type
             )
@@ -645,127 +658,149 @@ class CheckVariableTypesAndValues(CompilePass):
         # something like...
         # state.instructions[node] = FpyInstruction(node.variable.value, value)
         # state.generated_directives[node] = ConstDirective(DirectiveOpcode.)
+        lvar_idx = state.next_lvar
+        state.next_lvar += 1
+        existing_var.lvar_idx = lvar_idx
+        state.generated_directives[node] = [
+            SetLocalVarDirective(lvar_idx, value.serialize())
+        ]
 
 
-class ResolvePolymorphicCallsByArgType(CompilePass):
+def check_comparison_arg_is_boolean(arg: AstCondition, state: CompileState) -> bool:
+    if isinstance(arg, (AstOr, AstAnd, AstNot, AstComparison)):
+        return True
+
+    assert isinstance(arg, AstArgument), arg
+    return check_argument_converts_to_type(arg, BoolType, state)
+
+
+class CheckAndResolveArgumentTypes(CompilePass):
 
     def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
         # op exists at syntax level, coding error if no exist
         funcs = state.infix_operators[node.op.value]
-        func = resolve_polymorphic_funcs(node, [node.lhs, node.rhs], funcs, state)
+        node_args = [node.lhs, node.rhs]
+        func = resolve_polymorphic_funcs(node, node_args, funcs, state)
         if func is None:
             # error is handled in resolve_poly
             return
         state.resolved_references[node.op] = [func]
+        for node_arg, func_arg in zip(node_args, func.args):
+            arg_name, arg_type = func_arg
+            state.implied_types[node_arg] = arg_type
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
         funcs = state.lookup_ref_with_type(node.func, FpyCallable)
-        func = resolve_polymorphic_funcs(
-            node, node.args if node.args else [], funcs, state
-        )
+        node_args = node.args if node.args else []
+        func = resolve_polymorphic_funcs(node, node_args, funcs, state)
         if func is None:
             # error is handled in resolve_poly
             return
         state.resolved_references[node.func] = [func]
+        for node_arg, func_arg in zip(node_args, func.args):
+            arg_name, arg_type = func_arg
+            state.implied_types[node_arg] = arg_type
 
-
-def construct_runtime_consts(
-    node: AstComparison | AstFuncCall,
-    func: FpyCallable,
-    args: list[AstArgument],
-    state: CompileState,
-):
-
-    # try gathering arg values. if we fail to gather an arg value, assume it is not a
-    # runtime constant and skip it
-
-    # gather arg values
-    arg_values: list[tuple[str, FppType]] = []
-    for arg_node, arg_template in zip(args, func.args):
-        arg_name, arg_type = arg_template
-        # we can already be assured that the node converts to our desired type because of
-        # the previous compiler pass
-        # but it might not have a constant value. if it doesn't, skip it and skip this type
-        arg_value = None
-        if isinstance(arg_node, Literal):
-            # should not error, if it does, coding error
-            arg_value = unsafe_coerce_literal_to_value(arg_node, arg_type)
-            state.runtime_consts[arg_node] = arg_value
-        elif isinstance(arg_node, AstFuncCall):
-            # if it's a func call with a constant result we should already
-            # have calculated its value at this point in the traverse. try to get it
-            arg_value = state.runtime_consts.get(arg_node, None)
-        elif isinstance(arg_node, AstReference):
-            arg_value = state.lookup_single_ref_with_type(
-                arg_node, FppType, dont_create_errors=True
-            )
-        else:
-            assert False, arg_node
-
-        if not check_literal_converts_to_type()
-            # do not have a runtime constant value for this node
-            # skip on constructing this type
-
-            # right now this is an error. all function calls must have const args
-            # in the future this shouldn't be an error
-            state.errors.append(
-                CompileException(
-                    f"Unable to call {func} because {arg_name}'s value was not known at compile time",
-                    arg_node,
+    def visit_AstOr(self, parent, node: AstOr, state: CompileState):
+        for value_node in node.values:
+            # make sure that all args convert to boolean
+            if not check_comparison_arg_is_boolean(value_node, state):
+                state.errors.append(
+                    CompileException(f"Cannot interpret {value_node} as boolean")
                 )
+                return
+            state.implied_types[value_node] = BoolType
+
+    visit_AstAnd = visit_AstOr
+
+    def visit_AstNot(self, parent, node: AstNot, state: CompileState):
+        if not check_comparison_arg_is_boolean(node.value, state):
+            state.errors.append(
+                CompileException(f"Cannot interpret {node.value} as boolean")
             )
-
             return
-
-        arg_values.append((arg_name, arg_value))
-
-    if isinstance(func, FpyTypeCtor):
-        # actually construct the type
-        if issubclass(func.type, SerializableType):
-            # pass in args as a dict
-            instance = func.type()
-            instance._val = arg_values
-            state.runtime_consts[node] = instance
-
-        elif issubclass(func.return_type, ArrayType):
-            state.runtime_consts[node] = func.return_type(arg_values)
-
-        elif func.return_type == TimeType:
-            state.runtime_consts[node] = TimeType(**arg_values)
-
-        else:
-            # no other FppTypeClasses have ctors
-            assert False, func.return_type
-    elif isinstance(func, FpyCmd):
-        # convert the cmd to a cmd directive
-        serialized_arg_values = bytes()
-        for arg_name, arg_value in arg_values:
-            serialized_arg_values += arg_value.serialize()
-        state.generated_directives[node] = [
-            CmdDirective(func.cmd.get_op_code(), serialized_arg_values)
-        ]
-    elif isinstance(func, FpyBuiltin):
-        directive_args = [a for a, n in arg_values]
-        state.generated_directives[node] = [func.dir(*directive_args)]
-    # require that all node argument directives are included before this directive
-    state.prerequisite_nodes[node] = node.args
+        state.implied_types[node.value] = BoolType
 
 
 class ConstructRuntimeConstants(CompilePass):
 
+    def visit_AstNumber(self, parent, node: AstNumber, state: CompileState):
+        implied_type = state.implied_types.get(node, None)
+        if implied_type is None:
+            # a number of unspecified type
+            return
+        state.runtime_consts[node] = unsafe_coerce_literal_to_value(node, implied_type)
+
+    visit_AstString = visit_AstNumber
+    visit_AstBoolean = visit_AstNumber
+
+    def visit_AstReference(self, parent, node: AstReference, state: CompileState):
+        ref = state.lookup_single_ref_with_type(node, FppType, dont_create_errors=True)
+        if ref is None:
+            # a reference without a constant value
+            return
+
+        implied_type = state.implied_types.get(node, None)
+
+        if implied_type is not None:
+            assert check_reference_converts_to_type(ref, implied_type)
+
+        state.runtime_consts[node] = ref
+
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
         func = state.lookup_single_ref_with_type(node.func, FpyCallable)
         if func is None:
+            # func should already be type checked...
             # error generated in lookup
             return
-        construct_runtime_consts(node, func, node.args, state)
+        node_args = node.args if node.args is not None else []
+        arg_values = {}
+        for arg_node, func_arg in zip(node.args, func.args):
+            arg_name, arg_type = func_arg
+            arg_value = state.runtime_consts.get(arg_node, None)
+            if arg_value is None:
+                # right now this is an error. all function calls must have const args
+                # in the future this shouldn't be an error
+                state.errors.append(
+                    CompileException(
+                        f"Unable to call {node} because {arg_name}'s value was not known at compile time",
+                        arg_node,
+                    )
+                )
+                return
+            arg_values[arg_name] = arg_type
 
-    def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
-        func = state.lookup_single_ref_with_type(node.op, FpyCallable)
-        if func is None:
-            # error generated in lookup
-            return
-        construct_runtime_consts(node, func, [node.lhs, node.rhs], state)
+        # okay, args are constants, now see if we can actually construct the result of this func call
+        if isinstance(func, FpyTypeCtor):
+            # actually construct the type
+            if issubclass(func.type, SerializableType):
+                # pass in args as a dict
+                instance = func.type()
+                instance._val = arg_values
+                state.runtime_consts[node] = instance
+
+            elif issubclass(func.return_type, ArrayType):
+                state.runtime_consts[node] = func.return_type(list(arg_values.values()))
+
+            elif func.return_type == TimeType:
+                state.runtime_consts[node] = TimeType(**arg_values)
+
+            else:
+                # no other FppTypeClasses have ctors
+                assert False, func.return_type
+        elif isinstance(func, FpyCmd):
+            # convert the cmd to a cmd directive
+            serialized_arg_values = bytes()
+            for arg_name, arg_value in arg_values.items():
+                serialized_arg_values += arg_value.serialize()
+            state.generated_directives[node] = [
+                CmdDirective(func.cmd.get_op_code(), serialized_arg_values)
+            ]
+        elif isinstance(func, FpyBuiltin):
+            state.generated_directives[node] = [func.dir(*arg_values.values())]
+
+        # require that all node argument directives are included before this directive
+        state.prerequisite_nodes[node] = node_args
 
 
 def put_const_in_register(
@@ -784,12 +819,13 @@ def put_const_in_register(
         return None
 
     serialized_const = const.serialize()
-
     assert len(serialized_const) <= 8, len(serialized_const)
+    const_as_i64_bytes = bytes(8 - len(serialized_const))
+    const_as_i64_bytes += serialized_const
 
     # reinterpret as an I64
     const_as_i64 = I64Type()
-    const_as_i64.deserialize(serialized_const, 0)
+    const_as_i64.deserialize(const_as_i64_bytes, 0)
 
     set_reg_directive = SetRegDirective(register, const_as_i64.val)
 
@@ -797,16 +833,13 @@ def put_const_in_register(
 
 
 def put_reference_in_lvar(
-    node: AstReference, lvar: int, secondary_lvar: int, state: CompileState
+    node: AstReference,
+    ref: FpyReference,
+    lvar: int,
+    secondary_lvar: int,
+    state: CompileState,
 ) -> list[Directive]:
-    resolved_refs = state.lookup_ref(node)
-    if len(resolved_refs) != 1:
-        state.errors.append(CompileException("Unknown reference", node))
-        return None
-
-    ref = resolved_refs[0]
-
-    if not isinstance(ref, (ChTemplate, PrmTemplate, FppType)):
+    if not isinstance(ref, (ChTemplate, PrmTemplate, FppType, FpyVariable)):
         state.errors.append(CompileException("Reference has no value", node))
         return None
 
@@ -821,6 +854,11 @@ def put_reference_in_lvar(
     elif isinstance(ref, FppType):
         put_in_lvar_directive = SetLocalVarDirective(lvar, ref.serialize())
 
+    elif isinstance(ref, FpyVariable):
+        # put_in_lvar_directive = SetLocalVarDirective()
+        # TODO moving lvar not supported at the moment
+        assert False, ref
+
     else:
         assert False, ref
 
@@ -830,16 +868,36 @@ def put_reference_in_lvar(
 def put_reference_in_register(
     node: AstReference, register: int, state: CompileState
 ) -> list[Directive] | None:
+
+    resolved_refs = state.lookup_ref(node)
+    if len(resolved_refs) != 1:
+        state.errors.append(CompileException("Unknown reference", node))
+        return None
+
+    ref = resolved_refs[0]
+
     directives = []
-    lvar_idx = state.next_lvar
-    secondary_lvar_idx = state.next_lvar + 1
-    state.next_lvar += 2
-    ref_in_lvar = put_reference_in_lvar(node, lvar_idx, secondary_lvar_idx, state)
-    if ref_in_lvar is None:
-        return
-    directives.extend(ref_in_lvar)
+
+    if isinstance(ref, FpyVariable):
+        # special case for variable, it is already in an lvar
+        lvar_idx = ref.lvar_idx
+    else:
+        # other references need some directives to get them in an lvar
+        lvar_idx = state.next_lvar
+        secondary_lvar_idx = state.next_lvar + 1
+        state.next_lvar += 2
+
+        ref_in_lvar = put_reference_in_lvar(
+            node, ref, lvar_idx, secondary_lvar_idx, state
+        )
+        if ref_in_lvar is None:
+            return
+        directives.extend(ref_in_lvar)
 
     lvar_type = get_argument_type(node, state)
+
+    if lvar_type is None:
+        return
 
     # okay now pull from this lvar into a register
 
@@ -886,7 +944,7 @@ def put_argument_in_register(
         if dirs is None:
             return None
         directives.extend(dirs)
-    elif isinstance(node, Literal):
+    elif isinstance(node, AstLiteral):
         # node must have an interpreted value at this point
         dirs = put_const_in_register(node, state.runtime_consts[node], register, state)
         if dirs is None:
@@ -905,7 +963,7 @@ def get_argument_type(node: AstArgument, state: CompileState) -> FppTypeClass:
 
         ref = resolved_refs[0]
 
-        if not isinstance(ref, (ChTemplate, PrmTemplate, FppType)):
+        if not isinstance(ref, (ChTemplate, PrmTemplate, FppType, FpyVariable)):
             state.errors.append(CompileException("Reference has no value", node))
             return None
 
@@ -918,11 +976,19 @@ def get_argument_type(node: AstArgument, state: CompileState) -> FppTypeClass:
         elif isinstance(ref, FppType):
             return type(ref)
 
-    elif isinstance(node, (AstFuncCall | Literal)):
+        elif isinstance(ref, FpyVariable):
+            return ref.type
+
+        else:
+            assert False, node
+
+    elif isinstance(node, (AstFuncCall | AstLiteral)):
         return type(state.runtime_consts[node])
+    else:
+        assert False, node
 
 
-class ConditionalAnalysis:
+class ConditionAnalysis:
     class Never:
         pass
 
@@ -938,8 +1004,6 @@ class CheckConditionals(CompilePass):
     def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
         lhs_type = get_argument_type(node.lhs, state)
         rhs_type = get_argument_type(node.rhs, state)
-
-        result = ConditionalAnalysis.Never
 
         if node.op.value == "==":
             if lhs_type != rhs_type:
@@ -993,27 +1057,25 @@ class CheckConditionals(CompilePass):
         # require that all directives for lhs and rhs are included before these dirs
         state.prerequisite_nodes[node] = [node.lhs, node.rhs]
         state.generated_directives[node] = lhs_dirs + rhs_dirs + comparison_dirs
-        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
+        state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
 
     def visit_AstNot(self, parent, node: AstNot, state: CompileState):
         value_analysis = state.conditionals.get(node.value, None)
         if value_analysis is not None:
-            if value_analysis == ConditionalAnalysis.Never:
-                state.conditionals[node] = ConditionalAnalysis.Always
+            if value_analysis == ConditionAnalysis.Never:
+                state.conditionals[node] = ConditionAnalysis.Always
                 return
-            elif value_analysis == ConditionalAnalysis.Always:
-                state.conditionals[node] = ConditionalAnalysis.Never
+            elif value_analysis == ConditionAnalysis.Always:
+                state.conditionals[node] = ConditionAnalysis.Never
                 return
-            elif isinstance(value_analysis, ConditionalAnalysis.BranchFromRegister):
+            elif isinstance(value_analysis, ConditionAnalysis.BranchFromRegister):
                 value_reg = value_analysis.result_reg
                 res_reg = state.next_register
                 state.next_register += 1
                 # make sure that all directives needed to create the value are included before these ones
                 state.prerequisite_nodes[node] = [node.value]
                 state.generated_directives[node] = [NotDirective(value_reg, res_reg)]
-                state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(
-                    res_reg
-                )
+                state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
                 return
             else:
                 assert False, value_analysis
@@ -1032,7 +1094,7 @@ class CheckConditionals(CompilePass):
         # make sure that all directives needed to create the value are included before these ones
         state.prerequisite_nodes[node] = [node.value]
         state.generated_directives[node] = dirs
-        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
+        state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
 
     def visit_AstAnd(self, parent, node: AstAnd, state: CompileState):
 
@@ -1041,19 +1103,19 @@ class CheckConditionals(CompilePass):
 
         state.prerequisite_nodes[node] = []
         for value in node.values:
-            conditional_analysis = state.conditionals.get(value, None)
-            if conditional_analysis == ConditionalAnalysis.Never:
+            condition_analysis = state.conditionals.get(value, None)
+            if condition_analysis == ConditionAnalysis.Never:
                 # this "and" can never be true because some arg is never true
-                state.conditionals[node] = ConditionalAnalysis.Never
+                state.conditionals[node] = ConditionAnalysis.Never
                 return
-            if conditional_analysis == ConditionalAnalysis.Always:
+            if condition_analysis == ConditionAnalysis.Always:
                 # this arg is always true, don't have to calculate anything with it
                 continue
             # otherwise, we actually have to calculate something here
             # include the directives necessary for this conditional
             state.prerequisite_nodes[node].append(value)
-            if isinstance(conditional_analysis, ConditionalAnalysis.BranchFromRegister):
-                registers_to_compare.append(conditional_analysis.result_reg)
+            if isinstance(condition_analysis, ConditionAnalysis.BranchFromRegister):
+                registers_to_compare.append(condition_analysis.result_reg)
                 continue
             assert isinstance(value, AstArgument)
             value_reg = state.next_register
@@ -1084,7 +1146,7 @@ class CheckConditionals(CompilePass):
             dirs.append(AndDirective(res_reg, registers_to_compare[i], res_reg))
 
         state.generated_directives[node] = dirs
-        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
+        state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
 
     def visit_AstOr(self, parent, node: AstOr, state: CompileState):
 
@@ -1093,19 +1155,19 @@ class CheckConditionals(CompilePass):
 
         state.prerequisite_nodes[node] = []
         for value in node.values:
-            conditional_analysis = state.conditionals.get(value, None)
-            if conditional_analysis == ConditionalAnalysis.Always:
+            condition_analysis = state.conditionals.get(value, None)
+            if condition_analysis == ConditionAnalysis.Always:
                 # this "or" is always true because some arg is always true
-                state.conditionals[node] = ConditionalAnalysis.Always
+                state.conditionals[node] = ConditionAnalysis.Always
                 return
-            if conditional_analysis == ConditionalAnalysis.Never:
+            if condition_analysis == ConditionAnalysis.Never:
                 # this arg is never true, don't have to calculate anything with it
                 continue
             # otherwise, we actually have to calculate something here
             # include the directives necessary for this conditional
             state.prerequisite_nodes[node].append(value)
-            if isinstance(conditional_analysis, ConditionalAnalysis.BranchFromRegister):
-                registers_to_compare.append(conditional_analysis.result_reg)
+            if isinstance(condition_analysis, ConditionAnalysis.BranchFromRegister):
+                registers_to_compare.append(condition_analysis.result_reg)
                 continue
             assert isinstance(value, AstArgument)
             value_reg = state.next_register
@@ -1136,11 +1198,13 @@ class CheckConditionals(CompilePass):
             dirs.append(OrDirective(res_reg, registers_to_compare[i], res_reg))
 
         state.generated_directives[node] = dirs
-        state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
+        state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
 
     def visit_AstElif(self, parent, node: AstElif, state: CompileState):
         # include all code necessary to calculate the condition
         state.prerequisite_nodes[node] = [node.condition]
+
+        # handle the case in which the condition is just a raw value, no cmps
         if isinstance(node.condition, AstArgument):
             res_reg = state.next_register
             state.next_register += 1
@@ -1148,11 +1212,10 @@ class CheckConditionals(CompilePass):
             if dirs is None:
                 # could not put arg in register
                 return
-            state.generated_directives[node] = dirs
-            state.conditionals[node] = ConditionalAnalysis.BranchFromRegister(res_reg)
-        else:
-            # it should already be analyzed
-            state.conditionals[node] = state.conditionals[node.condition]
+            state.generated_directives[node.condition] = dirs
+            state.conditionals[node.condition] = ConditionAnalysis.BranchFromRegister(
+                res_reg
+            )
 
     def visit_AstIf(self, parent, node: AstIf, state: CompileState):
         # elif and if are handled the same way
@@ -1162,7 +1225,7 @@ class CheckConditionals(CompilePass):
 @dataclass
 class ConditionalBody:
     condition_node: AstCondition
-    condition_analysis: ConditionalAnalysis
+    condition_analysis: ConditionAnalysis
     body: AstUnscopedBody
 
 
@@ -1182,24 +1245,22 @@ class AnalyzeControlFlow(CompilePass):
                 node.condition, state.conditionals[node.condition], node.body
             )
         )
-        for elif_case in node.elifs if node.elifs is not None else []:
-            conditional_analysis = state.conditionals[elif_case.condition]
+        for elif_case in node.elifs.cases if node.elifs is not None else []:
+            condition_analysis = state.conditionals[elif_case.condition]
             unfiltered_bodies.append(
-                ConditionalBody(
-                    elif_case.condition, conditional_analysis, elif_case.body
-                )
+                ConditionalBody(elif_case.condition, condition_analysis, elif_case.body)
             )
 
         # the bodies, after optimizing away always false, and not including
         # anything after an always true cond
         bodies: list[ConditionalBody] = []
-        for condition_node, conditional_analysis, body in unfiltered_bodies:
+        for body in unfiltered_bodies:
             # all conditionals should already be analyzed
-            if conditional_analysis == ConditionalAnalysis.Never:
+            if body.condition_analysis == ConditionAnalysis.Never:
                 # don't bother including this branch
                 continue
-            bodies.append(ConditionalBody(condition_node, conditional_analysis, body))
-            if conditional_analysis == ConditionalAnalysis.Always:
+            bodies.append(body)
+            if body.condition_analysis == ConditionAnalysis.Always:
                 # this one always happens, don't include anything after
                 break
 
@@ -1269,11 +1330,10 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
     infix_callable_name_dict = defaultdict(list)
 
-    numeric_infix_ops = ["<", ">", "<=", ">=", "==", "!="]
-    for op in numeric_infix_ops:
+    for op, dir in BINARY_COMPARISON_DIRECTIVES.items():
         infix_callable_name_dict[op].append(
             FpyOperator(
-                BoolType, [("lhs", AnyNumericType), ("rhs", AnyNumericType)], op
+                BoolType, [("lhs", AnyNumericType), ("rhs", AnyNumericType)], op, dir
             )
         )
 
@@ -1323,7 +1383,7 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         # at least according to the name of the symbol.
         # but in the case of polymorphic functions, multiple funcs can have
         # the same name. let's use arg types to figure out which one we're calling
-        ResolvePolymorphicCallsByArgType(),
+        CheckAndResolveArgumentTypes(),
         # now we know what each call points to
         ConstructRuntimeConstants(),
         CheckConditionals(),
@@ -1331,9 +1391,7 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
     ]
     for compile_pass in passes:
         compile_pass.run(body, state)
-        print(state)
         for error in state.errors:
             raise error
 
-    print()
-    print(state.body_directives[body])
+    pprint(state, indent=0, width=1200)

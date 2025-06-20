@@ -312,6 +312,12 @@ class NotDirective(Directive):
         return bytes(data)
 
 
+EQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
+    "==": EqualDirective,
+    "!=": NotEqualDirective,
+}
+
+
 SIGNED_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
     ">": SignedGreaterThanDirective,
     "<": SignedLessThanDirective,
@@ -324,3 +330,8 @@ UNSIGNED_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
     ">=": UnsignedGreaterThanOrEqualDirective,
     "<=": UnsignedLessThanOrEqualDirective,
 }
+
+BINARY_COMPARISON_DIRECTIVES = {}
+BINARY_COMPARISON_DIRECTIVES.update(EQUALITY_DIRECTIVES)
+BINARY_COMPARISON_DIRECTIVES.update(SIGNED_INEQUALITY_DIRECTIVES)
+BINARY_COMPARISON_DIRECTIVES.update(UNSIGNED_INEQUALITY_DIRECTIVES)

@@ -8,6 +8,8 @@ from lark.tree import Meta
 
 fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
 
+input_text = None
+
 
 def parse(text: str):
     parser = Lark(
@@ -16,23 +18,14 @@ def parse(text: str):
         parser="lalr",
         postlex=PythonIndenter(),
         propagate_positions=True,
+        maybe_placeholders=True,
     )
 
+    global input_text
+    input_text = text
     tree = parser.parse(text, on_error=lambda x: print("Error"))
     transformed = FpyTransformer().transform(tree)
     return transformed
-
-
-def flatten_ast_node(cls):
-    datacls = dataclass(cls)
-
-    def ast_node_ctor(self, value: list):
-        for idx, member in enumerate(fields(datacls)):
-            setattr(self, member.name, value[idx])
-
-    datacls.__init__ = ast_node_ctor
-
-    return datacls
 
 
 @dataclass
@@ -42,6 +35,14 @@ class Ast:
 
     def __hash__(self):
         return hash(self.id)
+
+    def __repr__(self):
+        node_text = (
+            input_text[self.meta.start_pos : self.meta.end_pos]
+            .replace("\n", " ")
+            .strip()
+        )
+        return f"{self.__class__.__name__}({node_text})"
 
 
 @dataclass()
@@ -64,7 +65,7 @@ class AstBoolean(Ast):
     value: TypingLiteral[True] | TypingLiteral[False]
 
 
-Literal = AstString | AstNumber | AstBoolean
+AstLiteral = AstString | AstNumber | AstBoolean
 
 
 @dataclass
@@ -83,10 +84,10 @@ class AstFuncCall(Ast):
     args: list["AstArgument"]
 
 
-AstArgument = AstFuncCall | AstReference | Literal
+AstArgument = AstFuncCall | AstReference | AstLiteral
 
 
-AstAssignValue = Literal | AstReference
+AstAssignValue = AstLiteral | AstReference
 
 
 @dataclass()
@@ -160,7 +161,7 @@ class AstIf(Ast):
 
 for cls in Ast.__subclasses__():
     cls.__hash__ = Ast.__hash__
-    # cls.__repr__ = Ast.__repr__
+    cls.__repr__ = Ast.__repr__
 
 
 @v_args(meta=False, inline=False)
@@ -182,11 +183,6 @@ def no_inline(type):
         return type(meta, tree)
 
     return wrapper
-
-
-@v_args(meta=True, inline=True)
-def infix_func(self, meta, lhs, op, rhs):
-    return AstFuncCall(meta, op, [lhs, rhs])
 
 
 @v_args(meta=True, inline=True)
