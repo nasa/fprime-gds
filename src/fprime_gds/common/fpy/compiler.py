@@ -655,13 +655,12 @@ class CheckVariableTypesAndValues(CompilePass):
             )
             return
 
-        # type of value is compatible
-        # something like...
-        # state.instructions[node] = FpyInstruction(node.variable.value, value)
-        # state.generated_directives[node] = ConstDirective(DirectiveOpcode.)
-        lvar_idx = state.next_lvar
-        state.next_lvar += 1
-        existing_var.lvar_idx = lvar_idx
+        lvar_idx = existing_var.lvar_idx
+        if lvar_idx is None:
+            # doesn't have an lvar idx, allocate one
+            lvar_idx = state.next_lvar
+            state.next_lvar += 1
+            existing_var.lvar_idx = lvar_idx
         state.generated_directives[node] = [
             SetLocalVarDirective(lvar_idx, value.serialize())
         ]
