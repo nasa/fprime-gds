@@ -237,14 +237,18 @@ class GdsStandardApp(GdsApp):
         arguments needed for the given parsers.  When main is loaded, it will dispatch to the sub-classing plugin's
         start method. The subclassing plugin will already have had the arguments supplied via the PluginParser's
         construction of plugin objects.
+
+        Returns:
+            list of arguments to pass to subprocess
         """
         cls = self.__class__.__name__
         module = self.__class__.__module__
 
-        namespace = Namespace(**self.arguments)
-        args = CompositeParser(
+        composite_parser = CompositeParser(
             [self.get_cli_parser(), StandardPipelineParser]
-        ).reproduce_cli_args(namespace)
+        )
+        namespace, _, _ = ParserBase.parse_known_args([composite_parser])
+        args = composite_parser.reproduce_cli_args(namespace)
         return [sys.executable, "-c", f"import {module}\n{module}.{cls}.main()"] + args
 
     @classmethod

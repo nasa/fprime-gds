@@ -197,10 +197,11 @@ class StartApp(GdsApp):
 @gds_plugin(GdsStandardApp)
 class StandardAppTester(GdsStandardApp):
     """A test plugin that uses the standard app functionality"""
-    def __init__(self, test_arg, test_arg_with_default, start_up_file, **kwargs):
+    INIT_CALLED = False
+
+    def __init__(self, test_arg, test_arg_with_default, start_up_file, **pipeline_arguments):
         """Initialize the standard app tester"""
-        super().__init__(**kwargs)
-        print(">>>>", test_arg, test_arg_with_default, start_up_file)
+        super().__init__(**pipeline_arguments)
         self.test_arg = test_arg
         self.test_arg_with_default = test_arg_with_default
         self.start_up_file = start_up_file
@@ -228,12 +229,18 @@ class StandardAppTester(GdsStandardApp):
     @classmethod
     def init(cls):
         """Allows standard application plugins to initialize before argument parsing is performed"""
-        print("[TestStandardApp] init called")
+        cls.INIT_CALLED = True
 
 
     def start(self, pipeline: StandardPipeline):
         """Start function to contain behavior based in standard pipeline """
-        print("[TestStandardApp] start called")
+        with open(self.start_up_file, "a+") as file_handle:
+            if self.INIT_CALLED:
+                print("[TestStandardApp] init called", file=file_handle)
+            print("[TestStandardApp] start called", file=file_handle)
+            print("[TestStandardApp] test-arg", self.test_arg, file=file_handle)
+            print("[TestStandardApp] test-arg-with-default", self.test_arg_with_default, file=file_handle)
+
 
 
 @pytest.fixture()
@@ -277,7 +284,6 @@ def start_up(request):
             "none",
             "--disable-custom-data-handlers",
         ] + flags
-        print("Command arguments:", command_arguments)
         with NamedTemporaryFile(mode="w+", dir=temp_dir) as temp_file:
             assert "" == temp_file.read(), "Failed to read empty file"
             command_arguments += ["--start-up-file", temp_file.name]
@@ -455,7 +461,33 @@ def test_disabled_start_app(start_up):
 def test_standard_app(start_up):
     """Test standard app functionality"""
     lines = [line.strip() for line in start_up.readlines()]
-    print("Lines:", lines)
+    expected_lines = [
+        "[TestStandardApp] init called",
+        "[TestStandardApp] start called",
+        "[TestStandardApp] test-arg test",
+        "[TestStandardApp] test-arg-with-default test-default",
+    ]
+    assert expected_lines[0] in lines, "Plugin not initialized"
+    assert expected_lines[1] in lines, "Plugin not started"
+    assert expected_lines[2] in lines, "Test argument not passed"
+    assert expected_lines[3] in lines, "Test argument with default not passed"
+    assert expected_lines == lines, "Ordering of lines not correct"
+
+@pytest.mark.parametrize("start_up", [(f"{__name__}:StandardAppTester", ["--test-arg", "test", "--test-arg-with-default", "test-non-default"])], indirect=True)
+def test_standard_app_with_non_defaults(start_up):
+    """Test standard app functionality"""
+    lines = [line.strip() for line in start_up.readlines()]
+    expected_lines = [
+        "[TestStandardApp] init called",
+        "[TestStandardApp] start called",
+        "[TestStandardApp] test-arg test",
+        "[TestStandardApp] test-arg-with-default test-non-default",
+    ]
+    assert expected_lines[0] in lines, "Plugin not initialized"
+    assert expected_lines[1] in lines, "Plugin not started"
+    assert expected_lines[2] in lines, "Test argument not passed"
+    assert expected_lines[3] in lines, "Test argument with overridden default not passed"
+    assert expected_lines == lines, "Ordering of lines not correct"
 
 def main():
     """Run main entry point function for StartApp plugin
