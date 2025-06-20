@@ -239,6 +239,7 @@ class CompileState:
         AstScopedBody | AstUnscopedBody, list[Union[Directive, "IfAnalysis"]]
     ] = field(default_factory=dict)
 
+    line_number: int = 0
     linearized_directives: list[Directive] = field(default_factory=list)
 
     errors: list[CompileException] = field(default_factory=list)
@@ -1266,7 +1267,7 @@ class AnalyzeControlFlow(CompilePass):
 
         # okay, now we know which ones will/won't happen for sure
         # generate code
-        state.prerequisite_nodes[node] = []
+        state.prerequisite_nodes[node] = [body.condition_node for body in bodies]
         state.generated_directives[node] = [IfAnalysis(bodies)]
 
     def visit_AstUnscopedBody(self, parent, node: AstUnscopedBody, state: CompileState):
@@ -1286,6 +1287,45 @@ class AnalyzeControlFlow(CompilePass):
     def visit_AstScopedBody(self, parent, node: AstScopedBody, state: CompileState):
         # unscoped and scoped are handled the same way
         self.visit_AstUnscopedBody(parent, node, state)
+
+
+def linearize_directives(
+    starting_line_num: int, body: AstScopedBody | AstUnscopedBody, state: CompileState
+) -> list[Directive]:
+    dirs = []
+    next_line_idx = starting_line_num
+    for dir in state.body_directives[body]:
+        if isinstance(dir, Directive):
+            dirs.append(dir)
+            next_line_idx += 1
+            continue
+        assert isinstance(dir, IfAnalysis)
+        for conditional_body in dir.conditional_bodies:
+            condition_analysis = conditional_body.condition_analysis
+            # we should have discarded bodies with impossible conditions by now
+            assert condition_analysis != ConditionAnalysis.Never
+            if condition_analysis == ConditionAnalysis.Always:
+                # don't need to generate an if directive. inline this body directly
+                linearized_body = linearize_directives(
+                    next_line_idx, conditional_body.body, state
+                )
+                dirs.extend(linearized_body)
+                next_line_idx += len(linearized_body)
+                continue
+            assert isinstance(condition_analysis, ConditionAnalysis.BranchFromRegister)
+
+            # line num + 1 so that it starts after the upcoming if directive
+            linearized_body = linearize_directives(
+                next_line_idx + 1, conditional_body.body, state
+            )
+
+            # if false, go to (if stmt) + (skip over each of body)
+            false_goto_line_num = next_line_idx + len(linearized_body) + 1
+            if_dir = IfDirective(condition_analysis.result_reg, false_goto_line_num)
+            dirs.append(if_dir)
+            dirs.extend(linearized_body)
+            next_line_idx += 1 + len(linearized_body)
+    return dirs
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -1394,4 +1434,8 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
         for error in state.errors:
             raise error
 
-    pprint(state, indent=0, width=1200)
+    print(state)
+
+    dirs = linearize_directives(0, body, state)
+
+    pprint(dirs)
