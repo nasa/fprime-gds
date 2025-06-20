@@ -1,11 +1,11 @@
 # Adapted from: https://docs.python.org/3/reference/grammar.html and the Lark Python grammar
 
-input: (_NEWLINE | stmt)*
+input: (_NEWLINE | _stmt)*
 
 _literal: number | string | boolean
 reference: name ("." name)*
 
-_stmt: small_stmt _NEWLINE | compound_stmt
+_stmt: _small_stmt _NEWLINE | _compound_stmt
 _small_stmt: (func_call | assign | pass_stmt )
 _compound_stmt: if_stmt
 pass_stmt: "pass"
@@ -16,19 +16,19 @@ pass_stmt: "pass"
 
 # can currently only assign constant values to vars
 _type_name: reference
-assign: name [":" type_name] "=" assign_value
+assign: name [":" _type_name] "=" _assign_value
 # rename assign_value to an assign_expr
-_assign_value: literal
+_assign_value: _literal
              | reference # can only be a ref to enum const
 
 
 
 # branching
 
-if_stmt: "if" condition ":" body elifs ["else" ":" body]
+if_stmt: "if" _condition ":" body elifs ["else" ":" body]
 elifs: elif_*
-elif_: "elif" condition ":" body
-body: _NEWLINE _INDENT stmt+ _DEDENT
+elif_: "elif" _condition ":" body
+body: _NEWLINE _INDENT _stmt+ _DEDENT
 _condition: or_test
 
 
@@ -38,8 +38,8 @@ _condition: or_test
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
           | comparison
-          | argument
-comparison: argument comp_op argument
+          | _argument
+comparison: _argument comp_op _argument
 comp_op: COMPARISON_OP
 
 
@@ -47,11 +47,11 @@ comp_op: COMPARISON_OP
 # function calling
 
 _func_name: reference
-func_call: func_name "(" [arguments] ")"
-arguments: argument ("," argument)*
+func_call: _func_name "(" [arguments] ")"
+arguments: _argument ("," _argument)*
 _argument: func_call # can only be a type ctor call
          | reference # can only be enum const
-         | literal
+         | _literal
 
 
 

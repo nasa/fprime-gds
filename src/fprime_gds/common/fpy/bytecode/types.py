@@ -8,6 +8,7 @@ from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.numerical_types import U32Type, U16Type, U8Type
 from fprime.common.models.serialize.string_type import StringType
 
+from fprime_gds.common.fpy.bytecode.directives import DirectiveOpcode
 from fprime_gds.common.loaders.json_loader import PRIMITIVE_TYPE_MAP
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate

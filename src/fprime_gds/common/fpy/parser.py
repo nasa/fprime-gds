@@ -110,7 +110,7 @@ class AstComparison(Ast):
 
 @dataclass
 class AstNot(Ast):
-    value: "AstNot" | AstComparison | AstArgument
+    value: Union["AstNot", AstComparison, AstArgument]
 
 
 @dataclass
