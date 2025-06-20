@@ -755,7 +755,7 @@ class ConstructRuntimeConstants(CompilePass):
             return
         node_args = node.args if node.args is not None else []
         arg_values = {}
-        for arg_node, func_arg in zip(node.args, func.args):
+        for arg_node, func_arg in zip(node_args, func.args):
             arg_name, arg_type = func_arg
             arg_value = state.runtime_consts.get(arg_node, None)
             if arg_value is None:
@@ -768,7 +768,7 @@ class ConstructRuntimeConstants(CompilePass):
                     )
                 )
                 return
-            arg_values[arg_name] = arg_type
+            arg_values[arg_name] = arg_value
 
         # okay, args are constants, now see if we can actually construct the result of this func call
         if isinstance(func, FpyTypeCtor):

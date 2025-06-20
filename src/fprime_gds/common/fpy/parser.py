@@ -199,7 +199,7 @@ class FpyTransformer(Transformer):
     body = no_inline(AstUnscopedBody)
     or_test = no_inline(AstOr)
     and_test = no_inline(AstAnd)
-    not_test = no_inline(AstNot)
+    not_test = AstNot
     comparison = AstComparison
     comp_op = AstInfixOp
 
