@@ -1,3 +1,5 @@
+import argparse
+from pathlib import Path
 from pprint import pprint
 from ast import Pass
 from collections import defaultdict
@@ -8,6 +10,7 @@ from types import NoneType
 from typing import TypeVar, Union
 
 from fprime_gds.common.data_types.cmd_data import CmdData
+from fprime_gds.common.fpy.bytecode.serialize_bytecode import serialize_directives
 from fprime_gds.common.fpy.bytecode.types import (
     FPY_DIRECTIVES,
     StatementData,
@@ -84,6 +87,7 @@ from fprime_gds.common.fpy.parser import (
     AstAssign,
     AstFuncCall,
     AstName,
+    parse,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
 
@@ -146,7 +150,7 @@ class CompileException(BaseException):
 
     def __str__(self):
         return (
-            f"{self.stack_trace}\nAt line {self.node.meta.line} {self.node}: {self.msg}"
+            f"{self.stack_trace}\nAt line {self.node.meta.line} \"{self.node.node_text}\": {self.msg}"
         )
 
 
@@ -435,7 +439,7 @@ def check_args_compatible(
         # check type of value matches expected type of template
         if not check_argument_converts_to_type(value_node, arg_type, state):
             return False, CompileException(
-                f"Cannot interpret {value_node} as {arg_type}"
+                f"Cannot interpret {value_node} as {arg_type}", value_node
             )
 
     # got thru all args successfully
@@ -1006,16 +1010,16 @@ class CheckConditionals(CompilePass):
         rhs_type = get_argument_type(node.rhs, state)
 
         if node.op.value == "==":
-            if lhs_type != rhs_type:
-                # two diff types are never equal
+            if lhs_type != rhs_type and not (lhs_type in NUMERIC_TYPES and rhs_type in NUMERIC_TYPES):
+                # two diff types cannot be checked for equality, unless they're both numeric
                 # probably a coding error, fail
                 state.errors.append(
                     CompileException(f"Cannot compare {lhs_type} with {rhs_type}", node)
                 )
                 return
         elif node.op.value == "!=":
-            if lhs_type != rhs_type:
-                # two diff types are always unequal
+            if lhs_type != rhs_type and not (lhs_type in NUMERIC_TYPES and rhs_type in NUMERIC_TYPES):
+                # two diff types cannot be checked for inequality, unless they're both numeric
                 state.errors.append(
                     CompileException(f"Cannot compare {lhs_type} with {rhs_type}", node)
                 )
@@ -1407,7 +1411,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     return state
 
 
-def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
+def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
     state = get_base_compile_state(dictionary)
     passes: list[CompilePass] = [
         AssignIds(),
@@ -1438,3 +1442,26 @@ def compile(body: AstScopedBody, dictionary: str) -> list[StatementData]:
     dirs = linearize_directives(0, body, state)
 
     pprint(dirs)
+    return dirs
+
+
+def main():
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("input", type=Path, help="The input .fpy file")
+    arg_parser.add_argument("-o", "--output", type=Path, required=False, default=None, help="The output .bin path")
+    arg_parser.add_argument("-d", "--dictionary", type=Path, required=True, help="The FPrime dictionary .json file")
+
+    args = arg_parser.parse_args()
+
+    if not args.input.exists():
+        print(f"Input file {args.input} does not exist")
+        exit(-1)
+
+    print(args.input.read_text())
+
+    body = parse(args.input.read_text())
+    directives = compile(body, args.dictionary)
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix(".bin")
+    serialize_directives(directives, output)

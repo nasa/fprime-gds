@@ -32,17 +32,20 @@ def parse(text: str):
 class Ast:
     meta: Meta = field(repr=False)
     id: int = field(init=False, repr=False, default=None)
+    node_text: str = field(init=False, repr=False, default=None)
+
+    def __post_init__(self):
+        self.node_text = (
+            input_text[self.meta.start_pos : self.meta.end_pos]
+            .replace("\n", " ")
+            .strip()
+        )
 
     def __hash__(self):
         return hash(self.id)
 
     def __repr__(self):
-        node_text = (
-            input_text[self.meta.start_pos : self.meta.end_pos]
-            .replace("\n", " ")
-            .strip()
-        )
-        return f"{self.__class__.__name__}({node_text})"
+        return f"{self.__class__.__name__}({self.node_text})"
 
 
 @dataclass()

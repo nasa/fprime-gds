@@ -18,7 +18,7 @@ from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from enum import Enum
 
-FwSizeType = U32Type
+FwSizeType = U64Type
 FwChanIdType = U32Type
 FwPrmIdType = U32Type
 FwOpcodeType = U32Type
@@ -67,6 +67,18 @@ class DirectiveOpcode(Enum):
 class Directive:
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.INVALID
 
+    def serialize(self) -> bytes:
+        arg_bytes = self.serialize_args()
+        
+        output = U8Type(self.opcode.value).serialize()
+        output += U16Type(len(arg_bytes)).serialize()
+        output += arg_bytes
+
+        return output
+
+    def serialize_args(self) -> bytes:
+        raise NotImplementedError("serialize_args not implemented")
+
 
 @dataclass
 class WaitRelDirective(Directive):
@@ -74,7 +86,7 @@ class WaitRelDirective(Directive):
     seconds: int
     useconds: int
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         return U32Type(self.seconds).serialize() + U32Type(self.useconds).serialize()
 
 
@@ -83,7 +95,7 @@ class WaitAbsDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.WAIT_ABS
     wakeup_time: TimeType
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         return self.wakeup_time.serialize()
 
 
@@ -96,7 +108,7 @@ class SetLocalVarDirective(Directive):
     value: bytes
     """[Fpy.MAX_LOCAL_VARIABLE_BUFFER_SIZE] U8: The value of the local variable."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         data = bytearray()
         data.extend(U8Type(self.index).serialize())
         data.extend(self.value)
@@ -109,7 +121,7 @@ class GotoDirective(Directive):
     statement_index: int
     """U32: The statement index to execute next."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         return U32Type(self.statement_index).serialize()
 
 
@@ -121,7 +133,7 @@ class IfDirective(Directive):
     false_goto_stmt_index: int
     """U32: The statement index to go to if the register is false."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         return (
             U8Type(self.conditional_reg).serialize()
             + U32Type(self.false_goto_stmt_index).serialize()
@@ -132,7 +144,7 @@ class IfDirective(Directive):
 class NoOpDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NO_OP
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         return bytes()
 
 
@@ -146,7 +158,7 @@ class GetTlmDirective(Directive):
     chan_id: int
     """FwChanIdType: The telemetry channel ID to get."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         data = bytearray()
         data.extend(U8Type(self.value_dest_lvar).serialize())
         data.extend(U8Type(self.time_dest_lvar).serialize())
@@ -162,7 +174,7 @@ class GetPrmDirective(Directive):
     prm_id: int
     """FwPrmIdType: The parameter ID to get the value of."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         return (
             U8Type(self.dest_lvar_index).serialize()
             + FwPrmIdType(self.prm_id).serialize()
@@ -177,7 +189,7 @@ class CmdDirective(Directive):
     arg_buf: bytes
     """[Fpy.MAX_LOCAL_VARIABLE_BUFFER_SIZE] U8: The argument buffer of the command."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         data = bytearray()
         data.extend(FwOpcodeType(self.op_code).serialize())
         data.extend(self.arg_buf)
@@ -192,15 +204,15 @@ class _DeserLocalVarDirective(Directive):
 
     src_lvar_idx: int
     """U8: The local variable to deserialize from."""
-    src_offset: FwSizeType
+    src_offset: int
     """FwSizeType: The starting offset to deserialize from."""
     dest_reg: int
     """U8: The destination register to deserialize into."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         data = bytearray()
         data.extend(U8Type(self.src_lvar_idx).serialize())
-        data.extend(U32Type(self.src_offset).serialize())
+        data.extend(FwSizeType(self.src_offset).serialize())
         data.extend(U8Type(self.dest_reg).serialize())
         return bytes(data)
 
@@ -230,7 +242,7 @@ class SetRegDirective(Directive):
     value: int
     """I64: The value to store in the register."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         return U8Type(self.dest).serialize() + I64Type(self.value).serialize()
 
 
@@ -243,7 +255,7 @@ class _BinaryCmpDirective(Directive):
     res: int
     """U8: The destination register for the boolean result."""
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         data = bytearray()
         data.extend(U8Type(self.lhs).serialize())
         data.extend(U8Type(self.rhs).serialize())
@@ -305,7 +317,7 @@ class NotDirective(Directive):
     src: int
     res: int
 
-    def serialize(self) -> bytes:
+    def serialize_args(self) -> bytes:
         data = bytearray()
         data.extend(U8Type(self.src).serialize())
         data.extend(U8Type(self.res).serialize())

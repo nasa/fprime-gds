@@ -6,6 +6,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 import struct
 import zlib
+from fprime_gds.common.fpy.bytecode.directives import Directive
 from fprime_gds.common.fpy.bytecode.types import (
     StatementTemplate,
     StatementData,
@@ -13,10 +14,8 @@ from fprime_gds.common.fpy.bytecode.types import (
     Footer,
     HEADER_FORMAT,
     FOOTER_FORMAT,
-    StatementType,
     FPY_DIRECTIVES,
     BytecodeParseContext,
-    get_type_obj_for,
 )
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -25,30 +24,6 @@ from fprime.common.models.serialize.numerical_types import (
 )
 
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
-
-
-def serialize_statement(stmt: StatementData) -> bytes:
-    """converts a StatementData object into bytes that the FpySequencer can read"""
-    # see https://github.com/nasa/fprime/issues/3023#issuecomment-2693051677
-    # TODO replace this with actual documentation
-
-    # type: U8 (0 if directive, 1 if cmd)
-    # opcode: FwOpcodeType (default U32)
-    # argBufSize: FwSizeStoreType (default U16)
-    # argBuf: X bytes
-
-    output = bytes()
-    output += U8Type(stmt.template.statement_type.value).serialize()
-    output += get_type_obj_for("FwOpcodeType")(stmt.template.opcode).serialize()
-
-    arg_bytes = bytes()
-    for arg in stmt.arg_values:
-        arg_bytes += arg.serialize()
-
-    output += get_type_obj_for("FwSizeStoreType")(len(arg_bytes)).serialize()
-    output += arg_bytes
-
-    return output
 
 
 def parse_str_as_statement(
@@ -132,16 +107,16 @@ def main():
         exit(1)
 
     statements = text_to_statements(args.input, args.dictionary)
-    serialize_bytecode(statements, args.output)
+    serialize_directives(statements, args.output)
 
 
-def serialize_bytecode(statements: list[StatementData], output: Path = None):
+def serialize_directives(dirs: list[Directive], output: Path = None):
     output_bytes = bytes()
 
-    for stmt in statements:
-        output_bytes += serialize_statement(stmt)
+    for dir in dirs:
+        output_bytes += dir.serialize()
 
-    header = Header(0, 0, 0, 1, 0, len(statements), len(output_bytes))
+    header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
     output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
 
     crc = zlib.crc32(output_bytes) % (1 << 32)

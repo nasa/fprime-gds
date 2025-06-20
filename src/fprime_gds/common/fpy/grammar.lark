@@ -59,7 +59,7 @@ _argument: func_call # can only be a type ctor call
 encoding_decl: name
 
 number: DEC_NUMBER | HEX_NUMBER | BIN_NUMBER | OCT_NUMBER | FLOAT_NUMBER | IMAG_NUMBER
-string: STRING | LONG_STRING
+string: STRING
 boolean: CONST_FALSE | CONST_TRUE
 
 # Other terminals
@@ -81,8 +81,7 @@ CONST_TRUE: "True"
 CONST_FALSE: "False"
 COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
-STRING: /([ubf]?r?|r[ubf])("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
-LONG_STRING: /([ubf]?r?|r[ubf])(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
+STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 
 _SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
 DEC_NUMBER:   "1".."9"        ("_"?  "0".."9"                       )*
