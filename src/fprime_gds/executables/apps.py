@@ -260,9 +260,10 @@ class GdsStandardApp(GdsApp):
             # triggered by the code above that turns it off in the not-setup case. 
             except AssertionError:
                 pass
+            plugin_name = getattr(cls, "get_name", lambda: cls.__name__)()
             parsed_arguments, _ = ParserBase.parse_args(
                 [cls.get_cli_parser(), StandardPipelineParser, PluginArgumentParser],
-                f"{cls.get_name()}: a standard app plugin",
+                f"{plugin_name}: a standard app plugin",
             )
             pipeline = StandardPipeline()
             # Turn off history and filing

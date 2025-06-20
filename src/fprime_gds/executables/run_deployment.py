@@ -177,7 +177,7 @@ def launch_comm(parsed_args):
 
 def launch_plugin(plugin_class_instance):
     """Launch a plugin instance"""
-    plugin_name = getattr(plugin_class_instance, "get_name", lambda: cls.__name__)()
+    plugin_name = getattr(plugin_class_instance, "get_name", lambda: plugin_class_instance.__class__.__name__)()
     return launch_process(
         plugin_class_instance.get_process_invocation(),
         name=f"{ plugin_name } Plugin App",
