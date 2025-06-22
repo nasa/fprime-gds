@@ -35,6 +35,9 @@ class Ast:
     node_text: str = field(init=False, repr=False, default=None)
 
     def __post_init__(self):
+        if not hasattr(self.meta, "start_pos"):
+            self.node_text = ""
+            return
         self.node_text = (
             input_text[self.meta.start_pos : self.meta.end_pos]
             .replace("\n", " ")
@@ -77,27 +80,26 @@ class AstReference(Ast):
 
 
 @dataclass
+class AstExpr(Ast):
+    value: Union["AstFuncCall", AstLiteral, AstReference, "AstOr", "AstAnd", "AstNot", "AstComparison"]
+
+
+@dataclass
 class AstInfixOp(Ast):
     value: str
 
 
 @dataclass
 class AstFuncCall(Ast):
-    func: AstReference | AstInfixOp
-    args: list["AstArgument"]
-
-
-AstArgument = AstFuncCall | AstReference | AstLiteral
-
-
-AstAssignValue = AstLiteral | AstReference
+    func: AstReference
+    args: list["AstExpr"]
 
 
 @dataclass()
 class AstAssign(Ast):
     variable: AstName
     var_type: AstReference | None
-    value: AstAssignValue
+    value: AstExpr
 
 
 @dataclass()
@@ -107,27 +109,27 @@ class AstPass(Ast):
 
 @dataclass
 class AstComparison(Ast):
-    lhs: AstArgument
+    lhs: AstExpr
     op: AstInfixOp
-    rhs: AstArgument
+    rhs: AstExpr
 
 
 @dataclass
 class AstNot(Ast):
-    value: Union["AstNot", AstComparison, AstArgument]
+    value: Union["AstNot", AstComparison, AstExpr]
 
 
 @dataclass
 class AstAnd(Ast):
-    values: list[AstNot | AstComparison | AstArgument]
+    values: list[AstNot | AstComparison | AstExpr]
 
 
 @dataclass
 class AstOr(Ast):
-    values: list[AstAnd | AstNot | AstComparison | AstArgument]
+    values: list[AstAnd | AstNot | AstComparison | AstExpr]
 
 
-AstCondition = AstOr | AstAnd | AstNot | AstComparison | AstArgument
+AstTest = AstOr | AstAnd | AstNot | AstComparison | AstExpr
 
 
 AstStmt = Union[AstFuncCall, AstAssign, AstPass, "AstIf"]
@@ -145,7 +147,7 @@ class AstScopedBody(Ast):
 
 @dataclass
 class AstElif(Ast):
-    condition: AstCondition
+    condition: AstTest
     body: AstUnscopedBody
 
 
@@ -156,7 +158,7 @@ class AstElifs(Ast):
 
 @dataclass()
 class AstIf(Ast):
-    condition: AstCondition
+    condition: AstTest
     body: AstUnscopedBody
     elifs: AstElifs | None
     els: AstUnscopedBody | None
@@ -208,6 +210,8 @@ class FpyTransformer(Transformer):
 
     func_call = AstFuncCall
     arguments = no_inline_or_meta(list)
+
+    expr = AstExpr
 
     string = AstString
     number = AstNumber

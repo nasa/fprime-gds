@@ -15,31 +15,26 @@ pass_stmt: "pass"
 # assignment
 
 # can currently only assign constant values to vars
-assign: name [":" reference] "=" _assign_value
-
-# rename assign_value to an assign_expr
-_assign_value: _literal
-             | reference # can only be a ref to enum const
+assign: name [":" reference] "=" expr
 
 
 
 # branching
 
-if_stmt: "if" _condition ":" body elifs ["else" ":" body]
+if_stmt: "if" _test ":" body elifs ["else" ":" body]
 elifs: elif_*
-elif_: "elif" _condition ":" body
+elif_: "elif" _test ":" body
 body: _NEWLINE _INDENT _stmt+ _DEDENT
-_condition: or_test
 
 
 # logical tests
-
+_test: or_test
 ?or_test: and_test ("or" and_test)*
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
           | comparison
-          | _argument
-comparison: _argument comp_op _argument
+          | expr
+comparison: expr comp_op expr
 comp_op: COMPARISON_OP
 
 
@@ -48,12 +43,12 @@ comp_op: COMPARISON_OP
 
 _func_name: reference
 func_call: _func_name "(" [arguments] ")"
-arguments: _argument ("," _argument)*
-_argument: func_call # can only be a type ctor call
-         | reference # can only be enum const
-         | _literal
+arguments: expr ("," expr)*
 
-
+expr: func_call
+    | _literal
+    | reference
+    | "(" _test ")"
 
 # not used in grammar, but may appear in "node" passed from Parser to Compiler
 encoding_decl: name

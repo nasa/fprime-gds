@@ -1,3 +1,4 @@
+from abc import ABC
 import argparse
 from pathlib import Path
 from pprint import pprint
@@ -62,16 +63,19 @@ from fprime.common.models.serialize.numerical_types import (
     I8Type,
     F32Type,
     F64Type,
+    FloatType,
+    IntegerType,
+    NumericalType,
 )
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
     AstAnd,
-    AstArgument,
     AstBoolean,
     AstComparison,
-    AstCondition,
+    AstTest,
     AstElif,
+    AstExpr,
     AstInfixOp,
     AstNot,
     AstNumber,
@@ -133,13 +137,12 @@ FLOAT_TYPES = (
 FppTypeClass = type[FppType]
 
 
-# mock type, used as a placeholder for a func/op that takes any numeric
-# type
-class AnyNumericType:
-    pass
+class VoidType(ABC):
+    def __subclasscheck__(cls, subclass):
+        return False
 
 
-DISCARD_LVAR = -1
+VoidTypeClass = type[VoidType]
 
 
 class CompileException(BaseException):
@@ -149,18 +152,13 @@ class CompileException(BaseException):
         self.stack_trace = "\n".join(traceback.format_stack(limit=8)[:-1])
 
     def __str__(self):
-        return (
-            f"{self.stack_trace}\nAt line {self.node.meta.line} \"{self.node.node_text}\": {self.msg}"
-        )
-
-
-FpyGenericType = FppTypeClass | type[AnyNumericType]
+        return f'{self.stack_trace}\nAt line {self.node.meta.line} "{self.node.node_text}": {self.msg}'
 
 
 @dataclass
 class FpyCallable:
-    return_type: FppTypeClass | None
-    args: list[tuple[str, FpyGenericType]] | None
+    return_type: FppTypeClass | VoidTypeClass
+    args: list[tuple[str, FppTypeClass]] | None
 
 
 @dataclass
@@ -205,33 +203,45 @@ class CompileState:
     prms: dict[str, PrmTemplate] = field(repr=False, default_factory=dict)
     global_consts: dict[str, FppType] = field(repr=False, default_factory=dict)
     types: dict[str, FppTypeClass] = field(repr=False, default_factory=dict)
-    callables: dict[str, list[FpyCallable]] = field(repr=False, default_factory=dict)
-    infix_operators: dict[str, list[FpyCallable]] = field(
-        repr=False, default_factory=dict
-    )
+    callables: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
+    infix_operators: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
 
     parent_scope: dict[Ast, AstScopedBody | None] = field(
         repr=False, default_factory=dict
     )
-    """a dict tracking the parent scope of each ast node. keys are ast node uid, values are uid of parent scopedbody"""
+    """a dict tracking the parent scope of each ast node"""
 
     variable_tables: dict[AstScopedBody, dict[str, FpyVariable]] = field(
         repr=False, default_factory=dict
     )
-    """a table containing all function definitions and variables, for each scopedbody. keys are ast node uid"""
+    """a table containing all variables defined in a scope, for each scopedbody"""
 
-    resolved_references: dict[AstReference, list[FpyReference]] = field(
+    overloaded_references: dict[AstReference, list[FpyReference]] = field(
         default_factory=dict, repr=False
     )
 
-    implied_types: dict[Ast, FpyGenericType] = field(default_factory=dict)
+    resolved_references: dict[AstReference, FpyReference] = field(
+        default_factory=dict, repr=False
+    )
+
+    expr_types: dict[AstExpr, FppTypeClass | VoidTypeClass | None] = field(
+        default_factory=dict
+    )
+
+    expr_values: dict[AstExpr, FppType | VoidType | None] = field(default_factory=dict)
+
+    func_call_values: dict[AstFuncCall, FppType | VoidType | None] = field(
+        default_factory=dict
+    )
+
+    implied_types: dict[Ast, FppTypeClass] = field(default_factory=dict)
 
     runtime_consts: dict[Ast, FppType] = field(default_factory=dict)
 
     next_register: int = 0
     next_lvar: int = 0
 
-    conditionals: dict[AstCondition, "ConditionAnalysis"] = field(default_factory=dict)
+    conditionals: dict[AstTest, "ConditionAnalysis"] = field(default_factory=dict)
     ifs: dict[AstIf, "IfAnalysis"] = field(default_factory=dict)
 
     prerequisite_nodes: dict[Ast, list[Ast]] = field(default_factory=dict)
@@ -243,13 +253,10 @@ class CompileState:
         AstScopedBody | AstUnscopedBody, list[Union[Directive, "IfAnalysis"]]
     ] = field(default_factory=dict)
 
-    line_number: int = 0
-    linearized_directives: list[Directive] = field(default_factory=list)
-
     errors: list[CompileException] = field(default_factory=list)
 
     def lookup_ref(self, node: AstReference, error_if_none=False) -> list[FpyReference]:
-        refs = self.resolved_references.get(node, [])
+        refs = self.overloaded_references.get(node, [])
         if len(refs) == 0 and error_if_none:
             self.errors.append(CompileException("Unknown reference", node))
         return refs
@@ -301,125 +308,124 @@ class CompileState:
         return None
 
 
-def check_literal_converts_to_type(literal: AstLiteral, type: FpyGenericType) -> bool:
-
-    if isinstance(literal, AstString):
-        return issubclass(type, StringType)
-    if isinstance(literal, AstBoolean):
-        return type == BoolType
-    if isinstance(literal, AstNumber):
-        if type == AnyNumericType:
-            return True
-        if isinstance(literal.value, float):
-            return type in FLOAT_TYPES
-        if isinstance(literal.value, int):
-            if literal.value < 0:
-                return type in SIGNED_INTEGER_TYPES
-            return type in INTEGER_TYPES
-
-    assert False, literal
+T = TypeVar("T")
 
 
-def check_reference_converts_to_type(ref: FpyReference, typ: FpyGenericType) -> bool:
-    base_type = None
+def interpret_ref_as(
+    ref: AstReference, ref_type: type[T], state: CompileState
+) -> T | None:
+    resolved_reference = state.resolved_references.get(ref, None)
+    if resolved_reference is not None:
+        # this reference has already been interpreted in a specific way
+        # shouldn't be interpreted in a diff way
+        assert isinstance(resolved_reference, ref_type)
+        return resolved_reference
+    refs = state.overloaded_references[ref]
+    refs = [r for r in refs if isinstance(r, ref_type)]
+    if len(refs) == 0:
+        return None
+    assert len(refs) == 1
+    resolved_reference = refs[0]
+    # make this the canonical interpretation of this reference
+    state.resolved_references[ref] = resolved_reference
+    return resolved_reference
 
-    if isinstance(ref, ChTemplate):
-        base_type = ref.ch_type_obj
-    elif isinstance(ref, PrmTemplate):
-        base_type = ref.prm_type_obj
-    elif isinstance(ref, FppType):
-        base_type = type(ref)
-    elif isinstance(ref, FpyCallable):
-        # a reference to a callable isn't a type in and of itself
-        # it has a return type but you have to call it
-        base_type = None
-    elif isinstance(ref, FpyVariable):
-        base_type = ref.type
-    elif isinstance(ref, type):
-        base_type = ref
+
+def get_expr_type(expr: AstExpr, state: CompileState) -> FppTypeClass | VoidTypeClass:
+    # check cached type
+    result_type = state.expr_types.get(expr, None)
+    if result_type is not None:
+        return result_type
+
+    # no cached type
+
+    if isinstance(expr.value, AstNumber):
+        if isinstance(expr.value.value, float):
+            result_type = FloatType
+        elif isinstance(expr.value.value, int):
+            result_type = IntegerType
+        else:
+            assert False, expr.value.value
+
+    elif isinstance(expr.value, AstString):
+        result_type = StringType
+    elif isinstance(expr.value, AstBoolean):
+        result_type = BoolType
+    elif isinstance(expr.value, AstReference):
+        refs = state.lookup_ref(expr.value)
+
+        if len(refs) != 1:
+            assert False, refs
+        ref = refs[0]
+
+        if isinstance(ref, ChTemplate):
+            result_type = ref.ch_type_obj
+        elif isinstance(ref, PrmTemplate):
+            result_type = ref.prm_type_obj
+        elif isinstance(ref, FppType):
+            # constant value
+            result_type = type(ref)
+        elif isinstance(ref, FpyCallable):
+            # a reference to a callable isn't a type in and of itself
+            # it has a return type but you have to call it (with an AstFuncCall)
+            result_type = VoidTypeClass
+        elif isinstance(ref, FpyVariable):
+            result_type = ref.type
+        elif isinstance(ref, type):
+            # a reference to a type doesn't have a value, and so doesn't have a type,
+            # in and of itself. if this were a function call to the type's ctor then
+            # it would have a value and thus a type
+            result_type = VoidTypeClass
+        else:
+            assert False, ref
+    elif isinstance(expr.value, AstFuncCall):
+        ref = state.lookup_single_ref_with_type(
+            expr.value.func, FpyCallable, dont_create_errors=True
+        )
+        assert ref is not None
+        result_type = ref.return_type
+    elif isinstance(expr.value, AstExpr):
+        result_type = get_expr_type(expr.value)
     else:
-        assert False, ref
+        assert False, expr.value
 
-    if base_type in NUMERIC_TYPES and typ == AnyNumericType:
-        return True
-
-    return base_type == typ
-
-
-def unsafe_coerce_literal_to_value(literal: AstLiteral, typ: FpyGenericType) -> FppType:
-    if isinstance(literal, AstBoolean):
-        return BoolType(literal.value)
-    if isinstance(literal, AstString):
-        return typ(literal.value)
-    if isinstance(literal, AstNumber):
-        if typ == AnyNumericType:
-            # we get to choose
-            if isinstance(literal.value, float):
-                return F64Type(literal.value)
-            return I64Type(literal.value)
-        return typ(literal.value)
-
-    assert False, (literal, typ)
+    assert result_type is not None
+    state.expr_types[expr] = result_type
+    return result_type
 
 
-def resolve_polymorphic_funcs(
-    node: Ast,
-    node_args: list[AstArgument],
-    funcs: list[FpyCallable],
-    state: CompileState,
-) -> FpyCallable | None:
-    # resolve polymorphic funcs by trying each possible func
+def get_expr_value(expr: AstExpr, state: CompileState) -> FppType | VoidType | None:
+    """None if no value can be calculated at this point in compile"""
+    expr_value = state.expr_values.get(expr, None)
+    if expr_value is not None:
+        return expr_value
 
-    # tuples of all funcs that we checked, their arg vals if they were compatible, and exception if not
-    checked_funcs: list[tuple[FpyCallable, bool, CompileException]] = []
-    matching_funcs: list[FpyCallable] = []
+    expr_type = get_expr_type(expr, state)
 
-    for func in funcs:
-        compatible, exception = check_args_compatible(func, node, node_args, state)
-        checked_funcs.append((func, compatible, exception))
-        if compatible:
-            matching_funcs.append(func)
+    if expr_type == VoidTypeClass:
+        # expr has no type
+        expr_value = VoidType()
 
-    if len(matching_funcs) == 0:
-        state.errors.append(
-            CompileException(f"No matching function. Tried {checked_funcs}", node)
-        )
-        return None
+    elif isinstance(expr.value, AstLiteral):
+        expr_value = expr_type(expr.value)
 
-    if len(matching_funcs) > 1:
-        state.errors.append(
-            CompileException(f"Ambiguous functions {matching_funcs}", node)
-        )
-        return None
+    elif isinstance(expr.value, AstReference):
+        ref = state.resolved_references[expr.value]
+        if not isinstance(ref, FppType):
+            # only references to FppTypes have a value known at compile time
+            expr_value = None
+        else:
+            expr_value = ref
 
-    func = matching_funcs[0]
+    elif isinstance(expr.value, AstFuncCall):
+        expr_value = state.func_call_values.get(expr.value, None)
 
-    return func
-
-
-def check_argument_converts_to_type(
-    arg: AstArgument, type: FpyGenericType, state: CompileState
-) -> bool:
-    if isinstance(arg, AstLiteral):
-        return check_literal_converts_to_type(arg, type)
-    elif isinstance(arg, (AstFuncCall, AstComparison)):
-        fpy_callable = state.lookup_single_ref_with_type(
-            arg.func, FpyCallable, dont_create_errors=True
-        )
-        if fpy_callable is None:
-            # this function could not be resolved to a single callable
-            return False
-        return fpy_callable.return_type == type
-    elif isinstance(arg, AstReference):
-        # if any reference converts to this type, we're good
-        for ref in state.lookup_ref(arg):
-            if check_reference_converts_to_type(ref, type):
-                return True
-    assert False, arg
+    state.expr_values[expr] = expr_value
+    return expr_value
 
 
 def check_args_compatible(
-    func: FpyCallable, node: Ast, node_args: list[AstArgument], state: CompileState
+    func: FpyCallable, node: Ast, node_args: list[AstExpr], state: CompileState
 ) -> tuple[bool, CompileException]:
     if len(node_args) < len(func.args):
         return False, CompileException(
@@ -432,15 +438,22 @@ def check_args_compatible(
             node,
         )
 
-    for value_node, arg_template in zip(node_args, func.args):
+    for value_expr, arg_template in zip(node_args, func.args):
         arg_name, arg_type = arg_template
-        arg_type: FpyGenericType
+        arg_type: FppTypeClass
 
-        # check type of value matches expected type of template
-        if not check_argument_converts_to_type(value_node, arg_type, state):
+        value_expr_type = get_expr_type(value_expr, state)
+
+        # check if the type of the value expr is a parent class of
+        # the argument type. e.g. arg_type==I64Type, value_expr_type=IntegerType
+        # in this case we can convert the value_expr into the arg_type
+        if not issubclass(arg_type, value_expr_type):
+            # it is not. these are not compatible
             return False, CompileException(
-                f"Cannot interpret {value_node} as {arg_type}", value_node
+                f"For arg {arg_name}: Cannot interpret {value_expr} as {arg_type}",
+                value_expr,
             )
+        state.expr_types[value_expr] = arg_type
 
     # got thru all args successfully
 
@@ -526,19 +539,19 @@ class ResolveReferencesByName(CompilePass):
         prm = state.prms.get(fqn, None)
         const = state.global_consts.get(fqn, None)
         type = state.types.get(fqn, None)
-        callables = state.callables.get(fqn, [])
+        callable = state.callables.get(fqn, None)
         var = state.lookup_variable(fqn, node)
 
-        possible_resolutions = callables + [tlm, prm, const, type, var]
+        possible_resolutions = [tlm, prm, const, type, var, callable]
 
         possible_resolutions = [ref for ref in possible_resolutions if ref is not None]
 
-        if node in state.resolved_references:
+        if node in state.overloaded_references:
             # already resolved previously
             # make sure we're resolving it the same way now
             assert (
-                state.resolved_references[node] == possible_resolutions
-            ), state.resolved_references[node]
+                state.overloaded_references[node] == possible_resolutions
+            ), state.overloaded_references[node]
             # okay all good, same resolution
             return
 
@@ -546,7 +559,11 @@ class ResolveReferencesByName(CompilePass):
             state.errors.append(CompileException(f"Unknown reference {fqn}", node))
             return
 
-        state.resolved_references[node] = possible_resolutions
+        state.overloaded_references[node] = possible_resolutions
+
+        # if it's definitely only referring to one thing, save it
+        if len(possible_resolutions) == 1:
+            state.resolved_references[node] = possible_resolutions[0]
 
 
 class CreateScopes(TopDownCompilePass):
@@ -586,6 +603,12 @@ class CreateVariables(CompilePass):
             state.variable_tables[parent_scope][node.variable.value] = FpyVariable(
                 node.var_type, None
             )
+        if existing and node.var_type is not None:
+            # redeclaring an existing variable
+            state.errors.append(
+                CompileException(f"{node.variable.value} already declared", node)
+            )
+            return
 
 
 class CheckVariableTypesAndValues(CompilePass):
@@ -599,61 +622,56 @@ class CheckVariableTypesAndValues(CompilePass):
 
         if node.var_type is not None:
             # lookup whatever the var type node refers to
-            ref = state.lookup_single_ref_with_type(node.var_type, type)
+            ref = interpret_ref_as(node.var_type, type, state)
             # if it is not a FppTypeClass, error
             if ref is None:
-                # error is generated in lookup
+                state.errors.append(
+                    CompileException(
+                        f"{node.var_type} does not refer to a type", node.var_type
+                    )
+                )
                 return
 
             # okay, type node is a valid type
 
-            if existing_var.type == None:
-                # we haven't resolved this variable's type ref before
-                existing_var.type = ref
-            else:
-                # we have resolved this variable's type ref before
-                # make sure consistent resolution
-                if existing_var.type != ref:
-                    state.errors.append(
-                        CompileException(
-                            f"Inconsistent type. Was {existing_var.type}, but annotation was {ref}",
-                            node.var_type,
-                        )
-                    )
-                    return
+            assert existing_var.type is None, existing_var.type
+            # we haven't resolved this variable's type ref before
+            existing_var.type = ref
 
+        # now we should have type info about the variable
         assert existing_var.type is not None
 
-        # okay we now have type information about our variable
-        # check the value
+        # check the value expr
 
-        value_type_compatible = False
-        value = None
-
-        if isinstance(node.value, AstReference):
-            # lookup whatever the value node refers to
-            ref = state.lookup_single_ref_with_type(node.value, FppType)
-            # if it is not an fpptype, error
-            if ref is None:
-                # error is generated in lookup
-                return
-            value_type_compatible = check_reference_converts_to_type(
-                ref, existing_var.type
-            )
-            value = ref
+        value_type = get_expr_type(node.value, state)
+        if issubclass(existing_var.type, value_type):
+            # if the variable type is a subclass of the value,
+            # then the value can be converted int othe variable type
+            state.expr_types[node.value] = existing_var.type
         else:
-            assert isinstance(node.value, AstLiteral), node.value
-            value_type_compatible = check_literal_converts_to_type(
-                node.value, existing_var.type
-            )
-            if value_type_compatible:
-                value = unsafe_coerce_literal_to_value(node.value, existing_var.type)
-                state.runtime_consts[node.value] = value
-
-        if not value_type_compatible:
             state.errors.append(
                 CompileException(
-                    f"Variable is of type {existing_var.type}, but value {node.value} could not be converted to this",
+                    f"Cannot assign {node.variable.value}: {existing_var.type} to {value_type}",
+                    node.value,
+                )
+            )
+            return
+
+        value = get_expr_value(node.value, state)
+        if value is None:
+            # expr value is unknown at this point in compile
+            state.errors.append(
+                CompileException(
+                    f"Cannot assign {node.variable.value}: {existing_var.type} to {node.value}, as its value was not known at compile time",
+                    node.value,
+                )
+            )
+            return
+        if isinstance(value, VoidTypeClass):
+            # expr is known to have no value
+            state.errors.append(
+                CompileException(
+                    f"Cannot assign {node.variable.value}: {existing_var.type} to {node.value}, which has no value",
                     node.value,
                 )
             )
@@ -670,11 +688,11 @@ class CheckVariableTypesAndValues(CompilePass):
         ]
 
 
-def check_comparison_arg_is_boolean(arg: AstCondition, state: CompileState) -> bool:
+def check_comparison_arg_is_boolean(arg: AstTest, state: CompileState) -> bool:
     if isinstance(arg, (AstOr, AstAnd, AstNot, AstComparison)):
         return True
 
-    assert isinstance(arg, AstArgument), arg
+    assert isinstance(arg, AstExpr), arg
     return check_argument_converts_to_type(arg, BoolType, state)
 
 
@@ -682,38 +700,31 @@ class CheckAndResolveArgumentTypes(CompilePass):
 
     def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
         # op exists at syntax level, coding error if no exist
-        funcs = state.infix_operators[node.op.value]
+        func = state.infix_operators[node.op.value]
         node_args = [node.lhs, node.rhs]
-        func = resolve_polymorphic_funcs(node, node_args, funcs, state)
-        if func is None:
-            # error is handled in resolve_poly
+        compatible, err = check_args_compatible(func, node, node_args, state)
+        if not compatible:
+            state.errors.append(err)
             return
-        state.resolved_references[node.op] = [func]
-        for node_arg, func_arg in zip(node_args, func.args):
-            arg_name, arg_type = func_arg
-            state.implied_types[node_arg] = arg_type
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        funcs = state.lookup_ref_with_type(node.func, FpyCallable)
+        func = state.resolved_references[node.func]
         node_args = node.args if node.args else []
-        func = resolve_polymorphic_funcs(node, node_args, funcs, state)
-        if func is None:
-            # error is handled in resolve_poly
+        compatible, err = check_args_compatible(func, node, node_args, state)
+        if not compatible:
+            state.errors.append(err)
             return
-        state.resolved_references[node.func] = [func]
-        for node_arg, func_arg in zip(node_args, func.args):
-            arg_name, arg_type = func_arg
-            state.implied_types[node_arg] = arg_type
 
     def visit_AstOr(self, parent, node: AstOr, state: CompileState):
-        for value_node in node.values:
+        for value_expr in node.values:
+            value_type = get_expr_type(value_expr, state)
             # make sure that all args convert to boolean
-            if not check_comparison_arg_is_boolean(value_node, state):
+            if not check_comparison_arg_is_boolean(value_expr, state):
                 state.errors.append(
-                    CompileException(f"Cannot interpret {value_node} as boolean")
+                    CompileException(f"Cannot interpret {value_expr} as boolean")
                 )
                 return
-            state.implied_types[value_node] = BoolType
+            state.implied_types[value_expr] = BoolType
 
     visit_AstAnd = visit_AstOr
 
@@ -934,7 +945,7 @@ def put_reference_in_register(
 
 
 def put_argument_in_register(
-    node: AstArgument, register: int, state: CompileState
+    node: AstExpr, register: int, state: CompileState
 ) -> list[Directive] | None:
     directives = []
     if isinstance(node, AstReference):
@@ -958,7 +969,7 @@ def put_argument_in_register(
     return directives
 
 
-def get_argument_type(node: AstArgument, state: CompileState) -> FppTypeClass:
+def get_argument_type(node: AstExpr, state: CompileState) -> FppTypeClass:
     if isinstance(node, AstReference):
         resolved_refs = state.lookup_ref(node)
         if len(resolved_refs) != 1:
@@ -1010,7 +1021,9 @@ class CheckConditionals(CompilePass):
         rhs_type = get_argument_type(node.rhs, state)
 
         if node.op.value == "==":
-            if lhs_type != rhs_type and not (lhs_type in NUMERIC_TYPES and rhs_type in NUMERIC_TYPES):
+            if lhs_type != rhs_type and not (
+                lhs_type in NUMERIC_TYPES and rhs_type in NUMERIC_TYPES
+            ):
                 # two diff types cannot be checked for equality, unless they're both numeric
                 # probably a coding error, fail
                 state.errors.append(
@@ -1018,7 +1031,9 @@ class CheckConditionals(CompilePass):
                 )
                 return
         elif node.op.value == "!=":
-            if lhs_type != rhs_type and not (lhs_type in NUMERIC_TYPES and rhs_type in NUMERIC_TYPES):
+            if lhs_type != rhs_type and not (
+                lhs_type in NUMERIC_TYPES and rhs_type in NUMERIC_TYPES
+            ):
                 # two diff types cannot be checked for inequality, unless they're both numeric
                 state.errors.append(
                     CompileException(f"Cannot compare {lhs_type} with {rhs_type}", node)
@@ -1084,7 +1099,7 @@ class CheckConditionals(CompilePass):
             else:
                 assert False, value_analysis
         # okay, value is not a conditional
-        assert isinstance(node.value, AstArgument), node.value
+        assert isinstance(node.value, AstExpr), node.value
 
         value_reg = state.next_register
         state.next_register += 1
@@ -1121,7 +1136,7 @@ class CheckConditionals(CompilePass):
             if isinstance(condition_analysis, ConditionAnalysis.BranchFromRegister):
                 registers_to_compare.append(condition_analysis.result_reg)
                 continue
-            assert isinstance(value, AstArgument)
+            assert isinstance(value, AstExpr)
             value_reg = state.next_register
             state.next_register += 1
             argument_in_register_dirs = put_argument_in_register(
@@ -1173,7 +1188,7 @@ class CheckConditionals(CompilePass):
             if isinstance(condition_analysis, ConditionAnalysis.BranchFromRegister):
                 registers_to_compare.append(condition_analysis.result_reg)
                 continue
-            assert isinstance(value, AstArgument)
+            assert isinstance(value, AstExpr)
             value_reg = state.next_register
             state.next_register += 1
             argument_in_register_dirs = put_argument_in_register(
@@ -1209,7 +1224,7 @@ class CheckConditionals(CompilePass):
         state.prerequisite_nodes[node] = [node.condition]
 
         # handle the case in which the condition is just a raw value, no cmps
-        if isinstance(node.condition, AstArgument):
+        if isinstance(node.condition, AstExpr):
             res_reg = state.next_register
             state.next_register += 1
             dirs = put_argument_in_register(node.condition, res_reg, state)
@@ -1228,7 +1243,7 @@ class CheckConditionals(CompilePass):
 
 @dataclass
 class ConditionalBody:
-    condition_node: AstCondition
+    condition_node: AstTest
     condition_analysis: ConditionAnalysis
     body: AstUnscopedBody
 
@@ -1363,21 +1378,19 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     type_name_dict["bool"] = BoolType
     type_name_dict["str"] = StringType
 
-    callable_name_dict = defaultdict(list)
+    callable_name_dict = {}
     for name, cmd in cmd_name_dict.items():
         cmd: CmdTemplate
         args = []
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
-        callable_name_dict[name].append(FpyCmd(None, args, cmd))
+        callable_name_dict[name] = FpyCmd(None, args, cmd)
 
     infix_callable_name_dict = defaultdict(list)
 
     for op, dir in BINARY_COMPARISON_DIRECTIVES.items():
-        infix_callable_name_dict[op].append(
-            FpyOperator(
-                BoolType, [("lhs", AnyNumericType), ("rhs", AnyNumericType)], op, dir
-            )
+        infix_callable_name_dict[op] = FpyOperator(
+            BoolType, [("lhs", NumericalType), ("rhs", NumericalType)], op, dir
         )
 
     for name, typ in type_name_dict.items():
@@ -1398,7 +1411,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
             # none of these have callable ctors
             continue
 
-        callable_name_dict[name].append(FpyTypeCtor(typ, args, typ))
+        callable_name_dict[name] = FpyTypeCtor(typ, args, typ)
 
     state = CompileState(
         tlms=ch_name_dict,
@@ -1448,8 +1461,21 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .fpy file")
-    arg_parser.add_argument("-o", "--output", type=Path, required=False, default=None, help="The output .bin path")
-    arg_parser.add_argument("-d", "--dictionary", type=Path, required=True, help="The FPrime dictionary .json file")
+    arg_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=False,
+        default=None,
+        help="The output .bin path",
+    )
+    arg_parser.add_argument(
+        "-d",
+        "--dictionary",
+        type=Path,
+        required=True,
+        help="The FPrime dictionary .json file",
+    )
 
     args = arg_parser.parse_args()
 
