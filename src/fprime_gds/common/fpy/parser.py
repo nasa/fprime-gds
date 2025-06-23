@@ -79,10 +79,15 @@ class AstReference(Ast):
     names: list[AstName]
 
 
-@dataclass
-class AstExpr(Ast):
-    value: Union["AstFuncCall", AstLiteral, AstReference, "AstOr", "AstAnd", "AstNot", "AstComparison"]
-
+AstExpr = Union[
+    "AstFuncCall",
+    AstLiteral,
+    AstReference,
+    "AstOr",
+    "AstAnd",
+    "AstNot",
+    "AstComparison",
+]
 
 @dataclass
 class AstInfixOp(Ast):
@@ -92,7 +97,7 @@ class AstInfixOp(Ast):
 @dataclass
 class AstFuncCall(Ast):
     func: AstReference
-    args: list["AstExpr"]
+    args: list[AstExpr]
 
 
 @dataclass()
@@ -116,20 +121,17 @@ class AstComparison(Ast):
 
 @dataclass
 class AstNot(Ast):
-    value: Union["AstNot", AstComparison, AstExpr]
+    value: AstExpr
 
 
 @dataclass
 class AstAnd(Ast):
-    values: list[AstNot | AstComparison | AstExpr]
+    values: list[AstExpr]
 
 
 @dataclass
 class AstOr(Ast):
-    values: list[AstAnd | AstNot | AstComparison | AstExpr]
-
-
-AstTest = AstOr | AstAnd | AstNot | AstComparison | AstExpr
+    values: list[AstExpr]
 
 
 AstStmt = Union[AstFuncCall, AstAssign, AstPass, "AstIf"]
@@ -147,7 +149,7 @@ class AstScopedBody(Ast):
 
 @dataclass
 class AstElif(Ast):
-    condition: AstTest
+    condition: AstExpr
     body: AstUnscopedBody
 
 
@@ -158,7 +160,7 @@ class AstElifs(Ast):
 
 @dataclass()
 class AstIf(Ast):
-    condition: AstTest
+    condition: AstExpr
     body: AstUnscopedBody
     elifs: AstElifs | None
     els: AstUnscopedBody | None
@@ -210,8 +212,6 @@ class FpyTransformer(Transformer):
 
     func_call = AstFuncCall
     arguments = no_inline_or_meta(list)
-
-    expr = AstExpr
 
     string = AstString
     number = AstNumber

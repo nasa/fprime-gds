@@ -74,7 +74,7 @@ def test_reassign_ann(fprime_test_api):
 var: U32 = 1
 var: U32 = 2
 """
-    assert_success(fprime_test_api, seq)
+    assert_failure(fprime_test_api, seq)
 
 
 def test_assign_inconsistent_type(fprime_test_api):
