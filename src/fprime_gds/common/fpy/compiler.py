@@ -230,14 +230,6 @@ class CompileState:
 
     expr_values: dict[AstExpr, FppType | VoidType | None] = field(default_factory=dict)
 
-    func_call_values: dict[AstFuncCall, FppType | VoidType | None] = field(
-        default_factory=dict
-    )
-
-    implied_types: dict[Ast, FppTypeClass] = field(default_factory=dict)
-
-    runtime_consts: dict[Ast, FppType] = field(default_factory=dict)
-
     next_register: int = 0
     next_lvar: int = 0
 
@@ -268,76 +260,6 @@ class CompileState:
         return None
 
 
-T = TypeVar("T")
-
-
-def interpret_ref_as(
-    ref: AstReference, ref_type: type[T], state: CompileState
-) -> T | None:
-    resolved_reference = state.resolved_references.get(ref, None)
-    if resolved_reference is not None:
-        # this reference has already been interpreted in a specific way
-        # shouldn't be interpreted in a diff way
-        assert isinstance(resolved_reference, ref_type)
-        return resolved_reference
-    refs = state.overloaded_references[ref]
-    refs = [r for r in refs if isinstance(r, ref_type)]
-    if len(refs) == 0:
-        return None
-    assert len(refs) == 1
-    resolved_reference = refs[0]
-    # make this the canonical interpretation of this reference
-    state.resolved_references[ref] = resolved_reference
-    return resolved_reference
-
-
-def get_expr_value(expr: AstExpr, state: CompileState) -> FppType | VoidType | None:
-    """None if no value can be calculated at this point in compile"""
-    expr_value = state.expr_values.get(expr, None)
-    if expr_value is not None:
-        return expr_value
-
-    expr_type = state.expr_types[expr]
-
-    if expr_type == VoidType:
-        # expr has no type
-        expr_value = VoidType()
-
-    elif isinstance(expr, AstLiteral):
-        expr_value = expr_type(expr.value)
-
-    elif isinstance(expr, AstReference):
-        ref = state.resolved_references[expr]
-        if not isinstance(ref, FppType):
-            # only references to FppTypes have a value known at compile time
-            expr_value = None
-        else:
-            expr_value = ref
-
-    elif isinstance(expr, AstFuncCall):
-        func = state.resolved_references[expr]
-        assert isinstance(func, FpyCallable)
-        # gather arg values
-        arg_values = [get_expr_value(e) for e in expr.args]
-        unknown_value = any(v for v in arg_values if v is None)
-        if unknown_value:
-            expr_value = None
-        else:
-            expr_value = evaluate_function(func, arg_values)
-
-    elif isinstance(expr, (AstOr, AstAnd, AstNot, AstComparison)):
-        # we do not calculate compile time value of or/and/nots/cmps at the moment
-        expr_value = None
-
-    else:
-        assert False, expr
-
-    state.expr_values[expr] = expr_value
-    assert (expr_value is None) or isinstance(expr_value, expr_type), (
-        expr_value,
-        expr_type,
-    )
-    return expr_value
 
 
 class CompilePass:
@@ -491,9 +413,37 @@ class ResolveReferencesByName(CompilePass):
             state.resolved_references[node] = possible_resolutions[0]
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        func = interpret_ref_as(node.func, FpyCallable, state)
+        func = self.interpret_ref_as(node.func, FpyCallable, state)
         if func is None:
             state.errors.append(CompileException(f"{node.func} is not a function"))
+
+    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
+        if node.var_type is not None:
+            var_type = self.interpret_ref_as(node.var_type, type, state)
+            if var_type is None:
+                state.errors.append(CompileException(f"{node.var_type} is not a type"))
+
+    T = TypeVar("T")
+
+    def interpret_ref_as(
+        self, ref: AstReference, ref_type: type[T], state: CompileState
+    ) -> T | None:
+        resolved_reference = state.resolved_references.get(ref, None)
+        if resolved_reference is not None:
+            # this reference has already been interpreted in a specific way
+            # shouldn't be interpreted in a diff way
+            assert isinstance(resolved_reference, ref_type)
+            return resolved_reference
+        refs = state.overloaded_references[ref]
+        refs = [r for r in refs if isinstance(r, ref_type)]
+        if len(refs) == 0:
+            return None
+        assert len(refs) == 1
+        resolved_reference = refs[0]
+        # make this the canonical interpretation of this reference
+        state.resolved_references[ref] = resolved_reference
+        return resolved_reference
+
 
 
 class CheckVariableTypes(CompilePass):
@@ -507,7 +457,7 @@ class CheckVariableTypes(CompilePass):
 
         if node.var_type is not None:
             # lookup whatever the var type node refers to
-            ref = interpret_ref_as(node.var_type, type, state)
+            ref = state.resolved_references[node.var_type]
             # if it is not a FppTypeClass, error
             if ref is None:
                 state.errors.append(
@@ -571,8 +521,8 @@ class CalculateExprTypes(CompilePass):
         state.expr_types[node] = result_type
 
     def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        ref = interpret_ref_as(node.func, FpyCallable, state)
-        assert ref is not None
+        ref = state.resolved_references[node.func]
+        assert isinstance(ref, FpyCallable)
         state.expr_types[node] = ref.return_type
 
     def visit_AstOr(self, parent, node: AstOr, state: CompileState):
