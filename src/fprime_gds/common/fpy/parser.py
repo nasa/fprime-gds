@@ -133,6 +133,8 @@ class AstAnd(Ast):
 class AstOr(Ast):
     values: list[AstExpr]
 
+AstTest = AstOr|AstAnd|AstNot|AstComparison
+
 
 AstStmt = Union[AstFuncCall, AstAssign, AstPass, "AstIf"]
 

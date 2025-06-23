@@ -1,5 +1,6 @@
 from abc import ABC
 import argparse
+import inspect
 from pathlib import Path
 from pprint import pprint
 from ast import Pass
@@ -24,10 +25,10 @@ from fprime_gds.common.fpy.bytecode.directives import (
     UNSIGNED_INEQUALITY_DIRECTIVES,
     AndDirective,
     CmdDirective,
-    DeserLocalVar1Directive,
-    DeserLocalVar2Directive,
-    DeserLocalVar4Directive,
-    DeserLocalVar8Directive,
+    DeserSerReg1Directive,
+    DeserSerReg2Directive,
+    DeserSerReg4Directive,
+    DeserSerReg8Directive,
     Directive,
     DirectiveOpcode,
     EqualDirective,
@@ -37,7 +38,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     NotDirective,
     NotEqualDirective,
     OrDirective,
-    SetLocalVarDirective,
+    SetSerRegDirective,
     SetRegDirective,
     WaitRelDirective,
 )
@@ -83,6 +84,7 @@ from fprime_gds.common.fpy.parser import (
     AstStmt,
     AstString,
     Ast,
+    AstTest,
     AstUnscopedBody,
     AstLiteral,
     AstScopedBody,
@@ -236,7 +238,7 @@ class CompileState:
 
     expr_register: dict[AstExpr, int] = field(default_factory=dict)
 
-    expr_to_register_instructions: dict[AstExpr, list[Directive]]
+    expr_to_register_instructions: dict[AstExpr, list[Directive]] = field(default_factory=dict)
 
     next_register: int = 0
     next_sreg: int = 0
@@ -268,18 +270,26 @@ class CompileState:
         return None
 
 
-
-
 class CompilePass:
-    def _visit(self, parent: Ast | None, node: Ast, state: CompileState):
-        self_type = type(self)
-        custom_visit_name = "visit_" + type(node).__name__
-        if hasattr(self_type, custom_visit_name):
-            # call the custom function
-            getattr(self_type, custom_visit_name)(self, parent, node, state)
+
+    def _find_custom_visit_func(self, node: Ast):
+        for name, func in inspect.getmembers(type(self), inspect.isfunction):
+            if not name.startswith("visit"):
+                # not a visitor
+                continue
+            signature = inspect.signature(func)
+            params = list(signature.parameters.values())
+            assert len(params) == 4
+            assert params[2].annotation is not None
+            if isinstance(node, params[2].annotation):
+                return func
         else:
             # call the default
-            self.visit_default(parent, node, state)
+            return type(self).visit_default
+
+    def _visit(self, parent: Ast | None, node: Ast, state: CompileState):
+        visit_func = self._find_custom_visit_func(node)
+        visit_func(self, parent, node, state)
 
     def visit_default(self, parent: Ast | None, node: Ast, state: CompileState):
         pass
@@ -453,7 +463,6 @@ class ResolveReferencesByName(CompilePass):
         return resolved_reference
 
 
-
 class CheckVariableTypes(CompilePass):
 
     def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
@@ -554,12 +563,9 @@ class CheckAndResolveArgumentTypes(CompilePass):
         node_args = node.args if node.args else []
         self.check_args([v for k, v in func.args], node, node_args, state)
 
-    def visit_AstOr(self, parent, node: AstOr, state: CompileState):
-        # "or" can have as many args as you want. they all need to be bools tho
+    def visit_AstOr_AstAnd(self, parent, node: AstOr|AstAnd, state: CompileState):
+        # "or/and" can have as many args as you want. they all need to be bools tho
         self.check_args([BoolType] * len(node.values), node, node.values, state)
-
-    # "and" and "or" are handled in the same way
-    visit_AstAnd = visit_AstOr
 
     def visit_AstNot(self, parent, node: AstNot, state: CompileState):
         self.check_args([BoolType], node, [node.value], state)
@@ -643,11 +649,8 @@ class PickNumericLiteralTypes(CompilePass):
 
 class CalculateExprValues(CompilePass):
 
-    def visit_AstNumber(self, parent, node: AstNumber, state: CompileState):
+    def visit_AstLiteral(self, parent, node: AstLiteral, state: CompileState):
         state.expr_values[node] = state.expr_types[node](node.value)
-
-    visit_AstString = visit_AstNumber
-    visit_AstBoolean = visit_AstNumber
 
     def visit_AstReference(self, parent, node: AstReference, state: CompileState):
         ref = state.resolved_references[node]
@@ -708,13 +711,9 @@ class CalculateExprValues(CompilePass):
             # it's something like a cmd or builtin
             state.expr_values[node] = None
 
-    def visit_AstOr(self, parent, node: AstOr, state: CompileState):
+    def visit_AstTest(self, parent, node: AstTest, state: CompileState):
         # we do not calculate compile time value of or/and/nots/cmps at the moment
         state.expr_values[node] = None
-
-    visit_AstAnd = visit_AstOr
-    visit_AstNot = visit_AstOr
-    visit_AstComparison = visit_AstOr
 
 
 class CheckVariableValues(CompilePass):
@@ -759,11 +758,13 @@ class CheckVariableValues(CompilePass):
             state.next_sreg += 1
             existing_var.sreg_idx = sreg_idx
         state.generated_directives[node] = [
-            SetLocalVarDirective(sreg_idx, value.serialize())
+            SetSerRegDirective(sreg_idx, value.serialize())
         ]
 
 
-def put_expr_in_register(node: AstExpr, register: int, state: CompileState) -> list[Directive] | None:
+def put_expr_in_register(
+    node: AstExpr, register: int, state: CompileState
+) -> list[Directive] | None:
     # get type
     # can type fit in register
 
@@ -806,31 +807,83 @@ def put_expr_in_register(node: AstExpr, register: int, state: CompileState) -> l
 
         return [set_reg_directive]
 
+    directives = []
+
     # does not have a constant compile time value
-    # 
 
-    
+    if isinstance(node, AstReference):
+        ref = state.resolved_references[node]
+        # all references that don't have a compile time value have to go into an sreg first
+        # and then into an nreg
 
+        sreg_idx = None
 
-def put_const_in_register(
-    node: Ast, const: FppType, register: int, state: CompileState
-) -> list[Directive] | None:
-    const_type = type(const)
-    # is it too big to fit in a register?
-    type_size = const_type.getMaxSize()
-    if type_size > 8:
-        state.errors.append(
-            CompileException(
-                f"{const_type} cannot fit in a register (it is {type_size} bytes long, which is greater than 8)",
-                node,
-            )
+        if isinstance(ref, FpyVariable):
+            # already in an sreg
+            sreg_idx = ref.sreg_idx
+        else:
+            sreg_idx = state.next_sreg
+            state.next_sreg += 1
+
+            if isinstance(ref, ChTemplate):
+                tlm_time_sreg_idx = state.next_sreg
+                state.next_sreg += 1
+                directives.append(
+                    GetTlmDirective(sreg_idx, tlm_time_sreg_idx, ref.get_id())
+                )
+
+            elif isinstance(ref, PrmTemplate):
+                directives.append(GetPrmDirective(sreg_idx, ref.get_id()))
+
+            else:
+                assert (
+                    False
+                ), ref  # ref should either be impossible to put in a reg or should have a compile time val
+
+        # pull from sreg into nreg
+        directives.extend(put_sreg_in_nreg(sreg_idx, register, expr_type.getMaxSize()))
+
+    elif isinstance(node, (AstOr, AstAnd)):
+
+        registers_to_compare = []
+        for arg_value_expr in node.values:
+            reg = state.next_register
+            state.next_register += 1
+            directives.extend(put_expr_in_register(arg_value_expr, reg, state))
+            registers_to_compare.append(reg)
+
+        assert len(registers_to_compare) >= 2, len(registers_to_compare)
+
+        # okay, now we have to "or" or "and" together all of the registers
+        # "or/and" the first two together, put in res.
+        # from then on, "or/and" the next with res
+
+        dir_type = OrDirective if isinstance(node, AstOr) else AndDirective
+
+        directives.append(
+            dir_type(registers_to_compare[0], registers_to_compare[1], register)
         )
-        return None
+
+        for i in range(2, len(registers_to_compare)):
+            directives.append(dir_type(register, registers_to_compare[i], register))
+
+    return directives
 
 
+def put_sreg_in_nreg(sreg_idx: int, nreg_idx: int, size: int) -> list[Directive]:
+    if size > 4:
+        return DeserSerReg8Directive(sreg_idx, 0, nreg_idx)
+    elif size > 2:
+        return DeserSerReg4Directive(sreg_idx, 0, nreg_idx)
+    elif size > 1:
+        return DeserSerReg2Directive(sreg_idx, 0, nreg_idx)
+    elif size == 1:
+        return DeserSerReg1Directive(sreg_idx, 0, nreg_idx)
+    else:
+        assert False, size
 
 
-def put_reference_in_bigreg(
+def put_reference_in_sreg(
     node: AstReference,
     ref: FpyReference,
     sreg: int,
@@ -840,27 +893,6 @@ def put_reference_in_bigreg(
     if not isinstance(ref, (ChTemplate, PrmTemplate, FppType, FpyVariable)):
         state.errors.append(CompileException("Reference has no value", node))
         return None
-
-    put_in_sreg_directive = None
-
-    if isinstance(ref, ChTemplate):
-        put_in_sreg_directive = GetTlmDirective(sreg, secondary_sreg, ref.get_id())
-
-    elif isinstance(ref, PrmTemplate):
-        put_in_sreg_directive = GetPrmDirective(state.next_sreg, ref.get_id())
-
-    elif isinstance(ref, FppType):
-        put_in_sreg_directive = SetLocalVarDirective(sreg, ref.serialize())
-
-    elif isinstance(ref, FpyVariable):
-        # put_in_sreg_directive = SetLocalVarDirective()
-        # TODO moving sreg not supported at the moment
-        assert False, ref
-
-    else:
-        assert False, ref
-
-    return [put_in_sreg_directive]
 
 
 def put_reference_in_register(
@@ -909,20 +941,6 @@ def put_reference_in_register(
             )
         )
         return None
-
-    put_in_reg_directive = None
-    if type_size > 4:
-        put_in_reg_directive = DeserLocalVar8Directive(sreg_idx, 0, register)
-    elif type_size > 2:
-        put_in_reg_directive = DeserLocalVar4Directive(sreg_idx, 0, register)
-    elif type_size > 1:
-        put_in_reg_directive = DeserLocalVar2Directive(sreg_idx, 0, register)
-    elif type_size == 1:
-        put_in_reg_directive = DeserLocalVar1Directive(sreg_idx, 0, register)
-    else:
-        assert False, type_size
-
-    directives.append(put_in_reg_directive)
 
     return directives
 
@@ -1112,58 +1130,6 @@ class CheckConditionals(CompilePass):
 
         for i in range(2, len(registers_to_compare)):
             dirs.append(AndDirective(res_reg, registers_to_compare[i], res_reg))
-
-        state.generated_directives[node] = dirs
-        state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
-
-    def visit_AstOr(self, parent, node: AstOr, state: CompileState):
-
-        registers_to_compare = []
-        dirs = []
-
-        state.prerequisite_nodes[node] = []
-        for value in node.values:
-            condition_analysis = state.conditionals.get(value, None)
-            if condition_analysis == ConditionAnalysis.Always:
-                # this "or" is always true because some arg is always true
-                state.conditionals[node] = ConditionAnalysis.Always
-                return
-            if condition_analysis == ConditionAnalysis.Never:
-                # this arg is never true, don't have to calculate anything with it
-                continue
-            # otherwise, we actually have to calculate something here
-            # include the directives necessary for this conditional
-            state.prerequisite_nodes[node].append(value)
-            if isinstance(condition_analysis, ConditionAnalysis.BranchFromRegister):
-                registers_to_compare.append(condition_analysis.result_reg)
-                continue
-            assert isinstance(value, AstExpr)
-            value_reg = state.next_register
-            state.next_register += 1
-            argument_in_register_dirs = put_argument_in_register(
-                value, value_reg, state
-            )
-            if argument_in_register_dirs is None:
-                # unable to put arg in register
-                return
-            dirs.extend(argument_in_register_dirs)
-            registers_to_compare.append(value_reg)
-
-        assert len(registers_to_compare) >= 2, len(registers_to_compare)
-
-        # okay, now we have to "or" together all of the registers
-        # "or" the first two together, put in res.
-        # from then on, "or" the next with res
-
-        res_reg = state.next_register
-        state.next_register += 1
-
-        dirs.append(
-            OrDirective(registers_to_compare[0], registers_to_compare[1], res_reg)
-        )
-
-        for i in range(2, len(registers_to_compare)):
-            dirs.append(OrDirective(res_reg, registers_to_compare[i], res_reg))
 
         state.generated_directives[node] = dirs
         state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)

@@ -36,10 +36,10 @@ class DirectiveOpcode(Enum):
     GET_PRM = 8
     CMD = 9
     SET_REG = 10
-    DESER_LVAR_8 = 11
-    DESER_LVAR_4 = 12
-    DESER_LVAR_2 = 13
-    DESER_LVAR_1 = 14
+    DESER_SREG_8 = 11
+    DESER_SREG_4 = 12
+    DESER_SREG_2 = 13
+    DESER_SREG_1 = 14
     # binary comparison directives
     # all of these are handled at the CPP level by one BinaryCmpDirective
     # NO REORDER
@@ -100,7 +100,7 @@ class WaitAbsDirective(Directive):
 
 
 @dataclass
-class SetLocalVarDirective(Directive):
+class SetSerRegDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SET_LVAR
 
     index: int
@@ -197,7 +197,7 @@ class CmdDirective(Directive):
 
 
 @dataclass
-class _DeserLocalVarDirective(Directive):
+class _DeserSerRegDirective(Directive):
     """
     Deserializes up to 8 bytes from a local variable into a register.
     """
@@ -217,20 +217,20 @@ class _DeserLocalVarDirective(Directive):
         return bytes(data)
 
 
-class DeserLocalVar8Directive(_DeserLocalVarDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_LVAR_8
+class DeserSerReg8Directive(_DeserSerRegDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_SREG_8
 
 
-class DeserLocalVar4Directive(_DeserLocalVarDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_LVAR_4
+class DeserSerReg4Directive(_DeserSerRegDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_SREG_4
 
 
-class DeserLocalVar2Directive(_DeserLocalVarDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_LVAR_2
+class DeserSerReg2Directive(_DeserSerRegDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_SREG_2
 
 
-class DeserLocalVar1Directive(_DeserLocalVarDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_LVAR_1
+class DeserSerReg1Directive(_DeserSerRegDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_SREG_1
 
 
 @dataclass
