@@ -151,17 +151,17 @@ class NoOpDirective(Directive):
 @dataclass
 class GetTlmDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GET_TLM
-    value_dest_lvar: int
+    value_dest_sreg: int
     """U8: The local variable to store the telemetry value in."""
-    time_dest_lvar: int
+    time_dest_sreg: int
     """U8: The local variable to store the telemetry time in."""
     chan_id: int
     """FwChanIdType: The telemetry channel ID to get."""
 
     def serialize_args(self) -> bytes:
         data = bytearray()
-        data.extend(U8Type(self.value_dest_lvar).serialize())
-        data.extend(U8Type(self.time_dest_lvar).serialize())
+        data.extend(U8Type(self.value_dest_sreg).serialize())
+        data.extend(U8Type(self.time_dest_sreg).serialize())
         data.extend(FwChanIdType(self.chan_id).serialize())
         return bytes(data)
 
@@ -169,14 +169,14 @@ class GetTlmDirective(Directive):
 @dataclass
 class GetPrmDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GET_PRM
-    dest_lvar_index: int
+    dest_sreg_index: int
     """U8: The local variable to store the parameter value in."""
     prm_id: int
     """FwPrmIdType: The parameter ID to get the value of."""
 
     def serialize_args(self) -> bytes:
         return (
-            U8Type(self.dest_lvar_index).serialize()
+            U8Type(self.dest_sreg_index).serialize()
             + FwPrmIdType(self.prm_id).serialize()
         )
 
@@ -202,7 +202,7 @@ class _DeserLocalVarDirective(Directive):
     Deserializes up to 8 bytes from a local variable into a register.
     """
 
-    src_lvar_idx: int
+    src_sreg_idx: int
     """U8: The local variable to deserialize from."""
     src_offset: int
     """FwSizeType: The starting offset to deserialize from."""
@@ -211,7 +211,7 @@ class _DeserLocalVarDirective(Directive):
 
     def serialize_args(self) -> bytes:
         data = bytearray()
-        data.extend(U8Type(self.src_lvar_idx).serialize())
+        data.extend(U8Type(self.src_sreg_idx).serialize())
         data.extend(FwSizeType(self.src_offset).serialize())
         data.extend(U8Type(self.dest_reg).serialize())
         return bytes(data)

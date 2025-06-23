@@ -188,8 +188,8 @@ class FpyVariable:
     type_ref: AstReference
     type: FppTypeClass | None = None
     """type of the variable. None if type unsure at the moment"""
-    lvar_idx: int | None = None
-    """the index of the lvar it is stored in"""
+    sreg_idx: int | None = None
+    """the index of the sreg it is stored in"""
 
 
 FpyReference = (
@@ -219,19 +219,27 @@ class CompileState:
     overloaded_references: dict[AstReference, list[FpyReference]] = field(
         default_factory=dict, repr=False
     )
+    """reference to its possible resolutions"""
 
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
     )
+    """reference to its singular resolution"""
 
-    expr_types: dict[AstExpr, FppTypeClass | VoidTypeClass | None] = field(
+    expr_types: dict[AstExpr, FppTypeClass | VoidTypeClass] = field(
         default_factory=dict
     )
+    """expr to its fprime type, or void type if none"""
 
     expr_values: dict[AstExpr, FppType | VoidType | None] = field(default_factory=dict)
+    """expr to its fprime value, or void if no value, or None if unsure at compile time"""
+
+    expr_register: dict[AstExpr, int] = field(default_factory=dict)
+
+    expr_to_register_instructions: dict[AstExpr, list[Directive]]
 
     next_register: int = 0
-    next_lvar: int = 0
+    next_sreg: int = 0
 
     conditionals: dict[AstExpr, "ConditionAnalysis"] = field(default_factory=dict)
     ifs: dict[AstIf, "IfAnalysis"] = field(default_factory=dict)
@@ -744,19 +752,64 @@ class CheckVariableValues(CompilePass):
             )
             return
 
-        lvar_idx = existing_var.lvar_idx
-        if lvar_idx is None:
-            # doesn't have an lvar idx, allocate one
-            lvar_idx = state.next_lvar
-            state.next_lvar += 1
-            existing_var.lvar_idx = lvar_idx
+        sreg_idx = existing_var.sreg_idx
+        if sreg_idx is None:
+            # doesn't have an sreg idx, allocate one
+            sreg_idx = state.next_sreg
+            state.next_sreg += 1
+            existing_var.sreg_idx = sreg_idx
         state.generated_directives[node] = [
-            SetLocalVarDirective(lvar_idx, value.serialize())
+            SetLocalVarDirective(sreg_idx, value.serialize())
         ]
 
 
-def put_expr_in_register(node: AstExpr, register: int, state: CompileState):
-    pass
+def put_expr_in_register(node: AstExpr, register: int, state: CompileState) -> list[Directive] | None:
+    # get type
+    # can type fit in register
+
+    # does it need to go in an sreg?
+    # put it in sreg
+
+    # is it in an sreg?
+    # move it from sreg to register
+    # else
+    # put it directly into register
+
+    expr_type = state.expr_types[node]
+
+    if expr_type == VoidType:
+        # impossible. void type has no value
+        return None
+
+    if expr_type.getMaxSize() > 8:
+        # bigger than 8 bytes
+        # impossible. can't fit in a register
+        return None
+
+    # okay, it is not void and it is smaller than 8 bytes.
+    # should be able to put it in a reg
+
+    expr_value = state.expr_values[node]
+
+    if expr_value is not None:
+        # it has a constant value at compile time
+        serialized_expr_value = expr_value.serialize()
+        assert len(serialized_expr_value) <= 8, len(serialized_expr_value)
+        val_as_i64_bytes = bytes(8 - len(serialized_expr_value))
+        val_as_i64_bytes += serialized_expr_value
+
+        # reinterpret as an I64
+        val_as_i64 = I64Type()
+        val_as_i64.deserialize(val_as_i64_bytes, 0)
+
+        set_reg_directive = SetRegDirective(register, val_as_i64.val)
+
+        return [set_reg_directive]
+
+    # does not have a constant compile time value
+    # 
+
+    
 
 
 def put_const_in_register(
@@ -774,51 +827,40 @@ def put_const_in_register(
         )
         return None
 
-    serialized_const = const.serialize()
-    assert len(serialized_const) <= 8, len(serialized_const)
-    const_as_i64_bytes = bytes(8 - len(serialized_const))
-    const_as_i64_bytes += serialized_const
-
-    # reinterpret as an I64
-    const_as_i64 = I64Type()
-    const_as_i64.deserialize(const_as_i64_bytes, 0)
-
-    set_reg_directive = SetRegDirective(register, const_as_i64.val)
-
-    return [set_reg_directive]
 
 
-def put_reference_in_lvar(
+
+def put_reference_in_bigreg(
     node: AstReference,
     ref: FpyReference,
-    lvar: int,
-    secondary_lvar: int,
+    sreg: int,
+    secondary_sreg: int,
     state: CompileState,
 ) -> list[Directive]:
     if not isinstance(ref, (ChTemplate, PrmTemplate, FppType, FpyVariable)):
         state.errors.append(CompileException("Reference has no value", node))
         return None
 
-    put_in_lvar_directive = None
+    put_in_sreg_directive = None
 
     if isinstance(ref, ChTemplate):
-        put_in_lvar_directive = GetTlmDirective(lvar, secondary_lvar, ref.get_id())
+        put_in_sreg_directive = GetTlmDirective(sreg, secondary_sreg, ref.get_id())
 
     elif isinstance(ref, PrmTemplate):
-        put_in_lvar_directive = GetPrmDirective(state.next_lvar, ref.get_id())
+        put_in_sreg_directive = GetPrmDirective(state.next_sreg, ref.get_id())
 
     elif isinstance(ref, FppType):
-        put_in_lvar_directive = SetLocalVarDirective(lvar, ref.serialize())
+        put_in_sreg_directive = SetLocalVarDirective(sreg, ref.serialize())
 
     elif isinstance(ref, FpyVariable):
-        # put_in_lvar_directive = SetLocalVarDirective()
-        # TODO moving lvar not supported at the moment
+        # put_in_sreg_directive = SetLocalVarDirective()
+        # TODO moving sreg not supported at the moment
         assert False, ref
 
     else:
         assert False, ref
 
-    return [put_in_lvar_directive]
+    return [put_in_sreg_directive]
 
 
 def put_reference_in_register(
@@ -835,34 +877,34 @@ def put_reference_in_register(
     directives = []
 
     if isinstance(ref, FpyVariable):
-        # special case for variable, it is already in an lvar
-        lvar_idx = ref.lvar_idx
+        # special case for variable, it is already in an sreg
+        sreg_idx = ref.sreg_idx
     else:
-        # other references need some directives to get them in an lvar
-        lvar_idx = state.next_lvar
-        secondary_lvar_idx = state.next_lvar + 1
-        state.next_lvar += 2
+        # other references need some directives to get them in an sreg
+        sreg_idx = state.next_sreg
+        secondary_sreg_idx = state.next_sreg + 1
+        state.next_sreg += 2
 
-        ref_in_lvar = put_reference_in_lvar(
-            node, ref, lvar_idx, secondary_lvar_idx, state
+        ref_in_sreg = put_reference_in_sreg(
+            node, ref, sreg_idx, secondary_sreg_idx, state
         )
-        if ref_in_lvar is None:
+        if ref_in_sreg is None:
             return
-        directives.extend(ref_in_lvar)
+        directives.extend(ref_in_sreg)
 
-    lvar_type = get_argument_type(node, state)
+    sreg_type = get_argument_type(node, state)
 
-    if lvar_type is None:
+    if sreg_type is None:
         return
 
-    # okay now pull from this lvar into a register
+    # okay now pull from this sreg into a register
 
     # is it too big to fit in a register?
-    type_size = lvar_type.getMaxSize()
+    type_size = sreg_type.getMaxSize()
     if type_size > 8:
         state.errors.append(
             CompileException(
-                f"{lvar_type} cannot fit in a register (it is {type_size} bytes long, which is greater than 8)",
+                f"{sreg_type} cannot fit in a register (it is {type_size} bytes long, which is greater than 8)",
                 node,
             )
         )
@@ -870,13 +912,13 @@ def put_reference_in_register(
 
     put_in_reg_directive = None
     if type_size > 4:
-        put_in_reg_directive = DeserLocalVar8Directive(lvar_idx, 0, register)
+        put_in_reg_directive = DeserLocalVar8Directive(sreg_idx, 0, register)
     elif type_size > 2:
-        put_in_reg_directive = DeserLocalVar4Directive(lvar_idx, 0, register)
+        put_in_reg_directive = DeserLocalVar4Directive(sreg_idx, 0, register)
     elif type_size > 1:
-        put_in_reg_directive = DeserLocalVar2Directive(lvar_idx, 0, register)
+        put_in_reg_directive = DeserLocalVar2Directive(sreg_idx, 0, register)
     elif type_size == 1:
-        put_in_reg_directive = DeserLocalVar1Directive(lvar_idx, 0, register)
+        put_in_reg_directive = DeserLocalVar1Directive(sreg_idx, 0, register)
     else:
         assert False, type_size
 
