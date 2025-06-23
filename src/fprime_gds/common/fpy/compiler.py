@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, fields
 from enum import Enum
 import traceback
 from types import NoneType
-from typing import TypeVar, Union
+from typing import Iterable, TypeVar, Union
 
 from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.fpy.bytecode.serialize_bytecode import serialize_directives
@@ -138,13 +138,13 @@ FLOAT_TYPES = (
 FppTypeClass = type[FppType]
 
 
-class VoidType(ABC):
+class NothingType(ABC):
     @classmethod
     def __subclasscheck__(cls, subclass):
         return False
 
 
-VoidTypeClass = type[VoidType]
+NothingTypeClass = type[NothingType]
 
 
 class CompileException(BaseException):
@@ -159,7 +159,7 @@ class CompileException(BaseException):
 
 @dataclass
 class FpyCallable:
-    return_type: FppTypeClass | VoidTypeClass
+    return_type: FppTypeClass | NothingTypeClass
     args: list[tuple[str, FppTypeClass]]
 
 
@@ -228,17 +228,21 @@ class CompileState:
     )
     """reference to its singular resolution"""
 
-    expr_types: dict[AstExpr, FppTypeClass | VoidTypeClass] = field(
+    expr_types: dict[AstExpr, FppTypeClass | NothingTypeClass] = field(
         default_factory=dict
     )
-    """expr to its fprime type, or void type if none"""
+    """expr to its fprime type, or nothing type if none"""
 
-    expr_values: dict[AstExpr, FppType | VoidType | None] = field(default_factory=dict)
-    """expr to its fprime value, or void if no value, or None if unsure at compile time"""
+    expr_values: dict[AstExpr, FppType | NothingType | None] = field(
+        default_factory=dict
+    )
+    """expr to its fprime value, or nothing if no value, or None if unsure at compile time"""
 
-    expr_register: dict[AstExpr, int] = field(default_factory=dict)
+    expr_registers: dict[AstExpr, int] = field(default_factory=dict)
 
-    expr_to_register_instructions: dict[AstExpr, list[Directive]] = field(default_factory=dict)
+    expr_to_register_instructions: dict[AstExpr, list[Directive] | None] = field(
+        default_factory=dict
+    )
 
     next_register: int = 0
     next_sreg: int = 0
@@ -397,6 +401,8 @@ class CreateVariables(CompilePass):
 
 class ResolveReferencesByName(CompilePass):
 
+    # think about mapping parent node type to which maps to look into
+    # could more precisely define what refs are valid in which situation
     def visit_AstReference(self, parent, node: AstReference, state: CompileState):
         fqn = ".".join(name.value for name in node.names)
 
@@ -463,37 +469,6 @@ class ResolveReferencesByName(CompilePass):
         return resolved_reference
 
 
-class CheckVariableTypes(CompilePass):
-
-    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
-        existing_var = state.lookup_variable(node.variable.value, node)
-        # should already have been put in var table
-        assert existing_var is not None
-
-        # check the type node is a reference to a valid type
-
-        if node.var_type is not None:
-            # lookup whatever the var type node refers to
-            ref = state.resolved_references[node.var_type]
-            # if it is not a FppTypeClass, error
-            if ref is None:
-                state.errors.append(
-                    CompileException(
-                        f"{node.var_type} does not refer to a type", node.var_type
-                    )
-                )
-                return
-
-            # okay, type node is a valid type
-
-            assert existing_var.type is None, existing_var.type
-            # we haven't resolved this variable's type ref before
-            existing_var.type = ref
-
-        # now we should have type info about the variable
-        assert existing_var.type is not None
-
-
 class CalculateExprTypes(CompilePass):
 
     def visit_AstNumber(self, parent, node: AstNumber, state: CompileState):
@@ -524,14 +499,15 @@ class CalculateExprTypes(CompilePass):
         elif isinstance(ref, FpyCallable):
             # a reference to a callable isn't a type in and of itself
             # it has a return type but you have to call it (with an AstFuncCall)
-            result_type = VoidType
+            # consider making a separate "reference" type
+            result_type = NothingType
         elif isinstance(ref, FpyVariable):
             result_type = ref.type
         elif isinstance(ref, type):
             # a reference to a type doesn't have a value, and so doesn't have a type,
             # in and of itself. if this were a function call to the type's ctor then
             # it would have a value and thus a type
-            result_type = VoidType
+            result_type = NothingType
         else:
             assert False, ref
 
@@ -542,12 +518,10 @@ class CalculateExprTypes(CompilePass):
         assert isinstance(ref, FpyCallable)
         state.expr_types[node] = ref.return_type
 
-    def visit_AstOr(self, parent, node: AstOr, state: CompileState):
+    def visit_AstOr_AstAnd_AstNot_AstComparison(
+        self, parent, node: AstOr | AstAnd | AstNot | AstComparison, state: CompileState
+    ):
         state.expr_types[node] = BoolType
-
-    visit_AstAnd = visit_AstOr
-    visit_AstNot = visit_AstOr
-    visit_AstComparison = visit_AstOr
 
 
 class CheckAndResolveArgumentTypes(CompilePass):
@@ -563,7 +537,7 @@ class CheckAndResolveArgumentTypes(CompilePass):
         node_args = node.args if node.args else []
         self.check_args([v for k, v in func.args], node, node_args, state)
 
-    def visit_AstOr_AstAnd(self, parent, node: AstOr|AstAnd, state: CompileState):
+    def visit_AstOr_AstAnd(self, parent, node: AstOr | AstAnd, state: CompileState):
         # "or/and" can have as many args as you want. they all need to be bools tho
         self.check_args([BoolType] * len(node.values), node, node.values, state)
 
@@ -601,6 +575,10 @@ class CheckAndResolveArgumentTypes(CompilePass):
             if arg_type == value_expr_type:
                 # arg type is good!
                 continue
+
+            # TODO rewrite this to use a "is_convertible_to" type to type
+            # "convert_type_to_type"
+            # store all values as a type and the bits
 
             if issubclass(arg_type, value_expr_type):
                 # the arg template type is more specific
@@ -664,12 +642,12 @@ class CalculateExprValues(CompilePass):
         elif isinstance(ref, FpyCallable):
             # a reference to a callable doesn't have a value, you have to actually
             # call the func
-            expr_value = VoidType()
+            expr_value = NothingType()
         elif isinstance(ref, type):
             # a reference to a type doesn't have a value, and so doesn't have a type,
             # in and of itself. if this were a function call to the type's ctor then
             # it would have a value
-            expr_value = VoidType()
+            expr_value = NothingType()
         else:
             assert False, ref
 
@@ -741,7 +719,7 @@ class CheckVariableValues(CompilePass):
 
         assert isinstance(value, value_type), (value, value_type)
 
-        if isinstance(value, VoidType):
+        if isinstance(value, NothingType):
             # expr is known to have no value
             state.errors.append(
                 CompileException(
@@ -778,8 +756,8 @@ def put_expr_in_register(
 
     expr_type = state.expr_types[node]
 
-    if expr_type == VoidType:
-        # impossible. void type has no value
+    if expr_type == NothingType:
+        # impossible. nothing type has no value
         return None
 
     if expr_type.getMaxSize() > 8:
@@ -787,7 +765,7 @@ def put_expr_in_register(
         # impossible. can't fit in a register
         return None
 
-    # okay, it is not void and it is smaller than 8 bytes.
+    # okay, it is not nothing and it is smaller than 8 bytes.
     # should be able to put it in a reg
 
     expr_value = state.expr_values[node]
@@ -847,10 +825,10 @@ def put_expr_in_register(
 
         registers_to_compare = []
         for arg_value_expr in node.values:
-            reg = state.next_register
+            arg_reg = state.next_register
             state.next_register += 1
-            directives.extend(put_expr_in_register(arg_value_expr, reg, state))
-            registers_to_compare.append(reg)
+            directives.extend(put_expr_in_register(arg_value_expr, arg_reg, state))
+            registers_to_compare.append(arg_reg)
 
         assert len(registers_to_compare) >= 2, len(registers_to_compare)
 
@@ -866,6 +844,43 @@ def put_expr_in_register(
 
         for i in range(2, len(registers_to_compare)):
             directives.append(dir_type(register, registers_to_compare[i], register))
+
+    elif isinstance(node, AstNot):
+        arg_reg = state.next_register
+        state.next_register += 1
+        directives.extend(put_expr_in_register(node.value, arg_reg, state))
+        directives.append(NotDirective(arg_reg, register))
+
+    elif isinstance(node, AstComparison):
+        lhs_type = state.expr_types[node.lhs]
+        rhs_type = state.expr_types[node.rhs]
+
+        lhs_reg = state.next_register
+        state.next_register += 1
+        rhs_reg = state.next_register
+        state.next_register += 1
+        res_reg = state.next_register
+        state.next_register += 1
+
+        directives.extend(put_expr_in_register(node.lhs, lhs_reg, state))
+        directives.extend(put_expr_in_register(node.rhs, rhs_reg, state))
+
+        if node.op.value == "==":
+            directives.append(EqualDirective(lhs_reg, rhs_reg, res_reg))
+        elif node.op.value == "!=":
+            directives.append(NotEqualDirective(lhs_reg, rhs_reg, res_reg))
+        else:
+            signed = False
+            if lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES:
+                # if either is signed, promote both to signed
+                signed = True
+
+            if signed:
+                dir_type = SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
+            else:
+                dir_type = UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
+
+            directives.append(dir_type(lhs_reg, rhs_reg, res_reg))
 
     return directives
 
@@ -883,93 +898,6 @@ def put_sreg_in_nreg(sreg_idx: int, nreg_idx: int, size: int) -> list[Directive]
         assert False, size
 
 
-def put_reference_in_sreg(
-    node: AstReference,
-    ref: FpyReference,
-    sreg: int,
-    secondary_sreg: int,
-    state: CompileState,
-) -> list[Directive]:
-    if not isinstance(ref, (ChTemplate, PrmTemplate, FppType, FpyVariable)):
-        state.errors.append(CompileException("Reference has no value", node))
-        return None
-
-
-def put_reference_in_register(
-    node: AstReference, register: int, state: CompileState
-) -> list[Directive] | None:
-
-    resolved_refs = state.lookup_ref(node)
-    if len(resolved_refs) != 1:
-        state.errors.append(CompileException("Unknown reference", node))
-        return None
-
-    ref = resolved_refs[0]
-
-    directives = []
-
-    if isinstance(ref, FpyVariable):
-        # special case for variable, it is already in an sreg
-        sreg_idx = ref.sreg_idx
-    else:
-        # other references need some directives to get them in an sreg
-        sreg_idx = state.next_sreg
-        secondary_sreg_idx = state.next_sreg + 1
-        state.next_sreg += 2
-
-        ref_in_sreg = put_reference_in_sreg(
-            node, ref, sreg_idx, secondary_sreg_idx, state
-        )
-        if ref_in_sreg is None:
-            return
-        directives.extend(ref_in_sreg)
-
-    sreg_type = get_argument_type(node, state)
-
-    if sreg_type is None:
-        return
-
-    # okay now pull from this sreg into a register
-
-    # is it too big to fit in a register?
-    type_size = sreg_type.getMaxSize()
-    if type_size > 8:
-        state.errors.append(
-            CompileException(
-                f"{sreg_type} cannot fit in a register (it is {type_size} bytes long, which is greater than 8)",
-                node,
-            )
-        )
-        return None
-
-    return directives
-
-
-def put_argument_in_register(
-    node: AstExpr, register: int, state: CompileState
-) -> list[Directive] | None:
-    directives = []
-    if isinstance(node, AstReference):
-        dirs = put_reference_in_register(node, register, state)
-        if dirs is None:
-            return None
-        directives.extend(dirs)
-    elif isinstance(node, AstFuncCall):
-        # node must already have a const value at this point
-        dirs = put_const_in_register(node, state.runtime_consts[node], register, state)
-        if dirs is None:
-            return None
-        directives.extend(dirs)
-    elif isinstance(node, AstLiteral):
-        # node must have an interpreted value at this point
-        dirs = put_const_in_register(node, state.runtime_consts[node], register, state)
-        if dirs is None:
-            return None
-        directives.extend(dirs)
-
-    return directives
-
-
 class ConditionAnalysis:
     class Never:
         pass
@@ -982,30 +910,159 @@ class ConditionAnalysis:
         result_reg: int
 
 
-class CheckConditionals(CompilePass):
+class AssignExprRegisters(CompilePass):
+    def visit_AstExpr(self, parent, node: AstExpr, state: CompileState):
+        state.expr_registers[node] = state.next_register
+        state.next_register += 1
+
+
+class PutConstExprsInRegisters(CompilePass):
+    def visit_AstExpr(self, parent, node: AstExpr, state: CompileState):
+        expr_type = state.expr_types[node]
+
+        if expr_type == NothingType:
+            # impossible. nothing type has no value
+            state.expr_to_register_instructions[node] = None
+            return
+
+        if expr_type.getMaxSize() > 8:
+            # bigger than 8 bytes
+            # impossible. can't fit in a register
+            state.expr_to_register_instructions[node] = None
+            return
+
+        # okay, it is not nothing and it is smaller than 8 bytes.
+        # should be able to put it in a reg
+
+        register = state.expr_registers[node]
+
+        expr_value = state.expr_values[node]
+
+        if expr_value is None:
+            return
+
+        # it has a constant value at compile time
+        serialized_expr_value = expr_value.serialize()
+        assert len(serialized_expr_value) <= 8, len(serialized_expr_value)
+        val_as_i64_bytes = bytes(8 - len(serialized_expr_value))
+        val_as_i64_bytes += serialized_expr_value
+
+        # reinterpret as an I64
+        val_as_i64 = I64Type()
+        val_as_i64.deserialize(val_as_i64_bytes, 0)
+
+        state.expr_to_register_instructions[node] = SetRegDirective(
+            register, val_as_i64.val
+        )
+
+
+class PutNonConstExprsInRegisters(CompilePass):
+
+    def visit_AstReference(self, parent, node: AstReference, state: CompileState):
+        if node in state.expr_to_register_instructions:
+            # already know how to put it in reg
+            return
+
+        expr_type = state.expr_types[node]
+        ref = state.resolved_references[node]
+
+        directives = []
+
+        # does not have a constant compile time value
+
+        # all references that don't have a compile time value have to go into an sreg first
+        # and then into an nreg
+
+        sreg_idx = None
+
+        if isinstance(ref, FpyVariable):
+            # already in an sreg
+            sreg_idx = ref.sreg_idx
+        else:
+            sreg_idx = state.next_sreg
+            state.next_sreg += 1
+
+            if isinstance(ref, ChTemplate):
+                tlm_time_sreg_idx = state.next_sreg
+                state.next_sreg += 1
+                directives.append(
+                    GetTlmDirective(sreg_idx, tlm_time_sreg_idx, ref.get_id())
+                )
+
+            elif isinstance(ref, PrmTemplate):
+                directives.append(GetPrmDirective(sreg_idx, ref.get_id()))
+
+            else:
+                assert (
+                    False
+                ), ref  # ref should either be impossible to put in a reg or should have a compile time val
+
+        # pull from sreg into nreg
+        directives.extend(
+            put_sreg_in_nreg(
+                sreg_idx, state.expr_registers[node], expr_type.getMaxSize()
+            )
+        )
+
+        state.expr_to_register_instructions[node] = directives
+
+    def visit_AstAnd_AstOr(self, parent, node: AstAnd | AstOr, state: CompileState):
+        if node in state.expr_to_register_instructions:
+            # already know how to put it in reg, or know that it's impossible
+            return
+
+        expr_reg = state.expr_registers[node]
+        directives = []
+
+        registers_to_compare = []
+        for arg_value_expr in node.values:
+            arg_reg = state.next_register
+            state.next_register += 1
+            arg_value_dirs = state.expr_to_register_instructions[arg_value_expr]
+            assert arg_value_dirs is not None
+            directives.extend(arg_value_dirs)
+            registers_to_compare.append(arg_reg)
+
+        assert len(registers_to_compare) >= 2, len(registers_to_compare)
+
+        # okay, now we have to "or" or "and" together all of the registers
+        # "or/and" the first two together, put in res.
+        # from then on, "or/and" the next with res
+
+        dir_type = OrDirective if isinstance(node, AstOr) else AndDirective
+
+        directives.append(
+            dir_type(registers_to_compare[0], registers_to_compare[1], expr_reg)
+        )
+
+        for i in range(2, len(registers_to_compare)):
+            directives.append(dir_type(expr_reg, registers_to_compare[i], expr_reg))
+
+        state.expr_to_register_instructions[node] = directives
+
+    def visit_AstNot(self, parent, node: AstNot, state: CompileState):
+        if node in state.expr_to_register_instructions:
+            # already know how to put it in reg
+            return
+
+        expr_reg = state.expr_registers[node]
+        directives = []
+        arg_reg = state.next_register
+        state.next_register += 1
+        arg_value_dirs = state.expr_to_register_instructions[node.value]
+        assert arg_value_dirs is not None
+        directives.extend(arg_value_dirs)
+        directives.append(NotDirective(arg_reg, expr_reg))
+
     def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
+        if node in state.expr_to_register_instructions:
+            # already know how to put it in reg
+            return
+
+        directives = []
+
         lhs_type = state.expr_types[node.lhs]
         rhs_type = state.expr_types[node.rhs]
-
-        if node.op.value == "==":
-            if lhs_type != rhs_type and not (
-                lhs_type in NUMERIC_TYPES and rhs_type in NUMERIC_TYPES
-            ):
-                # two diff types cannot be checked for equality, unless they're both numeric
-                # probably a coding error, fail
-                state.errors.append(
-                    CompileException(f"Cannot compare {lhs_type} with {rhs_type}", node)
-                )
-                return
-        elif node.op.value == "!=":
-            if lhs_type != rhs_type and not (
-                lhs_type in NUMERIC_TYPES and rhs_type in NUMERIC_TYPES
-            ):
-                # two diff types cannot be checked for inequality, unless they're both numeric
-                state.errors.append(
-                    CompileException(f"Cannot compare {lhs_type} with {rhs_type}", node)
-                )
-                return
 
         lhs_reg = state.next_register
         state.next_register += 1
@@ -1014,19 +1071,13 @@ class CheckConditionals(CompilePass):
         res_reg = state.next_register
         state.next_register += 1
 
-        lhs_dirs = put_argument_in_register(node.lhs, lhs_reg, state)
-        if lhs_dirs is None:
-            return
-        rhs_dirs = put_argument_in_register(node.rhs, rhs_reg, state)
-        if rhs_dirs is None:
-            return
-
-        comparison_dirs = []
+        directives.extend(put_expr_in_register(node.lhs, lhs_reg, state))
+        directives.extend(put_expr_in_register(node.rhs, rhs_reg, state))
 
         if node.op.value == "==":
-            comparison_dirs.append(EqualDirective(lhs_reg, rhs_reg, res_reg))
+            directives.append(EqualDirective(lhs_reg, rhs_reg, res_reg))
         elif node.op.value == "!=":
-            comparison_dirs.append(NotEqualDirective(lhs_reg, rhs_reg, res_reg))
+            directives.append(NotEqualDirective(lhs_reg, rhs_reg, res_reg))
         else:
             signed = False
             if lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES:
@@ -1038,122 +1089,9 @@ class CheckConditionals(CompilePass):
             else:
                 dir_type = UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
 
-            comparison_dirs.append(dir_type(lhs_reg, rhs_reg, res_reg))
+            directives.append(dir_type(lhs_reg, rhs_reg, res_reg))
 
-        # require that all directives for lhs and rhs are included before these dirs
-        state.prerequisite_nodes[node] = [node.lhs, node.rhs]
-        state.generated_directives[node] = lhs_dirs + rhs_dirs + comparison_dirs
-        state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
-
-    def visit_AstNot(self, parent, node: AstNot, state: CompileState):
-        value_analysis = state.conditionals.get(node.value, None)
-        if value_analysis is not None:
-            if value_analysis == ConditionAnalysis.Never:
-                state.conditionals[node] = ConditionAnalysis.Always
-                return
-            elif value_analysis == ConditionAnalysis.Always:
-                state.conditionals[node] = ConditionAnalysis.Never
-                return
-            elif isinstance(value_analysis, ConditionAnalysis.BranchFromRegister):
-                value_reg = value_analysis.result_reg
-                res_reg = state.next_register
-                state.next_register += 1
-                # make sure that all directives needed to create the value are included before these ones
-                state.prerequisite_nodes[node] = [node.value]
-                state.generated_directives[node] = [NotDirective(value_reg, res_reg)]
-                state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
-                return
-            else:
-                assert False, value_analysis
-        # okay, value is not a conditional
-        assert isinstance(node.value, AstExpr), node.value
-
-        value_reg = state.next_register
-        state.next_register += 1
-        dirs = put_argument_in_register(node.value, value_reg, state)
-        if dirs is None:
-            # cannot put in register
-            return
-        res_reg = state.next_register
-        state.next_register += 1
-        dirs.append(NotDirective(value_reg, res_reg))
-        # make sure that all directives needed to create the value are included before these ones
-        state.prerequisite_nodes[node] = [node.value]
-        state.generated_directives[node] = dirs
-        state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
-
-    def visit_AstAnd(self, parent, node: AstAnd, state: CompileState):
-
-        registers_to_compare = []
-        dirs = []
-
-        state.prerequisite_nodes[node] = []
-        for value in node.values:
-            condition_analysis = state.conditionals.get(value, None)
-            if condition_analysis == ConditionAnalysis.Never:
-                # this "and" can never be true because some arg is never true
-                state.conditionals[node] = ConditionAnalysis.Never
-                return
-            if condition_analysis == ConditionAnalysis.Always:
-                # this arg is always true, don't have to calculate anything with it
-                continue
-            # otherwise, we actually have to calculate something here
-            # include the directives necessary for this conditional
-            state.prerequisite_nodes[node].append(value)
-            if isinstance(condition_analysis, ConditionAnalysis.BranchFromRegister):
-                registers_to_compare.append(condition_analysis.result_reg)
-                continue
-            assert isinstance(value, AstExpr)
-            value_reg = state.next_register
-            state.next_register += 1
-            argument_in_register_dirs = put_argument_in_register(
-                value, value_reg, state
-            )
-            if argument_in_register_dirs is None:
-                # unable to put arg in register
-                return
-            dirs.extend(argument_in_register_dirs)
-            registers_to_compare.append(value_reg)
-
-        assert len(registers_to_compare) >= 2, len(registers_to_compare)
-
-        # okay, now we have to "and" together all of the registers
-        # "and" the first two together, put in res.
-        # from then on, "and" the next with res
-
-        res_reg = state.next_register
-        state.next_register += 1
-
-        dirs.append(
-            AndDirective(registers_to_compare[0], registers_to_compare[1], res_reg)
-        )
-
-        for i in range(2, len(registers_to_compare)):
-            dirs.append(AndDirective(res_reg, registers_to_compare[i], res_reg))
-
-        state.generated_directives[node] = dirs
-        state.conditionals[node] = ConditionAnalysis.BranchFromRegister(res_reg)
-
-    def visit_AstElif(self, parent, node: AstElif, state: CompileState):
-        # include all code necessary to calculate the condition
-        state.prerequisite_nodes[node] = [node.condition]
-
-        # handle the case in which the condition is just a raw value, no cmps
-        if isinstance(node.condition, AstExpr):
-            res_reg = state.next_register
-            state.next_register += 1
-            dirs = put_argument_in_register(node.condition, res_reg, state)
-            if dirs is None:
-                # could not put arg in register
-                return
-            state.generated_directives[node.condition] = dirs
-            state.conditionals[node.condition] = ConditionAnalysis.BranchFromRegister(
-                res_reg
-            )
-
-    def visit_AstIf(self, parent, node: AstIf, state: CompileState):
-        # elif and if are handled the same way
-        self.visit_AstElif(parent, node, state)
+        state.expr_to_register_instructions[node]
 
 
 @dataclass
@@ -1299,7 +1237,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         args = []
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
-        callable_name_dict[name] = FpyCmd(VoidType, args, cmd)
+        callable_name_dict[name] = FpyCmd(NothingType, args, cmd)
 
     infix_callable_name_dict = defaultdict(list)
 
@@ -1343,13 +1281,13 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
     state = get_base_compile_state(dictionary)
     passes: list[CompilePass] = [
         AssignIds(),
+        # TODO delete this
         CreateScopes(),
         # might want to error if you're overriding smth from the dict
         CreateVariables(),
         # now that variables have been defined, try resolving references
         # again and fail if anything isn't found
         ResolveReferencesByName(),
-        CheckVariableTypes(),
         CalculateExprTypes(),
         # okay, we know what all the different names could be pointing to,
         # at least according to the name of the symbol.
@@ -1360,6 +1298,7 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         # now we know what each call points to
         CalculateExprValues(),
         CheckVariableValues(),
+        AssignExprRegisters(),
         # CheckConditionals(),
         # AnalyzeControlFlow(),
     ]
