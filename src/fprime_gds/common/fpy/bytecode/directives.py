@@ -23,6 +23,8 @@ FwChanIdType = U32Type
 FwPrmIdType = U32Type
 FwOpcodeType = U32Type
 
+MAX_SERIALIZABLE_REGISTER_SIZE = 512 - 4 - 4
+
 
 class DirectiveOpcode(Enum):
     INVALID = 0
@@ -106,7 +108,7 @@ class SetSerRegDirective(Directive):
     index: int
     """U8: The index of the local variable to set."""
     value: bytes
-    """[Fpy.MAX_LOCAL_VARIABLE_BUFFER_SIZE] U8: The value of the local variable."""
+    """[Fpy.MAX_SERIALIZABLE_REGISTER_SIZE] U8: The value of the local variable."""
 
     def serialize_args(self) -> bytes:
         data = bytearray()
@@ -187,7 +189,7 @@ class CmdDirective(Directive):
     op_code: int
     """FwOpcodeType: The opcode of the command."""
     arg_buf: bytes
-    """[Fpy.MAX_LOCAL_VARIABLE_BUFFER_SIZE] U8: The argument buffer of the command."""
+    """[Fpy.MAX_SERIALIZABLE_REGISTER_SIZE] U8: The argument buffer of the command."""
 
     def serialize_args(self) -> bytes:
         data = bytearray()

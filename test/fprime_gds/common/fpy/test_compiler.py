@@ -26,6 +26,13 @@ var: U32 = 1
 
     assert_success(fprime_test_api, seq)
 
+def test_large_var(fprime_test_api):
+    seq = """
+var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+"""
+
+    assert_success(fprime_test_api, seq)
+
 
 def test_nonexistent_var(fprime_test_api):
     seq = """

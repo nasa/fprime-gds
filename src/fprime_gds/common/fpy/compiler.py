@@ -13,6 +13,7 @@ from fprime_gds.common.fpy.bytecode.serialize_bytecode import serialize_directiv
 from fprime_gds.common.fpy.bytecode.directives import (
     BINARY_COMPARISON_DIRECTIVES,
     EQUALITY_DIRECTIVES,
+    MAX_SERIALIZABLE_REGISTER_SIZE,
     SIGNED_INEQUALITY_DIRECTIVES,
     UNSIGNED_INEQUALITY_DIRECTIVES,
     AndDirective,
@@ -25,6 +26,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     EqualDirective,
     GetPrmDirective,
     GetTlmDirective,
+    GotoDirective,
     IfDirective,
     NotDirective,
     NotEqualDirective,
@@ -229,19 +231,16 @@ class CompileState:
     expr_registers: dict[AstExpr, int] = field(default_factory=dict)
     """expr to the register it's stored in"""
 
-    expr_to_register_instructions: dict[AstExpr, list[Directive] | None] = field(
-        default_factory=dict
-    )
-    """expr to a list of directives, which, when run, store the expr value in its register. None
-    if expr cannot be stored in the register"""
-
-    cmd_directives: dict[AstFuncCall, Directive | None] = field(default_factory=dict)
-    """function call to CMD directive, if the function is an FpyCmd"""
+    directives: dict[Ast, list[Directive] | None] = field(default_factory=dict)
 
     node_dir_counts: dict[Ast, int] = field(default_factory=dict)
 
     next_register: int = 0
     next_sreg: int = 0
+
+    start_line_idx: dict[Ast, int] = field(default_factory=dict)
+
+    linearized_directives: list[Directive] = field(default_factory=list)
 
     errors: list[CompileException] = field(default_factory=list)
 
@@ -719,15 +718,17 @@ class CheckVariableValues(CompilePass):
             )
             return
 
+        if value.getMaxSize() > MAX_SERIALIZABLE_REGISTER_SIZE:
+            state.errors.append(CompileException(f"{existing_var.type} is too big to fit in a variable", node))
+            return
+
         sreg_idx = existing_var.sreg_idx
         if sreg_idx is None:
             # doesn't have an sreg idx, allocate one
             sreg_idx = state.next_sreg
             state.next_sreg += 1
             existing_var.sreg_idx = sreg_idx
-        state.generated_directives[node] = [
-            SetSerRegDirective(sreg_idx, value.serialize())
-        ]
+        state.directives[node] = [SetSerRegDirective(sreg_idx, value.serialize())]
 
 
 class CreateConstantCommands(CompilePass):
@@ -735,7 +736,7 @@ class CreateConstantCommands(CompilePass):
         func = state.resolved_references[node.func]
         if isinstance(func, FpyCmd):
             arg_bytes = bytes()
-            for arg_node in node.args:
+            for arg_node in node.args if node.args is not None else []:
                 arg_value = state.expr_values[arg_node]
                 if arg_value is None:
                     state.errors.append(
@@ -745,9 +746,9 @@ class CreateConstantCommands(CompilePass):
                     )
                     return
                 arg_bytes += arg_value.serialize()
-            state.cmd_directives[node] = CmdDirective(func.cmd.get_op_code(), arg_bytes)
+            state.directives[node] = [CmdDirective(func.cmd.get_op_code(), arg_bytes)]
         else:
-            state.cmd_directives[node] = None
+            state.directives[node] = None
 
 
 def put_sreg_in_nreg(sreg_idx: int, nreg_idx: int, size: int) -> list[Directive]:
@@ -773,15 +774,19 @@ class PutConstExprsInRegisters(CompilePass):
     def visit_AstExpr(self, parent, node: AstExpr, state: CompileState):
         expr_type = state.expr_types[node]
 
+        if node in state.directives:
+            # already have directives associated with this node
+            return
+
         if expr_type == NothingType:
             # impossible. nothing type has no value
-            state.expr_to_register_instructions[node] = None
+            state.directives[node] = None
             return
 
         if expr_type.getMaxSize() > 8:
             # bigger than 8 bytes
             # impossible. can't fit in a register
-            state.expr_to_register_instructions[node] = None
+            state.directives[node] = None
             return
 
         # okay, it is not nothing and it is smaller than 8 bytes.
@@ -804,15 +809,13 @@ class PutConstExprsInRegisters(CompilePass):
         val_as_i64 = I64Type()
         val_as_i64.deserialize(val_as_i64_bytes, 0)
 
-        state.expr_to_register_instructions[node] = [
-            SetRegDirective(register, val_as_i64.val)
-        ]
+        state.directives[node] = [SetRegDirective(register, val_as_i64.val)]
 
 
 class PutNonConstExprsInRegisters(CompilePass):
 
     def visit_AstReference(self, parent, node: AstReference, state: CompileState):
-        if node in state.expr_to_register_instructions:
+        if node in state.directives:
             # already know how to put it in reg, or it is impossible
             return
 
@@ -857,10 +860,10 @@ class PutNonConstExprsInRegisters(CompilePass):
             )
         )
 
-        state.expr_to_register_instructions[node] = directives
+        state.directives[node] = directives
 
     def visit_AstAnd_AstOr(self, parent, node: AstAnd | AstOr, state: CompileState):
-        if node in state.expr_to_register_instructions:
+        if node in state.directives:
             # already know how to put it in reg, or know that it's impossible
             return
 
@@ -869,7 +872,7 @@ class PutNonConstExprsInRegisters(CompilePass):
 
         registers_to_compare = []
         for arg_value_expr in node.values:
-            arg_value_dirs = state.expr_to_register_instructions[arg_value_expr]
+            arg_value_dirs = state.directives[arg_value_expr]
             assert arg_value_dirs is not None
             directives.extend(arg_value_dirs)
             registers_to_compare.append(state.expr_registers[arg_value_expr])
@@ -889,24 +892,24 @@ class PutNonConstExprsInRegisters(CompilePass):
         for i in range(2, len(registers_to_compare)):
             directives.append(dir_type(expr_reg, registers_to_compare[i], expr_reg))
 
-        state.expr_to_register_instructions[node] = directives
+        state.directives[node] = directives
 
     def visit_AstNot(self, parent, node: AstNot, state: CompileState):
-        if node in state.expr_to_register_instructions:
+        if node in state.directives:
             # already know how to put it in reg
             return
 
         expr_reg = state.expr_registers[node]
         directives = []
-        arg_value_dirs = state.expr_to_register_instructions[node.value]
+        arg_value_dirs = state.directives[node.value]
         assert arg_value_dirs is not None
         directives.extend(arg_value_dirs)
         directives.append(NotDirective(state.expr_registers[node.value], expr_reg))
 
-        state.expr_to_register_instructions[node] = directives
+        state.directives[node] = directives
 
     def visit_AstComparison(self, parent, node: AstComparison, state: CompileState):
-        if node in state.expr_to_register_instructions:
+        if node in state.directives:
             # already know how to put it in reg
             return
 
@@ -919,8 +922,8 @@ class PutNonConstExprsInRegisters(CompilePass):
         rhs_reg = state.expr_registers[node.rhs]
         res_reg = state.expr_registers[node]
 
-        directives.extend(state.expr_to_register_instructions[node.lhs])
-        directives.extend(state.expr_to_register_instructions[node.rhs])
+        directives.extend(state.directives[node.lhs])
+        directives.extend(state.directives[node.rhs])
 
         if node.op.value == "==":
             directives.append(EqualDirective(lhs_reg, rhs_reg, res_reg))
@@ -939,20 +942,26 @@ class PutNonConstExprsInRegisters(CompilePass):
 
             directives.append(dir_type(lhs_reg, rhs_reg, res_reg))
 
-        state.expr_to_register_instructions[node] = directives
+        state.directives[node] = directives
 
 
-class CalculateNodeDirectiveCounts(CompilePass):
+class CountDirectives(CompilePass):
 
     def visit_AstIf(self, parent, node: AstIf, state: CompileState):
         count = 0
-        # count up number required to calculate condition
+        # include the condition
         count += state.node_dir_counts[node.condition]
-        # include the if statement
+        # include if stmt
         count += 1
+        # include body
         count += state.node_dir_counts[node.body]
-        count += state.node_dir_counts[node.elifs] if node.elifs is not None else 0
-        count += state.node_dir_counts[node.els] if node.els is not None else 0
+        # include a goto end of if
+        count += 1
+
+        if node.elifs is not None:
+            count += state.node_dir_counts[node.elifs]
+        if node.els is not None:
+            count += state.node_dir_counts[node.els]
 
         state.node_dir_counts[node] = count
 
@@ -964,15 +973,17 @@ class CalculateNodeDirectiveCounts(CompilePass):
         state.node_dir_counts[node] = count
 
     def visit_AstElif(self, parent, node: AstElif, state: CompileState):
-        count = 0
+        count = []
         # include the condition
-        count += state.node_dir_counts[node.condition]
-        # include the if statement
+        count += state.directives[node.condition]
+        # include if stmt
         count += 1
-        count += state.node_dir_counts[node.body]
+        # include body
+        count += state.directives[node.body]
+        # include a goto end of if
+        count += 1
 
-    def visit_AstExpr(self, parent, node: AstExpr, state: CompileState):
-        state.node_dir_counts[node] = len(state.expr_to_register_instructions[node])
+        state.node_dir_counts[node] = count
 
     def visit_AstBody(
         self, parent, node: AstUnscopedBody | AstScopedBody, state: CompileState
@@ -983,50 +994,124 @@ class CalculateNodeDirectiveCounts(CompilePass):
 
         state.node_dir_counts[node] = count
 
-    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        state.node_dir_counts[node] = 1 if node in state.cmd_directives else 0
-
     def visit_default(self, parent, node, state):
-        state.node_dir_counts[node] = 0
+        state.node_dir_counts[node] = (
+            len(state.directives[node]) if state.directives.get(node) is not None else 0
+        )
 
 
-def linearize_directives(
-    starting_line_num: int, body: AstScopedBody | AstUnscopedBody, state: CompileState
-) -> list[Directive]:
-    dirs = []
-    next_line_idx = starting_line_num
-    for dir in state.body_directives[body]:
-        if isinstance(dir, Directive):
-            dirs.append(dir)
-            next_line_idx += 1
-            continue
-        assert isinstance(dir, IfAnalysis)
-        for conditional_body in dir.conditional_bodies:
-            condition_analysis = conditional_body.condition_analysis
-            # we should have discarded bodies with impossible conditions by now
-            assert condition_analysis != ConditionAnalysis.Never
-            if condition_analysis == ConditionAnalysis.Always:
-                # don't need to generate an if directive. inline this body directly
-                linearized_body = linearize_directives(
-                    next_line_idx, conditional_body.body, state
-                )
-                dirs.extend(linearized_body)
-                next_line_idx += len(linearized_body)
-                continue
-            assert isinstance(condition_analysis, ConditionAnalysis.BranchFromRegister)
+class CalculateStartLineIdx(TopDownCompilePass):
+    def visit_AstBody(
+        self, parent, node: AstUnscopedBody | AstScopedBody, state: CompileState
+    ):
+        if parent is None:
+            state.start_line_idx[node] = 0
 
-            # line num + 1 so that it starts after the upcoming if directive
-            linearized_body = linearize_directives(
-                next_line_idx + 1, conditional_body.body, state
-            )
+        start_idx = state.start_line_idx[node]
 
-            # if false, go to (if stmt) + (skip over each of body)
-            false_goto_line_num = next_line_idx + len(linearized_body) + 1
-            if_dir = IfDirective(condition_analysis.result_reg, false_goto_line_num)
-            dirs.append(if_dir)
-            dirs.extend(linearized_body)
-            next_line_idx += 1 + len(linearized_body)
-    return dirs
+        line_idx = start_idx
+        for stmt in node.stmts:
+            state.start_line_idx[stmt] = line_idx
+            line_idx += state.node_dir_counts[stmt]
+
+    def visit_AstIf(self, parent, node: AstIf, state: CompileState):
+        line_idx = state.start_line_idx[node]
+        state.start_line_idx[node.condition] = line_idx
+        line_idx += state.node_dir_counts[node.condition]
+        # include if stmt
+        line_idx += 1
+        state.start_line_idx[node.body] = line_idx
+        line_idx += state.node_dir_counts[node.body]
+        # include goto stmt
+        line_idx += 1
+        if node.elifs is not None:
+            state.start_line_idx[node.elifs] = line_idx
+            line_idx += state.node_dir_counts[node.elifs]
+        if node.els is not None:
+            state.start_line_idx[node.els] = line_idx
+            line_idx += state.node_dir_counts[node.els]
+
+    def visit_AstElifs(self, parent, node: AstElifs, state: CompileState):
+        line_idx = state.start_line_idx[node]
+        for case in node.cases:
+            state.start_line_idx[case] = line_idx
+            line_idx += state.node_dir_counts[case]
+
+    def visit_AstElif(self, parent, node: AstElif, state: CompileState):
+        line_idx = state.start_line_idx[node]
+        state.start_line_idx[node.condition] = line_idx
+        line_idx += state.node_dir_counts[node.condition]
+        # include if dir
+        line_idx += 1
+        state.start_line_idx[node.body] = line_idx
+        line_idx += state.node_dir_counts[node.body]
+        # include a goto end of if
+        line_idx += 1
+
+
+class CollectDirectives(CompilePass):
+
+    def visit_AstIf(self, parent, node: AstIf, state: CompileState):
+        start_line_idx = state.start_line_idx[node]
+        dirs = []
+        # include the condition
+        dirs.extend(state.directives[node.condition])
+        # include if stmt (update the end idx later)
+        if_dir = IfDirective(state.expr_registers[node.condition], -1)
+        dirs.append(if_dir)
+        # include body
+        dirs.extend(state.directives[node.body])
+        if_dir.false_goto_stmt_index = start_line_idx + len(dirs)
+        # include a temporary goto end of if, will be refined later
+        goto_dir = GotoDirective(-1)
+        dirs.append(goto_dir)
+
+        if node.elifs is not None:
+            dirs.extend(state.directives[node.elifs])
+        if node.els is not None:
+            dirs.extend(state.directives[node.els])
+
+        goto_dir.statement_index = start_line_idx + len(dirs)
+
+        state.directives[node] = dirs
+
+    def visit_AstElifs(self, parent, node: AstElifs, state: CompileState):
+        dirs = []
+        for case in node.cases:
+            dirs.extend(state.directives[case])
+
+        state.directives[node] = dirs
+
+    def visit_AstElif(self, parent, node: AstElif, state: CompileState):
+        start_line_idx = state.start_line_idx[node]
+        dirs = []
+        # include the condition
+        dirs.extend(state.directives[node.condition])
+        # include if stmt (update the end idx later)
+        if_dir = IfDirective(state.expr_registers[node.condition], -1)
+        dirs.append(if_dir)
+        # include body
+        dirs.extend(state.directives[node.body])
+        if_dir.false_goto_stmt_index = start_line_idx + len(dirs)
+        # include a temporary goto end of if, will be refined later
+        goto_dir = GotoDirective(-1)
+        dirs.append(goto_dir)
+
+        goto_dir.statement_index = start_line_idx + len(dirs)
+
+        state.directives[node] = dirs
+
+    def visit_AstBody(
+        self, parent, node: AstUnscopedBody | AstScopedBody, state: CompileState
+    ):
+        dirs = []
+        for stmt in node.stmts:
+            stmt_dirs = state.directives.get(stmt, None)
+            if stmt_dirs is not None:
+                dirs.extend(stmt_dirs)
+
+        state.directives[node] = dirs
+
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -1132,14 +1217,17 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         CreateConstantCommands(),
         PutConstExprsInRegisters(),
         PutNonConstExprsInRegisters(),
-        CalculateNodeDirectiveCounts(),
+        CountDirectives(),
+        CalculateStartLineIdx(),
+        CollectDirectives(),
     ]
+
     for compile_pass in passes:
         compile_pass.run(body, state)
         for error in state.errors:
             raise error
 
-    print(state)
+    print("\n".join(str(s) for s in state.directives[body]))
 
     # dirs = linearize_directives(0, body, state)
 
