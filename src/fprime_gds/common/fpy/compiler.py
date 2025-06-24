@@ -16,6 +16,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     SIGNED_INEQUALITY_DIRECTIVES,
     UNSIGNED_INEQUALITY_DIRECTIVES,
     AndDirective,
+    CmdDirective,
     DeserSerReg1Directive,
     DeserSerReg2Directive,
     DeserSerReg4Directive,
@@ -62,11 +63,14 @@ from fprime_gds.common.fpy.parser import (
     AstAnd,
     AstBoolean,
     AstComparison,
+    AstElif,
+    AstElifs,
     AstExpr,
     AstNot,
     AstNumber,
     AstOr,
     AstReference,
+    AstStmt,
     AstString,
     Ast,
     AstTest,
@@ -223,25 +227,21 @@ class CompileState:
     """expr to its fprime value, or nothing if no value, or None if unsure at compile time"""
 
     expr_registers: dict[AstExpr, int] = field(default_factory=dict)
+    """expr to the register it's stored in"""
 
     expr_to_register_instructions: dict[AstExpr, list[Directive] | None] = field(
         default_factory=dict
     )
+    """expr to a list of directives, which, when run, store the expr value in its register. None
+    if expr cannot be stored in the register"""
+
+    cmd_directives: dict[AstFuncCall, Directive | None] = field(default_factory=dict)
+    """function call to CMD directive, if the function is an FpyCmd"""
+
+    node_dir_counts: dict[Ast, int] = field(default_factory=dict)
 
     next_register: int = 0
     next_sreg: int = 0
-
-    conditionals: dict[AstExpr, "ConditionAnalysis"] = field(default_factory=dict)
-    ifs: dict[AstIf, "IfAnalysis"] = field(default_factory=dict)
-
-    prerequisite_nodes: dict[Ast, list[Ast]] = field(default_factory=dict)
-    generated_directives: dict[Ast, list[Union[Directive, "IfAnalysis"]]] = field(
-        default_factory=dict
-    )
-
-    body_directives: dict[
-        AstScopedBody | AstUnscopedBody, list[Union[Directive, "IfAnalysis"]]
-    ] = field(default_factory=dict)
 
     errors: list[CompileException] = field(default_factory=list)
 
@@ -269,7 +269,6 @@ class CompilePass:
             params = list(signature.parameters.values())
             assert len(params) == 4
             assert params[2].annotation is not None
-            print(type(self), name, params[2].annotation)
             if isinstance(node, params[2].annotation):
                 return func
         else:
@@ -731,6 +730,26 @@ class CheckVariableValues(CompilePass):
         ]
 
 
+class CreateConstantCommands(CompilePass):
+    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
+        func = state.resolved_references[node.func]
+        if isinstance(func, FpyCmd):
+            arg_bytes = bytes()
+            for arg_node in node.args:
+                arg_value = state.expr_values[arg_node]
+                if arg_value is None:
+                    state.errors.append(
+                        CompileException(
+                            f"Only constant arguments to commands are allowed", arg_node
+                        )
+                    )
+                    return
+                arg_bytes += arg_value.serialize()
+            state.cmd_directives[node] = CmdDirective(func.cmd.get_op_code(), arg_bytes)
+        else:
+            state.cmd_directives[node] = None
+
+
 def put_sreg_in_nreg(sreg_idx: int, nreg_idx: int, size: int) -> list[Directive]:
     if size > 4:
         return [DeserSerReg8Directive(sreg_idx, 0, nreg_idx)]
@@ -742,18 +761,6 @@ def put_sreg_in_nreg(sreg_idx: int, nreg_idx: int, size: int) -> list[Directive]
         return [DeserSerReg1Directive(sreg_idx, 0, nreg_idx)]
     else:
         assert False, size
-
-
-class ConditionAnalysis:
-    class Never:
-        pass
-
-    class Always:
-        pass
-
-    @dataclass
-    class BranchFromRegister:
-        result_reg: int
 
 
 class AssignExprRegisters(CompilePass):
@@ -797,9 +804,9 @@ class PutConstExprsInRegisters(CompilePass):
         val_as_i64 = I64Type()
         val_as_i64.deserialize(val_as_i64_bytes, 0)
 
-        state.expr_to_register_instructions[node] = [SetRegDirective(
-            register, val_as_i64.val
-        )]
+        state.expr_to_register_instructions[node] = [
+            SetRegDirective(register, val_as_i64.val)
+        ]
 
 
 class PutNonConstExprsInRegisters(CompilePass):
@@ -935,70 +942,52 @@ class PutNonConstExprsInRegisters(CompilePass):
         state.expr_to_register_instructions[node] = directives
 
 
-@dataclass
-class ConditionalBody:
-    condition_node: AstExpr
-    condition_analysis: ConditionAnalysis
-    body: AstUnscopedBody
+class CalculateNodeDirectiveCounts(CompilePass):
 
-
-@dataclass
-class IfAnalysis:
-    conditional_bodies: list[ConditionalBody]
-
-
-class AnalyzeControlFlow(CompilePass):
     def visit_AstIf(self, parent, node: AstIf, state: CompileState):
+        count = 0
+        # count up number required to calculate condition
+        count += state.node_dir_counts[node.condition]
+        # include the if statement
+        count += 1
+        count += state.node_dir_counts[node.body]
+        count += state.node_dir_counts[node.elifs] if node.elifs is not None else 0
+        count += state.node_dir_counts[node.els] if node.els is not None else 0
 
-        # the bodies, before filtering for always true/false conditions
-        unfiltered_bodies: list[ConditionalBody] = []
-        # all conditionals should already be analyzed
-        unfiltered_bodies.append(
-            ConditionalBody(
-                node.condition, state.conditionals[node.condition], node.body
-            )
-        )
-        for elif_case in node.elifs.cases if node.elifs is not None else []:
-            condition_analysis = state.conditionals[elif_case.condition]
-            unfiltered_bodies.append(
-                ConditionalBody(elif_case.condition, condition_analysis, elif_case.body)
-            )
+        state.node_dir_counts[node] = count
 
-        # the bodies, after optimizing away always false, and not including
-        # anything after an always true cond
-        bodies: list[ConditionalBody] = []
-        for body in unfiltered_bodies:
-            # all conditionals should already be analyzed
-            if body.condition_analysis == ConditionAnalysis.Never:
-                # don't bother including this branch
-                continue
-            bodies.append(body)
-            if body.condition_analysis == ConditionAnalysis.Always:
-                # this one always happens, don't include anything after
-                break
+    def visit_AstElifs(self, parent, node: AstElifs, state: CompileState):
+        count = 0
+        for case in node.cases:
+            count += state.node_dir_counts[case]
 
-        # okay, now we know which ones will/won't happen for sure
-        # generate code
-        state.prerequisite_nodes[node] = [body.condition_node for body in bodies]
-        state.generated_directives[node] = [IfAnalysis(bodies)]
+        state.node_dir_counts[node] = count
 
-    def visit_AstUnscopedBody(self, parent, node: AstUnscopedBody, state: CompileState):
-        # descend the tree of prerequisites
-        # add all generated nodes to list
+    def visit_AstElif(self, parent, node: AstElif, state: CompileState):
+        count = 0
+        # include the condition
+        count += state.node_dir_counts[node.condition]
+        # include the if statement
+        count += 1
+        count += state.node_dir_counts[node.body]
 
-        def get_dirs(n: Ast) -> list[Union[Directive | IfAnalysis]]:
-            prereq_directives = []
-            for prereq in state.prerequisite_nodes.get(n, []):
-                prereq_directives.extend(get_dirs(prereq))
+    def visit_AstExpr(self, parent, node: AstExpr, state: CompileState):
+        state.node_dir_counts[node] = len(state.expr_to_register_instructions[node])
 
-            return prereq_directives + state.generated_directives.get(n, [])
+    def visit_AstBody(
+        self, parent, node: AstUnscopedBody | AstScopedBody, state: CompileState
+    ):
+        count = 0
+        for stmt in node.stmts:
+            count += state.node_dir_counts[stmt]
 
-        state.prerequisite_nodes[node] = node.stmts
-        state.body_directives[node] = get_dirs(node)
+        state.node_dir_counts[node] = count
 
-    def visit_AstScopedBody(self, parent, node: AstScopedBody, state: CompileState):
-        # unscoped and scoped are handled the same way
-        self.visit_AstUnscopedBody(parent, node, state)
+    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
+        state.node_dir_counts[node] = 1 if node in state.cmd_directives else 0
+
+    def visit_default(self, parent, node, state):
+        state.node_dir_counts[node] = 0
 
 
 def linearize_directives(
@@ -1140,10 +1129,10 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         CalculateExprValues(),
         CheckVariableValues(),
         AssignExprRegisters(),
+        CreateConstantCommands(),
         PutConstExprsInRegisters(),
         PutNonConstExprsInRegisters(),
-        # CheckConditionals(),
-        # AnalyzeControlFlow(),
+        CalculateNodeDirectiveCounts(),
     ]
     for compile_pass in passes:
         compile_pass.run(body, state)
