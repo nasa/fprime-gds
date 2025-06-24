@@ -198,3 +198,30 @@ if Ref.cmdDisp.CommandsDispatched > 1:
 """
 
     assert_success(fprime_test_api, seq)
+
+
+def test_large_elifs(fprime_test_api):
+    seq = """
+if Ref.cmdDisp.CommandsDispatched == 0:
+    Ref.cmdDisp.CMD_NO_OP_STRING("0")
+elif Ref.cmdDisp.CommandsDispatched == 1:
+    Ref.cmdDisp.CMD_NO_OP_STRING("1")
+elif Ref.cmdDisp.CommandsDispatched == 2:
+    Ref.cmdDisp.CMD_NO_OP_STRING("2")
+elif Ref.cmdDisp.CommandsDispatched == 3:
+    Ref.cmdDisp.CMD_NO_OP_STRING("3")
+elif Ref.cmdDisp.CommandsDispatched == 4:
+    Ref.cmdDisp.CMD_NO_OP_STRING("4")
+elif Ref.cmdDisp.CommandsDispatched == 5:
+    Ref.cmdDisp.CMD_NO_OP_STRING("5")
+elif Ref.cmdDisp.CommandsDispatched == 6:
+    Ref.cmdDisp.CMD_NO_OP_STRING("6")
+elif Ref.cmdDisp.CommandsDispatched == 7:
+    Ref.cmdDisp.CMD_NO_OP_STRING("7")
+elif Ref.cmdDisp.CommandsDispatched == 8:
+    Ref.cmdDisp.CMD_NO_OP_STRING("8")
+else:
+    Ref.cmdDisp.CMD_NO_OP_STRING(">8")
+"""
+
+    assert_success(fprime_test_api, seq)

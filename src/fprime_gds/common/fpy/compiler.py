@@ -68,6 +68,7 @@ from fprime_gds.common.fpy.parser import (
     AstElif,
     AstElifs,
     AstExpr,
+    AstGetAttr,
     AstNot,
     AstNumber,
     AstOr,
@@ -174,6 +175,13 @@ class FpyOperator(FpyCallable):
     directive: type[Directive]
 
 
+@dataclass
+class FieldReference:
+    ref: "FpyReference"
+    type: FppTypeClass
+    offset: int
+
+
 # named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
 @dataclass
 class FpyVariable:
@@ -185,7 +193,13 @@ class FpyVariable:
 
 
 FpyReference = (
-    ChTemplate | PrmTemplate | FppType | FpyCallable | FppTypeClass | FpyVariable
+    ChTemplate
+    | PrmTemplate
+    | FppType
+    | FpyCallable
+    | FppTypeClass
+    | FpyVariable
+    | FieldReference
 )
 
 
@@ -384,21 +398,54 @@ class CreateVariables(CompilePass):
 
 class ResolveReferencesByName(CompilePass):
 
+    def visit_AstGetAttr(self, parent, node: AstGetAttr, state: CompileState):
+        
+
+    def get_fields(self, ref: FpyReference) -> dict[str, FieldReference]:
+
+        base_type = None
+        if isinstance(ref, ChTemplate):
+            base_type = ref.ch_type_obj
+        elif isinstance(ref, PrmTemplate):
+            base_type = ref.prm_type_obj
+        elif isinstance(ref, FppType):
+            base_type = type(ref)
+        elif isinstance(ref, FppTypeClass):
+            base_type = NothingType
+        elif isinstance(ref, FpyVariable):
+            base_type = ref.type
+        elif isinstance(ref, FieldReference):
+            base_type = ref.type
+        else:
+            assert False, ref
+
+        if base_type is None:
+            return {}
+
+        
+
+
+
+    def lookup_global(self, name: str, node: Ast, state: CompileState) -> list[FpyReference]:
+        tlm = state.tlms.get(name, None)
+        prm = state.prms.get(name, None)
+        const = state.global_consts.get(name, None)
+        type = state.types.get(name, None)
+        callable = state.callables.get(name, None)
+        var = state.lookup_variable(name, node)
+
+        possible_resolutions = [tlm, prm, const, type, var, callable]
+
+        possible_resolutions = [ref for ref in possible_resolutions if ref is not None]
+
+        return possible_resolutions
+
     # think about mapping parent node type to which maps to look into
     # could more precisely define what refs are valid in which situation
     def visit_AstReference(self, parent, node: AstReference, state: CompileState):
         fqn = ".".join(name.value for name in node.names)
 
-        tlm = state.tlms.get(fqn, None)
-        prm = state.prms.get(fqn, None)
-        const = state.global_consts.get(fqn, None)
-        type = state.types.get(fqn, None)
-        callable = state.callables.get(fqn, None)
-        var = state.lookup_variable(fqn, node)
-
-        possible_resolutions = [tlm, prm, const, type, var, callable]
-
-        possible_resolutions = [ref for ref in possible_resolutions if ref is not None]
+        possible_resolutions = self.lookup_global(fqn, node, state)
 
         if node in state.overloaded_references:
             # already resolved previously
@@ -408,6 +455,18 @@ class ResolveReferencesByName(CompilePass):
             ), state.overloaded_references[node]
             # okay all good, same resolution
             return
+
+
+        if len(possible_resolutions) == 0 and len(node.names) > 1:
+            # try resolving as a field reference
+            receiver_fqn = ".".join(name.value for name in node.names[:-1])
+            receiver_resolutions = self.lookup_global(receiver_fqn, node, state)
+            if len(receiver_resolutions) != 0:
+                # the receiver is a reference to something
+                # get a list of valid fields
+                field_name = node.names[-1].value
+                fields = self.get_fields()
+
 
         if len(possible_resolutions) == 0:
             state.errors.append(CompileException(f"Unknown reference {fqn}", node))

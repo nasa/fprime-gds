@@ -3,7 +3,8 @@
 input: (_NEWLINE | _stmt)*
 
 _literal: number | string | boolean
-reference: name ("." name)*
+?getattr: [getattr "."] name
+_reference: getattr
 
 _stmt: _small_stmt _NEWLINE | _compound_stmt
 _small_stmt: (func_call | assign | pass_stmt )
@@ -15,7 +16,7 @@ pass_stmt: "pass"
 # assignment
 
 # can currently only assign constant values to vars
-assign: name [":" reference] "=" _expr
+assign: name [":" _reference] "=" _expr
 
 
 
@@ -42,12 +43,12 @@ comp_op: COMPARISON_OP
 
 # function calling
 
-func_call: reference "(" [arguments] ")"
+func_call: _reference "(" [arguments] ")"
 arguments: _expr ("," _expr)*
 
 _atom: func_call
      | _literal
-     | reference
+     | _reference
      | "(" _expr ")"
 
 # not used in grammar, but may appear in "node" passed from Parser to Compiler

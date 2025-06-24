@@ -75,9 +75,12 @@ AstLiteral = AstString | AstNumber | AstBoolean
 
 
 @dataclass
-class AstReference(Ast):
-    names: list[AstName]
+class AstGetAttr(Ast):
+    parent: "AstGetAttr"
+    attr: AstName
 
+
+AstReference = AstGetAttr | AstName
 
 
 @dataclass
@@ -124,14 +127,10 @@ class AstAnd(Ast):
 class AstOr(Ast):
     values: list["AstExpr"]
 
-AstTest = AstOr|AstAnd|AstNot|AstComparison
 
-AstExpr = Union[
-    AstFuncCall,
-    AstLiteral,
-    AstReference,
-    AstTest
-]
+AstTest = AstOr | AstAnd | AstNot | AstComparison
+
+AstExpr = Union[AstFuncCall, AstLiteral, AstReference, AstTest]
 
 AstStmt = Union[AstFuncCall, AstAssign, AstPass, "AstIf"]
 
