@@ -79,15 +79,6 @@ class AstReference(Ast):
     names: list[AstName]
 
 
-AstExpr = Union[
-    "AstFuncCall",
-    AstLiteral,
-    AstReference,
-    "AstOr",
-    "AstAnd",
-    "AstNot",
-    "AstComparison",
-]
 
 @dataclass
 class AstInfixOp(Ast):
@@ -97,14 +88,14 @@ class AstInfixOp(Ast):
 @dataclass
 class AstFuncCall(Ast):
     func: AstReference
-    args: list[AstExpr]
+    args: list["AstExpr"]
 
 
 @dataclass()
 class AstAssign(Ast):
     variable: AstName
     var_type: AstReference | None
-    value: AstExpr
+    value: "AstExpr"
 
 
 @dataclass()
@@ -114,27 +105,33 @@ class AstPass(Ast):
 
 @dataclass
 class AstComparison(Ast):
-    lhs: AstExpr
+    lhs: "AstExpr"
     op: AstInfixOp
-    rhs: AstExpr
+    rhs: "AstExpr"
 
 
 @dataclass
 class AstNot(Ast):
-    value: AstExpr
+    value: "AstExpr"
 
 
 @dataclass
 class AstAnd(Ast):
-    values: list[AstExpr]
+    values: list["AstExpr"]
 
 
 @dataclass
 class AstOr(Ast):
-    values: list[AstExpr]
+    values: list["AstExpr"]
 
 AstTest = AstOr|AstAnd|AstNot|AstComparison
 
+AstExpr = Union[
+    AstFuncCall,
+    AstLiteral,
+    AstReference,
+    AstTest
+]
 
 AstStmt = Union[AstFuncCall, AstAssign, AstPass, "AstIf"]
 
