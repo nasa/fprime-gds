@@ -26,12 +26,22 @@ var: U32 = 1
 
     assert_success(fprime_test_api, seq)
 
+
 def test_large_var(fprime_test_api):
     seq = """
 var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 """
 
     assert_success(fprime_test_api, seq)
+
+
+def test_var_wrong_rhs(fprime_test_api):
+    seq = """
+x: U32 = 1
+var: U32 = x
+"""
+
+    assert_failure(fprime_test_api, seq)
 
 
 def test_nonexistent_var(fprime_test_api):
@@ -61,7 +71,7 @@ var: asdfasdfasdf = 1
 
 def test_weird_assign_type(fprime_test_api):
     seq = """
-var: U32.asdf = 1
+var: Ref.cmdDisp.CMD_NO_OP = 1
 """
 
     assert_failure(fprime_test_api, seq)

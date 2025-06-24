@@ -719,7 +719,11 @@ class CheckVariableValues(CompilePass):
             return
 
         if value.getMaxSize() > MAX_SERIALIZABLE_REGISTER_SIZE:
-            state.errors.append(CompileException(f"{existing_var.type} is too big to fit in a variable", node))
+            state.errors.append(
+                CompileException(
+                    f"{existing_var.type} is too big to fit in a variable", node
+                )
+            )
             return
 
         sreg_idx = existing_var.sreg_idx
@@ -973,13 +977,13 @@ class CountDirectives(CompilePass):
         state.node_dir_counts[node] = count
 
     def visit_AstElif(self, parent, node: AstElif, state: CompileState):
-        count = []
+        count = 0
         # include the condition
-        count += state.directives[node.condition]
+        count += state.node_dir_counts[node.condition]
         # include if stmt
         count += 1
         # include body
-        count += state.directives[node.body]
+        count += state.node_dir_counts[node.body]
         # include a goto end of if
         count += 1
 
@@ -1053,53 +1057,47 @@ class CollectDirectives(CompilePass):
 
     def visit_AstIf(self, parent, node: AstIf, state: CompileState):
         start_line_idx = state.start_line_idx[node]
-        dirs = []
-        # include the condition
-        dirs.extend(state.directives[node.condition])
-        # include if stmt (update the end idx later)
-        if_dir = IfDirective(state.expr_registers[node.condition], -1)
-        dirs.append(if_dir)
-        # include body
-        dirs.extend(state.directives[node.body])
-        if_dir.false_goto_stmt_index = start_line_idx + len(dirs)
-        # include a temporary goto end of if, will be refined later
-        goto_dir = GotoDirective(-1)
-        dirs.append(goto_dir)
+
+        all_dirs = []
+
+        cases: list[tuple[AstExpr, AstUnscopedBody]] = []
+        goto_ends: list[GotoDirective] = []
+
+        cases.append((node.condition, node.body))
 
         if node.elifs is not None:
-            dirs.extend(state.directives[node.elifs])
+            for case in node.elifs.cases:
+                cases.append((case.condition, case.body))
+
+        for case in cases:
+            case_dirs = []
+            # include the condition
+            case_dirs.extend(state.directives[case[0]])
+            # include if stmt (update the end idx later)
+            if_dir = IfDirective(state.expr_registers[case[0]], -1)
+
+            case_dirs.append(if_dir)
+            # include body
+            case_dirs.extend(state.directives[case[1]])
+            # include a temporary goto end of if, will be refined later
+            goto_dir = GotoDirective(-1)
+            case_dirs.append(goto_dir)
+            goto_ends.append(goto_dir)
+
+            # if false, skip the body and goto
+            if_dir.false_goto_stmt_index = (
+                start_line_idx + len(all_dirs) + len(case_dirs)
+            )
+
+            all_dirs.extend(case_dirs)
+
         if node.els is not None:
-            dirs.extend(state.directives[node.els])
+            all_dirs.extend(state.directives[node.els])
 
-        goto_dir.statement_index = start_line_idx + len(dirs)
+        for goto in goto_ends:
+            goto.statement_index = start_line_idx + len(all_dirs)
 
-        state.directives[node] = dirs
-
-    def visit_AstElifs(self, parent, node: AstElifs, state: CompileState):
-        dirs = []
-        for case in node.cases:
-            dirs.extend(state.directives[case])
-
-        state.directives[node] = dirs
-
-    def visit_AstElif(self, parent, node: AstElif, state: CompileState):
-        start_line_idx = state.start_line_idx[node]
-        dirs = []
-        # include the condition
-        dirs.extend(state.directives[node.condition])
-        # include if stmt (update the end idx later)
-        if_dir = IfDirective(state.expr_registers[node.condition], -1)
-        dirs.append(if_dir)
-        # include body
-        dirs.extend(state.directives[node.body])
-        if_dir.false_goto_stmt_index = start_line_idx + len(dirs)
-        # include a temporary goto end of if, will be refined later
-        goto_dir = GotoDirective(-1)
-        dirs.append(goto_dir)
-
-        goto_dir.statement_index = start_line_idx + len(dirs)
-
-        state.directives[node] = dirs
+        state.directives[node] = all_dirs
 
     def visit_AstBody(
         self, parent, node: AstUnscopedBody | AstScopedBody, state: CompileState
@@ -1111,7 +1109,6 @@ class CollectDirectives(CompilePass):
                 dirs.extend(stmt_dirs)
 
         state.directives[node] = dirs
-
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -1227,12 +1224,13 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         for error in state.errors:
             raise error
 
-    print("\n".join(str(s) for s in state.directives[body]))
+    print(
+        "\n".join(
+            str(idx) + ": " + str(s) for idx, s in enumerate(state.directives[body])
+        )
+    )
 
-    # dirs = linearize_directives(0, body, state)
-
-    # pprint(dirs)
-    # return dirs
+    return state.directives[body]
 
 
 def main():
