@@ -467,7 +467,7 @@ class ResolveReferencesByName(CompilePass):
             assert var_type is not None
             var.type = var_type
 
-    def visit_AstReference(self, parent, node: AstReference, state: CompileState):
+    def visit_AstGetAttr(self, parent, node: AstGetAttr, state: CompileState):
         qualifier_node = node.parent
         resolved = None
         if qualifier_node is None:
@@ -475,9 +475,19 @@ class ResolveReferencesByName(CompilePass):
             resolved = state.ns.get(node.attr.value, [])
         else:
             qualifier = state.resolved_references[node.parent]
-            # qualifier must be a ns
-            assert isinstance(qualifier, dict)
-            resolved = qualifier.get(node.attr.value, [])
+            if isinstance(qualifier, dict):
+                resolved = qualifier.get(node.attr.value, [])
+            else:
+                fields = self.get_fields(node.parent, qualifier)
+                if isinstance(fields, CompileException):
+                    state.errors.append(fields)
+                    return
+                field = fields.get(node.attr.value, None)
+                if field is not None:
+                    resolved = [field]
+                else:
+                    resolved = []
+
 
         type_hint = state.reference_resolution_hints.get(node, None)
         if type_hint is not None:
@@ -493,7 +503,22 @@ class ResolveReferencesByName(CompilePass):
 
         state.resolved_references[node] = resolved[0]
 
-    def get_fields(self, ref: FpyReference) -> dict[str, FieldReference]:
+    def is_type_constant_size(self, type: FppTypeClass) -> bool:
+        if isinstance(type, StringType):
+            return False
+
+        if isinstance(type, ArrayType):
+            return self.is_type_constant_size(type.MEMBER_TYPE)
+
+        if isinstance(type, SerializableType):
+            for _, arg_type, _, _ in type.MEMBER_LIST:
+                if not self.is_type_constant_size(arg_type):
+                    return False
+            return True
+
+        return True
+
+    def get_fields(self, node: Ast, ref: FpyReference) -> dict[str, list[FieldReference]]|CompileException:
 
         base_type = None
         if isinstance(ref, ChTemplate):
@@ -511,8 +536,26 @@ class ResolveReferencesByName(CompilePass):
         else:
             assert False, ref
 
-        if base_type is None:
+        if base_type is None or base_type == NothingType:
             return {}
+
+        if not self.is_type_constant_size(base_type):
+            return CompileException(f"{base_type} has non-constant sized members", node)
+
+        fields = {}
+        if isinstance(base_type, SerializableType):
+            offset = 0
+            for arg_name, arg_type, _, _ in base_type.MEMBER_LIST:
+                fields[arg_name] = [FieldReference(ref, arg_type, offset)]
+                offset += arg_type.getMaxSize()
+
+        elif isinstance(base_type, ArrayType):
+            offset = 0
+            for i in range(0, base_type.LENGTH):
+                fields[f"[{i}]"] = [FieldReference(ref, base_type.MEMBER_TYPE, offset)]
+                offset += base_type.MEMBER_TYPE.getMaxSize()
+
+        return fields
 
 
 
@@ -533,7 +576,7 @@ class CalculateExprTypes(CompilePass):
     def visit_AstBoolean(self, parent, node: AstBoolean, state: CompileState):
         state.expr_types[node] = BoolType
 
-    def visit_AstReference(self, parent, node: AstReference, state: CompileState):
+    def visit_AstGetAttr(self, parent, node: AstGetAttr, state: CompileState):
         ref = state.resolved_references[node]
 
         if isinstance(ref, ChTemplate):
@@ -554,6 +597,9 @@ class CalculateExprTypes(CompilePass):
             # a reference to a type doesn't have a value, and so doesn't have a type,
             # in and of itself. if this were a function call to the type's ctor then
             # it would have a value and thus a type
+            result_type = NothingType
+        elif isinstance(ref, dict):
+            # reference to a namespace. namespaces don't have values
             result_type = NothingType
         else:
             assert False, ref
@@ -677,7 +723,7 @@ class CalculateExprValues(CompilePass):
     def visit_AstLiteral(self, parent, node: AstLiteral, state: CompileState):
         state.expr_values[node] = state.expr_types[node](node.value)
 
-    def visit_AstReference(self, parent, node: AstReference, state: CompileState):
+    def visit_AstGetAttr(self, parent, node: AstGetAttr, state: CompileState):
         ref = state.resolved_references[node]
 
         if isinstance(ref, (ChTemplate, PrmTemplate, FpyVariable)):
@@ -694,6 +740,9 @@ class CalculateExprValues(CompilePass):
             # a reference to a type doesn't have a value, and so doesn't have a type,
             # in and of itself. if this were a function call to the type's ctor then
             # it would have a value
+            expr_value = NothingType()
+        elif isinstance(ref, dict):
+            # a ref to a namespace doesn't have a value
             expr_value = NothingType()
         else:
             assert False, ref

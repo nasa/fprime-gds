@@ -3,8 +3,6 @@
 input: (_NEWLINE | _stmt)*
 
 _literal: number | string | boolean
-?getattr: [getattr "."] name
-_reference: getattr
 
 _stmt: _small_stmt _NEWLINE | _compound_stmt
 _small_stmt: (func_call | assign | pass_stmt )
@@ -16,7 +14,7 @@ pass_stmt: "pass"
 # assignment
 
 # can currently only assign constant values to vars
-assign: name [":" _reference] "=" _expr
+assign: _expr [":" _expr] "=" _expr
 
 
 
@@ -35,25 +33,26 @@ _test: or_test
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
           | comparison
-          | _atom
-comparison: _atom comp_op _atom
+          | atom_expr
+comparison: atom_expr comp_op atom_expr
 comp_op: COMPARISON_OP
 
-
-
-# function calling
-
-func_call: _reference "(" [arguments] ")"
 arguments: _expr ("," _expr)*
 
-_atom: func_call
+?atom_expr: atom_expr "(" [arguments] ")" -> func_call
+          | atom_expr "[" integer "]" -> get_item
+          | atom_expr "." name -> get_attr
+          | atom
+
+?atom: func_call
      | _literal
-     | _reference
+     | name -> var
      | "(" _expr ")"
 
 # not used in grammar, but may appear in "node" passed from Parser to Compiler
 encoding_decl: name
 
+integer: DEC_NUMBER | HEX_NUMBER | BIN_NUMBER | OCT_NUMBER
 number: DEC_NUMBER | HEX_NUMBER | BIN_NUMBER | OCT_NUMBER | FLOAT_NUMBER | IMAG_NUMBER
 string: STRING
 boolean: CONST_FALSE | CONST_TRUE
