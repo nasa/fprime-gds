@@ -215,6 +215,7 @@ class FpyTransformer(Transformer):
     number = AstNumber
     boolean = AstBoolean
     name = AstName
+    getattr = AstGetAttr
 
     NAME = str
     DEC_NUMBER = int

@@ -192,6 +192,52 @@ class FpyVariable:
     """the index of the sreg it is stored in"""
 
 
+FpyNamespace = dict[str, list["FpyReference"]]
+
+
+def create_namespaces(references: dict[str, "FpyReference"]) -> FpyNamespace:
+
+    base: FpyNamespace = {}
+
+    for fqn, ref in references.items():
+        names_strs = fqn.split(".")
+
+        ns = base
+        while len(names_strs) > 1:
+            existing_children = ns.get(names_strs[0], None)
+            if existing_children is None:
+                existing_children = []
+                ns[names_strs[0]] = existing_children
+
+            found_ns = False
+            for child in existing_children:
+                if isinstance(child, dict):
+                    # found a namespace
+                    ns = child
+                    names_strs = names_strs[1:]
+                    found_ns = True
+                    break
+
+            if found_ns:
+                continue
+
+            # did not find an existing namespace
+            new_ns = {}
+            existing_children.append(new_ns)
+            ns = new_ns
+            names_strs = names_strs[1:]
+
+        # only one name left
+
+        # is there a list entry in the ns for this name
+        if names_strs[0] not in ns:
+            ns[names_strs[0]] = []
+
+        ns[names_strs[0]].append(ref)
+
+    return ns
+
+
 FpyReference = (
     ChTemplate
     | PrmTemplate
@@ -200,17 +246,13 @@ FpyReference = (
     | FppTypeClass
     | FpyVariable
     | FieldReference
+    | FpyNamespace
 )
 
 
 @dataclass
 class CompileState:
-    tlms: dict[str, ChTemplate] = field(repr=False, default_factory=dict)
-    prms: dict[str, PrmTemplate] = field(repr=False, default_factory=dict)
-    global_consts: dict[str, FppType] = field(repr=False, default_factory=dict)
-    types: dict[str, FppTypeClass] = field(repr=False, default_factory=dict)
-    callables: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
-    infix_operators: dict[str, FpyCallable] = field(repr=False, default_factory=dict)
+    ns: FpyNamespace
 
     parent_scope: dict[Ast, AstScopedBody | None] = field(
         repr=False, default_factory=dict
@@ -221,6 +263,10 @@ class CompileState:
         repr=False, default_factory=dict
     )
     """a table containing all variables defined in a scope, for each scopedbody"""
+
+    reference_resolution_hints: dict[AstReference, type[FpyReference]] = field(
+        default_factory=dict, repr=False
+    )
 
     overloaded_references: dict[AstReference, list[FpyReference]] = field(
         default_factory=dict, repr=False
@@ -396,10 +442,56 @@ class CreateVariables(CompilePass):
             return
 
 
+class AssignReferenceResolutionHints(CompilePass):
+    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
+        # interpret the function reference as an fpy callable
+        state.reference_resolution_hints[node.func] = FpyCallable
+
+    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
+        # interpret the type reference as an fprime type
+        if node.var_type is not None:
+            state.reference_resolution_hints[node.var_type] = type
+
+
 class ResolveReferencesByName(CompilePass):
 
-    def visit_AstGetAttr(self, parent, node: AstGetAttr, state: CompileState):
-        
+    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
+        # also lookup variable types
+
+        var = state.lookup_variable(node.variable.value, node)
+
+        assert var is not None
+
+        if node.var_type is not None:
+            var_type = state.resolved_references[node.var_type]
+            assert var_type is not None
+            var.type = var_type
+
+    def visit_AstReference(self, parent, node: AstReference, state: CompileState):
+        qualifier_node = node.parent
+        resolved = None
+        if qualifier_node is None:
+            # looking up unqualified
+            resolved = state.ns.get(node.attr.value, [])
+        else:
+            qualifier = state.resolved_references[node.parent]
+            # qualifier must be a ns
+            assert isinstance(qualifier, dict)
+            resolved = qualifier.get(node.attr.value, [])
+
+        type_hint = state.reference_resolution_hints.get(node, None)
+        if type_hint is not None:
+            # interpret as type_hint
+            resolved = [r for r in resolved if isinstance(r, type_hint)]
+
+        if len(resolved) == 0:
+            state.errors.append(CompileException(f"Unknown reference", node))
+            return
+        if len(resolved) > 1:
+            state.errors.append(CompileException(f"Ambiguous reference: {resolved}", node))
+            return
+
+        state.resolved_references[node] = resolved[0]
 
     def get_fields(self, ref: FpyReference) -> dict[str, FieldReference]:
 
@@ -422,99 +514,6 @@ class ResolveReferencesByName(CompilePass):
         if base_type is None:
             return {}
 
-        
-
-
-
-    def lookup_global(self, name: str, node: Ast, state: CompileState) -> list[FpyReference]:
-        tlm = state.tlms.get(name, None)
-        prm = state.prms.get(name, None)
-        const = state.global_consts.get(name, None)
-        type = state.types.get(name, None)
-        callable = state.callables.get(name, None)
-        var = state.lookup_variable(name, node)
-
-        possible_resolutions = [tlm, prm, const, type, var, callable]
-
-        possible_resolutions = [ref for ref in possible_resolutions if ref is not None]
-
-        return possible_resolutions
-
-    # think about mapping parent node type to which maps to look into
-    # could more precisely define what refs are valid in which situation
-    def visit_AstReference(self, parent, node: AstReference, state: CompileState):
-        fqn = ".".join(name.value for name in node.names)
-
-        possible_resolutions = self.lookup_global(fqn, node, state)
-
-        if node in state.overloaded_references:
-            # already resolved previously
-            # make sure we're resolving it the same way now
-            assert (
-                state.overloaded_references[node] == possible_resolutions
-            ), state.overloaded_references[node]
-            # okay all good, same resolution
-            return
-
-
-        if len(possible_resolutions) == 0 and len(node.names) > 1:
-            # try resolving as a field reference
-            receiver_fqn = ".".join(name.value for name in node.names[:-1])
-            receiver_resolutions = self.lookup_global(receiver_fqn, node, state)
-            if len(receiver_resolutions) != 0:
-                # the receiver is a reference to something
-                # get a list of valid fields
-                field_name = node.names[-1].value
-                fields = self.get_fields()
-
-
-        if len(possible_resolutions) == 0:
-            state.errors.append(CompileException(f"Unknown reference {fqn}", node))
-            return
-
-        state.overloaded_references[node] = possible_resolutions
-
-        # if it's definitely only referring to one thing, save it
-        if len(possible_resolutions) == 1:
-            state.resolved_references[node] = possible_resolutions[0]
-
-    def visit_AstFuncCall(self, parent, node: AstFuncCall, state: CompileState):
-        func = self.interpret_ref_as(node.func, FpyCallable, state)
-        if func is None:
-            state.errors.append(CompileException(f"{node.func} is not a function"))
-
-    def visit_AstAssign(self, parent, node: AstAssign, state: CompileState):
-
-        var = state.lookup_variable(node.variable.value, node)
-
-        assert var is not None
-
-        if node.var_type is not None:
-            var_type = self.interpret_ref_as(node.var_type, type, state)
-            if var_type is None:
-                state.errors.append(CompileException(f"{node.var_type} is not a type"))
-            var.type = var_type
-
-    T = TypeVar("T")
-
-    def interpret_ref_as(
-        self, ref: AstReference, ref_type: type[T], state: CompileState
-    ) -> T | None:
-        resolved_reference = state.resolved_references.get(ref, None)
-        if resolved_reference is not None:
-            # this reference has already been interpreted in a specific way
-            # shouldn't be interpreted in a diff way
-            assert isinstance(resolved_reference, ref_type)
-            return resolved_reference
-        refs = state.overloaded_references[ref]
-        refs = [r for r in refs if isinstance(r, ref_type)]
-        if len(refs) == 0:
-            return None
-        assert len(refs) == 1
-        resolved_reference = refs[0]
-        # make this the canonical interpretation of this reference
-        state.resolved_references[ref] = resolved_reference
-        return resolved_reference
 
 
 class CalculateExprTypes(CompilePass):
@@ -1237,13 +1236,17 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
         callable_name_dict[name] = FpyTypeCtor(typ, args, typ)
 
+    combined_dict = {}
+    combined_dict.update(ch_name_dict)
+    combined_dict.update(prm_name_dict)
+    combined_dict.update(enum_consts)
+    combined_dict.update(type_name_dict)
+    combined_dict.update(callable_name_dict)
+    combined_dict.update(infix_callable_name_dict)
+    ns = create_namespaces(combined_dict)
+
     state = CompileState(
-        tlms=ch_name_dict,
-        prms=prm_name_dict,
-        global_consts=enum_consts,
-        callables=callable_name_dict,
-        types=type_name_dict,
-        infix_operators=infix_callable_name_dict,
+        ns
     )
     return state
 
