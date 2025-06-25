@@ -73,7 +73,7 @@ class EventDecoder(decoder.Decoder):
                 self.id_obj.deserialize(data, ptr)
             else:
                 LOGGER.warning("Insufficient data for event ID")
-            break
+                break
             ptr += self.id_obj.getSize()
             event_id = self.id_obj.val
 

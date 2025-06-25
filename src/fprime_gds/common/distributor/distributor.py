@@ -202,11 +202,9 @@ class Distributor(DataHandler):
             for d in self.__decoders[data_desc_key]:
                 try:
                     d.data_callback(msg)
+                except DecodingException as dexc:
+                    LOGGER.warning("Decoding error: %s", dexc)
                 except Exception as exc:
-                    if isinstance(exc, DecodingException):
-                        LOGGER.warning("Decoding error: %s", exc)
-                    else:
-                        from fprime_gds.common.decoders.decoder import DecodingException
-                        LOGGER.warning("Parsing error: %s", exc)
+                    LOGGER.warning("Parsing error: %s", exc)
             else:
                 LOGGER.warning("No decoder registered for: %s", data_desc_type.DataDescType(data_desc).name)
