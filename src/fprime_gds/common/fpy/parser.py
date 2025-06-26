@@ -51,9 +51,9 @@ class Ast:
         return f"{self.__class__.__name__}({self.node_text})"
 
 
-@dataclass()
-class AstName(Ast):
-    value: str
+@dataclass
+class AstVar(Ast):
+    var: str
 
 
 @dataclass()
@@ -76,29 +76,25 @@ AstLiteral = AstString | AstNumber | AstBoolean
 
 @dataclass
 class AstGetAttr(Ast):
-    parent: "AstGetAttr"
-    attr: AstName
+    parent: "AstExpr"
+    attr: str
 
 
-AstReference = AstGetAttr | AstName
+@dataclass
+class AstGetItem(Ast):
+    parent: "AstExpr"
+    item: AstNumber
+
+
+@dataclass
+class AstFuncCall(Ast):
+    func: "AstExpr"
+    args: list["AstExpr"] | None
 
 
 @dataclass
 class AstInfixOp(Ast):
     value: str
-
-
-@dataclass
-class AstFuncCall(Ast):
-    func: AstReference
-    args: list["AstExpr"]
-
-
-@dataclass()
-class AstAssign(Ast):
-    variable: AstName
-    var_type: AstReference | None
-    value: "AstExpr"
 
 
 @dataclass()
@@ -130,25 +126,23 @@ class AstOr(Ast):
 
 AstTest = AstOr | AstAnd | AstNot | AstComparison
 
-AstExpr = Union[AstFuncCall, AstLiteral, AstReference, AstTest]
 
-AstStmt = Union[AstFuncCall, AstAssign, AstPass, "AstIf"]
-
-
-@dataclass
-class AstUnscopedBody(Ast):
-    stmts: list[AstStmt]
+AstExpr = Union[AstGetAttr, AstGetItem, AstFuncCall, AstTest, AstLiteral, AstVar]
+AstAtomExpr = AstExpr
+AstAtom = AstExpr
 
 
 @dataclass
-class AstScopedBody(Ast):
-    stmts: list[AstStmt]
+class AstAssign(Ast):
+    variable: AstExpr
+    var_type: AstExpr | None
+    value: AstExpr
 
 
 @dataclass
 class AstElif(Ast):
     condition: AstExpr
-    body: AstUnscopedBody
+    body: "AstBody"
 
 
 @dataclass
@@ -159,14 +153,22 @@ class AstElifs(Ast):
 @dataclass()
 class AstIf(Ast):
     condition: AstExpr
-    body: AstUnscopedBody
+    body: "AstBody"
     elifs: AstElifs | None
-    els: AstUnscopedBody | None
+    els: Union["AstBody", None]
+
+
+AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf]
+
+
+@dataclass
+class AstBody(Ast):
+    stmts: list[AstStmt]
 
 
 for cls in Ast.__subclasses__():
     cls.__hash__ = Ast.__hash__
-    cls.__repr__ = Ast.__repr__
+    # cls.__repr__ = Ast.__repr__
 
 
 @v_args(meta=False, inline=False)
@@ -190,18 +192,25 @@ def no_inline(type):
     return wrapper
 
 
+def no_meta(type):
+    @v_args(meta=False, inline=True)
+    def wrapper(self, tree):
+        return type(tree)
+
+    return wrapper
+
+
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
-    input = no_inline(AstScopedBody)
+    input = no_inline(AstBody)
     pass_stmt = AstPass
 
-    reference = no_inline(AstReference)
     assign = AstAssign
 
     if_stmt = AstIf
     elifs = no_inline(AstElifs)
     elif_ = AstElif
-    body = no_inline(AstUnscopedBody)
+    body = no_inline(AstBody)
     or_test = no_inline(AstOr)
     and_test = no_inline(AstAnd)
     not_test = AstNot
@@ -214,8 +223,10 @@ class FpyTransformer(Transformer):
     string = AstString
     number = AstNumber
     boolean = AstBoolean
-    name = AstName
-    getattr = AstGetAttr
+    name = no_meta(str)
+    get_attr = AstGetAttr
+    get_item = AstGetItem
+    var = AstVar
 
     NAME = str
     DEC_NUMBER = int
