@@ -15,7 +15,7 @@ _expr_stmt: _expr
 # assignment
 
 # can currently only assign constant values to vars
-assign: var [":" _reference] "=" (_reference | _literal)
+assign: var [":" _reference] "=" _expr
 
 
 
@@ -34,16 +34,16 @@ _test: or_test
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
           | comparison
-          | atom_expr
-comparison: atom_expr comp_op atom_expr
+          | atom
+comparison: atom comp_op atom
 comp_op: COMPARISON_OP
 
 arguments: _expr ("," _expr)*
 
-?atom_expr: _reference "(" [arguments] ")" -> func_call
-          | _reference
-          | _literal
-          | "(" _expr ")"
+?atom: _reference "(" [arguments] ")" -> func_call
+     | _reference
+     | _literal
+     | "(" _expr ")"
 
 get_item: _reference "[" number "]"
 get_attr: _reference "." name

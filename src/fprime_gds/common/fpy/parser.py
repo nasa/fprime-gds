@@ -76,19 +76,19 @@ AstLiteral = AstString | AstNumber | AstBoolean
 
 @dataclass
 class AstGetAttr(Ast):
-    parent: "AstExpr"
+    parent: "AstReference"
     attr: str
 
 
 @dataclass
 class AstGetItem(Ast):
-    parent: "AstExpr"
+    parent: "AstReference"
     item: AstNumber
 
 
 @dataclass
 class AstFuncCall(Ast):
-    func: "AstExpr"
+    func: "AstReference"
     args: list["AstExpr"] | None
 
 
@@ -127,15 +127,14 @@ class AstOr(Ast):
 AstTest = AstOr | AstAnd | AstNot | AstComparison
 
 
-AstExpr = Union[AstGetAttr, AstGetItem, AstFuncCall, AstTest, AstLiteral, AstVar]
-AstAtomExpr = AstExpr
-AstAtom = AstExpr
+AstReference = AstGetAttr | AstGetItem | AstVar
+AstExpr = Union[AstFuncCall, AstTest, AstLiteral, AstReference]
 
 
 @dataclass
 class AstAssign(Ast):
-    variable: AstExpr
-    var_type: AstExpr | None
+    variable: AstVar
+    var_type: AstReference | None
     value: AstExpr
 
 

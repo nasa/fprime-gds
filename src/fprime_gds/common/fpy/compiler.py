@@ -73,6 +73,7 @@ from fprime_gds.common.fpy.parser import (
     AstNot,
     AstNumber,
     AstOr,
+    AstReference,
     AstStmt,
     AstString,
     Ast,
@@ -253,9 +254,39 @@ FpyReference = (
     | FppTypeClass
     | FpyVariable
     | FieldReference
-    | FpyNamespace
+    | dict #FpyReference
 )
 
+
+def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
+    if isinstance(ref, ChTemplate):
+        result_type = ref.ch_type_obj
+    elif isinstance(ref, PrmTemplate):
+        result_type = ref.prm_type_obj
+    elif isinstance(ref, FppType):
+        # constant value
+        result_type = type(ref)
+    elif isinstance(ref, FpyCallable):
+        # a reference to a callable isn't a type in and of itself
+        # it has a return type but you have to call it (with an AstFuncCall)
+        # consider making a separate "reference" type
+        result_type = NothingType
+    elif isinstance(ref, FpyVariable):
+        result_type = ref.type
+    elif isinstance(ref, type):
+        # a reference to a type doesn't have a value, and so doesn't have a type,
+        # in and of itself. if this were a function call to the type's ctor then
+        # it would have a value and thus a type
+        result_type = NothingType
+    elif isinstance(ref, FieldReference):
+        result_type = ref.type
+    elif isinstance(ref, dict):
+        # reference to a namespace. namespaces don't have values
+        result_type = NothingType
+    else:
+        assert False, ref
+
+    return result_type
 
 @dataclass
 class CompileState:
@@ -266,20 +297,7 @@ class CompileState:
     consts: FpyNamespace
     variables: FpyNamespace = field(default_factory=dict)
 
-    expr_reference_hints: dict[AstExpr, type[FpyReference]] = field(
-        default_factory=dict, repr=False
-    )
-
-    expr_resolutions: dict[AstExpr, FpyReference] = field(
-        default_factory=dict, repr=False
-    )
-
-    overloaded_references: dict[AstExpr, list[FpyReference]] = field(
-        default_factory=dict, repr=False
-    )
-    """reference to its possible resolutions"""
-
-    resolved_references: dict[AstExpr, FpyReference] = field(
+    resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
     )
     """reference to its singular resolution"""
@@ -310,11 +328,11 @@ class CompileState:
 
     errors: list[CompileException] = field(default_factory=list)
 
-    def err(self, n, msg):
+    def err(self, msg, n):
         self.errors.append(CompileException(msg, n))
 
 
-class CompilePass:
+class Visitor:
 
     def _find_custom_visit_func(self, node: Ast):
         for name, func in inspect.getmembers(type(self), inspect.isfunction):
@@ -338,7 +356,7 @@ class CompilePass:
     def visit_default(self, node: Ast, state: CompileState):
         pass
 
-    def run(self, body: AstBody, state: CompileState):
+    def run(self, start: Ast, state: CompileState):
         def _descend(node: Ast):
             if not isinstance(node, Ast):
                 return
@@ -360,13 +378,13 @@ class CompilePass:
                 if len(state.errors) != 0:
                     break
 
-        _descend(body)
-        self._visit(body, state)
+        _descend(start)
+        self._visit(start, state)
 
 
-class TopDownCompilePass(CompilePass):
+class TopDownVisitor(Visitor):
 
-    def run(self, body: AstBody, state: CompileState):
+    def run(self, start: Ast, state: CompileState):
         def _descend(node: Ast):
             if not isinstance(node, Ast):
                 return
@@ -388,11 +406,11 @@ class TopDownCompilePass(CompilePass):
                 if len(state.errors) != 0:
                     break
 
-        self._visit(body, state)
-        _descend(body)
+        self._visit(start, state)
+        _descend(start)
 
 
-class AssignIds(TopDownCompilePass):
+class AssignIds(TopDownVisitor):
 
     def __init__(self):
         self.next_id = 0
@@ -402,7 +420,49 @@ class AssignIds(TopDownCompilePass):
         self.next_id += 1
 
 
-class CheckExprSyntax(CompilePass):
+class CreateVariables(Visitor):
+
+    def visit_AstAssign(self, node: AstAssign, state: CompileState):
+        existing = state.variables.get(node.variable.var, None)
+        if not existing:
+            # idk what this var is. make sure it's a valid declaration
+            if node.var_type is None:
+                # error because this isn't an annotated assignment. right now all declarations must be annotated
+                state.err(
+                    "Must provide a type annotation for new variables", node.variable
+                )
+                return
+
+            # new var. put it in the table under this scope
+            state.variables[node.variable.var] = FpyVariable(node.var_type, None)
+
+        if existing and node.var_type is not None:
+            # redeclaring an existing variable
+            state.err(f"{node.variable.var} already declared", node)
+            return
+
+
+class ResolveReferences(Visitor):
+    def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
+        # interpret the function reference as an fpy callable
+        ResolveReferencesInNamespace(state.callables).run(node.func, state)
+
+    def visit_AstAssign(self, node: AstAssign, state: CompileState):
+        ResolveReferencesInNamespace(state.variables).run(node.variable, state)
+        if state.errors:
+            return
+        if node.var_type is not None:
+            # interpret the type reference as an fprime type
+            ResolveReferencesInNamespace(state.types).run(node.var_type, state)
+            if state.errors:
+                return
+        ResolveReferencesInNamespace(state.consts).run(node.value, state)
+
+
+class ResolveReferencesInNamespace(Visitor):
+
+    def __init__(self, ns: FpyNamespace):
+        self.ns = ns
 
     def is_type_constant_size(self, type: FppTypeClass) -> bool:
         if isinstance(type, StringType):
@@ -418,213 +478,110 @@ class CheckExprSyntax(CompilePass):
             return True
 
         return True
-    
-    def resolve_expr_as_reference(
-        self, expr: AstExpr, namespace: FpyNamespace
-    ) -> FpyReference | CompileException:
-        if not isinstance(expr, (AstGetAttr, AstGetItem, AstVar)):
-            # expr is a comparison/conditional/func call/literal. not a 
-            # named reference to anything
-            return CompileException("Invalid syntax", expr)
 
-        parent = None
-        if isinstance(expr, (AstGetAttr, AstGetItem)):
-            parent = self.resolve_expr_as_reference(expr.parent, namespace)
-        else:
-            assert isinstance(expr, AstVar)
-            # vars are resolved in the top level namespace
-            parent = namespace
-
-        # okay, we're going to resolve this reference in the context of the parent
+    def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
+        parent = state.resolved_references[node.parent]
 
         if isinstance(parent, (FpyCallable, type, FpyVariable)):
             # right now we don't support resolving something after a callable/type/var
-            return CompileException("Invalid syntax", expr)
+            state.err("Invalid syntax", node)
+            return
 
         if isinstance(parent, dict):
             # parent is a namespace
-            if isinstance(expr, AstGetAttr):
-                return parent.get(
-                    expr.attr, CompileException("Unknown attribute", expr)
-                )
-            elif isinstance(expr, AstGetItem):
-                # trying to do smth like Ref[0]... nonsensical
-                return CompileException("Invalid syntax", expr)
-            assert isinstance(expr, AstVar)
-            return parent.get(expr.var, CompileException("Unknown variable", expr))
+            attr = parent.get(node.attr, None)
+            if attr is None:
+                state.err("Unknown attribute", node.attr)
+                return
+            state.resolved_references[node] = attr
+            return
 
-        assert isinstance(expr, (AstGetAttr, AstGetItem))
+        # parent is a ch, prm, const or field
 
-        # okay, it's a reference to something with an fpp value
+        value_type = get_ref_fpp_type_class(parent)
 
-        value_type = None
+        assert value_type != NothingType
 
-        if isinstance(parent, ChTemplate):
-            value_type = parent.ch_type_obj
-        elif isinstance(parent, PrmTemplate):
-            value_type = parent.prm_type_obj
-        elif isinstance(parent, FppType):
-            value_type = type(parent)
-        elif isinstance(parent, FieldReference):
-            value_type = parent.type
-        else:
-            assert False, parent
+        if not issubclass(value_type, (SerializableType, TimeType)):
+            # trying to do arr.x, but arr is not a struct
+            state.err("Invalid syntax (tried to access named member of a non-struct type)", node.attr)
+            return
 
         if not self.is_type_constant_size(value_type):
-            return CompileException(
+            state.err(
                 f"{value_type} has non-constant sized members, cannot access members",
-                expr,
+                node,
             )
-
-        # okay now we know the type.
-        if issubclass(value_type, (SerializableType, TimeType)):
-            if not isinstance(expr, AstGetAttr):
-                # trying to do struct[0], but struct is not an array
-                return CompileException("Invalid syntax (tried to access indexed member of a struct)", expr)
-
-            member_list: list[tuple[str, FppTypeClass]] = None
-            if issubclass(value_type, SerializableType):
-                member_list = [t[0:2] for t in value_type.MEMBER_LIST]
-            else:
-                # if it is a time type, there are some "implied" members
-                member_list = []
-                member_list.append(("time_base", U16Type))
-                member_list.append(("time_context", U8Type))
-                member_list.append(("seconds", U32Type))
-                member_list.append(("useconds", U32Type))
-
-            offset = 0
-            for arg_name, arg_type in member_list:
-                if arg_name == expr.attr:
-                    return FieldReference(parent, arg_type, offset)
-                offset += arg_type.getMaxSize()
-
-            return CompileException(f"Unknown member {expr.attr}", expr)
-
-        elif isinstance(value_type, ArrayType):
-            if not isinstance(expr, AstGetItem):
-                # trying to do arr.x, but arr is not a struct
-                return CompileException("Invalid syntax (tried to access named member of an array)", expr)
-
-            offset = 0
-            for i in range(0, value_type.LENGTH):
-                if i == expr.item.value:
-                    return FieldReference(parent, type.MEMBER_TYPE, offset)
-                offset += value_type.MEMBER_TYPE.getMaxSize()
-
-            return CompileException(f"Array access out-of-bounds (access: {expr.item}, array size: {value_type.LENGTH})", expr)
-        
-        return CompileException("Invalid syntax", expr)
-
-    def resolve_expr_as_reference_helper(self, expr: AstExpr, ref_type: type[FpyReference], state: CompileState):
-        ns = None
-            
-
-    def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        self.resolve_expr_as_reference(node.variable, state.variables, FpyVariable)
-
-        if node.var_type is not None:
-            self.resolve_expr_in_ns(node.var_type, state.types, state)
-
-        self.resolve_expr_in_ns(node.value, state.consts, state)
-
-
-class CreateVariables(CompilePass):
-
-    def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        existing = state.ns.get(node.variable.value)
-        if not existing:
-            # idk what this var is. make sure it's a valid declaration
-            if node.var_type is None:
-                # error because this isn't an annotated assignment. right now all declarations must be annotated
-                state.err(
-                    node.variable, "Must provide a type annotation for new variables"
-                )
-                return
-
-            # new var. put it in the table under this scope
-            state.ns[node.variable.value] = FpyVariable(node.var_type, None)
-
-        if existing and node.var_type is not None:
-            # redeclaring an existing variable
-            state.err(node, f"{node.variable.value} already declared")
             return
 
+        member_list: list[tuple[str, FppTypeClass]] = None
+        if issubclass(value_type, SerializableType):
+            member_list = [t[0:2] for t in value_type.MEMBER_LIST]
+        else:
+            # if it is a time type, there are some "implied" members
+            member_list = []
+            member_list.append(("time_base", U16Type))
+            member_list.append(("time_context", U8Type))
+            member_list.append(("seconds", U32Type))
+            member_list.append(("useconds", U32Type))
 
-class AssignReferenceResolutionHints(CompilePass):
-    def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        # interpret the function reference as an fpy callable
-        state.expr_reference_hints[node.func] = FpyCallable
+        offset = 0
+        for arg_name, arg_type in member_list:
+            if arg_name == node.attr:
+                state.resolved_references[node] = FieldReference(parent, arg_type, offset)
+                return
+            offset += arg_type.getMaxSize()
 
-    def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        # interpret the type reference as an fprime type
-        if node.var_type is not None:
-            state.expr_reference_hints[node.var_type] = type
+        state.err(f"Unknown member {node.attr}", node.attr)
 
+    def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
+        parent = state.resolved_references[node.parent]
 
-class ResolveReferencesByName(CompilePass):
+        if isinstance(parent, (FpyCallable, type, FpyVariable, dict)):
+            # right now we don't support resolving index after a callable/type/var
+            state.err("Invalid syntax", node)
+            return
+
+        # parent is a ch, prm, const or field
+
+        value_type = get_ref_fpp_type_class(parent)
+
+        assert value_type != NothingType
+
+        if not issubclass(value_type, (ArrayType)):
+            # trying to do struct[0], but struct is not an array
+            state.err("Invalid syntax (tried to access indexed member of a non-array type)", node.item)
+            return
+
+        if not self.is_type_constant_size(value_type):
+            state.err(
+                f"{value_type} has non-constant sized members, cannot access members",
+                node,
+            )
+            return
+
+        offset = 0
+        for i in range(0, value_type.LENGTH):
+            if i == node.item.value:
+                state.resolved_references[node] = FieldReference(parent, value_type.MEMBER_TYPE, offset)
+                return
+            offset += value_type.MEMBER_TYPE.getMaxSize()
+
+        state.err(f"Array access out-of-bounds (access: {node.item}, array size: {value_type.LENGTH})", node.item)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
-        # vars get resolved in the global namespace
+        # vars get resolved in the passed-in namespace
 
-        resolved = state.ns.get(node.var, None)
+        resolved = self.ns.get(node.var, None)
+
         if resolved is None:
-            state.err(node, "Unknown reference to variable")
+            state.err("Unknown reference", node)
             return
 
-        state.expr_resolutions[node] = resolved
-
-    def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        # also lookup variable types
-
-        var = state.lookup_variable(node.variable.value, node)
-
-        assert var is not None
-
-        if node.var_type is not None:
-            var_type = state.resolved_references[node.var_type]
-            assert var_type is not None
-            var.type = var_type
-
-    def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
-        qualifier_node = node.parent
-        resolved = None
-        if qualifier_node is None:
-            # looking up unqualified
-            resolved = state.ns.get(node.attr.value, [])
-        else:
-            qualifier = state.resolved_references[node.parent]
-            if isinstance(qualifier, dict):
-                resolved = qualifier.get(node.attr.value, [])
-            else:
-                fields = self.get_fields(node.parent, qualifier)
-                if isinstance(fields, CompileException):
-                    state.errors.append(fields)
-                    return
-                field = fields.get(node.attr.value, None)
-                if field is not None:
-                    resolved = [field]
-                else:
-                    resolved = []
-
-        type_hint = state.expr_reference_hints.get(node, None)
-        if type_hint is not None:
-            # interpret as type_hint
-            resolved = [r for r in resolved if isinstance(r, type_hint)]
-
-        if len(resolved) == 0:
-            state.errors.append(CompileException(f"Unknown reference", node))
-            return
-        if len(resolved) > 1:
-            state.errors.append(
-                CompileException(f"Ambiguous reference: {resolved}", node)
-            )
-            return
-
-        state.resolved_references[node] = resolved[0]
+        state.resolved_references[node] = resolved
 
 
-class CalculateExprTypes(CompilePass):
+class CalculateExprTypes(Visitor):
 
     def visit_AstNumber(self, node: AstNumber, state: CompileState):
         if isinstance(node.value, float):
@@ -641,35 +598,9 @@ class CalculateExprTypes(CompilePass):
     def visit_AstBoolean(self, node: AstBoolean, state: CompileState):
         state.expr_types[node] = BoolType
 
-    def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
+    def visit_AstReference(self, node: AstReference, state: CompileState):
         ref = state.resolved_references[node]
-
-        if isinstance(ref, ChTemplate):
-            result_type = ref.ch_type_obj
-        elif isinstance(ref, PrmTemplate):
-            result_type = ref.prm_type_obj
-        elif isinstance(ref, FppType):
-            # constant value
-            result_type = type(ref)
-        elif isinstance(ref, FpyCallable):
-            # a reference to a callable isn't a type in and of itself
-            # it has a return type but you have to call it (with an AstFuncCall)
-            # consider making a separate "reference" type
-            result_type = NothingType
-        elif isinstance(ref, FpyVariable):
-            result_type = ref.type
-        elif isinstance(ref, type):
-            # a reference to a type doesn't have a value, and so doesn't have a type,
-            # in and of itself. if this were a function call to the type's ctor then
-            # it would have a value and thus a type
-            result_type = NothingType
-        elif isinstance(ref, dict):
-            # reference to a namespace. namespaces don't have values
-            result_type = NothingType
-        else:
-            assert False, ref
-
-        state.expr_types[node] = result_type
+        state.expr_types[node] = get_ref_fpp_type_class(ref)
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         ref = state.resolved_references[node.func]
@@ -682,7 +613,7 @@ class CalculateExprTypes(CompilePass):
         state.expr_types[node] = BoolType
 
 
-class CheckAndResolveArgumentTypes(CompilePass):
+class CheckAndResolveArgumentTypes(Visitor):
 
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
         # op exists at syntax level, coding error if no exist
@@ -764,7 +695,7 @@ class CheckAndResolveArgumentTypes(CompilePass):
         # got thru all args successfully
 
 
-class PickNumericLiteralTypes(CompilePass):
+class PickNumericLiteralTypes(Visitor):
     def visit_AstNumber(self, node: AstNumber, state: CompileState):
         expr_type = state.expr_types[node]
         # we've got a numeric literal. if we don't have a decisive type for it,
@@ -783,7 +714,7 @@ class PickNumericLiteralTypes(CompilePass):
             state.expr_types[node] = F64Type
 
 
-class CalculateExprValues(CompilePass):
+class CalculateExprValues(Visitor):
 
     def visit_AstLiteral(self, node: AstLiteral, state: CompileState):
         state.expr_values[node] = state.expr_types[node](node.value)
@@ -855,7 +786,7 @@ class CalculateExprValues(CompilePass):
         state.expr_values[node] = None
 
 
-class CheckVariableValues(CompilePass):
+class CheckVariableValues(Visitor):
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         existing_var = state.lookup_variable(node.variable.value, node)
@@ -907,7 +838,7 @@ class CheckVariableValues(CompilePass):
         state.directives[node] = [SetSerRegDirective(sreg_idx, value.serialize())]
 
 
-class CreateConstantCommands(CompilePass):
+class CreateConstantCommands(Visitor):
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
         if isinstance(func, FpyCmd):
@@ -940,13 +871,13 @@ def put_sreg_in_nreg(sreg_idx: int, nreg_idx: int, size: int) -> list[Directive]
         assert False, size
 
 
-class AssignExprRegisters(CompilePass):
+class AssignExprRegisters(Visitor):
     def visit_AstExpr(self, node: AstExpr, state: CompileState):
         state.expr_registers[node] = state.next_register
         state.next_register += 1
 
 
-class PutConstExprsInRegisters(CompilePass):
+class PutConstExprsInRegisters(Visitor):
     def visit_AstExpr(self, node: AstExpr, state: CompileState):
         expr_type = state.expr_types[node]
 
@@ -988,7 +919,7 @@ class PutConstExprsInRegisters(CompilePass):
         state.directives[node] = [SetRegDirective(register, val_as_i64.val)]
 
 
-class PutNonConstExprsInRegisters(CompilePass):
+class PutNonConstExprsInRegisters(Visitor):
 
     def visit_AstReference(self, node, state: CompileState):
         if node in state.directives:
@@ -1121,7 +1052,7 @@ class PutNonConstExprsInRegisters(CompilePass):
         state.directives[node] = directives
 
 
-class CountDirectives(CompilePass):
+class CountDirectives(Visitor):
 
     def visit_AstIf(self, node: AstIf, state: CompileState):
         count = 0
@@ -1174,7 +1105,7 @@ class CountDirectives(CompilePass):
         )
 
 
-class CalculateStartLineIdx(TopDownCompilePass):
+class CalculateStartLineIdx(TopDownVisitor):
     def visit_AstBody(self, node: AstBody | AstBody, state: CompileState):
         if parent is None:
             state.start_line_idx[node] = 0
@@ -1221,7 +1152,7 @@ class CalculateStartLineIdx(TopDownCompilePass):
         line_idx += 1
 
 
-class CollectDirectives(CompilePass):
+class CollectDirectives(Visitor):
 
     def visit_AstIf(self, node: AstIf, state: CompileState):
         start_line_idx = state.start_line_idx[node]
@@ -1361,14 +1292,13 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 def compile(body: AstBody, dictionary: str) -> list[Directive]:
     print(body)
     state = get_base_compile_state(dictionary)
-    passes: list[CompilePass] = [
+    passes: list[Visitor] = [
         AssignIds(),
-        CheckExprSyntax(),
         # might want to error if you're overriding smth from the dict
         CreateVariables(),
         # now that variables have been defined, try resolving references
         # again and fail if anything isn't found
-        ResolveReferencesByName(),
+        ResolveReferences(),
         CalculateExprTypes(),
         # # okay, we know what all the different names could be pointing to,
         # # at least according to the name of the symbol.
