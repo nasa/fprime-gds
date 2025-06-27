@@ -336,12 +336,12 @@ class DPHeader(BaseModel):
     
     @computed_field
     @property
-    def dataId(self) -> Type:
+    def dataId(self) -> AliasType:
         return self.header.get("FwDpIdType")
     
     @computed_field
     @property
-    def dataSize(self) -> Type:
+    def dataSize(self) -> AliasType:
         return self.header.get("FwSizeStoreType")
 
     @model_validator(mode='after')
@@ -731,7 +731,7 @@ class DataProductWriter:
     def get_record_data(self, headerJSON: DPHeader, dictJSON: FprimeDict) -> Dict[str, int]:
         rootDict = {}
         # Go through all the Records and find the one that matches recordId
-        rootDict['dataId'] = self.read_field(headerJSON.dataId.type)
+        rootDict['dataId'] = self.read_field(headerJSON.dataId.underlyingType)
         for record in dictJSON.records:
             if record.id == rootDict['dataId']:    
                 print(f'Processing Record ID {record.id}')
