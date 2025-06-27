@@ -225,3 +225,27 @@ else:
 """
 
     assert_success(fprime_test_api, seq)
+
+
+def test_int_as_stmt(fprime_test_api):
+    seq = """
+2
+"""
+
+    assert_failure(fprime_test_api, seq)
+
+
+def test_complex_as_stmt(fprime_test_api):
+    seq = """
+Ref.cmdDisp.CMD_NO_OP
+"""
+
+    assert_failure(fprime_test_api, seq)
+
+def test_get_struct_member(fprime_test_api):
+    seq = """
+if Ref.fpySeq.Debug.nextStatementOpcode == 8:
+    pass
+"""
+
+    assert_success(fprime_test_api, seq)

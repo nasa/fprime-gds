@@ -152,8 +152,8 @@ FPY_DIRECTIVES: list[StatementTemplate] = [
         [time_type_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.SET_LVAR.value,
-        "SET_LVAR",
+        DirectiveOpcode.SET_SER_REG.value,
+        "SET_SER_REG",
         [U8Type, arbitrary_type_from_json],
     ),
     StatementTemplate(
