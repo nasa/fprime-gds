@@ -249,3 +249,22 @@ if Ref.fpySeq.Debug.nextStatementOpcode == 8:
 """
 
     assert_success(fprime_test_api, seq)
+
+
+def test_get_const_struct_member(fprime_test_api):
+    seq = """
+var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+if var.priority == 1:
+    pass
+"""
+
+    assert_success(fprime_test_api, seq)
+
+
+def test_float_cmp(fprime_test_api):
+    seq = """
+if 4.0 > 5.0:
+    pass
+"""
+
+    assert_success(fprime_test_api, seq)

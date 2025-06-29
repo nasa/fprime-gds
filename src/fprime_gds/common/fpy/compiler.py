@@ -12,6 +12,7 @@ from typing import TypeVar, Union
 from fprime_gds.common.fpy.bytecode.serialize_bytecode import serialize_directives
 from fprime_gds.common.fpy.bytecode.directives import (
     BINARY_COMPARISON_DIRECTIVES,
+    FLOAT_INEQUALITY_DIRECTIVES,
     INT_EQUALITY_DIRECTIVES,
     MAX_SERIALIZABLE_REGISTER_SIZE,
     INT_SIGNED_INEQUALITY_DIRECTIVES,
@@ -24,6 +25,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     DeserSerReg8Directive,
     Directive,
     EqualDirective,
+    FloatEqualDirective,
+    FloatNotEqualDirective,
     GetPrmDirective,
     GetTlmDirective,
     GotoDirective,
@@ -500,8 +503,10 @@ class CreateVariables(Visitor):
                 )
                 return
 
+            var = FpyVariable(node.var_type, None)
             # new var. put it in the table under this scope
-            state.variables[node.variable.var] = FpyVariable(node.var_type, None)
+            state.variables[node.variable.var] = var
+            state.runtime_values[node.variable.var] = var
 
         if existing and node.var_type is not None:
             # redeclaring an existing variable
@@ -530,7 +535,7 @@ class ResolveReferences(Visitor):
         self, parent: FpyReference, node: AstGetAttr, state: CompileState
     ) -> FpyReference | None:
 
-        if isinstance(parent, (FpyCallable, type, FpyVariable)):
+        if isinstance(parent, (FpyCallable, type)):
             # right now we don't support resolving something after a callable/type/var
             state.err("Invalid syntax", node)
             return None
@@ -588,7 +593,7 @@ class ResolveReferences(Visitor):
         self, parent: FpyReference, node: AstGetItem, state: CompileState
     ) -> FpyReference | None:
 
-        if isinstance(parent, (FpyCallable, type, FpyVariable, dict)):
+        if isinstance(parent, (FpyCallable, type, dict)):
             # right now we don't support resolving index after a callable/type/var
             state.err("Invalid syntax", node)
             return None
@@ -752,29 +757,76 @@ class CalculateExprTypes(Visitor):
 
 class CheckAndResolveArgumentTypes(Visitor):
 
+    def is_convertible_to(self, from_type: FppTypeClass, to_type: FppTypeClass) -> bool:
+        if from_type == to_type:
+            return True
+
+        # only numeric types can be converted to each other
+        if not issubclass(from_type, NumericalType) or not issubclass(to_type, NumericalType):
+            return False
+
+        if issubclass(from_type, IntegerType):
+            # ints can be converted to larger ints or floats
+            if from_type == IntegerType:
+                # it is a "generic" int. can turn into any type we want
+                return True
+
+            if issubclass(to_type, FloatType):
+                return True
+
+            if from_type.getMaxSize() < to_type.getMaxSize():
+                # going to a larger type
+                return True
+
+            return False
+
+        assert issubclass(from_type, FloatType), from_type
+
+        # float type cannot be converted to int
+        if issubclass(to_type, IntegerType):
+            return False
+
+        if from_type == FloatType:
+            # generic float can be converted to any float
+            return True
+
+        # f64 cannot be converted to f32
+        if from_type.getMaxSize() > to_type.getMaxSize():
+            return False
+
+        return True
+
+
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
-        node_args = [node.lhs, node.rhs]
-        self.check_args([NumericalType, NumericalType], node, node_args, state)
+
+        lhs_type = state.expr_types[node.lhs]
+        rhs_type = state.expr_types[node.rhs]
+
+        if not issubclass(lhs_type, NumericalType):
+            state.err(f"Cannot compare non-numeric type {lhs_type}", node.lhs)
+            return
+        if not issubclass(rhs_type, NumericalType):
+            state.err(f"Cannot compare non-numeric type {rhs_type}", node.rhs)
+            return
+
+        # args are both numeric
+        # if one is a float, both must be fp values because we only have fp-fp comparisons rn
+
+        if issubclass(lhs_type, FloatType):
+            if lhs_type != rhs_type:
+                state.err(f"Cannot compare {lhs_type} with {rhs_type}", node)
+                return
+            
+
+
+        
+
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
+        func_args = func.args
         node_args = node.args if node.args else []
-        self.check_args([v for k, v in func.args], node, node_args, state)
 
-    def visit_AstOr_AstAnd(self, node: AstOr | AstAnd, state: CompileState):
-        # "or/and" can have as many args as you want. they all need to be bools tho
-        self.check_args([BoolType] * len(node.values), node, node.values, state)
-
-    def visit_AstNot(self, node: AstNot, state: CompileState):
-        self.check_args([BoolType], node, [node.value], state)
-
-    def check_args(
-        self,
-        func_args: list[FppTypeClass],
-        node: Ast,
-        node_args: list[AstExpr],
-        state: CompileState,
-    ) -> tuple[bool, CompileException]:
         if len(node_args) < len(func_args):
             state.errors.append(
                 CompileException(
@@ -796,57 +848,78 @@ class CheckAndResolveArgumentTypes(Visitor):
 
             value_expr_type = state.expr_types[value_expr]
 
-            if arg_type == value_expr_type:
+            if self.is_convertible_to(value_expr_type, arg_type):
                 # arg type is good!
+                state.expr_types[value_expr] = arg_type
                 continue
 
-            # TODO rewrite this to use a "is_convertible_to" type to type
-            # "convert_type_to_type"
-            # store all values as a type and the bits
-
-            if issubclass(arg_type, value_expr_type):
-                # the arg template type is more specific
-                # than the arg value type
-
-                # convert the arg value type into the arg template type
-                state.expr_types[value_expr] = arg_type
-            elif issubclass(value_expr_type, arg_type):
-                # the arg value type is more specific
-                # than the arg template type
-
-                # the underlying function is saying it is able to handle
-                # this
-                pass
-            else:
-                # it is not. these are not compatible
-                state.errors.append(
-                    CompileException(
-                        f"Cannot interpret {value_expr} ({value_expr_type}) as {arg_type}",
-                        value_expr,
-                    )
+            # it is not. these are not compatible
+            state.errors.append(
+                CompileException(
+                    f"Cannot convert {value_expr} ({value_expr_type}) as {arg_type}",
+                    value_expr,
                 )
-                return
+            )
+            return
 
         # got thru all args successfully
 
+    def visit_AstOr_AstAnd(self, node: AstOr | AstAnd, state: CompileState):
+        # "or/and" can have as many args as you want. they all need to be bools tho
+        for val in node.values:
+            val_type = state.expr_types[val]
+            if not self.is_convertible_to(val_type, BoolType):
+                state.err(f"Arguments to 'and'/'or' must be booleans", val)
+                return
+
+    def visit_AstNot(self, node: AstNot, state: CompileState):
+        val_type = state.expr_types[node.value]
+        if not self.is_convertible_to(val_type, BoolType):
+            state.err(f"Argument to `not` must be boolean", node.value)
+            return
 
 class PickNumericLiteralTypes(Visitor):
-    def visit_AstNumber(self, node: AstNumber, state: CompileState):
+
+    def try_interpret_literal_as(self, node: AstExpr, type: FppTypeClass, state: CompileState) -> bool:
+        if not isinstance(node, AstLiteral):
+            return True
+
+        # it is a literal. can it be assigned
         expr_type = state.expr_types[node]
+
+        if expr_type == type:
+            return True
+
         # we've got a numeric literal. if we don't have a decisive type for it,
         # pick one
         if expr_type in NUMERIC_TYPES:
-            # type is already "decided"
-            return
+            # type is already "decided" as something else
+            return False
 
         # type is undecided
         # we get to pick, based on the number
         if isinstance(node.value, int):
             assert expr_type in (NumericalType, IntegerType)
-            state.expr_types[node] = I64Type
+            if type in INTEGER_TYPES:
+                state.expr_types[node] = type
+                return True
+            else:
+                return False
+
         elif isinstance(node.value, float):
             assert expr_type in (NumericalType, FloatType)
-            state.expr_types[node] = F64Type
+            if type in FLOAT_TYPES:
+                state.expr_types[node] = type
+                return True
+            else:
+                return False
+
+
+    def visit_AstAssign(self, node: AstAssign, state: CompileState):
+        var_type = state.resolved_references[node.variable].type
+        if not self.try_interpret_literal_as(node.value, var_type, state):
+            state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
+            return
 
 
 class CalculateExprValues(Visitor):
@@ -946,6 +1019,10 @@ class CheckVariableValues(Visitor):
         value_type = state.expr_types[node.value]
         value = state.expr_values[node.value]
 
+        if existing_var.type != value_type:
+            state.err(f"Cannot assign variable of type {existing_var.type} to {value_type}", node.value)
+            return
+
         if value is None:
             # expr value is unknown at this point in compile
             state.errors.append(
@@ -957,6 +1034,7 @@ class CheckVariableValues(Visitor):
             return
 
         assert isinstance(value, value_type), (value, value_type)
+        print(value, value_type)
 
         if isinstance(value, NothingType):
             # expr is known to have no value
@@ -1053,6 +1131,7 @@ class PutConstExprsInRegisters(Visitor):
         expr_value = state.expr_values[node]
 
         if expr_value is None:
+            # no const value
             return
 
         # it has a constant value at compile time
@@ -1109,6 +1188,10 @@ class PutNonConstExprsInRegisters(Visitor):
 
             elif isinstance(parent, PrmTemplate):
                 directives.append(GetPrmDirective(sreg_idx, parent.get_id()))
+            
+            elif isinstance(parent, FpyVariable):
+                # already in sreg
+                sreg_idx = parent.sreg_idx
 
             else:
                 assert (
@@ -1187,20 +1270,34 @@ class PutNonConstExprsInRegisters(Visitor):
         directives.extend(state.directives[node.lhs])
         directives.extend(state.directives[node.rhs])
 
-        if node.op.value == "==":
-            directives.append(EqualDirective(lhs_reg, rhs_reg, res_reg))
-        elif node.op.value == "!=":
-            directives.append(NotEqualDirective(lhs_reg, rhs_reg, res_reg))
-        else:
-            signed = False
-            if lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES:
-                # if either is signed, promote both to signed
-                signed = True
+        fp = False
+        if issubclass(lhs_type, FloatType):
+            assert issubclass(rhs_type, FloatType), rhs_type
+            fp = True
 
-            if signed:
-                dir_type = INT_SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
+
+        if node.op.value == "==":
+            if fp:
+                directives.append(FloatEqualDirective(lhs_reg, rhs_reg, res_reg))
             else:
-                dir_type = INT_UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
+                directives.append(EqualDirective(lhs_reg, rhs_reg, res_reg))
+        elif node.op.value == "!=":
+            if fp:
+                directives.append(FloatNotEqualDirective(lhs_reg, rhs_reg, res_reg))
+            else:
+                directives.append(NotEqualDirective(lhs_reg, rhs_reg, res_reg))
+        else:
+
+            if fp:
+                dir_type = FLOAT_INEQUALITY_DIRECTIVES[node.op.value]
+            else:
+                # if either is signed, consider both as signed
+                signed = lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES
+
+                if signed:
+                    dir_type = INT_SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
+                else:
+                    dir_type = INT_UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
 
             directives.append(dir_type(lhs_reg, rhs_reg, res_reg))
 
