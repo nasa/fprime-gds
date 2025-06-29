@@ -71,7 +71,7 @@ var: asdfasdfasdf = 1
 
 def test_weird_assign_type(fprime_test_api):
     seq = """
-var: Ref.cmdDisp.CMD_NO_OP = 1
+var: CdhCore.cmdDisp.CMD_NO_OP = 1
 """
 
     assert_failure(fprime_test_api, seq)
@@ -105,7 +105,7 @@ var: U16 = 2
 
 def test_call_cmd(fprime_test_api):
     seq = """
-Ref.cmdDisp.CMD_NO_OP()
+CdhCore.cmdDisp.CMD_NO_OP()
 """
     assert_success(fprime_test_api, seq)
 
@@ -193,7 +193,7 @@ if 2 >= 1:
 
 def test_geq_tlm(fprime_test_api):
     seq = """
-if Ref.cmdDisp.CommandsDispatched > 1:
+if CdhCore.cmdDisp.CommandsDispatched > 1:
     pass
 """
 
@@ -202,26 +202,26 @@ if Ref.cmdDisp.CommandsDispatched > 1:
 
 def test_large_elifs(fprime_test_api):
     seq = """
-if Ref.cmdDisp.CommandsDispatched == 0:
-    Ref.cmdDisp.CMD_NO_OP_STRING("0")
-elif Ref.cmdDisp.CommandsDispatched == 1:
-    Ref.cmdDisp.CMD_NO_OP_STRING("1")
-elif Ref.cmdDisp.CommandsDispatched == 2:
-    Ref.cmdDisp.CMD_NO_OP_STRING("2")
-elif Ref.cmdDisp.CommandsDispatched == 3:
-    Ref.cmdDisp.CMD_NO_OP_STRING("3")
-elif Ref.cmdDisp.CommandsDispatched == 4:
-    Ref.cmdDisp.CMD_NO_OP_STRING("4")
-elif Ref.cmdDisp.CommandsDispatched == 5:
-    Ref.cmdDisp.CMD_NO_OP_STRING("5")
-elif Ref.cmdDisp.CommandsDispatched == 6:
-    Ref.cmdDisp.CMD_NO_OP_STRING("6")
-elif Ref.cmdDisp.CommandsDispatched == 7:
-    Ref.cmdDisp.CMD_NO_OP_STRING("7")
-elif Ref.cmdDisp.CommandsDispatched == 8:
-    Ref.cmdDisp.CMD_NO_OP_STRING("8")
+if CdhCore.cmdDisp.CommandsDispatched == 0:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("0")
+elif CdhCore.cmdDisp.CommandsDispatched == 1:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("1")
+elif CdhCore.cmdDisp.CommandsDispatched == 2:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("2")
+elif CdhCore.cmdDisp.CommandsDispatched == 3:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("3")
+elif CdhCore.cmdDisp.CommandsDispatched == 4:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("4")
+elif CdhCore.cmdDisp.CommandsDispatched == 5:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("5")
+elif CdhCore.cmdDisp.CommandsDispatched == 6:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("6")
+elif CdhCore.cmdDisp.CommandsDispatched == 7:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("7")
+elif CdhCore.cmdDisp.CommandsDispatched == 8:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("8")
 else:
-    Ref.cmdDisp.CMD_NO_OP_STRING(">8")
+    CdhCore.cmdDisp.CMD_NO_OP_STRING(">8")
 """
 
     assert_success(fprime_test_api, seq)
@@ -237,14 +237,15 @@ def test_int_as_stmt(fprime_test_api):
 
 def test_complex_as_stmt(fprime_test_api):
     seq = """
-Ref.cmdDisp.CMD_NO_OP
+CdhCore.cmdDisp.CMD_NO_OP
 """
 
     assert_failure(fprime_test_api, seq)
 
+
 def test_get_struct_member(fprime_test_api):
     seq = """
-if Ref.fpySeq.Debug.nextStatementOpcode == 8:
+if ComCcsds.cmdSeq.Debug.nextStatementOpcode == 8:
     pass
 """
 
@@ -268,3 +269,27 @@ if 4.0 > 5.0:
 """
 
     assert_success(fprime_test_api, seq)
+
+
+def test_exit(fprime_test_api):
+    seq = """
+exit(False)
+"""
+    assert_success(fprime_test_api, seq)
+
+
+def test_wait_rel(fprime_test_api):
+    seq = """
+sleep(0, 1)
+"""
+    assert_success(fprime_test_api, seq)
+
+def test_f32_f64_cmp(fprime_test_api):
+    seq = """
+val: F32 = 0.0
+val2: F64 = 1.0
+if val > val2:
+    pass
+"""
+
+    assert_failure(fprime_test_api, seq)

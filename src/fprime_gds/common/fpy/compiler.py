@@ -25,6 +25,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     DeserSerReg8Directive,
     Directive,
     EqualDirective,
+    ExitDirective,
     FloatEqualDirective,
     FloatNotEqualDirective,
     GetPrmDirective,
@@ -36,6 +37,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     OrDirective,
     SetSerRegDirective,
     SetRegDirective,
+    WaitAbsDirective,
+    WaitRelDirective,
 )
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -131,6 +134,7 @@ FLOAT_TYPES = (
     F64Type,
 )
 
+
 FppTypeClass = type[FppType]
 
 
@@ -167,6 +171,17 @@ class FpyCmd(FpyCallable):
 @dataclass
 class FpyBuiltin(FpyCallable):
     dir: type[Directive]
+
+
+BUILTINS: dict[str, FpyBuiltin] = {
+    "sleep": FpyBuiltin(
+        NothingType, [("seconds", U32Type), ("useconds", U32Type)], WaitRelDirective
+    ),
+    "sleep_until": FpyBuiltin(
+        NothingType, [("wakeup_time", TimeType)], WaitAbsDirective
+    ),
+    "exit": FpyBuiltin(NothingType, [("success", BoolType)], ExitDirective),
+}
 
 
 @dataclass
@@ -761,41 +776,50 @@ class CheckAndResolveArgumentTypes(Visitor):
         if from_type == to_type:
             return True
 
-        # only numeric types can be converted to each other
-        if not issubclass(from_type, NumericalType) or not issubclass(to_type, NumericalType):
+        if issubclass(from_type, StringType) and issubclass(to_type, StringType):
+            if from_type == StringType or to_type == StringType:
+                # from a "generic" string to either a generic string or specific one
+
+                # or from a "specific" string to a generic one
+                return True
             return False
 
-        if issubclass(from_type, IntegerType):
-            # ints can be converted to larger ints or floats
-            if from_type == IntegerType:
-                # it is a "generic" int. can turn into any type we want
+        if issubclass(from_type, NumericalType) and issubclass(
+            to_type, NumericalType
+        ):
+
+            if issubclass(from_type, IntegerType):
+                # ints can be converted to larger ints or floats
+                if from_type == IntegerType:
+                    # it is a "generic" int. can turn into any type we want
+                    return True
+
+                if issubclass(to_type, FloatType):
+                    return True
+
+                if from_type.getMaxSize() < to_type.getMaxSize():
+                    # going to a larger type
+                    return True
+
+                return False
+
+            assert issubclass(from_type, FloatType), from_type
+
+            # float type cannot be converted to int
+            if issubclass(to_type, IntegerType):
+                return False
+
+            if from_type == FloatType:
+                # generic float can be converted to any float
                 return True
 
-            if issubclass(to_type, FloatType):
-                return True
+            # f64 cannot be converted to f32
+            if from_type.getMaxSize() > to_type.getMaxSize():
+                return False
 
-            if from_type.getMaxSize() < to_type.getMaxSize():
-                # going to a larger type
-                return True
-
-            return False
-
-        assert issubclass(from_type, FloatType), from_type
-
-        # float type cannot be converted to int
-        if issubclass(to_type, IntegerType):
-            return False
-
-        if from_type == FloatType:
-            # generic float can be converted to any float
             return True
 
-        # f64 cannot be converted to f32
-        if from_type.getMaxSize() > to_type.getMaxSize():
-            return False
-
-        return True
-
+        return False
 
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
 
@@ -812,15 +836,55 @@ class CheckAndResolveArgumentTypes(Visitor):
         # args are both numeric
         # if one is a float, both must be fp values because we only have fp-fp comparisons rn
 
-        if issubclass(lhs_type, FloatType):
-            if lhs_type != rhs_type:
-                state.err(f"Cannot compare {lhs_type} with {rhs_type}", node)
+        fp_cmp = issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType)
+
+        if fp_cmp:
+            if not issubclass(lhs_type, FloatType) or not issubclass(
+                rhs_type, FloatType
+            ):
+                state.err(
+                    f"Cannot compare non-floats with floats ({lhs_type} with {rhs_type})",
+                    node,
+                )
                 return
-            
 
+            # if both are generic float types, pick F64
+            if lhs_type == FloatType and rhs_type == FloatType:
+                state.expr_types[node.lhs] = F64Type
+                state.expr_types[node.rhs] = F64Type
+                # good2go
+                return
+            if lhs_type == FloatType:
+                # use rhs type
+                state.expr_types[node.lhs] = state.expr_types[node.rhs]
+                return
+            if rhs_type == FloatType:
+                # use lhs type
+                state.expr_types[node.rhs] = state.expr_types[node.lhs]
+                return
+            if lhs_type == rhs_type:
+                return
+            # don't support this at the moment... need to convert f32 to f64
+            state.err("Cannot compare F32 to F64", node)
+            return
 
+        # in integer comparisons, we can compare any type to any other type
         
-
+        # are they both generic?
+        if lhs_type == IntegerType and rhs_type == IntegerType:
+            # use i64
+            state.expr_types[node.lhs] = I64Type
+            state.expr_types[node.rhs] = I64Type
+            return
+        if lhs_type == IntegerType:
+            # use rhs type
+            state.expr_types[node.lhs] = state.expr_types[node.rhs]
+        if rhs_type == IntegerType:
+            # use lhs type
+            state.expr_types[node.rhs] = state.expr_types[node.lhs]
+        # otherwise, they are both "specific" integer types. user beware
+        # if you're doing some weird cmp between signed vs unsigned
+        return
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
@@ -844,7 +908,8 @@ class CheckAndResolveArgumentTypes(Visitor):
             )
             return
 
-        for value_expr, arg_type in zip(node_args, func_args):
+        for value_expr, arg in zip(node_args, func_args):
+            arg_name, arg_type = arg
 
             value_expr_type = state.expr_types[value_expr]
 
@@ -856,7 +921,7 @@ class CheckAndResolveArgumentTypes(Visitor):
             # it is not. these are not compatible
             state.errors.append(
                 CompileException(
-                    f"Cannot convert {value_expr} ({value_expr_type}) as {arg_type}",
+                    f"Cannot convert {value_expr} ({value_expr_type}) to {arg_type}",
                     value_expr,
                 )
             )
@@ -878,9 +943,12 @@ class CheckAndResolveArgumentTypes(Visitor):
             state.err(f"Argument to `not` must be boolean", node.value)
             return
 
+
 class PickNumericLiteralTypes(Visitor):
 
-    def try_interpret_literal_as(self, node: AstExpr, type: FppTypeClass, state: CompileState) -> bool:
+    def try_interpret_literal_as(
+        self, node: AstExpr, type: FppTypeClass, state: CompileState
+    ) -> bool:
         if not isinstance(node, AstLiteral):
             return True
 
@@ -913,7 +981,6 @@ class PickNumericLiteralTypes(Visitor):
                 return True
             else:
                 return False
-
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var_type = state.resolved_references[node.variable].type
@@ -1020,7 +1087,10 @@ class CheckVariableValues(Visitor):
         value = state.expr_values[node.value]
 
         if existing_var.type != value_type:
-            state.err(f"Cannot assign variable of type {existing_var.type} to {value_type}", node.value)
+            state.err(
+                f"Cannot assign variable of type {existing_var.type} to {value_type}",
+                node.value,
+            )
             return
 
         if value is None:
@@ -1081,11 +1151,27 @@ class CreateConstantCommands(Visitor):
                     return
                 arg_bytes += arg_value.serialize()
             state.directives[node] = [CmdDirective(func.cmd.get_op_code(), arg_bytes)]
+        elif isinstance(func, FpyBuiltin):
+            arg_values = []
+            for arg_node in node.args if node.args is not None else []:
+                arg_value = state.expr_values[arg_node]
+                if arg_value is None:
+                    state.errors.append(
+                        CompileException(
+                            f"Only constant arguments to builtins are allowed", arg_node
+                        )
+                    )
+                    return
+                arg_values.append(arg_value)
+
+            state.directives[node] = [func.dir(*arg_values)]
         else:
             state.directives[node] = None
 
 
-def put_sreg_in_nreg(sreg_idx: int, sreg_offset: int, nreg_idx: int, size: int) -> list[Directive]:
+def put_sreg_in_nreg(
+    sreg_idx: int, sreg_offset: int, nreg_idx: int, size: int
+) -> list[Directive]:
     if size > 4:
         return [DeserSerReg8Directive(sreg_idx, sreg_offset, nreg_idx)]
     elif size > 2:
@@ -1188,7 +1274,7 @@ class PutNonConstExprsInRegisters(Visitor):
 
             elif isinstance(parent, PrmTemplate):
                 directives.append(GetPrmDirective(sreg_idx, parent.get_id()))
-            
+
             elif isinstance(parent, FpyVariable):
                 # already in sreg
                 sreg_idx = parent.sreg_idx
@@ -1275,7 +1361,6 @@ class PutNonConstExprsInRegisters(Visitor):
             assert issubclass(rhs_type, FloatType), rhs_type
             fp = True
 
-
         if node.op.value == "==":
             if fp:
                 directives.append(FloatEqualDirective(lhs_reg, rhs_reg, res_reg))
@@ -1292,7 +1377,9 @@ class PutNonConstExprsInRegisters(Visitor):
                 dir_type = FLOAT_INEQUALITY_DIRECTIVES[node.op.value]
             else:
                 # if either is signed, consider both as signed
-                signed = lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES
+                signed = (
+                    lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES
+                )
 
                 if signed:
                     dir_type = INT_SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
@@ -1521,6 +1608,9 @@ def get_base_compile_state(dictionary: str) -> CompileState:
             continue
 
         callable_name_dict[name] = FpyTypeCtor(typ, args, typ)
+
+    for builtin_name, builtin in BUILTINS.items():
+        callable_name_dict[builtin_name] = builtin
 
     state = CompileState(
         tlms=create_namespace(ch_name_dict),

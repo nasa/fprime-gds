@@ -346,6 +346,7 @@ class FloatNotEqualDirective(_BinaryCmpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FNE
 
 
+
 @dataclass
 class NotDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NOT
@@ -357,6 +358,14 @@ class NotDirective(Directive):
         data.extend(U8Type(self.src).serialize())
         data.extend(U8Type(self.res).serialize())
         return bytes(data)
+
+@dataclass
+class ExitDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.EXIT
+    success: BoolType
+
+    def serialize_args(self):
+        return self.success.serialize()
 
 
 INT_EQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
