@@ -86,7 +86,6 @@ from fprime_gds.common.fpy.parser import (
     AstTest,
     AstBody,
     AstLiteral,
-    AstBody,
     AstIf,
     AstAssign,
     AstFuncCall,
@@ -171,6 +170,11 @@ class FpyCmd(FpyCallable):
 @dataclass
 class FpyBuiltin(FpyCallable):
     dir: type[Directive]
+
+    def from_arg_values(self, arg_vals: list[FppType]) -> Directive:
+        assert len(arg_vals) == len(fields(self.dir))
+        arg_vals = [v.val for v in arg_vals]
+        return self.dir(*arg_vals)
 
 
 BUILTINS: dict[str, FpyBuiltin] = {
@@ -784,9 +788,7 @@ class CheckAndResolveArgumentTypes(Visitor):
                 return True
             return False
 
-        if issubclass(from_type, NumericalType) and issubclass(
-            to_type, NumericalType
-        ):
+        if issubclass(from_type, NumericalType) and issubclass(to_type, NumericalType):
 
             if issubclass(from_type, IntegerType):
                 # ints can be converted to larger ints or floats
@@ -869,7 +871,7 @@ class CheckAndResolveArgumentTypes(Visitor):
             return
 
         # in integer comparisons, we can compare any type to any other type
-        
+
         # are they both generic?
         if lhs_type == IntegerType and rhs_type == IntegerType:
             # use i64
@@ -940,7 +942,7 @@ class CheckAndResolveArgumentTypes(Visitor):
     def visit_AstNot(self, node: AstNot, state: CompileState):
         val_type = state.expr_types[node.value]
         if not self.is_convertible_to(val_type, BoolType):
-            state.err(f"Argument to `not` must be boolean", node.value)
+            state.err(f"Argument to 'not' must be boolean", node.value)
             return
 
 
@@ -987,6 +989,9 @@ class PickNumericLiteralTypes(Visitor):
         if not self.try_interpret_literal_as(node.value, var_type, state):
             state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
             return
+
+    def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
+        self.try_interpret_literal_as(node.item, I64Type, state)
 
 
 class CalculateExprValues(Visitor):
@@ -1164,7 +1169,7 @@ class CreateConstantCommands(Visitor):
                     return
                 arg_values.append(arg_value)
 
-            state.directives[node] = [func.dir(*arg_values)]
+            state.directives[node] = [func.from_arg_values(arg_values)]
         else:
             state.directives[node] = None
 
@@ -1260,24 +1265,25 @@ class PutNonConstExprsInRegisters(Visitor):
         else:
             sreg_idx = state.next_sreg
             state.next_sreg += 1
-            parent = ref
-            if isinstance(ref, FieldReference):
-                parent = ref.parent
-                offset = ref.offset
+            base_ref = ref
 
-            if isinstance(parent, ChTemplate):
+            while isinstance(base_ref, FieldReference):
+                offset += base_ref.offset
+                base_ref = base_ref.parent
+
+            if isinstance(base_ref, ChTemplate):
                 tlm_time_sreg_idx = state.next_sreg
                 state.next_sreg += 1
                 directives.append(
-                    GetTlmDirective(sreg_idx, tlm_time_sreg_idx, parent.get_id())
+                    GetTlmDirective(sreg_idx, tlm_time_sreg_idx, base_ref.get_id())
                 )
 
-            elif isinstance(parent, PrmTemplate):
-                directives.append(GetPrmDirective(sreg_idx, parent.get_id()))
+            elif isinstance(base_ref, PrmTemplate):
+                directives.append(GetPrmDirective(sreg_idx, base_ref.get_id()))
 
-            elif isinstance(parent, FpyVariable):
+            elif isinstance(base_ref, FpyVariable):
                 # already in sreg
-                sreg_idx = parent.sreg_idx
+                sreg_idx = base_ref.sreg_idx
 
             else:
                 assert (
@@ -1431,7 +1437,7 @@ class CountDirectives(Visitor):
 
         state.node_dir_counts[node] = count
 
-    def visit_AstBody(self, node: AstBody | AstBody, state: CompileState):
+    def visit_AstBody(self, node: AstBody, state: CompileState):
         count = 0
         for stmt in node.stmts:
             count += state.node_dir_counts[stmt]
@@ -1445,7 +1451,7 @@ class CountDirectives(Visitor):
 
 
 class CalculateStartLineIdx(TopDownVisitor):
-    def visit_AstBody(self, node: AstBody | AstBody, state: CompileState):
+    def visit_AstBody(self, node: AstBody, state: CompileState):
         if node not in state.start_line_idx:
             state.start_line_idx[node] = 0
 
@@ -1537,7 +1543,7 @@ class CollectDirectives(Visitor):
 
         state.directives[node] = all_dirs
 
-    def visit_AstBody(self, node: AstBody | AstBody, state: CompileState):
+    def visit_AstBody(self, node: AstBody, state: CompileState):
         dirs = []
         for stmt in node.stmts:
             stmt_dirs = state.directives.get(stmt, None)

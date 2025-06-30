@@ -198,6 +198,9 @@ def no_meta(type):
 
     return wrapper
 
+def handle_str(meta, s: str):
+    return s.strip("'").strip('"')
+
 
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
@@ -231,5 +234,6 @@ class FpyTransformer(Transformer):
     DEC_NUMBER = int
     FLOAT_NUMBER = float
     COMPARISON_OP = str
+    STRING = handle_str
     CONST_TRUE = lambda a, b: True
     CONST_FALSE = lambda a, b: False

@@ -362,10 +362,10 @@ class NotDirective(Directive):
 @dataclass
 class ExitDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.EXIT
-    success: BoolType
+    success: bool
 
     def serialize_args(self):
-        return self.success.serialize()
+        return BoolType(self.success).serialize()
 
 
 INT_EQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
