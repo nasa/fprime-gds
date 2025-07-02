@@ -536,13 +536,13 @@ class CreateVariables(Visitor):
 class ResolveReferences(Visitor):
 
     def is_type_constant_size(self, type: FppTypeClass) -> bool:
-        if isinstance(type, StringType):
+        if issubclass(type, StringType):
             return False
 
-        if isinstance(type, ArrayType):
+        if issubclass(type, ArrayType):
             return self.is_type_constant_size(type.MEMBER_TYPE)
 
-        if isinstance(type, SerializableType):
+        if issubclass(type, SerializableType):
             for _, arg_type, _, _ in type.MEMBER_LIST:
                 if not self.is_type_constant_size(arg_type):
                     return False
@@ -555,7 +555,7 @@ class ResolveReferences(Visitor):
     ) -> FpyReference | None:
 
         if isinstance(parent, (FpyCallable, type)):
-            # right now we don't support resolving something after a callable/type/var
+            # right now we don't support resolving something after a callable/type
             state.err("Invalid syntax", node)
             return None
 
@@ -567,7 +567,7 @@ class ResolveReferences(Visitor):
                 return None
             return attr
 
-        # parent is a ch, prm, const or field
+        # parent is a ch, prm, const, var or field
 
         value_type = get_ref_fpp_type_class(parent)
 
@@ -613,11 +613,11 @@ class ResolveReferences(Visitor):
     ) -> FpyReference | None:
 
         if isinstance(parent, (FpyCallable, type, dict)):
-            # right now we don't support resolving index after a callable/type/var
+            # right now we don't support resolving index after a callable/type/namespace
             state.err("Invalid syntax", node)
             return None
 
-        # parent is a ch, prm, const or field
+        # parent is a ch, prm, const, var or field
 
         value_type = get_ref_fpp_type_class(parent)
 
