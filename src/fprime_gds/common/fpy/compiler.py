@@ -706,11 +706,9 @@ class ResolveReferences(Visitor):
     ) -> FpyReference | None:
         if isinstance(node, AstVar):
             if not isinstance(ns, dict):
-                state.err("Invalid syntax", node)
                 return None
             ref = ns.get(node.var, None)
             if ref is None:
-                state.err("Unknown variable", node)
                 return None
             state.resolved_references[node] = ref
             return ref
@@ -733,51 +731,56 @@ class ResolveReferences(Visitor):
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         # function refs must be callables
         if not self.resolve_in_ns(node.func, state.callables, state):
+            state.err("Unknown callable", node.func)
             return
 
         for arg in node.args if node.args is not None else []:
             # arg value refs must be consts
             if not self.try_resolve_expr_in_ns(arg, state.consts, state):
+                state.err("Unknown const", arg)
                 return
 
-    def visit_AstIf(self, node: AstIf, state: CompileState):
+    def visit_AstIf_AstElif(self, node: AstIf | AstElif, state: CompileState):
         # if condition expr refs must be "runtime values" (tlm/prm/const/etc)
         if not self.try_resolve_expr_in_ns(node.condition, state.runtime_values, state):
-            return
-
-    def visit_AstElif(self, node: AstElif, state: CompileState):
-        # elif condition expr refs must be "runtime values" (tlm/prm/const/etc)
-        if not self.try_resolve_expr_in_ns(node.condition, state.runtime_values, state):
+            state.err("Unknown runtime value", node.condition)
             return
 
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
         # lhs/rhs side of comparison, if they are refs, must be refs to "runtime vals"
         if not self.try_resolve_expr_in_ns(node.lhs, state.runtime_values, state):
+            state.err("Unknown runtime value", node.lhs)
             return
         if not self.try_resolve_expr_in_ns(node.rhs, state.runtime_values, state):
+            state.err("Unknown runtime value", node.rhs)
             return
 
     def visit_AstAnd_AstOr(self, node: AstAnd | AstOr, state: CompileState):
         for val in node.values:
             if not self.try_resolve_expr_in_ns(val, state.runtime_values, state):
+                state.err("Unknown runtime value", val)
                 return
 
     def visit_AstNot(self, node: AstNot, state: CompileState):
         if not self.try_resolve_expr_in_ns(node.value, state.runtime_values, state):
+            state.err("Unknown runtime value", node.value)
             return
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var = self.resolve_in_ns(node.variable, state.variables, state)
         if not var:
+            state.err("Unknown variable", node.variable)
             return
 
         if node.var_type is not None:
             type = self.resolve_in_ns(node.var_type, state.types, state)
             if not type:
+                state.err("Unknown type", node.var_type)
                 return
             var.type = type
 
         if not self.try_resolve_expr_in_ns(node.value, state.consts, state):
+            state.err("Unknown const", node.value)
             return
 
 
@@ -947,7 +950,12 @@ class CheckAndResolveArgumentTypes(Visitor):
         if not is_convertible_to(state.expr_types[node.value], var_type):
             state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
             return
+
         state.expr_types[node.value] = var_type
+
+        if var_type.getMaxSize() > MAX_SERIALIZABLE_REGISTER_SIZE:
+            state.err(f"{var_type} is too big to fit in a variable", node)
+            return
 
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
         # the node of the index number has no expression value, it's an arg
@@ -958,10 +966,16 @@ class CheckAndResolveArgumentTypes(Visitor):
 class CalculateExprValues(Visitor):
 
     def visit_AstLiteral(self, node: AstLiteral, state: CompileState):
-        if state.expr_types != NothingType:
-            state.expr_values[node] = state.expr_types[node](node.value)
+        literal_type = state.expr_types[node]
+        if literal_type != NothingType:
+            assert (
+                literal_type in NUMERIC_TYPES
+                or issubclass(literal_type, StringType)
+                or literal_type == BoolType
+            ), literal_type
+            state.expr_values[node] = literal_type(node.value)
         else:
-            state.expr_values[node] = NothingType()
+            state.expr_values[node] = literal_type()
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         ref = state.resolved_references[node]
@@ -995,7 +1009,10 @@ class CalculateExprValues(Visitor):
         else:
             assert False, ref
 
-        assert expr_value is None or isinstance(expr_value, state.expr_types[node]), (expr_value, state.expr_types[node])
+        assert expr_value is None or isinstance(expr_value, state.expr_types[node]), (
+            expr_value,
+            state.expr_types[node],
+        )
         state.expr_values[node] = expr_value
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
@@ -1020,10 +1037,12 @@ class CalculateExprValues(Visitor):
                 instance._val = arg_dict
                 state.expr_values[node] = instance
 
-            elif issubclass(func.return_type, ArrayType):
-                state.expr_values[node] = func.return_type(arg_values)
+            elif issubclass(func.type, ArrayType):
+                instance = func.type()
+                instance._val = arg_values
+                state.expr_values[node] = instance
 
-            elif func.return_type == TimeType:
+            elif func.type == TimeType:
                 state.expr_values[node] = TimeType(*arg_values)
 
             else:
@@ -1043,7 +1062,7 @@ class CalculateExprValues(Visitor):
         assert not isinstance(node, AstExpr), node
 
 
-class CheckVariableValues(Visitor):
+class GenerateVariableDirectives(Visitor):
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         existing_var = state.resolved_references[node.variable]
@@ -1056,40 +1075,14 @@ class CheckVariableValues(Visitor):
         value_type = state.expr_types[node.value]
         value = state.expr_values[node.value]
 
-        if existing_var.type != value_type:
-            state.err(
-                f"Cannot assign variable of type {existing_var.type} to {value_type}",
-                node.value,
-            )
-            return
+        # already type checked
+        assert value_type == type(value), (value_type, type(value))
 
         if value is None:
             # expr value is unknown at this point in compile
-            state.errors.append(
-                CompileException(
-                    f"Cannot assign {node.variable.var}: {existing_var.type} to {node.value}, as its value was not known at compile time",
-                    node.value,
-                )
-            )
-            return
-
-        assert isinstance(value, value_type), (value, value_type)
-
-        if isinstance(value, NothingType):
-            # expr is known to have no value
-            state.errors.append(
-                CompileException(
-                    f"Cannot assign {node.variable.var}: {existing_var.type} to {node.value}, because the rhs has no value",
-                    node.value,
-                )
-            )
-            return
-
-        if value.getMaxSize() > MAX_SERIALIZABLE_REGISTER_SIZE:
-            state.errors.append(
-                CompileException(
-                    f"{existing_var.type} is too big to fit in a variable", node
-                )
+            state.err(
+                f"Cannot assign {node.variable.var}: {existing_var.type} to {node.value}, as its value was not known at compile time",
+                node.value,
             )
             return
 
@@ -1100,11 +1093,12 @@ class CheckVariableValues(Visitor):
             state.next_sreg += 1
             existing_var.sreg_idx = sreg_idx
         val_bytes = value.serialize()
-        assert len(val_bytes) == value.getMaxSize()
+        assert len(val_bytes) == value.getMaxSize(), (len(val_bytes), value.getMaxSize(), value)
+        assert len(val_bytes) <= MAX_SERIALIZABLE_REGISTER_SIZE, len(val_bytes)
         state.directives[node] = [SetSerRegDirective(sreg_idx, val_bytes)]
 
 
-class CreateConstantCommands(Visitor):
+class GenerateConstCmdDirectives(Visitor):
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
         if isinstance(func, FpyCmd):
@@ -1112,10 +1106,8 @@ class CreateConstantCommands(Visitor):
             for arg_node in node.args if node.args is not None else []:
                 arg_value = state.expr_values[arg_node]
                 if arg_value is None:
-                    state.errors.append(
-                        CompileException(
-                            f"Only constant arguments to commands are allowed", arg_node
-                        )
+                    state.err(
+                        f"Only constant arguments to commands are allowed", arg_node
                     )
                     return
                 arg_bytes += arg_value.serialize()
@@ -1125,10 +1117,8 @@ class CreateConstantCommands(Visitor):
             for arg_node in node.args if node.args is not None else []:
                 arg_value = state.expr_values[arg_node]
                 if arg_value is None:
-                    state.errors.append(
-                        CompileException(
-                            f"Only constant arguments to builtins are allowed", arg_node
-                        )
+                    state.err(
+                        f"Only constant arguments to builtins are allowed", arg_node
                     )
                     return
                 arg_values.append(arg_value)
@@ -1159,7 +1149,7 @@ class AssignExprRegisters(Visitor):
         state.next_register += 1
 
 
-class PutConstExprsInRegisters(Visitor):
+class GenerateConstExprDirectives(Visitor):
     def visit_AstExpr(self, node: AstExpr, state: CompileState):
         expr_type = state.expr_types[node]
 
@@ -1202,7 +1192,7 @@ class PutConstExprsInRegisters(Visitor):
         state.directives[node] = [SetRegDirective(register, val_as_i64.val)]
 
 
-class PutNonConstExprsInRegisters(Visitor):
+class GenerateNonConstExprDirectives(Visitor):
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         if node in state.directives:
@@ -1461,7 +1451,7 @@ class CalculateStartLineIdx(TopDownVisitor):
         line_idx += 1
 
 
-class CollectDirectives(Visitor):
+class GenerateBodyDirectives(Visitor):
 
     def visit_AstIf(self, node: AstIf, state: CompileState):
         start_line_idx = state.start_line_idx[node]
@@ -1549,7 +1539,6 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     for typ in NUMERIC_TYPES:
         type_name_dict[typ.get_canonical_name()] = typ
     type_name_dict["bool"] = BoolType
-    type_name_dict["str"] = StringType
 
     callable_name_dict = {}
     for name, cmd in cmd_name_dict.items():
@@ -1608,16 +1597,18 @@ def compile(body: AstBody, dictionary: str) -> list[Directive]:
         # now that we know the type of each expr, we can type check all function calls
         # and also narrow down ambiguous argument types
         CheckAndResolveArgumentTypes(),
-        # now we know what each call points to
+        # okay, now that we're sure we're passing in all the right args to each func,
+        # we can calculate values of type ctors etc etc
         CalculateExprValues(),
-        CheckVariableValues(),
+        # now that we know
+        GenerateVariableDirectives(),
         AssignExprRegisters(),
-        CreateConstantCommands(),
-        PutConstExprsInRegisters(),
-        PutNonConstExprsInRegisters(),
+        GenerateConstCmdDirectives(),
+        GenerateConstExprDirectives(),
+        GenerateNonConstExprDirectives(),
         CountDirectives(),
         CalculateStartLineIdx(),
-        CollectDirectives(),
+        GenerateBodyDirectives(),
     ]
 
     for compile_pass in passes:

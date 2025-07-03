@@ -110,6 +110,13 @@ CdhCore.cmdDisp.CMD_NO_OP()
     assert_success(fprime_test_api, seq)
 
 
+def test_call_cmd_with_str_arg(fprime_test_api):
+    seq = """
+CdhCore.cmdDisp.CMD_NO_OP_STRING("hello world")
+"""
+    assert_success(fprime_test_api, seq)
+
+
 def test_call_cmd_with_int_arg(fprime_test_api):
     seq = """
 Ref.sendBuffComp.PARAMETER3_PRM_SET(4)
@@ -284,6 +291,7 @@ sleep(0, 1)
 """
     assert_success(fprime_test_api, seq)
 
+
 def test_f32_f64_cmp(fprime_test_api):
     seq = """
 val: F32 = 0.0
@@ -293,7 +301,15 @@ if val > val2:
 """
 
     assert_failure(fprime_test_api, seq)
-    
+
+
+def test_construct_array(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
+"""
+
+    assert_success(fprime_test_api, seq)
+
 
 def test_get_item_of_var(fprime_test_api):
     seq = """
@@ -302,4 +318,4 @@ if val[0] == 0:
     pass
 """
 
-    assert_failure(fprime_test_api, seq)
+    assert_success(fprime_test_api, seq)
