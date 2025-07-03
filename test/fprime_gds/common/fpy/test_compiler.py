@@ -293,3 +293,13 @@ if val > val2:
 """
 
     assert_failure(fprime_test_api, seq)
+    
+
+def test_get_item_of_var(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
+if val[0] == 0:
+    pass
+"""
+
+    assert_failure(fprime_test_api, seq)

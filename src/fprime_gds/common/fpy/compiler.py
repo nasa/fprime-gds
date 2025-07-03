@@ -370,6 +370,49 @@ def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
     return result_type
 
 
+def is_convertible_to(from_type: FppTypeClass, to_type: FppTypeClass) -> bool:
+    if from_type == to_type:
+        return True
+
+    if issubclass(from_type, StringType) and issubclass(to_type, StringType):
+        # from a "generic" string to either a generic string or specific one
+        # or from a "specific" string to a generic one
+        return from_type == StringType or to_type == StringType
+
+    if issubclass(from_type, NumericalType) and issubclass(to_type, NumericalType):
+
+        if issubclass(from_type, IntegerType):
+            # ints can be converted to larger ints or floats
+            if from_type == IntegerType:
+                # it is a "generic" int. can turn into any type we want
+                return True
+
+            if issubclass(to_type, FloatType):
+                return True
+
+            # extension of integers is allowed, truncation is not allowed
+            # TODO test comparison of U8 and U16 works as expected
+            return from_type.getMaxSize() < to_type.getMaxSize()
+
+        assert issubclass(from_type, FloatType), from_type
+
+        # float type cannot be converted to int
+        if issubclass(to_type, IntegerType):
+            return False
+
+        assert issubclass(to_type, FloatType), to_type
+
+        if from_type == FloatType or to_type == FloatType:
+            # generic float can be converted to any float
+            return True
+
+        # if neither are generic, right now they must be the same type
+        # cuz we don't have fpext or fptrunc
+        return from_type == to_type
+
+    return False
+
+
 @dataclass
 class CompileState:
     types: FpyNamespace
@@ -775,54 +818,6 @@ class CalculateExprTypes(Visitor):
 
 
 class CheckAndResolveArgumentTypes(Visitor):
-
-    def is_convertible_to(self, from_type: FppTypeClass, to_type: FppTypeClass) -> bool:
-        if from_type == to_type:
-            return True
-
-        if issubclass(from_type, StringType) and issubclass(to_type, StringType):
-            if from_type == StringType or to_type == StringType:
-                # from a "generic" string to either a generic string or specific one
-
-                # or from a "specific" string to a generic one
-                return True
-            return False
-
-        if issubclass(from_type, NumericalType) and issubclass(to_type, NumericalType):
-
-            if issubclass(from_type, IntegerType):
-                # ints can be converted to larger ints or floats
-                if from_type == IntegerType:
-                    # it is a "generic" int. can turn into any type we want
-                    return True
-
-                if issubclass(to_type, FloatType):
-                    return True
-
-                if from_type.getMaxSize() < to_type.getMaxSize():
-                    # going to a larger type
-                    return True
-
-                return False
-
-            assert issubclass(from_type, FloatType), from_type
-
-            # float type cannot be converted to int
-            if issubclass(to_type, IntegerType):
-                return False
-
-            if from_type == FloatType:
-                # generic float can be converted to any float
-                return True
-
-            # f64 cannot be converted to f32
-            if from_type.getMaxSize() > to_type.getMaxSize():
-                return False
-
-            return True
-
-        return False
-
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
 
         lhs_type = state.expr_types[node.lhs]
@@ -836,11 +831,10 @@ class CheckAndResolveArgumentTypes(Visitor):
             return
 
         # args are both numeric
-        # if one is a float, both must be fp values because we only have fp-fp comparisons rn
 
-        fp_cmp = issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType)
-
-        if fp_cmp:
+        if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
+            # if one is a float, both must be fp values because we only have fp-fp comparisons rn
+            # will need an integer<>float conversion op
             if not issubclass(lhs_type, FloatType) or not issubclass(
                 rhs_type, FloatType
             ):
@@ -850,24 +844,27 @@ class CheckAndResolveArgumentTypes(Visitor):
                 )
                 return
 
+            if (lhs_type == F32Type and rhs_type == F64Type) or (
+                lhs_type == F32Type and rhs_type == F64Type
+            ):
+                # don't support converting f32 to f64 at the moment, no bytecode op for it
+                state.err("Cannot compare F32 to F64", node)
+                return
+
+            # otherwise, okay to compare
+
             # if both are generic float types, pick F64
             if lhs_type == FloatType and rhs_type == FloatType:
                 state.expr_types[node.lhs] = F64Type
                 state.expr_types[node.rhs] = F64Type
                 # good2go
-                return
-            if lhs_type == FloatType:
+            elif lhs_type == FloatType:
                 # use rhs type
                 state.expr_types[node.lhs] = state.expr_types[node.rhs]
-                return
-            if rhs_type == FloatType:
+            elif rhs_type == FloatType:
                 # use lhs type
                 state.expr_types[node.rhs] = state.expr_types[node.lhs]
-                return
-            if lhs_type == rhs_type:
-                return
-            # don't support this at the moment... need to convert f32 to f64
-            state.err("Cannot compare F32 to F64", node)
+
             return
 
         # in integer comparisons, we can compare any type to any other type
@@ -877,16 +874,14 @@ class CheckAndResolveArgumentTypes(Visitor):
             # use i64
             state.expr_types[node.lhs] = I64Type
             state.expr_types[node.rhs] = I64Type
-            return
-        if lhs_type == IntegerType:
+        elif lhs_type == IntegerType:
             # use rhs type
             state.expr_types[node.lhs] = state.expr_types[node.rhs]
-        if rhs_type == IntegerType:
+        elif rhs_type == IntegerType:
             # use lhs type
             state.expr_types[node.rhs] = state.expr_types[node.lhs]
         # otherwise, they are both "specific" integer types. user beware
         # if you're doing some weird cmp between signed vs unsigned
-        return
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
@@ -915,7 +910,7 @@ class CheckAndResolveArgumentTypes(Visitor):
 
             value_expr_type = state.expr_types[value_expr]
 
-            if self.is_convertible_to(value_expr_type, arg_type):
+            if is_convertible_to(value_expr_type, arg_type):
                 # arg type is good!
                 state.expr_types[value_expr] = arg_type
                 continue
@@ -935,69 +930,38 @@ class CheckAndResolveArgumentTypes(Visitor):
         # "or/and" can have as many args as you want. they all need to be bools tho
         for val in node.values:
             val_type = state.expr_types[val]
-            if not self.is_convertible_to(val_type, BoolType):
+            if not is_convertible_to(val_type, BoolType):
                 state.err(f"Arguments to 'and'/'or' must be booleans", val)
                 return
+            state.expr_types[val] = BoolType
 
     def visit_AstNot(self, node: AstNot, state: CompileState):
         val_type = state.expr_types[node.value]
-        if not self.is_convertible_to(val_type, BoolType):
+        if not is_convertible_to(val_type, BoolType):
             state.err(f"Argument to 'not' must be boolean", node.value)
             return
-
-
-class PickNumericLiteralTypes(Visitor):
-
-    def try_interpret_literal_as(
-        self, node: AstExpr, type: FppTypeClass, state: CompileState
-    ) -> bool:
-        if not isinstance(node, AstLiteral):
-            return True
-
-        # it is a literal. can it be assigned
-        expr_type = state.expr_types[node]
-
-        if expr_type == type:
-            return True
-
-        # we've got a numeric literal. if we don't have a decisive type for it,
-        # pick one
-        if expr_type in NUMERIC_TYPES:
-            # type is already "decided" as something else
-            return False
-
-        # type is undecided
-        # we get to pick, based on the number
-        if isinstance(node.value, int):
-            assert expr_type in (NumericalType, IntegerType)
-            if type in INTEGER_TYPES:
-                state.expr_types[node] = type
-                return True
-            else:
-                return False
-
-        elif isinstance(node.value, float):
-            assert expr_type in (NumericalType, FloatType)
-            if type in FLOAT_TYPES:
-                state.expr_types[node] = type
-                return True
-            else:
-                return False
+        state.expr_types[node.value] = BoolType
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var_type = state.resolved_references[node.variable].type
-        if not self.try_interpret_literal_as(node.value, var_type, state):
+        if not is_convertible_to(state.expr_types[node.value], var_type):
             state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
             return
+        state.expr_types[node.value] = var_type
 
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
-        self.try_interpret_literal_as(node.item, I64Type, state)
+        # the node of the index number has no expression value, it's an arg
+        # but only at syntax level
+        state.expr_types[node.item] = NothingType
 
 
 class CalculateExprValues(Visitor):
 
     def visit_AstLiteral(self, node: AstLiteral, state: CompileState):
-        state.expr_values[node] = state.expr_types[node](node.value)
+        if state.expr_types != NothingType:
+            state.expr_values[node] = state.expr_types[node](node.value)
+        else:
+            state.expr_values[node] = NothingType()
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         ref = state.resolved_references[node]
@@ -1031,6 +995,7 @@ class CalculateExprValues(Visitor):
         else:
             assert False, ref
 
+        assert expr_value is None or isinstance(expr_value, state.expr_types[node]), (expr_value, state.expr_types[node])
         state.expr_values[node] = expr_value
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
@@ -1109,7 +1074,6 @@ class CheckVariableValues(Visitor):
             return
 
         assert isinstance(value, value_type), (value, value_type)
-        print(value, value_type)
 
         if isinstance(value, NothingType):
             # expr is known to have no value
@@ -1633,18 +1597,17 @@ def compile(body: AstBody, dictionary: str) -> list[Directive]:
     state = get_base_compile_state(dictionary)
     passes: list[Visitor] = [
         AssignIds(),
-        # might want to error if you're overriding smth from the dict
+        # based on assignment syntax nodes, we know which variables exist where
         CreateVariables(),
-        # now that variables have been defined, try resolving references
-        # again and fail if anything isn't found
+        # now that variables have been defined, all names/attributes/indices (references)
+        # should be defined
         ResolveReferences(),
+        # now that we know what all refs point to, we should be able to figure out the type
+        # of every expression
         CalculateExprTypes(),
-        # okay, we know what all the different names could be pointing to,
-        # at least according to the name of the symbol.
-        # but in the case of polymorphic functions, multiple funcs can have
-        # the same name. let's use arg types to figure out which one we're calling
+        # now that we know the type of each expr, we can type check all function calls
+        # and also narrow down ambiguous argument types
         CheckAndResolveArgumentTypes(),
-        PickNumericLiteralTypes(),
         # now we know what each call points to
         CalculateExprValues(),
         CheckVariableValues(),
