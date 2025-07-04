@@ -42,15 +42,14 @@ class DirectiveOpcode(Enum):
     DESER_SER_REG_4 = 12
     DESER_SER_REG_2 = 13
     DESER_SER_REG_1 = 14
-    # binary comparison directives
-    # all of these are handled at the CPP level by one BinaryCmpDirective
-    # NO REORDER
+    # binary reg op directives
+    # all of these are handled at the CPP level by one BinaryRegOpDirective
     # boolean ops
     OR = 15
     AND = 16
     # integer equalities
-    EQ = 17
-    NE = 18
+    IEQ = 17
+    INE = 18
     # unsigned integer inequalities
     ULT = 19
     ULE = 20
@@ -69,10 +68,15 @@ class DirectiveOpcode(Enum):
     FLE = 30
     FGT = 31
     FGE = 32
-    # END NO REORDER
-    # end binary comparison directives
+    # end binary reg op directives
+
+    # unary reg op dirs
     NOT = 33
-    EXIT = 34
+    FPEXT = 34
+    FPTRUNC = 35
+    # end unary reg op dirs
+
+    EXIT = 36
 
 
 class Directive:
@@ -258,7 +262,7 @@ class SetRegDirective(Directive):
 
 
 @dataclass
-class _BinaryCmpDirective(Directive):
+class _BinaryRegOpDirective(Directive):
     lhs: int
     """U8: The left-hand side register for comparison."""
     rhs: int
@@ -274,82 +278,80 @@ class _BinaryCmpDirective(Directive):
         return bytes(data)
 
 
-class OrDirective(_BinaryCmpDirective):
+class OrDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.OR
 
 
-class AndDirective(_BinaryCmpDirective):
+class AndDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.AND
 
 
-class EqualDirective(_BinaryCmpDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.EQ
+class IntEqualDirective(_BinaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IEQ
 
 
-class NotEqualDirective(_BinaryCmpDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NE
+class IntNotEqualDirective(_BinaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.INE
 
 
-class UnsignedLessThanDirective(_BinaryCmpDirective):
+class UnsignedLessThanDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ULT
 
 
-class UnsignedLessThanOrEqualDirective(_BinaryCmpDirective):
+class UnsignedLessThanOrEqualDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ULE
 
 
-class UnsignedGreaterThanDirective(_BinaryCmpDirective):
+class UnsignedGreaterThanDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UGT
 
 
-class UnsignedGreaterThanOrEqualDirective(_BinaryCmpDirective):
+class UnsignedGreaterThanOrEqualDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UGE
 
 
-class SignedLessThanDirective(_BinaryCmpDirective):
+class SignedLessThanDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SLT
 
 
-class SignedLessThanOrEqualDirective(_BinaryCmpDirective):
+class SignedLessThanOrEqualDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SLE
 
 
-class SignedGreaterThanDirective(_BinaryCmpDirective):
+class SignedGreaterThanDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SGT
 
 
-class SignedGreaterThanOrEqualDirective(_BinaryCmpDirective):
+class SignedGreaterThanOrEqualDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SGE
 
 
-class FloatGreaterThanOrEqualDirective(_BinaryCmpDirective):
+class FloatGreaterThanOrEqualDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FGE
 
 
-class FloatLessThanOrEqualDirective(_BinaryCmpDirective):
+class FloatLessThanOrEqualDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLE
 
 
-class FloatLessThanDirective(_BinaryCmpDirective):
+class FloatLessThanDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLT
 
 
-class FloatGreaterThanDirective(_BinaryCmpDirective):
+class FloatGreaterThanDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FGT
 
 
-class FloatEqualDirective(_BinaryCmpDirective):
+class FloatEqualDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FEQ
 
 
-class FloatNotEqualDirective(_BinaryCmpDirective):
+class FloatNotEqualDirective(_BinaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FNE
 
 
-
 @dataclass
-class NotDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NOT
+class _UnaryRegOpDirective(Directive):
     src: int
     res: int
 
@@ -358,6 +360,22 @@ class NotDirective(Directive):
         data.extend(U8Type(self.src).serialize())
         data.extend(U8Type(self.res).serialize())
         return bytes(data)
+
+
+@dataclass
+class NotDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NOT
+
+
+@dataclass
+class FloatTruncateDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTRUNC
+
+
+@dataclass
+class FloatExtendDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPEXT
+
 
 @dataclass
 class ExitDirective(Directive):
@@ -368,30 +386,30 @@ class ExitDirective(Directive):
         return BoolType(self.success).serialize()
 
 
-INT_EQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
-    "==": EqualDirective,
-    "!=": NotEqualDirective,
+INT_EQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
+    "==": IntEqualDirective,
+    "!=": IntNotEqualDirective,
 }
 
-FLOAT_EQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
+FLOAT_EQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
     "==": FloatEqualDirective,
     "!=": FloatNotEqualDirective,
 }
 
 
-INT_SIGNED_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
+INT_SIGNED_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
     ">": SignedGreaterThanDirective,
     "<": SignedLessThanDirective,
     ">=": SignedGreaterThanOrEqualDirective,
     "<=": SignedLessThanOrEqualDirective,
 }
-INT_UNSIGNED_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
+INT_UNSIGNED_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
     ">": UnsignedGreaterThanDirective,
     "<": UnsignedLessThanDirective,
     ">=": UnsignedGreaterThanOrEqualDirective,
     "<=": UnsignedLessThanOrEqualDirective,
 }
-FLOAT_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryCmpDirective]] = {
+FLOAT_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
     ">": FloatGreaterThanDirective,
     "<": FloatLessThanDirective,
     ">=": FloatGreaterThanOrEqualDirective,

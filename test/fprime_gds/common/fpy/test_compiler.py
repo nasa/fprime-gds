@@ -300,7 +300,7 @@ if val > val2:
     pass
 """
 
-    assert_failure(fprime_test_api, seq)
+    assert_success(fprime_test_api, seq)
 
 
 def test_construct_array(fprime_test_api):

@@ -24,7 +24,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     DeserSerReg4Directive,
     DeserSerReg8Directive,
     Directive,
-    EqualDirective,
+    FloatExtendDirective,
+    IntEqualDirective,
     ExitDirective,
     FloatEqualDirective,
     FloatNotEqualDirective,
@@ -33,7 +34,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     GotoDirective,
     IfDirective,
     NotDirective,
-    NotEqualDirective,
+    IntNotEqualDirective,
     OrDirective,
     SetSerRegDirective,
     SetRegDirective,
@@ -368,49 +369,6 @@ def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
         assert False, ref
 
     return result_type
-
-
-def is_convertible_to(from_type: FppTypeClass, to_type: FppTypeClass) -> bool:
-    if from_type == to_type:
-        return True
-
-    if issubclass(from_type, StringType) and issubclass(to_type, StringType):
-        # from a "generic" string to either a generic string or specific one
-        # or from a "specific" string to a generic one
-        return from_type == StringType or to_type == StringType
-
-    if issubclass(from_type, NumericalType) and issubclass(to_type, NumericalType):
-
-        if issubclass(from_type, IntegerType):
-            # ints can be converted to larger ints or floats
-            if from_type == IntegerType:
-                # it is a "generic" int. can turn into any type we want
-                return True
-
-            if issubclass(to_type, FloatType):
-                return True
-
-            # extension of integers is allowed, truncation is not allowed
-            # TODO test comparison of U8 and U16 works as expected
-            return from_type.getMaxSize() < to_type.getMaxSize()
-
-        assert issubclass(from_type, FloatType), from_type
-
-        # float type cannot be converted to int
-        if issubclass(to_type, IntegerType):
-            return False
-
-        assert issubclass(to_type, FloatType), to_type
-
-        if from_type == FloatType or to_type == FloatType:
-            # generic float can be converted to any float
-            return True
-
-        # if neither are generic, right now they must be the same type
-        # cuz we don't have fpext or fptrunc
-        return from_type == to_type
-
-    return False
 
 
 @dataclass
@@ -821,6 +779,65 @@ class CalculateExprTypes(Visitor):
 
 
 class CheckAndResolveArgumentTypes(Visitor):
+
+    def is_convertible_to(
+        self, node: Ast, from_type: FppTypeClass, to_type: FppTypeClass, state: CompileState
+    ) -> bool:
+        if from_type == to_type:
+            return True
+
+        if issubclass(from_type, StringType) and issubclass(to_type, StringType):
+            # from a "generic" string to either a generic string or specific one
+            # or from a "specific" string to a generic one
+            return from_type == StringType or to_type == StringType
+
+        if issubclass(from_type, NumericalType) and issubclass(to_type, NumericalType):
+
+            if issubclass(from_type, IntegerType):
+                if not issubclass(to_type, IntegerType):
+                    # ints cannot be converted to floats
+                    return False
+
+                if from_type == IntegerType or to_type == IntegerType:
+                    # one side is a "generic" type, so yes we can convert
+                    return True
+
+                # neither side is "generic"
+
+                # extension of integers is allowed, truncation is not allowed for
+                # loss of precision reasons, not technical reasons
+                # TODO test comparison of U8 and U16 works as expected
+                if not from_type.getMaxSize() < to_type.getMaxSize():
+                    state.err(
+                        f"Truncation from {from_type} to {to_type} not allowed", node
+                    )
+                    return False
+                return True
+
+            assert issubclass(from_type, FloatType), from_type
+            if not issubclass(to_type, FloatType):
+                # floats cannot be converted to ints
+                return False
+
+
+            
+            if from_type == FloatType or to_type == FloatType:
+                # one side is a "generic" type, so yes we can convert
+                return True
+
+            # neither side is "generic"
+
+            # extension of floats is allowed, truncation is not allowed for
+            # loss of precision reasons, not technical reasons
+            if not from_type.getMaxSize() < to_type.getMaxSize():
+                state.err(
+                    f"Truncation from {from_type} to {to_type} not allowed", node
+                )
+                return False
+            return True
+        
+        return False
+
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
 
         lhs_type = state.expr_types[node.lhs]
@@ -847,27 +864,12 @@ class CheckAndResolveArgumentTypes(Visitor):
                 )
                 return
 
-            if (lhs_type == F32Type and rhs_type == F64Type) or (
-                lhs_type == F32Type and rhs_type == F64Type
-            ):
-                # don't support converting f32 to f64 at the moment, no bytecode op for it
-                state.err("Cannot compare F32 to F64", node)
-                return
-
-            # otherwise, okay to compare
-
-            # if both are generic float types, pick F64
-            if lhs_type == FloatType and rhs_type == FloatType:
+            # if either is generic, pick F64. we want F64 cuz otherwise we need
+            # an FPEXT to convert to F64
+            if lhs_type == FloatType:
                 state.expr_types[node.lhs] = F64Type
+            if rhs_type == FloatType:
                 state.expr_types[node.rhs] = F64Type
-                # good2go
-            elif lhs_type == FloatType:
-                # use rhs type
-                state.expr_types[node.lhs] = state.expr_types[node.rhs]
-            elif rhs_type == FloatType:
-                # use lhs type
-                state.expr_types[node.rhs] = state.expr_types[node.lhs]
-
             return
 
         # in integer comparisons, we can compare any type to any other type
@@ -913,7 +915,7 @@ class CheckAndResolveArgumentTypes(Visitor):
 
             value_expr_type = state.expr_types[value_expr]
 
-            if is_convertible_to(value_expr_type, arg_type):
+            if self.is_convertible_to(value_expr, value_expr_type, arg_type, state):
                 # arg type is good!
                 state.expr_types[value_expr] = arg_type
                 continue
@@ -933,21 +935,21 @@ class CheckAndResolveArgumentTypes(Visitor):
         # "or/and" can have as many args as you want. they all need to be bools tho
         for val in node.values:
             val_type = state.expr_types[val]
-            if not is_convertible_to(val_type, BoolType):
+            if val_type != BoolType:
                 state.err(f"Arguments to 'and'/'or' must be booleans", val)
                 return
             state.expr_types[val] = BoolType
 
     def visit_AstNot(self, node: AstNot, state: CompileState):
         val_type = state.expr_types[node.value]
-        if not is_convertible_to(val_type, BoolType):
+        if val_type != BoolType:
             state.err(f"Argument to 'not' must be boolean", node.value)
             return
         state.expr_types[node.value] = BoolType
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var_type = state.resolved_references[node.variable].type
-        if not is_convertible_to(state.expr_types[node.value], var_type):
+        if not self.is_convertible_to(node.value, state.expr_types[node.value], var_type, state):
             state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
             return
 
@@ -1093,7 +1095,11 @@ class GenerateVariableDirectives(Visitor):
             state.next_sreg += 1
             existing_var.sreg_idx = sreg_idx
         val_bytes = value.serialize()
-        assert len(val_bytes) == value.getMaxSize(), (len(val_bytes), value.getMaxSize(), value)
+        assert len(val_bytes) == value.getMaxSize(), (
+            len(val_bytes),
+            value.getMaxSize(),
+            value,
+        )
         assert len(val_bytes) <= MAX_SERIALIZABLE_REGISTER_SIZE, len(val_bytes)
         state.directives[node] = [SetSerRegDirective(sreg_idx, val_bytes)]
 
@@ -1213,17 +1219,19 @@ class GenerateNonConstExprDirectives(Visitor):
 
         offset = 0
 
-        if isinstance(ref, FpyVariable):
+        base_ref = ref
+
+        # if it's a field ref, find the parent and the offset in the parent
+        while isinstance(base_ref, FieldReference):
+            offset += base_ref.offset
+            base_ref = base_ref.parent
+
+        if isinstance(base_ref, FpyVariable):
             # already in an sreg
-            sreg_idx = ref.sreg_idx
+            sreg_idx = base_ref.sreg_idx
         else:
             sreg_idx = state.next_sreg
             state.next_sreg += 1
-            base_ref = ref
-
-            while isinstance(base_ref, FieldReference):
-                offset += base_ref.offset
-                base_ref = base_ref.parent
 
             if isinstance(base_ref, ChTemplate):
                 tlm_time_sreg_idx = state.next_sreg
@@ -1235,14 +1243,10 @@ class GenerateNonConstExprDirectives(Visitor):
             elif isinstance(base_ref, PrmTemplate):
                 directives.append(GetPrmDirective(sreg_idx, base_ref.get_id()))
 
-            elif isinstance(base_ref, FpyVariable):
-                # already in sreg
-                sreg_idx = base_ref.sreg_idx
-
             else:
                 assert (
                     False
-                ), ref  # ref should either be impossible to put in a reg or should have a compile time val
+                ), base_ref  # ref should either be impossible to put in a reg or should have a compile time val
 
         # pull from sreg into nreg
         directives.extend(
@@ -1321,16 +1325,24 @@ class GenerateNonConstExprDirectives(Visitor):
             assert issubclass(rhs_type, FloatType), rhs_type
             fp = True
 
+        if fp:
+            # need to convert both lhs and rhs into F64
+            # modify them in place if necessary
+            if lhs_type != F64Type:
+                directives.append(FloatExtendDirective(lhs_reg, lhs_reg))
+            if rhs_type != F64Type:
+                directives.append(FloatExtendDirective(rhs_reg, rhs_reg))
+
         if node.op.value == "==":
             if fp:
                 directives.append(FloatEqualDirective(lhs_reg, rhs_reg, res_reg))
             else:
-                directives.append(EqualDirective(lhs_reg, rhs_reg, res_reg))
+                directives.append(IntEqualDirective(lhs_reg, rhs_reg, res_reg))
         elif node.op.value == "!=":
             if fp:
                 directives.append(FloatNotEqualDirective(lhs_reg, rhs_reg, res_reg))
             else:
-                directives.append(NotEqualDirective(lhs_reg, rhs_reg, res_reg))
+                directives.append(IntNotEqualDirective(lhs_reg, rhs_reg, res_reg))
         else:
 
             if fp:
@@ -1609,7 +1621,7 @@ def compile(body: AstBody, dictionary: str) -> list[Directive]:
         # for expressions which have constant values, generate corresponding directives
         # to put the expr in its register
         GenerateConstExprDirectives(),
-        # for expressions which don't have constant values, generate directives to 
+        # for expressions which don't have constant values, generate directives to
         # calculate the expr at runtime and put it in its register
         GenerateNonConstExprDirectives(),
         # count the number of directives generated by each node
