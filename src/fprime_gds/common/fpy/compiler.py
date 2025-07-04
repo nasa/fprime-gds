@@ -2,12 +2,8 @@ from abc import ABC
 import argparse
 import inspect
 from pathlib import Path
-from pprint import pprint
-from collections import defaultdict
 from dataclasses import dataclass, field, fields
 import traceback
-from types import NoneType
-from typing import TypeVar, Union
 
 from fprime_gds.common.fpy.bytecode.serialize_bytecode import serialize_directives
 from fprime_gds.common.fpy.bytecode.directives import (
@@ -82,7 +78,6 @@ from fprime_gds.common.fpy.parser import (
     AstNumber,
     AstOr,
     AstReference,
-    AstStmt,
     AstString,
     Ast,
     AstTest,
@@ -193,12 +188,6 @@ BUILTINS: dict[str, FpyBuiltin] = {
 @dataclass
 class FpyTypeCtor(FpyCallable):
     type: FppTypeClass
-
-
-@dataclass
-class FpyOperator(FpyCallable):
-    op: str
-    directive: type[Directive]
 
 
 @dataclass
@@ -604,7 +593,7 @@ class ResolveReferences(Visitor):
         offset = 0
         for arg_name, arg_type in member_list:
             if arg_name == node.attr:
-                return FieldReference(parent, arg_type, offset)
+                return FieldReference(parent, arg_type, offset, name=arg_name)
             offset += arg_type.getMaxSize()
 
         state.err(f"Unknown member {node.attr}", node)
@@ -643,7 +632,7 @@ class ResolveReferences(Visitor):
         offset = 0
         for i in range(0, value_type.LENGTH):
             if i == node.item.value:
-                return FieldReference(parent, value_type.MEMBER_TYPE, offset)
+                return FieldReference(parent, value_type.MEMBER_TYPE, offset, idx=i)
             offset += value_type.MEMBER_TYPE.getMaxSize()
 
         state.err(
@@ -1559,7 +1548,6 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
 
 def compile(body: AstBody, dictionary: str) -> list[Directive]:
-    print(body)
     state = get_base_compile_state(dictionary)
     passes: list[Visitor] = [
         AssignIds(),
