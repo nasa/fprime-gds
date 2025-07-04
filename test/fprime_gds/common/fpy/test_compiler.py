@@ -12,14 +12,12 @@ def compile_seq(fprime_test_api, seq: str) -> list[Directive]:
     return compile(parse(seq), fprime_test_api.pipeline.dictionary_path)
 
 
-def run_seq(fprime_test_api: IntegrationTestAPI, seq: str):
-    directives = compile_seq(fprime_test_api, seq)
-
+def run_seq(fprime_test_api: IntegrationTestAPI, directives: list[Directive]):
     file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
 
     serialize_directives(directives, Path(file.name))
 
-    fprime_test_api.send_and_assert_command("ComFpy.cmdSeq.RUN", [file.name, "BLOCK"])
+    fprime_test_api.send_and_assert_command("ComFpy.cmdSeq.RUN", [file.name, "BLOCK"], timeout=2)
 
 
 def assert_compile_success(fprime_test_api, seq: str):
@@ -27,7 +25,9 @@ def assert_compile_success(fprime_test_api, seq: str):
 
 
 def assert_run_success(fprime_test_api, seq: str):
-    run_seq(fprime_test_api, seq)
+    directives = compile_seq(fprime_test_api, seq)
+
+    run_seq(fprime_test_api, directives)
 
 
 def assert_compile_failure(fprime_test_api, seq: str):
@@ -39,8 +39,9 @@ def assert_compile_failure(fprime_test_api, seq: str):
 
 
 def assert_run_failure(fprime_test_api, seq: str):
+    directives = compile_seq(fprime_test_api, seq)
     try:
-        run_seq(fprime_test_api, seq)
+        run_seq(fprime_test_api, directives)
     except BaseException as e:
         return
     raise RuntimeError("run_seq succeeded")
@@ -51,7 +52,21 @@ def test_simple_var(fprime_test_api):
 var: U32 = 1
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_exit_success(fprime_test_api):
+    seq = """
+exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_exit_failure(fprime_test_api):
+    seq = """
+exit(False)
+"""
+    assert_run_failure(fprime_test_api, seq)
 
 
 def test_large_var(fprime_test_api):
@@ -59,7 +74,7 @@ def test_large_var(fprime_test_api):
 var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_var_wrong_rhs(fprime_test_api):
@@ -110,7 +125,7 @@ var: U32 = 1
 var = 2
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_reassign_ann(fprime_test_api):
@@ -134,21 +149,21 @@ def test_call_cmd(fprime_test_api):
     seq = """
 CdhCore.cmdDisp.CMD_NO_OP()
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_call_cmd_with_str_arg(fprime_test_api):
     seq = """
 CdhCore.cmdDisp.CMD_NO_OP_STRING("hello world")
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_call_cmd_with_int_arg(fprime_test_api):
     seq = """
 FpyDemo.sendBuffComp.PARAMETER3_PRM_SET(4)
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_bad_enum_ctor(fprime_test_api):
@@ -162,14 +177,14 @@ def test_cmd_with_enum(fprime_test_api):
     seq = """
 FpyDemo.SG5.Settings(123, 0.5, 0.5, FpyDemo.SignalType.TRIANGLE)
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_instantiate_type_for_cmd(fprime_test_api):
     seq = """
 FpyDemo.typeDemo.CHOICE_PAIR(FpyDemo.ChoicePair(FpyDemo.Choice.ONE, FpyDemo.Choice.TWO))
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_var_with_enum_type(fprime_test_api):
@@ -177,7 +192,7 @@ def test_var_with_enum_type(fprime_test_api):
 var: FpyDemo.Choice = FpyDemo.Choice.ONE
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_simple_if(fprime_test_api):
@@ -185,25 +200,28 @@ def test_simple_if(fprime_test_api):
 var: bool = True
 
 if var:
-    pass
+    exit(True)
+exit(False)
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_or_expr(fprime_test_api):
     seq = """
 if True or False:
-    pass
+    exit(True)
+exit(False)
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_not_expr(fprime_test_api):
     seq = """
 if not False:
-    pass
+    exit(True)
+exit(False)
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_or_expr_with_vars(fprime_test_api):
@@ -212,26 +230,30 @@ var1: bool = True
 var2: bool = False
 
 if var1 or var2:
-    pass
+    exit(True)
+exit(False)
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_geq(fprime_test_api):
     seq = """
 if 2 >= 1:
-    pass
+    exit(True)
+exit(False)
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_geq_tlm(fprime_test_api):
     seq = """
-if CdhCore.cmdDisp.CommandsDispatched > 1:
-    pass
+CdhCore.cmdDisp.CMD_NO_OP()
+if CdhCore.cmdDisp.CommandsDispatched >= 1:
+    exit(True)
+exit(False)
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_large_elifs(fprime_test_api):
@@ -246,19 +268,11 @@ elif CdhCore.cmdDisp.CommandsDispatched == 3:
     CdhCore.cmdDisp.CMD_NO_OP_STRING("3")
 elif CdhCore.cmdDisp.CommandsDispatched == 4:
     CdhCore.cmdDisp.CMD_NO_OP_STRING("4")
-elif CdhCore.cmdDisp.CommandsDispatched == 5:
-    CdhCore.cmdDisp.CMD_NO_OP_STRING("5")
-elif CdhCore.cmdDisp.CommandsDispatched == 6:
-    CdhCore.cmdDisp.CMD_NO_OP_STRING("6")
-elif CdhCore.cmdDisp.CommandsDispatched == 7:
-    CdhCore.cmdDisp.CMD_NO_OP_STRING("7")
-elif CdhCore.cmdDisp.CommandsDispatched == 8:
-    CdhCore.cmdDisp.CMD_NO_OP_STRING("8")
 else:
-    CdhCore.cmdDisp.CMD_NO_OP_STRING(">8")
+    CdhCore.cmdDisp.CMD_NO_OP_STRING(">4")
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_int_as_stmt(fprime_test_api):
@@ -279,44 +293,41 @@ CdhCore.cmdDisp.CMD_NO_OP
 
 def test_get_struct_member(fprime_test_api):
     seq = """
-if ComFpy.cmdSeq.Debug.nextStatementOpcode == 8:
-    pass
+if ComFpy.cmdSeq.Debug.nextStatementOpcode == 0:
+    # should be 0 because we aren't in debug mode
+    exit(True)
+exit(False)
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_get_const_struct_member(fprime_test_api):
     seq = """
 var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
-if var.priority == 1:
-    pass
+if var.priority == 3:
+    exit(True)
+exit(False)
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_float_cmp(fprime_test_api):
     seq = """
 if 4.0 > 5.0:
-    pass
+    exit(False)
+exit(True)
 """
 
-    assert_compile_success(fprime_test_api, seq)
-
-
-def test_exit(fprime_test_api):
-    seq = """
-exit(False)
-"""
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_wait_rel(fprime_test_api):
     seq = """
 sleep(0, 1)
 """
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_f32_f64_cmp(fprime_test_api):
@@ -324,10 +335,11 @@ def test_f32_f64_cmp(fprime_test_api):
 val: F32 = 0.0
 val2: F64 = 1.0
 if val > val2:
-    pass
+    exit(False)
+exit(True)
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_construct_array(fprime_test_api):
@@ -335,25 +347,27 @@ def test_construct_array(fprime_test_api):
 val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_get_item_of_var(fprime_test_api):
     seq = """
 val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
 if val[0] == 0:
-    pass
+    exit(True)
+exit(False)
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_i32_f64_cmp(fprime_test_api):
     seq = """
-val: I32 = 0
+val: I32 = 2
 val2: F64 = 1.0
 if val > val2:
-    pass
+    exit(True)
+exit(False)
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
