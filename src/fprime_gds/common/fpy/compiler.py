@@ -33,6 +33,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     GetTlmDirective,
     GotoDirective,
     IfDirective,
+    IntToFloatDirective,
     NotDirective,
     IntNotEqualDirective,
     OrDirective,
@@ -780,63 +781,25 @@ class CalculateExprTypes(Visitor):
 
 class CheckAndResolveArgumentTypes(Visitor):
 
-    def is_convertible_to(
-        self, node: Ast, from_type: FppTypeClass, to_type: FppTypeClass, state: CompileState
+    def is_literal_convertible_to(
+        self, node: AstLiteral, to_type: FppTypeClass, state: CompileState
     ) -> bool:
-        if from_type == to_type:
-            return True
 
-        if issubclass(from_type, StringType) and issubclass(to_type, StringType):
-            # from a "generic" string to either a generic string or specific one
-            # or from a "specific" string to a generic one
-            return from_type == StringType or to_type == StringType
+        if isinstance(node, AstBoolean):
+            return to_type == BoolType
 
-        if issubclass(from_type, NumericalType) and issubclass(to_type, NumericalType):
+        if isinstance(node, AstString):
+            return issubclass(to_type, StringType)
 
-            if issubclass(from_type, IntegerType):
-                if not issubclass(to_type, IntegerType):
-                    # ints cannot be converted to floats
-                    return False
+        if isinstance(node, AstNumber):
+            if isinstance(node.value, float):
+                return issubclass(to_type, FloatType)
+            if isinstance(node.value, int):
+                return issubclass(to_type, IntegerType)
 
-                if from_type == IntegerType or to_type == IntegerType:
-                    # one side is a "generic" type, so yes we can convert
-                    return True
+            assert False, node.value
 
-                # neither side is "generic"
-
-                # extension of integers is allowed, truncation is not allowed for
-                # loss of precision reasons, not technical reasons
-                # TODO test comparison of U8 and U16 works as expected
-                if not from_type.getMaxSize() < to_type.getMaxSize():
-                    state.err(
-                        f"Truncation from {from_type} to {to_type} not allowed", node
-                    )
-                    return False
-                return True
-
-            assert issubclass(from_type, FloatType), from_type
-            if not issubclass(to_type, FloatType):
-                # floats cannot be converted to ints
-                return False
-
-
-            
-            if from_type == FloatType or to_type == FloatType:
-                # one side is a "generic" type, so yes we can convert
-                return True
-
-            # neither side is "generic"
-
-            # extension of floats is allowed, truncation is not allowed for
-            # loss of precision reasons, not technical reasons
-            if not from_type.getMaxSize() < to_type.getMaxSize():
-                state.err(
-                    f"Truncation from {from_type} to {to_type} not allowed", node
-                )
-                return False
-            return True
-        
-        return False
+        assert False, node
 
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
 
@@ -852,41 +815,28 @@ class CheckAndResolveArgumentTypes(Visitor):
 
         # args are both numeric
 
-        if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
-            # if one is a float, both must be fp values because we only have fp-fp comparisons rn
-            # will need an integer<>float conversion op
-            if not issubclass(lhs_type, FloatType) or not issubclass(
-                rhs_type, FloatType
-            ):
-                state.err(
-                    f"Cannot compare non-floats with floats ({lhs_type} with {rhs_type})",
-                    node,
-                )
-                return
+        # if either is generic float, pick F64. we want F64 cuz otherwise we need
+        # an FPEXT to convert to F64
+        if lhs_type == FloatType:
+            state.expr_types[node.lhs] = F64Type
+        if rhs_type == FloatType:
+            state.expr_types[node.rhs] = F64Type
 
-            # if either is generic, pick F64. we want F64 cuz otherwise we need
-            # an FPEXT to convert to F64
-            if lhs_type == FloatType:
-                state.expr_types[node.lhs] = F64Type
-            if rhs_type == FloatType:
-                state.expr_types[node.rhs] = F64Type
-            return
-
-        # in integer comparisons, we can compare any type to any other type
-
-        # are they both generic?
         if lhs_type == IntegerType and rhs_type == IntegerType:
             # use i64
             state.expr_types[node.lhs] = I64Type
             state.expr_types[node.rhs] = I64Type
-        elif lhs_type == IntegerType:
-            # use rhs type
-            state.expr_types[node.lhs] = state.expr_types[node.rhs]
-        elif rhs_type == IntegerType:
-            # use lhs type
-            state.expr_types[node.rhs] = state.expr_types[node.lhs]
-        # otherwise, they are both "specific" integer types. user beware
-        # if you're doing some weird cmp between signed vs unsigned
+            return
+
+        if lhs_type == IntegerType:
+            # try to interpret it as the rhs_type if rhs_type is integer
+            if issubclass(rhs_type, IntegerType):
+                state.expr_types[node.lhs] = state.expr_types[node.rhs]
+
+        if rhs_type == IntegerType:
+            # try to interpret it as the rhs_type if rhs_type is integer
+            if issubclass(lhs_type, IntegerType):
+                state.expr_types[node.rhs] = state.expr_types[node.lhs]
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
@@ -915,7 +865,10 @@ class CheckAndResolveArgumentTypes(Visitor):
 
             value_expr_type = state.expr_types[value_expr]
 
-            if self.is_convertible_to(value_expr, value_expr_type, arg_type, state):
+            if value_expr_type == arg_type or (
+                isinstance(value_expr, AstLiteral)
+                and self.is_literal_convertible_to(value_expr, arg_type, state)
+            ):
                 # arg type is good!
                 state.expr_types[value_expr] = arg_type
                 continue
@@ -949,9 +902,14 @@ class CheckAndResolveArgumentTypes(Visitor):
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var_type = state.resolved_references[node.variable].type
-        if not self.is_convertible_to(node.value, state.expr_types[node.value], var_type, state):
-            state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
-            return
+        value_type = state.expr_types[node.value]
+        if var_type != value_type:
+            if not (
+                isinstance(node.value, AstLiteral)
+                and self.is_literal_convertible_to(node.value, var_type, state)
+            ):
+                state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
+                return
 
         state.expr_types[node.value] = var_type
 
@@ -1321,16 +1279,23 @@ class GenerateNonConstExprDirectives(Visitor):
         directives.extend(state.directives[node.rhs])
 
         fp = False
-        if issubclass(lhs_type, FloatType):
-            assert issubclass(rhs_type, FloatType), rhs_type
+        if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
             fp = True
 
         if fp:
             # need to convert both lhs and rhs into F64
-            # modify them in place if necessary
-            if lhs_type != F64Type:
+            # modify them in place
+
+            # convert int to float
+            if issubclass(lhs_type, IntegerType):
+                directives.append(IntToFloatDirective(lhs_reg, lhs_reg))
+            if issubclass(rhs_type, IntegerType):
+                directives.append(IntToFloatDirective(rhs_reg, rhs_reg))
+
+            # convert F32 to F64
+            if lhs_type == F32Type:
                 directives.append(FloatExtendDirective(lhs_reg, lhs_reg))
-            if rhs_type != F64Type:
+            if rhs_type == F32Type:
                 directives.append(FloatExtendDirective(rhs_reg, rhs_reg))
 
         if node.op.value == "==":

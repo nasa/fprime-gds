@@ -319,3 +319,14 @@ if val[0] == 0:
 """
 
     assert_success(fprime_test_api, seq)
+
+def test_i32_f64_cmp(fprime_test_api):
+    seq = """
+val: I32 = 0
+val2: F64 = 1.0
+if val > val2:
+    pass
+"""
+
+    assert_success(fprime_test_api, seq)
+

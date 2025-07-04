@@ -74,9 +74,11 @@ class DirectiveOpcode(Enum):
     NOT = 33
     FPEXT = 34
     FPTRUNC = 35
+    FPTOI = 36
+    ITOFP = 37
     # end unary reg op dirs
 
-    EXIT = 36
+    EXIT = 38
 
 
 class Directive:
@@ -375,6 +377,16 @@ class FloatTruncateDirective(_UnaryRegOpDirective):
 @dataclass
 class FloatExtendDirective(_UnaryRegOpDirective):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPEXT
+
+
+@dataclass
+class FloatToIntDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTOI
+
+
+@dataclass
+class IntToFloatDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ITOFP
 
 
 @dataclass
