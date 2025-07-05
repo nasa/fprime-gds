@@ -84,6 +84,9 @@ class DirectiveOpcode(Enum):
     # end unary reg op dirs
 
     EXIT = 40
+    PUSH_CONST = 41
+    ALLOCATE_STACK = 42
+
 
 
 class Directive:
@@ -101,6 +104,24 @@ class Directive:
     def serialize_args(self) -> bytes:
         raise NotImplementedError("serialize_args not implemented")
 
+
+@dataclass
+class PushConstDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_CONST
+
+    val: int
+
+    def serialize_args(self) -> bytes:
+        return I64Type(self.val).serialize()
+
+@dataclass
+class AllocateStackDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ALLOCATE_STACK
+
+    size: int
+
+    def serialize_args(self) -> bytes:
+        return U16Type(self.size).serialize()
 
 @dataclass
 class WaitRelDirective(Directive):
@@ -150,10 +171,8 @@ class GotoDirective(Directive):
 @dataclass
 class IfDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IF
-    conditional_reg: int
-    """U8: The register to branch based off of (interpreted as a C++ boolean)."""
     false_goto_stmt_index: int
-    """U32: The statement index to go to if the register is false."""
+    """U32: The statement index to go to if the top of stack is false."""
 
     def serialize_args(self) -> bytes:
         return (
@@ -171,12 +190,8 @@ class NoOpDirective(Directive):
 
 
 @dataclass
-class GetTlmDirective(Directive):
+class GetTlmValueDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GET_TLM
-    value_dest_sreg: int
-    """U8: The local variable to store the telemetry value in."""
-    time_dest_sreg: int
-    """U8: The local variable to store the telemetry time in."""
     chan_id: int
     """FwChanIdType: The telemetry channel ID to get."""
 
