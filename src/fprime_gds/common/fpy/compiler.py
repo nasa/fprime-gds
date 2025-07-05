@@ -29,12 +29,13 @@ from fprime_gds.common.fpy.bytecode.directives import (
     GetTlmDirective,
     GotoDirective,
     IfDirective,
-    IntToFloatDirective,
     NotDirective,
     IntNotEqualDirective,
     OrDirective,
     SetSerRegDirective,
     SetRegDirective,
+    SignedIntToFloatDirective,
+    UnsignedIntToFloatDirective,
     WaitAbsDirective,
     WaitRelDirective,
 )
@@ -1283,9 +1284,15 @@ class GenerateNonConstExprDirectives(Visitor):
 
             # convert int to float
             if issubclass(lhs_type, IntegerType):
-                directives.append(IntToFloatDirective(lhs_reg, lhs_reg))
+                if lhs_type in UNSIGNED_INTEGER_TYPES:
+                    directives.append(UnsignedIntToFloatDirective(lhs_reg, lhs_reg))
+                else:
+                    directives.append(SignedIntToFloatDirective(lhs_reg, lhs_reg))
             if issubclass(rhs_type, IntegerType):
-                directives.append(IntToFloatDirective(rhs_reg, rhs_reg))
+                if rhs_type in UNSIGNED_INTEGER_TYPES:
+                    directives.append(UnsignedIntToFloatDirective(rhs_reg, rhs_reg))
+                else:
+                    directives.append(SignedIntToFloatDirective(rhs_reg, rhs_reg))
 
             # convert F32 to F64
             if lhs_type == F32Type:

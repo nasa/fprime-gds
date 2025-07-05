@@ -72,13 +72,18 @@ class DirectiveOpcode(Enum):
 
     # unary reg op dirs
     NOT = 33
+    # floating point extension and truncation
     FPEXT = 34
     FPTRUNC = 35
-    FPTOI = 36
-    ITOFP = 37
+    # floating point conversion to signed/unsigned integer,
+    # and vice versa
+    FPTOSI = 36
+    FPTOUI = 37
+    SITOFP = 38
+    UITOFP = 39
     # end unary reg op dirs
 
-    EXIT = 38
+    EXIT = 40
 
 
 class Directive:
@@ -380,13 +385,23 @@ class FloatExtendDirective(_UnaryRegOpDirective):
 
 
 @dataclass
-class FloatToIntDirective(_UnaryRegOpDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTOI
+class FloatToSignedIntDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTOSI
 
 
 @dataclass
-class IntToFloatDirective(_UnaryRegOpDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ITOFP
+class SignedIntToFloatDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SITOFP
+
+
+@dataclass
+class FloatToUnsignedIntDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTOUI
+
+
+@dataclass
+class UnsignedIntToFloatDirective(_UnaryRegOpDirective):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UITOFP
 
 
 @dataclass

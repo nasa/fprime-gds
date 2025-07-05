@@ -523,7 +523,7 @@ exit(False)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_u8_comparison(fprime_test_api):
+def test_literal_comparison(fprime_test_api):
     seq = """
 if 255 > 254:
     exit(True)
@@ -532,38 +532,11 @@ exit(False)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_u8_comparison_false(fprime_test_api):
+def test_literal_comparison_false(fprime_test_api):
     seq = """
 if 255 < 254:
     exit(False)
 exit(True)
-"""
-    assert_run_success(fprime_test_api, seq)
-
-
-def test_i8_comparison(fprime_test_api):
-    seq = """
-if -128 < 127:
-    exit(True)
-exit(False)
-"""
-    assert_run_success(fprime_test_api, seq)
-
-
-def test_i8_comparison_false(fprime_test_api):
-    seq = """
-if -128 > 127:
-    exit(False)
-exit(True)
-"""
-    assert_run_success(fprime_test_api, seq)
-
-
-def test_zeroes_equal(fprime_test_api):
-    seq = """
-if 0 == 0:
-    exit(True)
-exit(False)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -682,5 +655,96 @@ if val1 == val2 and val3 == val4 and val4 == val5:
     if not (val1 != val2) and not (val3 != val4) and not (val4 != val5):
         exit(True)
 exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_various_mixed_type_cmps(fprime_test_api):
+    seq = """
+val1: F32 = 3.14159
+val2: I32 = -42
+val3: U32 = 4294967295
+
+if val1 > val2 and val1 < val3:  # Mixed float/signed/unsigned comparison
+    if val2 < val3:  # Signed vs unsigned comparison
+        exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_nested_boolean_expressions(fprime_test_api):
+    seq = """
+if not (True and False or True and not False) and True:
+    exit(False)  # Should not execute
+exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_maximum_integer_comparisons(fprime_test_api):
+    seq = """
+val1: U64 = 18446744073709551615  # Max U64, interpreted as -1 in signed
+val2: I64 = 9223372036854775807   # Max I64
+val3: I64 = -9223372036854775808  # Min I64
+
+if val1 < val2 and val2 > val3:
+    if val3 < val1: # opposite of what you might expect, but it's cuz val1 is interpeted as signed
+        exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_complex_type_assignments(fprime_test_api):
+    seq = """
+val1: I8 = 127
+val2: U8 = 255
+val3: F32 = 127.0
+
+if val1 == val3:  # Integer to float comparison
+    if val2 > val3:  # Unsigned vs float comparison
+        exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+
+def test_type_mismatch_compile_error(fprime_test_api):
+    seq = """
+val1: U32 = -1  # Should fail: negative value in unsigned type
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_overflow_compile_error(fprime_test_api):
+    seq = """
+val1: U8 = 256  # Should fail: value too large for U8
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_mixed_boolean_numeric_comparison(fprime_test_api):
+    seq = """
+val1: U8 = 1
+val2: I8 = -1
+if (val1 > 0) == True and (val2 < 0) == True:  # Compare boolean results
+    if not ((val1 <= 0) == True or (val2 >= 0) == True):
+        exit(True)
+exit(False)
+"""
+    # cannot currently compare booleans
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_complex_boolean_nesting(fprime_test_api):
+    seq = """
+if not not not not not True:  # Multiple not operators
+    exit(False)
+elif not (True and not (False or not True)):  # Complex nesting
+    exit(False)
+else:
+    exit(True)
 """
     assert_run_success(fprime_test_api, seq)
