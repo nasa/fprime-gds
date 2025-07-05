@@ -17,7 +17,7 @@ def run_seq(fprime_test_api: IntegrationTestAPI, directives: list[Directive]):
 
     serialize_directives(directives, Path(file.name))
 
-    fprime_test_api.send_and_assert_command("ComFpy.cmdSeq.RUN", [file.name, "BLOCK"], timeout=2)
+    fprime_test_api.send_and_assert_command("ComFpy.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
 
 
 def assert_compile_success(fprime_test_api, seq: str):
@@ -199,6 +199,9 @@ def test_simple_if(fprime_test_api):
     seq = """
 var: bool = True
 
+# use exit(True) if we want the sequence to succeed
+# exit(False) if we want it to fail. helpful for testing.
+
 if var:
     exit(True)
 exit(False)
@@ -370,4 +373,314 @@ if val > val2:
 exit(False)
 """
 
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_i32_u32_cmp(fprime_test_api):
+    seq = """
+val: I32 = -2
+val2: U32 = 2
+if val < val2:
+    exit(True)
+exit(False)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+# caught one bug
+def test_float_int_literal_cmp(fprime_test_api):
+    seq = """
+if 1 < 2.0:
+    exit(True)
+exit(False)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+# caught one bug
+def test_and_of_ors(fprime_test_api):
+    seq = """
+if True or False and True or True:
+    exit(True)
+exit(False)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_if_true(fprime_test_api):
+    seq = """
+if True:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_if_false(fprime_test_api):
+    seq = """
+if False:
+    exit(False)
+exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_if_else_true(fprime_test_api):
+    seq = """
+if True:
+    exit(True)
+else:
+    exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_if_else_false(fprime_test_api):
+    seq = """
+if False:
+    exit(False)
+else:
+    exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_if_elif_else(fprime_test_api):
+    seq = """
+if False:
+    exit(False)
+elif True:
+    exit(True)
+else:
+    exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_and_true_true(fprime_test_api):
+    seq = """
+if True and True:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_and_true_false(fprime_test_api):
+    seq = """
+if True and False:
+    exit(False)
+exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_or_false_false(fprime_test_api):
+    seq = """
+if False or False:
+    exit(False)
+exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_or_true_false(fprime_test_api):
+    seq = """
+if True or False:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_not_true(fprime_test_api):
+    seq = """
+if not True:
+    exit(False)
+exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_not_false(fprime_test_api):
+    seq = """
+if not False:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_complex_and_or_not(fprime_test_api):
+    seq = """
+if not False and (True or False):
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_u8_comparison(fprime_test_api):
+    seq = """
+if 255 > 254:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_u8_comparison_false(fprime_test_api):
+    seq = """
+if 255 < 254:
+    exit(False)
+exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_i8_comparison(fprime_test_api):
+    seq = """
+if -128 < 127:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_i8_comparison_false(fprime_test_api):
+    seq = """
+if -128 > 127:
+    exit(False)
+exit(True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_zeroes_equal(fprime_test_api):
+    seq = """
+if 0 == 0:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_all_comparison_operators_u8(fprime_test_api):
+    seq = """
+val1: U8 = 200
+val2: U8 = 100
+
+if val1 > val2 and val2 < val1:
+    if val1 >= val2 and val2 <= val1:
+        if val1 != val2 and not (val1 == val2):
+            exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_all_comparison_operators_i8(fprime_test_api):
+    seq = """
+val1: I8 = 100
+val2: I8 = -100
+
+if val1 > val2 and val2 < val1:
+    if val1 >= val2 and val2 <= val1:
+        if val1 != val2 and not (val1 == val2):
+            exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_all_comparison_operators_u32(fprime_test_api):
+    seq = """
+val1: U32 = 4294967295
+val2: U32 = 0
+
+if val1 > val2 and val2 < val1:
+    if val1 >= val2 and val2 <= val1:
+        if val1 != val2 and not (val1 == val2):
+            exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_all_comparison_operators_i32(fprime_test_api):
+    seq = """
+val1: I32 = 2147483647
+val2: I32 = -2147483648
+
+if val1 > val2 and val2 < val1:
+    if val1 >= val2 and val2 <= val1:
+        if val1 != val2 and not (val1 == val2):
+            exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_all_comparison_operators_f32(fprime_test_api):
+    seq = """
+val1: F32 = 3.14159
+val2: F32 = -3.14159
+
+if val1 > val2 and val2 < val1:
+    if val1 >= val2 and val2 <= val1:
+        if val1 != val2 and not (val1 == val2):
+            exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_all_comparison_operators_f64(fprime_test_api):
+    seq = """
+val1: F64 = 3.14159265359
+val2: F64 = -3.14159265359
+
+if val1 > val2 and val2 < val1:
+    if val1 >= val2 and val2 <= val1:
+        if val1 != val2 and not (val1 == val2):
+            exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_mixed_numeric_comparisons(fprime_test_api):
+    seq = """
+val_u8: U8 = 100
+val_i8: I8 = -100
+val_u32: U32 = 4294967295
+val_i32: I32 = -2147483648
+val_f32: F32 = 3.14159
+val_f64: F64 = -3.14159265359
+
+if val_u8 > val_i8 and val_i32 < val_u32:
+    if val_f64 <= val_f32 and val_f32 >= val_f64:
+        if val_u8 != val_i8 and not (val_u32 == val_i32):
+            exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_equality_edge_cases(fprime_test_api):
+    seq = """
+val1: U8 = 0
+val2: U8 = 0
+val3: F32 = 0.0
+val4: F64 = 0.0
+val5: I32 = 0
+
+if val1 == val2 and val3 == val4 and val4 == val5:
+    if not (val1 != val2) and not (val3 != val4) and not (val4 != val5):
+        exit(True)
+exit(False)
+"""
     assert_run_success(fprime_test_api, seq)

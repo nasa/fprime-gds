@@ -821,11 +821,17 @@ class CheckAndResolveArgumentTypes(Visitor):
             # try to interpret it as the rhs_type if rhs_type is integer
             if issubclass(rhs_type, IntegerType):
                 state.expr_types[node.lhs] = state.expr_types[node.rhs]
+            else:
+                # otherwise rhs is a float. just use i64
+                state.expr_types[node.lhs] = I64Type
 
         if rhs_type == IntegerType:
             # try to interpret it as the rhs_type if rhs_type is integer
             if issubclass(lhs_type, IntegerType):
                 state.expr_types[node.rhs] = state.expr_types[node.lhs]
+            else:
+                # otherwise lhs is a float. just use i64
+                state.expr_types[node.rhs] = I64Type
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
