@@ -86,6 +86,13 @@ class DirectiveOpcode(Enum):
     EXIT = 40
     PUSH_CONST = 41
     ALLOCATE_STACK = 42
+    GET_FROM_HEAP = 43
+    IADD = 44
+    PUSH_LVAR = 45
+    POP_LVAR = 46
+    RETURN_VAL = 47
+    CALL = 48
+    RETURN = 49
 
 
 
@@ -104,6 +111,14 @@ class Directive:
     def serialize_args(self) -> bytes:
         raise NotImplementedError("serialize_args not implemented")
 
+@dataclass
+class GetFromHeapDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GET_FROM_HEAP
+
+    size: int
+
+    def serialize_args(self) -> bytes:
+        return U8Type(self.size).serialize()
 
 @dataclass
 class PushConstDirective(Directive):
@@ -113,6 +128,33 @@ class PushConstDirective(Directive):
 
     def serialize_args(self) -> bytes:
         return I64Type(self.val).serialize()
+
+@dataclass
+class ReturnDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.RETURN
+@dataclass
+class ReturnValDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.RETURN_VAL
+@dataclass
+class IntAddDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IADD
+@dataclass
+class CallDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.CALL
+
+    func_idx: int
+@dataclass
+class PushLVarDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_LVAR
+
+    lvar_idx: int
+
+@dataclass
+class PopLVarDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.POP_LVAR
+
+    lvar_idx: int
+
 
 @dataclass
 class AllocateStackDirective(Directive):
@@ -285,19 +327,8 @@ class SetRegDirective(Directive):
 
 @dataclass
 class _BinaryRegOpDirective(Directive):
-    lhs: int
-    """U8: The left-hand side register for comparison."""
-    rhs: int
-    """U8: The right-hand side register for comparison."""
-    res: int
-    """U8: The destination register for the boolean result."""
-
     def serialize_args(self) -> bytes:
-        data = bytearray()
-        data.extend(U8Type(self.lhs).serialize())
-        data.extend(U8Type(self.rhs).serialize())
-        data.extend(U8Type(self.res).serialize())
-        return bytes(data)
+        return bytes()
 
 
 class OrDirective(_BinaryRegOpDirective):
