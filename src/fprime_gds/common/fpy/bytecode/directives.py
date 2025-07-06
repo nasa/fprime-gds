@@ -93,6 +93,7 @@ class DirectiveOpcode(Enum):
     RETURN_VAL = 47
     CALL = 48
     RETURN = 49
+    ISUB = 50
 
 
 
@@ -128,6 +129,9 @@ class PushConstDirective(Directive):
 
     def serialize_args(self) -> bytes:
         return I64Type(self.val).serialize()
+@dataclass
+class IntSubtractDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ISUB
 
 @dataclass
 class ReturnDirective(Directive):
