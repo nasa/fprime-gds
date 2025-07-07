@@ -157,7 +157,7 @@ FPY_DIRECTIVES: list[StatementTemplate] = [
         [U8Type, arbitrary_type_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.GOTO.value,
+        DirectiveOpcode.JUMP.value,
         "GOTO",
         [goto_tag_or_idx_from_json],
     ),

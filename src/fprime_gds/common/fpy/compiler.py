@@ -14,7 +14,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     INT_SIGNED_INEQUALITY_DIRECTIVES,
     INT_UNSIGNED_INEQUALITY_DIRECTIVES,
     AndDirective,
-    CmdDirective,
+    ConstCmdDirective,
     DeserSerReg1Directive,
     DeserSerReg2Directive,
     DeserSerReg4Directive,
@@ -27,7 +27,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatNotEqualDirective,
     GetPrmDirective,
     GetTlmDirective,
-    GotoDirective,
+    JumpDirective,
     IfDirective,
     NotDirective,
     IntNotEqualDirective,
@@ -1071,7 +1071,7 @@ class GenerateConstCmdDirectives(Visitor):
                     )
                     return
                 arg_bytes += arg_value.serialize()
-            state.directives[node] = [CmdDirective(func.cmd.get_op_code(), arg_bytes)]
+            state.directives[node] = [ConstCmdDirective(func.cmd.get_op_code(), arg_bytes)]
         elif isinstance(func, FpyBuiltin):
             arg_values = []
             for arg_node in node.args if node.args is not None else []:
@@ -1438,7 +1438,7 @@ class GenerateBodyDirectives(Visitor):
         all_dirs = []
 
         cases: list[tuple[AstExpr, AstBody]] = []
-        goto_ends: list[GotoDirective] = []
+        goto_ends: list[JumpDirective] = []
 
         cases.append((node.condition, node.body))
 
@@ -1457,12 +1457,12 @@ class GenerateBodyDirectives(Visitor):
             # include body
             case_dirs.extend(state.directives[case[1]])
             # include a temporary goto end of if, will be refined later
-            goto_dir = GotoDirective(-1)
+            goto_dir = JumpDirective(-1)
             case_dirs.append(goto_dir)
             goto_ends.append(goto_dir)
 
             # if false, skip the body and goto
-            if_dir.false_goto_stmt_index = (
+            if_dir.false_goto_dir_index = (
                 start_line_idx + len(all_dirs) + len(case_dirs)
             )
 
@@ -1472,7 +1472,7 @@ class GenerateBodyDirectives(Visitor):
             all_dirs.extend(state.directives[node.els])
 
         for goto in goto_ends:
-            goto.statement_index = start_line_idx + len(all_dirs)
+            goto.dir_idx = start_line_idx + len(all_dirs)
 
         state.directives[node] = all_dirs
 

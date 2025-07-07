@@ -28,73 +28,79 @@ MAX_SERIALIZABLE_REGISTER_SIZE = 512 - 4 - 4
 
 class DirectiveOpcode(Enum):
     INVALID = 0
-    WAIT_REL = 1
-    WAIT_ABS = 2
-    SET_SER_REG = 3
+    EXIT = 1
+    WAIT_REL = 2
+    WAIT_ABS = 3
     GOTO = 4
     IF = 5
     NO_OP = 6
     GET_TLM = 7
     GET_PRM = 8
-    CMD = 9
-    SET_REG = 10
-    DESER_SER_REG_8 = 11
-    DESER_SER_REG_4 = 12
-    DESER_SER_REG_2 = 13
-    DESER_SER_REG_1 = 14
-    # binary reg op directives
-    # all of these are handled at the CPP level by one BinaryRegOpDirective
+    # binary stack op directives
+    # all of these are handled at the CPP level by one BinaryStackOpDirective
     # boolean ops
-    OR = 15
-    AND = 16
+    OR = 9
+    AND = 10
     # integer equalities
-    IEQ = 17
-    INE = 18
+    IEQ = 11
+    INE = 12
     # unsigned integer inequalities
-    ULT = 19
-    ULE = 20
-    UGT = 21
-    UGE = 22
+    ULT = 13
+    ULE = 14
+    UGT = 15
+    UGE = 16
     # signed integer inequalities
-    SLT = 23
-    SLE = 24
-    SGT = 25
-    SGE = 26
+    SLT = 17
+    SLE = 18
+    SGT = 19
+    SGE = 20
     # floating point equalities
-    FEQ = 27
-    FNE = 28
+    FEQ = 21
+    FNE = 22
     # floating point inequalities
-    FLT = 29
-    FLE = 30
-    FGT = 31
-    FGE = 32
-    # end binary reg op directives
+    FLT = 23
+    FLE = 24
+    FGT = 25
+    FGE = 26
+    # integer arithmetic
+    IADD = 27
+    ISUB = 28
+    IMUL = 29
+    IDIV = 30
+    # float arithmetic
+    FADD = 31
+    FSUB = 32
+    FMUL = 33
+    FDIV = 34
+    # end binary stack op directives
 
-    # unary reg op dirs
-    NOT = 33
+    # unary stack op dirs
+    NOT = 35
     # floating point extension and truncation
-    FPEXT = 34
-    FPTRUNC = 35
+    FPEXT = 36
+    FPTRUNC = 37
     # floating point conversion to signed/unsigned integer,
     # and vice versa
-    FPTOSI = 36
-    FPTOUI = 37
-    SITOFP = 38
-    UITOFP = 39
-    # end unary reg op dirs
+    FPTOSI = 38
+    FPTOUI = 39
+    SITOFP = 40
+    UITOFP = 41
+    # end unary stack op dirs
 
-    EXIT = 40
-    PUSH_CONST = 41
-    ALLOCATE_STACK = 42
-    GET_FROM_HEAP = 43
-    IADD = 44
-    PUSH_LVAR = 45
-    POP_LVAR = 46
-    RETURN_VAL = 47
-    CALL = 48
-    RETURN = 49
-    ISUB = 50
+    PUSH_FROM_HEAP = 42
+    PUSH_FROM_LVAR = 43
+    PUSH_VAL = 45
 
+    POP_TO_LVAR = 46
+    POP_TO_HEAP = 47
+    POP_DISCARD = 48
+
+    CONST_CMD = 49
+
+    FUNC_CALL = 50
+
+    RETURN_VAL = 51
+    RETURN = 52
 
 
 class Directive:
@@ -112,71 +118,121 @@ class Directive:
     def serialize_args(self) -> bytes:
         raise NotImplementedError("serialize_args not implemented")
 
-@dataclass
-class GetFromHeapDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GET_FROM_HEAP
-
-    size: int
-
-    def serialize_args(self) -> bytes:
-        return U8Type(self.size).serialize()
 
 @dataclass
-class PushConstDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_CONST
+class PushFromHeapDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_FROM_HEAP
 
-    val: int
+    # offset implied
+    size: int | U16Type
 
-    def serialize_args(self) -> bytes:
-        return I64Type(self.val).serialize()
+
+@dataclass
+class PushFromLVarDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_FROM_LVAR
+
+    lvar_idx: int | U8Type
+
+
+@dataclass
+class PopToHeapDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.POP_TO_HEAP
+
+    # offset implied
+    size: int | U16Type
+
+
+@dataclass
+class PopToLVarDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.POP_TO_LVAR
+
+    lvar_idx: int | U8Type
+
+
+@dataclass
+class PopDiscardDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.POP_DISCARD
+
+
+@dataclass
+class PushValDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_VAL
+
+    val: bytes
+
+
+@dataclass
+class ConstCmdDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.CONST_CMD
+
+    cmd_opcode: int | FwOpcodeType
+    args: bytes
+
+
+@dataclass
+class IntAddDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IADD
+
+
 @dataclass
 class IntSubtractDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ISUB
 
+
+@dataclass
+class IntMultiplyDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IMUL
+
+
+@dataclass
+class IntDivideDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IDIV
+
+
+@dataclass
+class FloatAddDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FADD
+
+
+@dataclass
+class FloatSubtractDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FSUB
+
+
+@dataclass
+class FloatMultiplyDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FMUL
+
+
+@dataclass
+class FloatDivideDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FDIV
+
+
 @dataclass
 class ReturnDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.RETURN
+
+
 @dataclass
 class ReturnValDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.RETURN_VAL
-@dataclass
-class IntAddDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IADD
-@dataclass
-class CallDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.CALL
 
-    func_idx: int
-@dataclass
-class PushLVarDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_LVAR
-
-    lvar_idx: int
-
-@dataclass
-class PopLVarDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.POP_LVAR
-
-    lvar_idx: int
+    # val implied
 
 
 @dataclass
-class AllocateStackDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ALLOCATE_STACK
+class FuncCallDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FUNC_CALL
 
-    size: int
+    func_idx: int | U8Type
 
-    def serialize_args(self) -> bytes:
-        return U16Type(self.size).serialize()
 
 @dataclass
 class WaitRelDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.WAIT_REL
-    seconds: int
-    useconds: int
-
-    def serialize_args(self) -> bytes:
-        return U32Type(self.seconds).serialize() + U32Type(self.useconds).serialize()
+    seconds: int | U32Type
+    useconds: int | U32Type
 
 
 @dataclass
@@ -184,309 +240,201 @@ class WaitAbsDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.WAIT_ABS
     wakeup_time: TimeType
 
-    def serialize_args(self) -> bytes:
-        return self.wakeup_time.serialize()
-
-
-@dataclass
-class SetSerRegDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SET_SER_REG
-
-    index: int
-    """U8: The index of the local variable to set."""
-    value: bytes
-    """[Fpy.MAX_SERIALIZABLE_REGISTER_SIZE] U8: The value of the local variable."""
-
-    def serialize_args(self) -> bytes:
-        data = bytearray()
-        data.extend(U8Type(self.index).serialize())
-        data.extend(self.value)
-        return bytes(data)
-
 
 @dataclass
 class GotoDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GOTO
-    statement_index: int
-    """U32: The statement index to execute next."""
-
-    def serialize_args(self) -> bytes:
-        return U32Type(self.statement_index).serialize()
+    dir_idx: int | U32Type
 
 
 @dataclass
 class IfDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IF
-    false_goto_stmt_index: int
-    """U32: The statement index to go to if the top of stack is false."""
-
-    def serialize_args(self) -> bytes:
-        return (
-            U8Type(self.conditional_reg).serialize()
-            + U32Type(self.false_goto_stmt_index).serialize()
-        )
+    false_goto_dir_index: int | U32Type
+    """U32: The dir index to go to if the top of stack is false."""
 
 
 @dataclass
 class NoOpDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NO_OP
 
-    def serialize_args(self) -> bytes:
-        return bytes()
-
 
 @dataclass
 class GetTlmValueDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GET_TLM
-    chan_id: int
+    chan_id: int | FwChanIdType
     """FwChanIdType: The telemetry channel ID to get."""
-
-    def serialize_args(self) -> bytes:
-        data = bytearray()
-        data.extend(U8Type(self.value_dest_sreg).serialize())
-        data.extend(U8Type(self.time_dest_sreg).serialize())
-        data.extend(FwChanIdType(self.chan_id).serialize())
-        return bytes(data)
 
 
 @dataclass
 class GetPrmDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GET_PRM
-    dest_sreg_index: int
-    """U8: The local variable to store the parameter value in."""
-    prm_id: int
+    prm_id: int | FwPrmIdType
     """FwPrmIdType: The parameter ID to get the value of."""
 
-    def serialize_args(self) -> bytes:
-        return (
-            U8Type(self.dest_sreg_index).serialize()
-            + FwPrmIdType(self.prm_id).serialize()
-        )
 
-
-@dataclass
-class CmdDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.CMD
-    op_code: int
-    """FwOpcodeType: The opcode of the command."""
-    arg_buf: bytes
-    """[Fpy.MAX_SERIALIZABLE_REGISTER_SIZE] U8: The argument buffer of the command."""
-
-    def serialize_args(self) -> bytes:
-        data = bytearray()
-        data.extend(FwOpcodeType(self.op_code).serialize())
-        data.extend(self.arg_buf)
-        return bytes(data)
-
-
-@dataclass
-class _DeserSerRegDirective(Directive):
-    """
-    Deserializes up to 8 bytes from a local variable into a register.
-    """
-
-    src_sreg_idx: int
-    """U8: The local variable to deserialize from."""
-    src_offset: int
-    """FwSizeType: The starting offset to deserialize from."""
-    dest_reg: int
-    """U8: The destination register to deserialize into."""
-
-    def serialize_args(self) -> bytes:
-        data = bytearray()
-        data.extend(U8Type(self.src_sreg_idx).serialize())
-        data.extend(FwSizeType(self.src_offset).serialize())
-        data.extend(U8Type(self.dest_reg).serialize())
-        return bytes(data)
-
-
-class DeserSerReg8Directive(_DeserSerRegDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_SER_REG_8
-
-
-class DeserSerReg4Directive(_DeserSerRegDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_SER_REG_4
-
-
-class DeserSerReg2Directive(_DeserSerRegDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_SER_REG_2
-
-
-class DeserSerReg1Directive(_DeserSerRegDirective):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DESER_SER_REG_1
-
-
-@dataclass
-class SetRegDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SET_REG
-
-    dest: int
-    """U8: The register to store the value in."""
-    value: int
-    """I64: The value to store in the register."""
-
-    def serialize_args(self) -> bytes:
-        return U8Type(self.dest).serialize() + I64Type(self.value).serialize()
-
-
-@dataclass
-class _BinaryRegOpDirective(Directive):
-    def serialize_args(self) -> bytes:
-        return bytes()
-
-
-class OrDirective(_BinaryRegOpDirective):
+class OrDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.OR
+    # lhs and rhs implied
 
 
-class AndDirective(_BinaryRegOpDirective):
+class AndDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.AND
+    # lhs and rhs implied
 
 
-class IntEqualDirective(_BinaryRegOpDirective):
+class IntEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IEQ
+    # lhs and rhs implied
 
 
-class IntNotEqualDirective(_BinaryRegOpDirective):
+class IntNotEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.INE
+    # lhs and rhs implied
 
 
-class UnsignedLessThanDirective(_BinaryRegOpDirective):
+class UnsignedLessThanDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ULT
+    # lhs and rhs implied
 
 
-class UnsignedLessThanOrEqualDirective(_BinaryRegOpDirective):
+class UnsignedLessThanOrEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ULE
+    # lhs and rhs implied
 
 
-class UnsignedGreaterThanDirective(_BinaryRegOpDirective):
+class UnsignedGreaterThanDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UGT
+    # lhs and rhs implied
 
 
-class UnsignedGreaterThanOrEqualDirective(_BinaryRegOpDirective):
+class UnsignedGreaterThanOrEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UGE
+    # lhs and rhs implied
 
 
-class SignedLessThanDirective(_BinaryRegOpDirective):
+class SignedLessThanDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SLT
+    # lhs and rhs implied
 
 
-class SignedLessThanOrEqualDirective(_BinaryRegOpDirective):
+class SignedLessThanOrEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SLE
+    # lhs and rhs implied
 
 
-class SignedGreaterThanDirective(_BinaryRegOpDirective):
+class SignedGreaterThanDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SGT
+    # lhs and rhs implied
 
 
-class SignedGreaterThanOrEqualDirective(_BinaryRegOpDirective):
+class SignedGreaterThanOrEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SGE
+    # lhs and rhs implied
 
 
-class FloatGreaterThanOrEqualDirective(_BinaryRegOpDirective):
+class FloatGreaterThanOrEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FGE
+    # lhs and rhs implied
 
 
-class FloatLessThanOrEqualDirective(_BinaryRegOpDirective):
+class FloatLessThanOrEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLE
+    # lhs and rhs implied
 
 
-class FloatLessThanDirective(_BinaryRegOpDirective):
+class FloatLessThanDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLT
+    # lhs and rhs implied
 
 
-class FloatGreaterThanDirective(_BinaryRegOpDirective):
+class FloatGreaterThanDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FGT
+    # lhs and rhs implied
 
 
-class FloatEqualDirective(_BinaryRegOpDirective):
+class FloatEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FEQ
+    # lhs and rhs implied
 
 
-class FloatNotEqualDirective(_BinaryRegOpDirective):
+class FloatNotEqualDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FNE
+    # lhs and rhs implied
 
 
 @dataclass
-class _UnaryRegOpDirective(Directive):
-    src: int
-    res: int
-
-    def serialize_args(self) -> bytes:
-        data = bytearray()
-        data.extend(U8Type(self.src).serialize())
-        data.extend(U8Type(self.res).serialize())
-        return bytes(data)
-
-
-@dataclass
-class NotDirective(_UnaryRegOpDirective):
+class NotDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NOT
+    # src implied
 
 
 @dataclass
-class FloatTruncateDirective(_UnaryRegOpDirective):
+class FloatTruncateDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTRUNC
+    # src implied
 
 
 @dataclass
-class FloatExtendDirective(_UnaryRegOpDirective):
+class FloatExtendDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPEXT
+    # src implied
 
 
 @dataclass
-class FloatToSignedIntDirective(_UnaryRegOpDirective):
+class FloatToSignedIntDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTOSI
+    # src implied
 
 
 @dataclass
-class SignedIntToFloatDirective(_UnaryRegOpDirective):
+class SignedIntToFloatDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SITOFP
+    # src implied
 
 
 @dataclass
-class FloatToUnsignedIntDirective(_UnaryRegOpDirective):
+class FloatToUnsignedIntDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTOUI
+    # src implied
 
 
 @dataclass
-class UnsignedIntToFloatDirective(_UnaryRegOpDirective):
+class UnsignedIntToFloatDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UITOFP
+    # src implied
 
 
 @dataclass
 class ExitDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.EXIT
-    success: bool
-
-    def serialize_args(self):
-        return BoolType(self.success).serialize()
+    success: bool | BoolType
 
 
-INT_EQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
+INT_EQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
     "==": IntEqualDirective,
     "!=": IntNotEqualDirective,
 }
 
-FLOAT_EQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
+FLOAT_EQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
     "==": FloatEqualDirective,
     "!=": FloatNotEqualDirective,
 }
 
 
-INT_SIGNED_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
+INT_SIGNED_INEQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
     ">": SignedGreaterThanDirective,
     "<": SignedLessThanDirective,
     ">=": SignedGreaterThanOrEqualDirective,
     "<=": SignedLessThanOrEqualDirective,
 }
-INT_UNSIGNED_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
+INT_UNSIGNED_INEQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
     ">": UnsignedGreaterThanDirective,
     "<": UnsignedLessThanDirective,
     ">=": UnsignedGreaterThanOrEqualDirective,
     "<=": UnsignedLessThanOrEqualDirective,
 }
-FLOAT_INEQUALITY_DIRECTIVES: dict[str, type[_BinaryRegOpDirective]] = {
+FLOAT_INEQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
     ">": FloatGreaterThanDirective,
     "<": FloatLessThanDirective,
     ">=": FloatGreaterThanOrEqualDirective,

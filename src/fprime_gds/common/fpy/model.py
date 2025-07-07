@@ -3,27 +3,26 @@ from enum import Enum
 import inspect
 import struct
 from fprime_gds.common.fpy.bytecode.directives import (
-    AllocateStackDirective,
     AndDirective,
-    CallDirective,
-    CmdDirective,
+    ConstCmdDirective,
+    FuncCallDirective,
     Directive,
     ExitDirective,
-    GetFromHeapDirective,
+    GotoDirective,
+    PushFromHeapDirective,
     GetPrmDirective,
     GetTlmValueDirective,
-    GotoDirective,
     IfDirective,
     IntAddDirective,
     IntEqualDirective,
     IntNotEqualDirective,
     IntSubtractDirective,
-    PushLVarDirective,
+    PushFromLVarDirective,
     NoOpDirective,
     NotDirective,
     OrDirective,
-    PushConstDirective,
-    PopLVarDirective,
+    PushValDirective,
+    PopToLVarDirective,
     ReturnDirective,
     ReturnValDirective,
     UnsignedLessThanDirective,
@@ -72,15 +71,26 @@ class DirectiveErrorCode(Enum):
     STACK_OVERFLOW = 13
     STACK_UNDERFLOW = 14
     HEAP_OVERFLOW = 15
-    UNKNOWN_FUNC = 16
+    FUNC_OUT_OF_BOUNDS = 16
 
 
 @dataclass
 class FunctionInfo:
     arg_count: int
     lvar_count: int
-    operand_stack_depth: int
     start_idx: int
+
+    def __post_init__(self):
+        assert self.arg_count <= self.lvar_count
+
+
+@dataclass
+class Sequence:
+    arg_count: int
+    lvar_count: int
+
+    funcs: list[FunctionInfo]
+    dirs: list[Directive]
 
     def __post_init__(self):
         assert self.arg_count <= self.lvar_count
@@ -96,69 +106,10 @@ class FpySequencerModel:
         self.stack_max_size = stack_size
         self.stack_frame_start = 0
 
-        self.funcs: list[FunctionInfo] = []
-        self.dirs: list[Directive] = []
+        self.seq: Sequence = None
         self.next_dir_idx = 0
         self.tlm_db: dict[int, bytearray] = {}
         self.prm_db: dict[int, bytearray] = {}
-
-    def push(self, val: int | float | bytes | bytearray | bool, signed=True):
-        if isinstance(val, (bytes | bytearray)):
-            self.stack += val
-        elif isinstance(val, bool):
-            self.push(1 if val else 0)
-        elif isinstance(val, float):
-            self.push(struct.pack(">d", val))
-        else:
-            assert isinstance(val, int), val
-            self.stack += val.to_bytes(length=8, byteorder="big", signed=signed)
-
-    def begin_func(self, func: FunctionInfo):
-        # pop all args off the operand stack
-        args = [self.pop(type=bytes) for i in range(0, func.arg_count)]
-
-        new_stack_frame_start = len(self.stack)
-        # push next dir index so we know where to return to
-        self.push(self.next_dir_idx, signed=False)
-        # push the old stack frame start
-        self.push(self.stack_frame_start, signed=False)
-        # lvar array begins after the "frame data"
-        self.stack_frame_start = new_stack_frame_start
-
-        # now put args onto lvar array
-        for arg in args:
-            self.push(arg)
-
-        # now push some empty values for remaining lvars
-        for i in range(0, func.lvar_count - func.arg_count):
-            self.push(0)
-
-        self.next_dir_idx = func.start_idx
-
-    def pop(self, type=int, signed=True, size=64) -> int | float | bytearray:
-        """pops one word off the stack and interprets it as an int or float, of
-        the specified signedness (if applicable) and bit width (if applicable)"""
-        last_word = self.stack[-WORD_SIZE:]
-        self.stack = self.stack[:-WORD_SIZE]
-        if type == int:
-            if signed:
-                return struct.unpack(">q", last_word)[0]
-            return struct.unpack(">Q", last_word)[0]
-        elif type == float:
-            if size == 64:
-                return struct.unpack(">d", last_word)[0]
-            assert size == 32, size
-            return struct.unpack(">f", last_word[:4])[0]
-        elif type == bytes or type == bytearray:
-            # compiler knows best. always let them have the last word ;)
-            return last_word
-        else:
-            assert False, type
-
-    def put_on_heap(self, bytes: bytearray) -> int:
-        start_addr = len(self.heap)
-        self.heap += bytes
-        return start_addr
 
     def reset(self):
         self.heap = bytearray()
@@ -166,8 +117,7 @@ class FpySequencerModel:
         self.stack = bytearray()
         self.stack_frame_start = 0
 
-        self.funcs: list[FunctionInfo] = []
-        self.dirs: list[Directive] = []
+        self.seq: Sequence = None
         self.next_dir_idx = 0
         self.tlm_db: dict[int, bytearray] = {}
         self.prm_db: dict[int, bytearray] = {}
@@ -198,16 +148,16 @@ class FpySequencerModel:
             return DirectiveErrorCode.NO_ERROR
         return ret
 
-    def run(self, dirs: list[Directive], funcs: list[FunctionInfo]):
+    def run(self, seq: Sequence):
         self.reset()
-        self.dirs = dirs
-        self.funcs = funcs
-        # first func must be "main" method
-        assert len(funcs) > 0
-        assert funcs[0].start_idx == 0, funcs[0].start_idx
-        self.begin_func(funcs[0])
-        while self.next_dir_idx < len(self.dirs):
-            next_dir = self.dirs[self.next_dir_idx]
+        self.seq = seq
+        if seq.lvar_count * WORD_SIZE + STACK_FRAME_HEADER_SIZE > self.stack_max_size:
+            # can't even run the sequence
+            return DirectiveErrorCode.STACK_OVERFLOW
+        # begin the sequence at dir 0
+        self.begin_func(seq.arg_count, seq.lvar_count, 0)
+        while self.next_dir_idx < len(self.seq.dirs):
+            next_dir = self.seq.dirs[self.next_dir_idx]
             print("stack", len(self.stack))
             for word in range(0, len(self.stack) // WORD_SIZE):
                 print(
@@ -225,19 +175,75 @@ class FpySequencerModel:
                 return result
         return DirectiveErrorCode.NO_ERROR
 
-    def handle_call(self, dir: CallDirective):
-        if dir.func_idx >= len(self.funcs):
-            return DirectiveErrorCode.UNKNOWN_FUNC
-        func = self.funcs[dir.func_idx]
+    def push(self, val: int | float | bytes | bytearray | bool, signed=True):
+        if isinstance(val, (bytes | bytearray)):
+            self.stack += val
+        elif isinstance(val, bool):
+            self.push(1 if val else 0)
+        elif isinstance(val, float):
+            self.push(struct.pack(">d", val))
+        else:
+            assert isinstance(val, int), val
+            self.stack += val.to_bytes(length=8, byteorder="big", signed=signed)
+
+    def begin_func(self, arg_count: int, lvar_count: int, start_idx: int):
+        # pop all args off the operand stack
+        args = [self.pop(type=bytes) for i in range(0, arg_count)]
+
+        new_stack_frame_start = len(self.stack)
+        # push next dir index so we know where to return to
+        self.push(self.next_dir_idx, signed=False)
+        # push the old stack frame start
+        self.push(self.stack_frame_start, signed=False)
+        # lvar array begins after the "frame data"
+        self.stack_frame_start = new_stack_frame_start
+
+        # now put args onto lvar array
+        for arg in args:
+            self.push(arg)
+
+        # now push some empty values for remaining lvars
+        for i in range(0, lvar_count - arg_count):
+            self.push(0)
+
+        self.next_dir_idx = start_idx
+
+    def pop(self, type=int, signed=True, size=64) -> int | float | bytearray:
+        """pops one word off the stack and interprets it as an int or float, of
+        the specified signedness (if applicable) and bit width (if applicable)"""
+        last_word = self.stack[-WORD_SIZE:]
+        self.stack = self.stack[:-WORD_SIZE]
+        if type == int:
+            if signed:
+                return struct.unpack(">q", last_word)[0]
+            return struct.unpack(">Q", last_word)[0]
+        elif type == float:
+            if size == 64:
+                return struct.unpack(">d", last_word)[0]
+            assert size == 32, size
+            return struct.unpack(">f", last_word[:4])[0]
+        elif type == bytes or type == bytearray:
+            # compiler knows best. always let them have the last word ;)
+            return last_word
+        else:
+            assert False, type
+
+    def put_on_heap(self, bytes: bytearray) -> int:
+        start_addr = len(self.heap)
+        self.heap += bytes
+        return start_addr
+
+    def handle_call(self, dir: FuncCallDirective):
+        if dir.func_idx >= len(self.seq.funcs):
+            return DirectiveErrorCode.FUNC_OUT_OF_BOUNDS
+        func: FunctionInfo = self.seq.funcs[dir.func_idx]
         if (
-            len(self.stack)
-            + func.lvar_count * WORD_SIZE
-            + func.operand_stack_depth * WORD_SIZE
+            len(self.stack) + func.lvar_count * WORD_SIZE + STACK_FRAME_HEADER_SIZE
             > self.stack_max_size
         ):
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        self.begin_func(func)
+        self.begin_func(func.arg_count, func.lvar_count, func.start_idx)
 
     def handle_return_val(self, dir: ReturnValDirective):
         if len(self.stack) < WORD_SIZE:
@@ -281,35 +287,38 @@ class FpySequencerModel:
     def handle_no_op(self, dir: NoOpDirective):
         pass
 
-    def handle_push_lvar(self, dir: PushLVarDirective):
+    def handle_push_lvar(self, dir: PushFromLVarDirective):
         if len(self.stack) + WORD_SIZE > self.stack_max_size:
             return DirectiveErrorCode.STACK_OVERFLOW
 
         if dir.lvar_idx * WORD_SIZE + self.stack_frame_start > len(self.stack):
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        lvar_start = self.stack_frame_start + STACK_FRAME_HEADER_SIZE + dir.lvar_idx * WORD_SIZE
+        lvar_start = (
+            self.stack_frame_start + STACK_FRAME_HEADER_SIZE + dir.lvar_idx * WORD_SIZE
+        )
 
         # grab a word beginning at lvar start and put on operand stack
         self.push(self.stack[lvar_start : (lvar_start + WORD_SIZE)])
 
-    def handle_pop_lvar(self, dir: PopLVarDirective):
+    def handle_pop_lvar(self, dir: PopToLVarDirective):
         if len(self.stack) < WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
         if dir.lvar_idx * WORD_SIZE + self.stack_frame_start > len(self.stack):
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        lvar_start = self.stack_frame_start + STACK_FRAME_HEADER_SIZE + dir.lvar_idx * WORD_SIZE
+        lvar_start = (
+            self.stack_frame_start + STACK_FRAME_HEADER_SIZE + dir.lvar_idx * WORD_SIZE
+        )
 
         # grab uppermost word from stack
-        value = self.stack[-WORD_SIZE:]
-        # remove from stack
-        self.stack = self.stack[:-WORD_SIZE]
+        value = self.pop(type=bytes)
+        # put into lvar
         for i in range(0, WORD_SIZE):
             self.stack[lvar_start + i] = value[i]
 
-    def handle_push_const(self, dir: PushConstDirective):
+    def handle_push_val(self, dir: PushValDirective):
         if len(self.stack) + WORD_SIZE > self.stack_max_size:
             return DirectiveErrorCode.STACK_OVERFLOW
         self.push(dir.val)
@@ -320,19 +329,22 @@ class FpySequencerModel:
     def handle_wait_abs(self, dir: WaitAbsDirective):
         pass
 
+    def handle_const_cmd(self, dir: ConstCmdDirective):
+        print("cmd", dir.opcode, dir.arg_bytes)
+
     def handle_goto(self, dir: GotoDirective):
-        if dir.statement_index > len(self.dirs):
+        if dir.dir_idx > len(self.seq.dirs):
             return DirectiveErrorCode.STMT_OUT_OF_BOUNDS
-        self.next_dir_idx = dir.statement_index
+        self.next_dir_idx = dir.dir_idx
 
     def handle_if(self, dir: IfDirective):
-        if dir.false_goto_stmt_index > len(self.dirs):
+        if dir.false_goto_dir_index > len(self.seq.dirs):
             return DirectiveErrorCode.STMT_OUT_OF_BOUNDS
         if len(self.stack) < WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         conditional = self.pop()
         if conditional == 0:
-            self.next_dir_idx = dir.false_goto_stmt_index
+            self.next_dir_idx = dir.false_goto_dir_index
 
     def handle_get_tlm_val(self, dir: GetTlmValueDirective):
         value = self.tlm_db.get(dir.chan_id, None)
@@ -356,15 +368,7 @@ class FpySequencerModel:
         # put on heap, and push the addr onto operand stack
         self.push(self.put_on_heap(value))
 
-    def handle_cmd(self, dir: CmdDirective):
-        pass
-
-    def handle_allocate_stack(self, dir: AllocateStackDirective):
-        if len(self.stack) + dir.size > self.stack_max_size:
-            return DirectiveErrorCode.STACK_OVERFLOW
-        self.push(bytearray(dir.size), signed=False)
-
-    def handle_get_from_heap(self, dir: GetFromHeapDirective):
+    def handle_push_from_heap(self, dir: PushFromHeapDirective):
         if len(self.stack) < WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         if len(self.stack) + dir.size > self.stack_max_size:
@@ -373,6 +377,20 @@ class FpySequencerModel:
         offset = self.pop(signed=False)
         if offset + dir.size > len(self.heap):
             return DirectiveErrorCode.HEAP_OVERFLOW
+        bytes = self.heap[offset : (offset + dir.size)]
+        self.push(bytes)
+
+    def handle_pop_to_heap(self, dir: PushFromHeapDirective):
+        # make sure we can pop the offset + the data off the stack
+        if len(self.stack) < dir.size + WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        offset = self.pop(signed=False)
+
+        # make sure writing this data at the offset won't overflow the heap
+        if offset + dir.size > len(self.heap):
+            return DirectiveErrorCode.HEAP_OVERFLOW
+
         bytes = self.heap[offset : (offset + dir.size)]
         self.push(bytes)
 
@@ -529,7 +547,7 @@ class FpySequencerModel:
 
     def handle_exit(self, dir: ExitDirective):
         if dir.success:
-            self.next_dir_idx = len(self.dirs)
+            self.next_dir_idx = len(self.seq.dirs)
         else:
             return DirectiveErrorCode.DELIBERATE_FAILURE
 
@@ -542,11 +560,11 @@ def main():
 
     seq = [
         # push 3 on stack
-        PushConstDirective(6),
+        PushValDirective(6),
         # call fib(1)
-        CallDirective(1),
+        FuncCallDirective(1),
         # push 1 to stack
-        PushConstDirective(13),
+        PushValDirective(13),
         # check if result == 1, push to stack
         IntEqualDirective(),
         # check if latest stack succeeded, if so continue on to exit, otherwise fail
@@ -555,50 +573,50 @@ def main():
         ExitDirective(False),
         # start func
         # push arg onto stack
-        PushLVarDirective(0),
+        PushFromLVarDirective(0),
         # push 0 onto stack
-        PushConstDirective(0),
+        PushValDirective(0),
         # cmp if arg and 0 are equal
         IntEqualDirective(),
         # push arg onto stack
-        PushLVarDirective(0),
+        PushFromLVarDirective(0),
         # push 1 onto stack
-        PushConstDirective(1),
+        PushValDirective(1),
         # cmp if arg and 1 are equal
         IntEqualDirective(),
         # if either of the last two cmps are true
         OrDirective(),
         IfDirective(17),
         # base case: return 1
-        PushConstDirective(1),
+        PushValDirective(1),
         ReturnValDirective(),
         # otherwise, add fib(n-1) + fib(n-2)
         # calculate n-1
         # push 1 onto stack
-        PushConstDirective(1),
+        PushValDirective(1),
         # push arg onto stack
-        PushLVarDirective(0),
+        PushFromLVarDirective(0),
         # calculate n - 1
         IntSubtractDirective(),
         # call fib(n-1)
-        CallDirective(1),
+        FuncCallDirective(1),
         # calculate n-2
         # push 2 onto stack
-        PushConstDirective(2),
+        PushValDirective(2),
         # push arg onto stack
-        PushLVarDirective(0),
+        PushFromLVarDirective(0),
         # calculate n - 2
         IntSubtractDirective(),
         # call fib(n-2)
-        CallDirective(1),
+        FuncCallDirective(1),
         # add fib(n-1) + fib(n-2)
         IntAddDirective(),
         ReturnValDirective(),
     ]
 
-    funcs = [FunctionInfo(0, 0, 2, 0), FunctionInfo(1, 1, 2, 7)]
+    funcs = [FunctionInfo(0, 0, 0), FunctionInfo(1, 1, 7)]
 
-    ret = model.run(seq, funcs)
+    ret = model.run(Sequence(0, 0, funcs, seq))
     if ret != DirectiveErrorCode.NO_ERROR:
         print("seq failed", ret)
 
