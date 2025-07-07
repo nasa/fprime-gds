@@ -8,6 +8,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     Directive,
     ExitDirective,
     GotoDirective,
+    PopDiscardDirective,
     PushPrmDirective,
     PushTlmValDirective,
     IfDirective,
@@ -63,6 +64,7 @@ class DirectiveErrorCode(Enum):
     DELIBERATE_FAILURE = 9
     STACK_OVERFLOW = 10
     STACK_UNDERFLOW = 11
+    STACK_MISALIGNMENT = 12
 
 
 @dataclass
@@ -174,14 +176,19 @@ class FpySequencerModel:
             assert size == 32, size
             return struct.unpack(">f", last_word[:4])[0]
         elif type == bytes or type == bytearray:
+            assert size == 64, size
             # compiler knows best. always let them have the last word ;)
             return last_word
         else:
             assert False, type
 
-
     def handle_no_op(self, dir: NoOpDirective):
         pass
+
+    def handle_pop_discard(self, dir: PopDiscardDirective):
+        if len(self.stack) < WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        self.pop()
 
     def handle_load(self, dir: LoadDirective):
         if len(self.stack) + WORD_SIZE > self.max_stack_size:
@@ -215,7 +222,7 @@ class FpySequencerModel:
             self.stack[lvar_start + i] = value[i]
 
     def handle_push_val(self, dir: PushValDirective):
-        if len(self.stack) + len(dir.val) > self.max_stack_size:
+        if len(self.stack) + WORD_SIZE > self.max_stack_size:
             return DirectiveErrorCode.STACK_OVERFLOW
         self.push(dir.val)
 
@@ -243,24 +250,38 @@ class FpySequencerModel:
             self.next_dir_idx = dir.false_goto_dir_index
 
     def handle_push_tlm_val(self, dir: PushTlmValDirective):
-        value = self.tlm_db.get(dir.chan_id, None)
-        if value is None:
+        whole_value: bytearray = self.tlm_db.get(dir.chan_id, None)
+        if whole_value is None:
             return DirectiveErrorCode.TLM_NOT_FOUND
 
-        if dir.offset + dir.size > len(value):
+        if dir.offset + dir.size > len(whole_value):
             return DirectiveErrorCode.TLM_ACCESS_OUT_OF_BOUNDS
 
-        self.push(value[dir.offset : (dir.offset + dir.size)])
+        if dir.size > 8:
+            return DirectiveErrorCode.STACK_MISALIGNMENT
+
+        value = whole_value[dir.offset : (dir.offset + dir.size)]
+        # pad value up to 8 bytes
+        padded_value = value.extend(0 for i in range(0, 8 - len(value)))
+
+        self.push(padded_value)
 
     def handle_push_prm(self, dir: PushPrmDirective):
-        value = self.prm_db.get(dir.prm_id, None)
-        if value is None:
+        whole_value: bytearray = self.prm_db.get(dir.prm_id, None)
+        if whole_value is None:
             return DirectiveErrorCode.PRM_NOT_FOUND
 
-        if dir.offset + dir.size > len(value):
+        if dir.offset + dir.size > len(whole_value):
             return DirectiveErrorCode.PRM_ACCESS_OUT_OF_BOUNDS
 
-        self.push(value[dir.offset : (dir.offset + dir.size)])
+        if dir.size > 8:
+            return DirectiveErrorCode.STACK_MISALIGNMENT
+
+        value = whole_value[dir.offset : (dir.offset + dir.size)]
+        # pad value up to 8 bytes
+        padded_value = value.extend(0 for i in range(0, 8 - len(value)))
+
+        self.push(padded_value)
 
     def handle_or(self, dir: OrDirective):
         if len(self.stack) < 2 * WORD_SIZE:
@@ -424,14 +445,14 @@ def main():
     model = FpySequencerModel()
 
     seq = [
-        PushValDirective(int(123123).to_bytes(8, "big")),
-        PushValDirective(int(1).to_bytes(8, "big")),
+        PushValDirective(123123),
+        PushValDirective(1),
         IntAddDirective(),
-        PushValDirective(int(123124).to_bytes(8, "big")),
+        PushValDirective(123124),
         IntEqualDirective(),
         IfDirective(7),
         ExitDirective(True),
-        ExitDirective(False)
+        ExitDirective(False),
     ]
 
     ret = model.run(Sequence(0, seq))

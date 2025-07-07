@@ -143,7 +143,7 @@ class PopDiscardDirective(Directive):
 class PushValDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_VAL
 
-    val: bytes
+    val: int|I64Type
 
 
 @dataclass
@@ -231,7 +231,7 @@ class PushTlmValDirective(Directive):
     chan_id: int | FwChanIdType
     """FwChanIdType: The telemetry channel ID to get."""
     offset: int | FwSizeType
-    size: int | FwSizeType
+    size: int | U8Type
 
 
 @dataclass
