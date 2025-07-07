@@ -25,7 +25,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ExitDirective,
     FloatEqualDirective,
     FloatNotEqualDirective,
-    GetPrmDirective,
+    PushPrmDirective,
     GetTlmDirective,
     JumpDirective,
     IfDirective,
@@ -1195,7 +1195,7 @@ class GenerateNonConstExprDirectives(Visitor):
                 )
 
             elif isinstance(base_ref, PrmTemplate):
-                directives.append(GetPrmDirective(sreg_idx, base_ref.get_id()))
+                directives.append(PushPrmDirective(sreg_idx, base_ref.get_id()))
 
             else:
                 assert (

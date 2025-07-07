@@ -167,12 +167,12 @@ FPY_DIRECTIVES: list[StatementTemplate] = [
         [U8Type, goto_tag_or_idx_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.GET_TLM.value,
+        DirectiveOpcode.PUSH_TLM_VAL.value,
         "GET_TLM",
         [U8Type, U8Type, tlm_chan_id_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.GET_PRM.value,
+        DirectiveOpcode.PUSH_PRM.value,
         "GET_PRM",
         [U8Type, prm_id_from_json],
     ),
