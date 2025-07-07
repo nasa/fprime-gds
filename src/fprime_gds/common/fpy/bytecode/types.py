@@ -141,39 +141,5 @@ def prm_id_from_json(js, ctx: BytecodeParseContext):
 
 
 FPY_DIRECTIVES: list[StatementTemplate] = [
-    StatementTemplate(
-        DirectiveOpcode.WAIT_REL.value,
-        "WAIT_REL",
-        [U32Type, U32Type],
-    ),
-    StatementTemplate(
-        DirectiveOpcode.WAIT_ABS.value,
-        "WAIT_ABS",
-        [time_type_from_json],
-    ),
-    StatementTemplate(
-        DirectiveOpcode.SET_SER_REG.value,
-        "SET_SER_REG",
-        [U8Type, arbitrary_type_from_json],
-    ),
-    StatementTemplate(
-        DirectiveOpcode.JUMP.value,
-        "GOTO",
-        [goto_tag_or_idx_from_json],
-    ),
-    StatementTemplate(
-        DirectiveOpcode.IF.value,
-        "IF",
-        [U8Type, goto_tag_or_idx_from_json],
-    ),
-    StatementTemplate(
-        DirectiveOpcode.PUSH_TLM_VAL.value,
-        "GET_TLM",
-        [U8Type, U8Type, tlm_chan_id_from_json],
-    ),
-    StatementTemplate(
-        DirectiveOpcode.PUSH_PRM.value,
-        "GET_PRM",
-        [U8Type, prm_id_from_json],
-    ),
+
 ]

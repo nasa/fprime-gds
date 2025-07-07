@@ -1,8 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import dataclasses
-from typing import ClassVar
+from types import UnionType
+from typing import ClassVar, Union
+import typing
 from fprime.common.models.serialize.time_type import TimeType
+from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.numerical_types import (
+    NumericalType,
     U32Type,
     U16Type,
     U64Type,
@@ -22,8 +26,6 @@ FwSizeType = U64Type
 FwChanIdType = U32Type
 FwPrmIdType = U32Type
 FwOpcodeType = U32Type
-
-MAX_SERIALIZABLE_REGISTER_SIZE = 512 - 4 - 4
 
 
 class DirectiveOpcode(Enum):
@@ -101,7 +103,6 @@ class DirectiveOpcode(Enum):
     RETURN = 49
 
 
-
 class Directive:
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.INVALID
 
@@ -115,10 +116,48 @@ class Directive:
         return output
 
     def serialize_args(self) -> bytes:
-        raise NotImplementedError("serialize_args not implemented")
+        output = bytes()
+
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if isinstance(value, BaseType):
+                # it is already an fprime type instance
+                # so we can serialize it
+                output += value.serialize()
+                continue
+
+            if isinstance(value, bytes):
+                # it is just raw bytes
+                output += value
+                continue
+
+            # okay, it is not a primitive type or bytes
+            primitive_type = None
+            if typing.get_origin(field.type) == UnionType:
+                # it is a union
+                # find out which primitive type it is
+                for arg in field.type.__args__:
+                    if issubclass(arg, BaseType):
+                        # it is a primitive type
+                        primitive_type = arg
+                        break
+            elif issubclass(field.type, BaseType):
+                primitive_type = field.type
+            if primitive_type is None:
+                raise NotImplementedError(
+                    "Unknown how to serialize field", field.name, "for", self
+                )
+
+            output += primitive_type(value).serialize()
+
+        return output
 
 
+@dataclass
+class Sequence:
+    lvar_count: int
 
+    dirs: list[Directive]
 
 @dataclass
 class LoadDirective(Directive):
@@ -143,7 +182,7 @@ class PopDiscardDirective(Directive):
 class PushValDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_VAL
 
-    val: int|I64Type
+    val: int | I64Type
 
 
 @dataclass

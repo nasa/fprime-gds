@@ -21,6 +21,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     NotDirective,
     OrDirective,
     PushValDirective,
+    Sequence,
     StoreDirective,
     UnsignedLessThanDirective,
     UnsignedLessThanOrEqualDirective,
@@ -66,12 +67,6 @@ class DirectiveErrorCode(Enum):
     STACK_UNDERFLOW = 11
     STACK_MISALIGNMENT = 12
 
-
-@dataclass
-class Sequence:
-    lvar_count: int
-
-    dirs: list[Directive]
 
 
 class FpySequencerModel:
@@ -131,8 +126,21 @@ class FpySequencerModel:
         # push empty values for all its lvars
         for i in range(0, seq.lvar_count):
             self.push(0)
+        print("stack", len(self.stack))
+        for word in range(0, len(self.stack) // WORD_SIZE):
+            print(
+                struct.unpack(
+                    ">q",
+                    self.stack[(word * WORD_SIZE) : (word * WORD_SIZE) + WORD_SIZE],
+                )[0],
+                end=" ",
+            )
+        print()
         while self.next_dir_idx < len(self.seq.dirs):
             next_dir = self.seq.dirs[self.next_dir_idx]
+            self.next_dir_idx += 1
+            print(f"{self.next_dir_idx}:", next_dir)
+            result = self.dispatch(next_dir)
             print("stack", len(self.stack))
             for word in range(0, len(self.stack) // WORD_SIZE):
                 print(
@@ -143,9 +151,6 @@ class FpySequencerModel:
                     end=" ",
                 )
             print()
-            print(f"{self.next_dir_idx}:", next_dir)
-            self.next_dir_idx += 1
-            result = self.dispatch(next_dir)
             if result != DirectiveErrorCode.NO_ERROR:
                 return result
         return DirectiveErrorCode.NO_ERROR
@@ -198,7 +203,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_OVERFLOW
 
         lvar_start = (
-            self.stack_frame_start + STACK_FRAME_HEADER_SIZE + dir.lvar_idx * WORD_SIZE
+            dir.lvar_idx * WORD_SIZE
         )
 
         # grab a word beginning at lvar start and put on operand stack
@@ -212,7 +217,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_OVERFLOW
 
         lvar_start = (
-            self.stack_frame_start + STACK_FRAME_HEADER_SIZE + dir.lvar_idx * WORD_SIZE
+            dir.lvar_idx * WORD_SIZE
         )
 
         # grab uppermost word from stack
@@ -296,10 +301,7 @@ class FpySequencerModel:
     def handle_ieq(self, dir: IntEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        lhs = self.pop()
-        rhs = self.pop()
-        print(lhs, rhs)
-        self.push(lhs == rhs)
+        self.push(self.pop() == self.pop())
 
     def handle_ine(self, dir: IntNotEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
@@ -309,22 +311,22 @@ class FpySequencerModel:
     def handle_ult(self, dir: UnsignedLessThanDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(signed=False) < self.pop(signed=False))
+        self.push(self.pop(signed=False) > self.pop(signed=False))
 
     def handle_ule(self, dir: UnsignedLessThanOrEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(signed=False) <= self.pop(signed=False))
+        self.push(self.pop(signed=False) >= self.pop(signed=False))
 
     def handle_ugt(self, dir: UnsignedGreaterThanDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(signed=False) > self.pop(signed=False))
+        self.push(self.pop(signed=False) < self.pop(signed=False))
 
     def handle_uge(self, dir: UnsignedGreaterThanOrEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(signed=False) >= self.pop(signed=False))
+        self.push(self.pop(signed=False) <= self.pop(signed=False))
 
     def handle_slt(self, dir: SignedLessThanDirective):
         if len(self.stack) < 2 * WORD_SIZE:
@@ -334,17 +336,17 @@ class FpySequencerModel:
     def handle_sle(self, dir: SignedLessThanOrEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop() <= self.pop())
+        self.push(self.pop() >= self.pop())
 
     def handle_sgt(self, dir: SignedGreaterThanDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop() > self.pop())
+        self.push(self.pop() < self.pop())
 
     def handle_sge(self, dir: SignedGreaterThanOrEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop() >= self.pop())
+        self.push(self.pop() <= self.pop())
 
     def handle_feq(self, dir: FloatEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
@@ -359,22 +361,22 @@ class FpySequencerModel:
     def handle_flt(self, dir: FloatLessThanDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(type=float) < self.pop(type=float))
+        self.push(self.pop(type=float) > self.pop(type=float))
 
     def handle_fle(self, dir: FloatLessThanOrEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(type=float) <= self.pop(type=float))
+        self.push(self.pop(type=float) >= self.pop(type=float))
 
     def handle_fgt(self, dir: FloatGreaterThanDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(type=float) > self.pop(type=float))
+        self.push(self.pop(type=float) < self.pop(type=float))
 
     def handle_fge(self, dir: FloatGreaterThanOrEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(type=float) >= self.pop(type=float))
+        self.push(self.pop(type=float) <= self.pop(type=float))
 
     def handle_not(self, dir: NotDirective):
         if len(self.stack) < WORD_SIZE:

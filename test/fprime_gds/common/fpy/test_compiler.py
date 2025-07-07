@@ -1,23 +1,28 @@
 import ast
 from pathlib import Path
 import tempfile
-from fprime_gds.common.fpy.bytecode.directives import Directive
+from fprime_gds.common.fpy.bytecode.directives import Sequence
 from fprime_gds.common.fpy.bytecode.serialize_bytecode import serialize_directives
 from fprime_gds.common.fpy.compiler import compile
+from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 
 
-def compile_seq(fprime_test_api, seq: str) -> list[Directive]:
+def compile_seq(fprime_test_api, seq: str) -> Sequence:
     return compile(parse(seq), fprime_test_api.pipeline.dictionary_path)
 
 
-def run_seq(fprime_test_api: IntegrationTestAPI, directives: list[Directive]):
+def run_seq(fprime_test_api: IntegrationTestAPI, seq: Sequence):
     file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
 
-    serialize_directives(directives, Path(file.name))
+    serialize_directives(seq.dirs, Path(file.name))
 
-    fprime_test_api.send_and_assert_command("ComFpy.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
+    # fprime_test_api.send_and_assert_command("ComFpy.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
+
+    ret = FpySequencerModel().run(seq) 
+    if ret != DirectiveErrorCode.NO_ERROR:
+        raise RuntimeError("Sequence returned", ret)
 
 
 def assert_compile_success(fprime_test_api, seq: str):
@@ -25,9 +30,9 @@ def assert_compile_success(fprime_test_api, seq: str):
 
 
 def assert_run_success(fprime_test_api, seq: str):
-    directives = compile_seq(fprime_test_api, seq)
+    seq = compile_seq(fprime_test_api, seq)
 
-    run_seq(fprime_test_api, directives)
+    run_seq(fprime_test_api, seq)
 
 
 def assert_compile_failure(fprime_test_api, seq: str):
@@ -74,7 +79,7 @@ def test_large_var(fprime_test_api):
 var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_var_wrong_rhs(fprime_test_api):

@@ -10,35 +10,33 @@ from fprime_gds.common.fpy.bytecode.directives import (
     BINARY_COMPARISON_DIRECTIVES,
     FLOAT_INEQUALITY_DIRECTIVES,
     INT_EQUALITY_DIRECTIVES,
-    MAX_SERIALIZABLE_REGISTER_SIZE,
     INT_SIGNED_INEQUALITY_DIRECTIVES,
     INT_UNSIGNED_INEQUALITY_DIRECTIVES,
     AndDirective,
     ConstCmdDirective,
-    DeserSerReg1Directive,
-    DeserSerReg2Directive,
-    DeserSerReg4Directive,
-    DeserSerReg8Directive,
     Directive,
     FloatExtendDirective,
     IntEqualDirective,
     ExitDirective,
     FloatEqualDirective,
     FloatNotEqualDirective,
+    LoadDirective,
     PushPrmDirective,
-    GetTlmDirective,
-    JumpDirective,
+    PushTlmValDirective,
+    GotoDirective,
     IfDirective,
     NotDirective,
     IntNotEqualDirective,
     OrDirective,
-    SetSerRegDirective,
-    SetRegDirective,
+    PushValDirective,
+    Sequence,
     SignedIntToFloatDirective,
+    StoreDirective,
     UnsignedIntToFloatDirective,
     WaitAbsDirective,
     WaitRelDirective,
 )
+from fprime_gds.common.fpy.model import WORD_SIZE
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
@@ -236,8 +234,8 @@ class FpyVariable:
     type_ref: AstExpr
     type: FppTypeClass | None = None
     """type of the variable. None if type unsure at the moment"""
-    sreg_idx: int | None = None
-    """the index of the sreg it is stored in"""
+    lvar_idx: int | None = None
+    """the index of the lvar it is stored in"""
 
 
 FpyNamespace = dict[str, "FpyReference"]
@@ -393,15 +391,11 @@ class CompileState:
     )
     """expr to its fprime value, or nothing if no value, or None if unsure at compile time"""
 
-    expr_registers: dict[AstExpr, int] = field(default_factory=dict)
-    """expr to the register it's stored in"""
-
     directives: dict[Ast, list[Directive] | None] = field(default_factory=dict)
 
     node_dir_counts: dict[Ast, int] = field(default_factory=dict)
 
-    next_register: int = 0
-    next_sreg: int = 0
+    next_lvar: int = 0
 
     start_line_idx: dict[Ast, int] = field(default_factory=dict)
 
@@ -546,8 +540,8 @@ class ResolveReferences(Visitor):
         self, parent: FpyReference, node: AstGetAttr, state: CompileState
     ) -> FpyReference | None:
 
-        if isinstance(parent, (FpyCallable, type)):
-            # right now we don't support resolving something after a callable/type
+        if isinstance(parent, (FpyCallable, type, FpyVariable)):
+            # right now we don't support resolving something after a callable/type/var
             state.err("Invalid syntax", node)
             return None
 
@@ -559,7 +553,7 @@ class ResolveReferences(Visitor):
                 return None
             return attr
 
-        # parent is a ch, prm, const, var or field
+        # parent is a ch, prm, const, or field
 
         value_type = get_ref_fpp_type_class(parent)
 
@@ -604,12 +598,12 @@ class ResolveReferences(Visitor):
         self, parent: FpyReference, node: AstGetItem, state: CompileState
     ) -> FpyReference | None:
 
-        if isinstance(parent, (FpyCallable, type, dict)):
-            # right now we don't support resolving index after a callable/type/namespace
+        if isinstance(parent, (FpyCallable, type, dict, FpyVariable)):
+            # right now we don't support resolving index after a callable/type/namespace/var
             state.err("Invalid syntax", node)
             return None
 
-        # parent is a ch, prm, const, var or field
+        # parent is a ch, prm, const, or field
 
         value_type = get_ref_fpp_type_class(parent)
 
@@ -909,8 +903,8 @@ class CheckAndResolveArgumentTypes(Visitor):
 
         state.expr_types[node.value] = var_type
 
-        if var_type.getMaxSize() > MAX_SERIALIZABLE_REGISTER_SIZE:
-            state.err(f"{var_type} is too big to fit in a variable", node)
+        if var_type.getMaxSize() > WORD_SIZE:
+            state.err(f"{var_type} is too big to fit in a variable, max is 8 bytes", node)
             return
 
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
@@ -1042,20 +1036,23 @@ class GenerateVariableDirectives(Visitor):
             )
             return
 
-        sreg_idx = existing_var.sreg_idx
-        if sreg_idx is None:
-            # doesn't have an sreg idx, allocate one
-            sreg_idx = state.next_sreg
-            state.next_sreg += 1
-            existing_var.sreg_idx = sreg_idx
+        lvar_idx = existing_var.lvar_idx
+        if lvar_idx is None:
+            # doesn't have an lvar idx, allocate one
+            lvar_idx = state.next_lvar
+            state.next_lvar += 1
+            existing_var.lvar_idx = lvar_idx
         val_bytes = value.serialize()
         assert len(val_bytes) == value.getMaxSize(), (
             len(val_bytes),
             value.getMaxSize(),
             value,
         )
-        assert len(val_bytes) <= MAX_SERIALIZABLE_REGISTER_SIZE, len(val_bytes)
-        state.directives[node] = [SetSerRegDirective(sreg_idx, val_bytes)]
+        assert len(val_bytes) <= WORD_SIZE, len(val_bytes)
+        # convert the value to a number
+        val_as_int = int.from_bytes(val_bytes, "big", signed=True)
+        # then push the number to the stack, and then store that in an lvar
+        state.directives[node] = [PushValDirective(val_as_int), StoreDirective(lvar_idx)]
 
 
 class GenerateConstCmdDirectives(Visitor):
@@ -1088,27 +1085,6 @@ class GenerateConstCmdDirectives(Visitor):
             state.directives[node] = None
 
 
-def put_sreg_in_nreg(
-    sreg_idx: int, sreg_offset: int, nreg_idx: int, size: int
-) -> list[Directive]:
-    if size > 4:
-        return [DeserSerReg8Directive(sreg_idx, sreg_offset, nreg_idx)]
-    elif size > 2:
-        return [DeserSerReg4Directive(sreg_idx, sreg_offset, nreg_idx)]
-    elif size > 1:
-        return [DeserSerReg2Directive(sreg_idx, sreg_offset, nreg_idx)]
-    elif size == 1:
-        return [DeserSerReg1Directive(sreg_idx, sreg_offset, nreg_idx)]
-    else:
-        assert False, size
-
-
-class AssignExprRegisters(Visitor):
-    def visit_AstExpr(self, node: AstExpr, state: CompileState):
-        state.expr_registers[node] = state.next_register
-        state.next_register += 1
-
-
 class GenerateConstExprDirectives(Visitor):
     def visit_AstExpr(self, node: AstExpr, state: CompileState):
         expr_type = state.expr_types[node]
@@ -1122,16 +1098,14 @@ class GenerateConstExprDirectives(Visitor):
             state.directives[node] = None
             return
 
-        if expr_type.getMaxSize() > 8:
+        if expr_type.getMaxSize() > WORD_SIZE:
             # bigger than 8 bytes
-            # impossible. can't fit in a register
+            # impossible. can't fit in a stack word
             state.directives[node] = None
             return
 
         # okay, it is not nothing and it is smaller than 8 bytes.
-        # should be able to put it in a reg
-
-        register = state.expr_registers[node]
+        # should be able to put it on stack
 
         expr_value = state.expr_values[node]
 
@@ -1141,22 +1115,23 @@ class GenerateConstExprDirectives(Visitor):
 
         # it has a constant value at compile time
         serialized_expr_value = expr_value.serialize()
-        assert len(serialized_expr_value) <= 8, len(serialized_expr_value)
-        val_as_i64_bytes = bytes(8 - len(serialized_expr_value))
+        assert len(serialized_expr_value) <= WORD_SIZE, len(serialized_expr_value)
+        val_as_i64_bytes = bytes(WORD_SIZE - len(serialized_expr_value))
         val_as_i64_bytes += serialized_expr_value
 
         # reinterpret as an I64
         val_as_i64 = I64Type()
         val_as_i64.deserialize(val_as_i64_bytes, 0)
 
-        state.directives[node] = [SetRegDirective(register, val_as_i64.val)]
+        # push it to the stack
+        state.directives[node] = [PushValDirective(val_as_i64.val)]
 
 
 class GenerateNonConstExprDirectives(Visitor):
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         if node in state.directives:
-            # already know how to put it in reg, or it is impossible
+            # already know how to put it on stack, or it is impossible
             return
 
         expr_type = state.expr_types[node]
@@ -1165,11 +1140,6 @@ class GenerateNonConstExprDirectives(Visitor):
         directives = []
 
         # does not have a constant compile time value
-
-        # all references that don't have a compile time value have to go into an sreg first
-        # and then into an nreg
-
-        sreg_idx = None
 
         offset = 0
 
@@ -1180,86 +1150,62 @@ class GenerateNonConstExprDirectives(Visitor):
             offset += base_ref.offset
             base_ref = base_ref.parent
 
-        if isinstance(base_ref, FpyVariable):
-            # already in an sreg
-            sreg_idx = base_ref.sreg_idx
+        if isinstance(base_ref, ChTemplate):
+            directives.append(PushTlmValDirective(base_ref.get_id(), offset, expr_type.getMaxSize()))
+        elif isinstance(base_ref, PrmTemplate):
+            directives.append(PushPrmDirective(base_ref.get_id(), offset, expr_type.getMaxSize()))
+        elif isinstance(base_ref, FpyVariable):
+            assert offset == 0, offset
+            # load from the lvar
+            directives.append(LoadDirective(base_ref.lvar_idx))
         else:
-            sreg_idx = state.next_sreg
-            state.next_sreg += 1
-
-            if isinstance(base_ref, ChTemplate):
-                tlm_time_sreg_idx = state.next_sreg
-                state.next_sreg += 1
-                directives.append(
-                    GetTlmDirective(sreg_idx, tlm_time_sreg_idx, base_ref.get_id())
-                )
-
-            elif isinstance(base_ref, PrmTemplate):
-                directives.append(PushPrmDirective(sreg_idx, base_ref.get_id()))
-
-            else:
-                assert (
-                    False
-                ), base_ref  # ref should either be impossible to put in a reg or should have a compile time val
-
-        # pull from sreg into nreg
-        directives.extend(
-            put_sreg_in_nreg(
-                sreg_idx, offset, state.expr_registers[node], expr_type.getMaxSize()
-            )
-        )
+            assert (
+                False
+            ), base_ref  # ref should either be impossible to put on stack or should have a compile time val
 
         state.directives[node] = directives
 
     def visit_AstAnd_AstOr(self, node: AstAnd | AstOr, state: CompileState):
         if node in state.directives:
-            # already know how to put it in reg, or know that it's impossible
+            # already know how to put it on stack, or know that it's impossible
             return
 
-        expr_reg = state.expr_registers[node]
         directives = []
 
-        registers_to_compare = []
         for arg_value_expr in node.values:
             arg_value_dirs = state.directives[arg_value_expr]
             assert arg_value_dirs is not None
             directives.extend(arg_value_dirs)
-            registers_to_compare.append(state.expr_registers[arg_value_expr])
 
-        assert len(registers_to_compare) >= 2, len(registers_to_compare)
-
-        # okay, now we have to "or" or "and" together all of the registers
-        # "or/and" the first two together, put in res.
-        # from then on, "or/and" the next with res
+        # okay, now we have to "or" or "and" together all of the stack
+        # "or/and" the first two together, then result goes on stack
+        # continue doing this, once for each arg
 
         dir_type = OrDirective if isinstance(node, AstOr) else AndDirective
 
-        directives.append(
-            dir_type(registers_to_compare[0], registers_to_compare[1], expr_reg)
-        )
-
-        for i in range(2, len(registers_to_compare)):
-            directives.append(dir_type(expr_reg, registers_to_compare[i], expr_reg))
+        for i in range(0, len(node.values) - 1):
+            directives.append(
+                dir_type()
+            )
 
         state.directives[node] = directives
 
     def visit_AstNot(self, node: AstNot, state: CompileState):
         if node in state.directives:
-            # already know how to put it in reg
+            # already know how to put it on stack
             return
 
-        expr_reg = state.expr_registers[node]
         directives = []
         arg_value_dirs = state.directives[node.value]
         assert arg_value_dirs is not None
         directives.extend(arg_value_dirs)
-        directives.append(NotDirective(state.expr_registers[node.value], expr_reg))
+        directives.append(NotDirective())
 
         state.directives[node] = directives
 
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
         if node in state.directives:
-            # already know how to put it in reg
+            # already know how to put it on stack
             return
 
         directives = []
@@ -1267,49 +1213,50 @@ class GenerateNonConstExprDirectives(Visitor):
         lhs_type = state.expr_types[node.lhs]
         rhs_type = state.expr_types[node.rhs]
 
-        lhs_reg = state.expr_registers[node.lhs]
-        rhs_reg = state.expr_registers[node.rhs]
-        res_reg = state.expr_registers[node]
-
-        directives.extend(state.directives[node.lhs])
-        directives.extend(state.directives[node.rhs])
-
         fp = False
         if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
             fp = True
 
         if fp:
-            # need to convert both lhs and rhs into F64
-            # modify them in place
-
-            # convert int to float
+            # put lhs on stack
+            directives.extend(state.directives[node.lhs])
+            # convert int to float if necessary
             if issubclass(lhs_type, IntegerType):
                 if lhs_type in UNSIGNED_INTEGER_TYPES:
-                    directives.append(UnsignedIntToFloatDirective(lhs_reg, lhs_reg))
+                    directives.append(UnsignedIntToFloatDirective())
                 else:
-                    directives.append(SignedIntToFloatDirective(lhs_reg, lhs_reg))
+                    directives.append(SignedIntToFloatDirective())
+            # convert F32 to F64 if necessary
+            if lhs_type == F32Type:
+                directives.append(FloatExtendDirective())
+            # put rhs on stack
+            directives.extend(state.directives[node.rhs])
+            # convert int to float if necessary
             if issubclass(rhs_type, IntegerType):
                 if rhs_type in UNSIGNED_INTEGER_TYPES:
-                    directives.append(UnsignedIntToFloatDirective(rhs_reg, rhs_reg))
+                    directives.append(UnsignedIntToFloatDirective())
                 else:
-                    directives.append(SignedIntToFloatDirective(rhs_reg, rhs_reg))
-
-            # convert F32 to F64
-            if lhs_type == F32Type:
-                directives.append(FloatExtendDirective(lhs_reg, lhs_reg))
+                    directives.append(SignedIntToFloatDirective())
+            # convert F32 to F64 if necessary
             if rhs_type == F32Type:
-                directives.append(FloatExtendDirective(rhs_reg, rhs_reg))
+                directives.append(FloatExtendDirective())
+        else:
+            # if both are ints, we can just put them straight on the stack
+            directives.extend(state.directives[node.lhs])
+            directives.extend(state.directives[node.rhs])
+
+        dir_type = None
 
         if node.op.value == "==":
             if fp:
-                directives.append(FloatEqualDirective(lhs_reg, rhs_reg, res_reg))
+                dir_type = FloatEqualDirective
             else:
-                directives.append(IntEqualDirective(lhs_reg, rhs_reg, res_reg))
+                dir_type = IntEqualDirective
         elif node.op.value == "!=":
             if fp:
-                directives.append(FloatNotEqualDirective(lhs_reg, rhs_reg, res_reg))
+                dir_type = FloatNotEqualDirective
             else:
-                directives.append(IntNotEqualDirective(lhs_reg, rhs_reg, res_reg))
+                dir_type = IntNotEqualDirective
         else:
 
             if fp:
@@ -1325,7 +1272,9 @@ class GenerateNonConstExprDirectives(Visitor):
                 else:
                     dir_type = INT_UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
 
-            directives.append(dir_type(lhs_reg, rhs_reg, res_reg))
+        assert dir_type is not None
+
+        directives.append(dir_type())
 
         state.directives[node] = directives
 
@@ -1438,7 +1387,7 @@ class GenerateBodyDirectives(Visitor):
         all_dirs = []
 
         cases: list[tuple[AstExpr, AstBody]] = []
-        goto_ends: list[JumpDirective] = []
+        goto_ends: list[GotoDirective] = []
 
         cases.append((node.condition, node.body))
 
@@ -1448,16 +1397,16 @@ class GenerateBodyDirectives(Visitor):
 
         for case in cases:
             case_dirs = []
-            # include the condition
+            # put the conditional on top of stack
             case_dirs.extend(state.directives[case[0]])
             # include if stmt (update the end idx later)
-            if_dir = IfDirective(state.expr_registers[case[0]], -1)
+            if_dir = IfDirective(-1)
 
             case_dirs.append(if_dir)
             # include body
             case_dirs.extend(state.directives[case[1]])
             # include a temporary goto end of if, will be refined later
-            goto_dir = JumpDirective(-1)
+            goto_dir = GotoDirective(-1)
             case_dirs.append(goto_dir)
             goto_ends.append(goto_dir)
 
@@ -1560,7 +1509,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     return state
 
 
-def compile(body: AstBody, dictionary: str) -> list[Directive]:
+def compile(body: AstBody, dictionary: str) -> Sequence:
     state = get_base_compile_state(dictionary)
     passes: list[Visitor] = [
         AssignIds(),
@@ -1580,15 +1529,13 @@ def compile(body: AstBody, dictionary: str) -> list[Directive]:
         CalculateExprValues(),
         # now that we know variable values, we can generate directives for vars
         GenerateVariableDirectives(),
-        # give each expr its own register
-        AssignExprRegisters(),
         # for cmds, which have constant arguments, generate the corresponding directives
         GenerateConstCmdDirectives(),
         # for expressions which have constant values, generate corresponding directives
-        # to put the expr in its register
+        # to put the expr on the stack
         GenerateConstExprDirectives(),
         # for expressions which don't have constant values, generate directives to
-        # calculate the expr at runtime and put it in its register
+        # calculate the expr at runtime and put it on the stack
         GenerateNonConstExprDirectives(),
         # count the number of directives generated by each node
         CountNodeDirectives(),
@@ -1609,7 +1556,7 @@ def compile(body: AstBody, dictionary: str) -> list[Directive]:
         )
     )
 
-    return state.directives[body]
+    return Sequence(state.next_lvar, state.directives[body])
 
 
 def main():
