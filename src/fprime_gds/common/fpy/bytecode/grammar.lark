@@ -1,41 +1,72 @@
-input: (_NEWLINE | stmt | goto_tag)*
+input: (_NEWLINE | _stmt )*
 
-stmt: [namespace] name args _NEWLINE
-namespace: name "." [namespace]
+_stmt: (goto_tag_stmt | dir_stmt )
 
-goto_tag: name ":"
+goto_tag_stmt: name ":"
+?dir_stmt: binary_reg_op _int _int _int -> binary_reg_op_call
+         | unary_reg_op _int _int -> unary_reg_op_call
+         | "goto" (name|_int) -> goto_call
+         | "wait_rel" _int _int -> wait_rel_call
+         | "wait_abs" _int _int _int _int -> wait_abs_call
+         | "set_ser_reg" _int (_byte)* -> set_ser_reg_call
+         | "if" _int (_int|name) -> if_call
+         | "no_op" -> no_op_call
+         | "get_tlm" _int _int _int -> get_tlm_call
+         | "get_prm" _int _int -> get_prm_call
+         | "cmd" _int (_byte)* -> cmd_call
+         | "deser_ser_reg" _int _int _int _int -> deser_ser_reg_call
+         | "set_reg" _int _int -> set_reg_call
+         | "exit" boolean -> exit_call
 
-reg_op: (three_reg_op reg reg reg) | (two_reg_op reg reg) | (one_reg_op reg)
+binary_reg_op: "or"
+    | "and"
+    | "ieq"
+    | "ine"
+    | "ult"
+    | "ule"
+    | "ugt"
+    | "uge"
+    | "slt"
+    | "sle"
+    | "sgt"
+    | "sge"
+    | "feq"
+    | "fne"
+    | "flt"
+    | "fle"
+    | "fgt"
+    | "fge"
 
-?three_reg_op: "add" | "sub" | "mul" | "div" | "pow"
-?two_reg_op: "log"
-?one_reg_op: "not"
+unary_reg_op: "not"
 
+_int: DEC_NUMBER
+_float: FLOAT_NUMBER
 
-// registers can be int/float/bool
-reg: ("i" | "f" | "b") _SPECIAL_DEC
+number: _int | _float
+string: STRING
+boolean: CONST_FALSE | CONST_TRUE
+_byte: HEX_NUMBER | DEC_NUMBER | BIN_NUMBER | OCT_NUMBER
 
-
-number: DEC_NUMBER | HEX_NUMBER | BIN_NUMBER | OCT_NUMBER | FLOAT_NUMBER | IMAG_NUMBER
-string: STRING | LONG_STRING
-
-// Other terminals
+# Other terminals
 
 _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 
 %ignore /[\t \f]+/  // WS
 %ignore /\\[\t \f]*\r?\n/   // LINE_CONT
 %ignore COMMENT
+%declare _INDENT _DEDENT
 
 
-// Python terminals
+# Python terminals
 
 !name: NAME
 NAME: /[^\W\d]\w*/
 COMMENT: /#[^\n]*/
+CONST_TRUE: "True"
+CONST_FALSE: "False"
+COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
-STRING: /([ubf]?r?|r[ubf])("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
-LONG_STRING: /([ubf]?r?|r[ubf])(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
+STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 
 _SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
 DEC_NUMBER:   "1".."9"        ("_"?  "0".."9"                       )*
@@ -44,12 +75,5 @@ HEX_NUMBER.2: "0" ("x" | "X") ("_"? ("0".."9" | "a".."f" | "A".."F"))+
 OCT_NUMBER.2: "0" ("o" | "O") ("_"?  "0".."7"                       )+
 BIN_NUMBER.2: "0" ("b" | "B") ("_"?  "0".."1"                       )+
 
-_EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
 DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
-FLOAT_NUMBER.2: _SPECIAL_DEC _EXP | DECIMAL _EXP?
-IMAG_NUMBER.2: (_SPECIAL_DEC      | FLOAT_NUMBER) ("J" | "j")
-
-
-// Comma-separated list (with an optional trailing comma)
-cs_list{item}: item ("," item)* ","?
-_cs_list{item}: item ("," item)* ","?
+FLOAT_NUMBER.2: "-"? _SPECIAL_DEC DECIMAL
