@@ -53,6 +53,13 @@ var: U32 = 1
 
     assert_run_success(fprime_test_api, seq)
 
+def test_float_log_literal(fprime_test_api):
+    seq = """
+var: F32 = 1.000e-5
+"""
+
+    assert_compile_success(fprime_test_api, seq)
+
 
 def test_exit_success(fprime_test_api):
     seq = """

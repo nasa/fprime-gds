@@ -85,4 +85,4 @@ DEC_NUMBER:   "-"? "1".."9"        ("_"?  "0".."9"                       )*
           |   "-"? "0"             ("_"?  "0"                            )* /(?![1-9])/
 
 DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
-FLOAT_NUMBER.2: "-"? _SPECIAL_DEC DECIMAL
+FLOAT_NUMBER.2: "-"? _SPECIAL_DEC DECIMAL ["e" ["-"] _SPECIAL_DEC]
