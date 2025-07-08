@@ -1,6 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 import dataclasses
+from pathlib import Path
+import struct
 from typing import ClassVar
+import zlib
 from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.numerical_types import (
     U32Type,
@@ -100,6 +103,49 @@ class Directive:
 
     def serialize_args(self) -> bytes:
         raise NotImplementedError("serialize_args not implemented")
+
+
+HEADER_FORMAT = "!BBBBBHI"
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+
+
+@dataclass
+class Header:
+    majorVersion: int
+    minorVersion: int
+    patchVersion: int
+    schemaVersion: int
+    argumentCount: int
+    statementCount: int
+    bodySize: int
+
+
+FOOTER_FORMAT = "!I"
+FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
+
+
+@dataclass
+class Footer:
+    crc: int
+
+
+def serialize_directives(dirs: list[Directive], output: Path = None):
+    output_bytes = bytes()
+
+    for dir in dirs:
+        output_bytes += dir.serialize()
+
+    header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
+    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
+
+    crc = zlib.crc32(output_bytes) % (1 << 32)
+    footer = Footer(crc)
+    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
+
+    if output is None:
+        output = input.with_suffix(".bin")
+
+    output.write_bytes(output_bytes)
 
 
 @dataclass
