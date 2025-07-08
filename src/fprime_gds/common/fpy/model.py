@@ -68,7 +68,6 @@ class DirectiveErrorCode(Enum):
     STACK_MISALIGNMENT = 12
 
 
-
 class FpySequencerModel:
 
     def __init__(self, stack_size=4096) -> None:
@@ -202,9 +201,7 @@ class FpySequencerModel:
         if dir.lvar_idx * WORD_SIZE + self.stack_frame_start > len(self.stack):
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        lvar_start = (
-            dir.lvar_idx * WORD_SIZE
-        )
+        lvar_start = dir.lvar_idx * WORD_SIZE
 
         # grab a word beginning at lvar start and put on operand stack
         self.push(self.stack[lvar_start : (lvar_start + WORD_SIZE)])
@@ -216,9 +213,7 @@ class FpySequencerModel:
         if dir.lvar_idx * WORD_SIZE + self.stack_frame_start > len(self.stack):
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        lvar_start = (
-            dir.lvar_idx * WORD_SIZE
-        )
+        lvar_start = dir.lvar_idx * WORD_SIZE
 
         # grab uppermost word from stack
         value = self.pop(type=bytes)

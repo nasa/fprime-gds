@@ -1,8 +1,7 @@
 import ast
 from pathlib import Path
 import tempfile
-from fprime_gds.common.fpy.bytecode.directives import Sequence
-from fprime_gds.common.fpy.bytecode.serialize_bytecode import serialize_directives
+from fprime_gds.common.fpy.bytecode.directives import Sequence, serialize_directives
 from fprime_gds.common.fpy.compiler import compile
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse
