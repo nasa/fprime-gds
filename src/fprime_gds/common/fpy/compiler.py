@@ -1672,12 +1672,6 @@ def compile(body: AstBody, dictionary: str) -> list[Directive]:
         for error in state.errors:
             raise error
 
-    print(
-        "\n".join(
-            str(idx) + ": " + str(s) for idx, s in enumerate(state.directives[body])
-        )
-    )
-
     return state.directives[body]
 
 
@@ -1706,11 +1700,10 @@ def main():
         print(f"Input file {args.input} does not exist")
         exit(-1)
 
-    print(args.input.read_text())
-
     body = parse(args.input.read_text())
     directives = compile(body, args.dictionary)
     output = args.output
     if output is None:
         output = args.input.with_suffix(".bin")
     serialize_directives(directives, output)
+    print("Done")
