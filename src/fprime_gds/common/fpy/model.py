@@ -10,6 +10,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ExitDirective,
     GotoDirective,
     PopDiscardDirective,
+    SignedExtendIntegerDirective,
     StorePrmDirective,
     StoreTlmValDirective,
     IfDirective,
@@ -45,6 +46,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatTruncateDirective,
     WaitAbsDirective,
     WaitRelDirective,
+    ZeroExtendIntegerDirective,
 )
 
 WORD_SIZE = 8
@@ -65,6 +67,7 @@ class DirectiveErrorCode(Enum):
     DELIBERATE_FAILURE = 9
     STACK_OVERFLOW = 10
     STACK_UNDERFLOW = 11
+    INVALID_ARGUMENT = 12
 
 
 class FpySequencerModel:
@@ -132,6 +135,8 @@ class FpySequencerModel:
             print(f"{self.next_dir_idx}:", next_dir)
             self.next_dir_idx += 1
             result = self.dispatch(next_dir)
+            if result != DirectiveErrorCode.NO_ERROR:
+                return result
             print("stack", len(self.stack))
             for byte in range(0, len(self.stack)):
 
@@ -140,39 +145,41 @@ class FpySequencerModel:
                     end=" ",
                 )
             print()
-            if result != DirectiveErrorCode.NO_ERROR:
-                return result
         return DirectiveErrorCode.NO_ERROR
 
     def push(self, val: int | float | bytes | bytearray | bool, signed=True):
         if isinstance(val, (bytes | bytearray)):
             self.stack += val
         elif isinstance(val, bool):
-            self.push(1 if val else 0)
+            # push a byte onto stack
+            self.push(b"\xff" if val else b"\x00")
         elif isinstance(val, float):
             self.push(struct.pack(">d", val))
         else:
             assert isinstance(val, int), val
             self.stack += val.to_bytes(length=8, byteorder="big", signed=signed)
 
-    def pop(self, type=int, signed=True, size=64) -> int | float | bytearray:
+    def pop(self, type=int, signed=True, size=WORD_SIZE) -> int | float | bytearray:
         """pops one word off the stack and interprets it as an int or float, of
         the specified signedness (if applicable) and bit width (if applicable)"""
-        last_word = self.stack[-WORD_SIZE:]
-        self.stack = self.stack[:-WORD_SIZE]
+        value = self.stack[-size:]
+        self.stack = self.stack[:-size]
         if type == int:
             if signed:
-                return struct.unpack(">q", last_word)[0]
-            return struct.unpack(">Q", last_word)[0]
+                return struct.unpack(">q", value)[0]
+            return struct.unpack(">Q", value)[0]
         elif type == float:
-            if size == 64:
-                return struct.unpack(">d", last_word)[0]
-            assert size == 32, size
-            return struct.unpack(">f", last_word[:4])[0]
+            if size == 8:
+                return struct.unpack(">d", value)[0]
+            assert size == 4, size
+            return struct.unpack(">f", value)[0]
         elif type == bytes or type == bytearray:
-            assert size == 64, size
+            assert size == 8, size
             # compiler knows best. always let them have the last word ;)
-            return last_word
+            return value
+        elif type == bool:
+            assert size == 1, size
+            return bool(value[0])
         else:
             assert False, type
 
@@ -198,10 +205,10 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_OVERFLOW
 
         # grab a word beginning at lvar start and put on operand stack
-        value = self.stack[self.stack_frame_start + dir.lvar_offset : (self.stack_frame_start + dir.lvar_offset + dir.size)]
-        if len(value) < WORD_SIZE:
-            # pad to make it a word
-            value = bytearray(0 for i in range(0, WORD_SIZE - len(value))) + value
+        value = self.stack[
+            self.stack_frame_start
+            + dir.lvar_offset : (self.stack_frame_start + dir.lvar_offset + dir.size)
+        ]
         self.push(value)
 
     def handle_store(self, dir: StoreDirective):
@@ -212,10 +219,9 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_OVERFLOW
 
         # get the last `dir.size` bytes of the stack
-        value = self.stack[-dir.size:]
-        print(len(value))
+        value = self.stack[-dir.size :]
         # remove them from top of stack
-        self.stack = self.stack[:-dir.size]
+        self.stack = self.stack[: -dir.size]
         # put into lvar array at the given offset
         for i in range(0, len(value)):
             self.stack[dir.lvar_offset + self.stack_frame_start + i] = value[i]
@@ -242,11 +248,11 @@ class FpySequencerModel:
     def handle_if(self, dir: IfDirective):
         if dir.false_goto_dir_index > len(self.dirs):
             return DirectiveErrorCode.DIR_OUT_OF_BOUNDS
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 1:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        conditional = self.pop()
+        conditional = self.pop(type=bool, size=1)
         print("conditional", conditional)
-        if conditional == 0:
+        if not conditional:
             self.next_dir_idx = dir.false_goto_dir_index
 
     def handle_store_tlm_val(self, dir: StoreTlmValDirective):
@@ -254,10 +260,18 @@ class FpySequencerModel:
         if whole_value is None:
             return DirectiveErrorCode.TLM_NOT_FOUND
 
-        if self.stack_frame_start + dir.lvar_offset + len(whole_value) > self.max_stack_size:
+        if (
+            self.stack_frame_start + dir.lvar_offset + len(whole_value)
+            > self.max_stack_size
+        ):
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        self.stack[self.stack_frame_start + dir.lvar_offset:(self.stack_frame_start + dir.lvar_offset + len(whole_value))] = whole_value
+        self.stack[
+            self.stack_frame_start
+            + dir.lvar_offset : (
+                self.stack_frame_start + dir.lvar_offset + len(whole_value)
+            )
+        ] = whole_value
 
     def handle_push_prm(self, dir: StorePrmDirective):
         whole_value: bytearray = self.prm_db.get(dir.prm_id, None)
@@ -277,18 +291,18 @@ class FpySequencerModel:
         self.push(padded_value)
 
     def handle_or(self, dir: OrDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 2:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        rhs = self.pop(signed=False)
-        lhs = self.pop(signed=False)
-        self.push(rhs != 0 or lhs != 0)
+        rhs = self.pop(type=bool, size=1)
+        lhs = self.pop(type=bool, size=1)
+        self.push(lhs or rhs)
 
     def handle_and(self, dir: AndDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 2:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        rhs = self.pop(signed=False)
-        lhs = self.pop(signed=False)
-        self.push(rhs != 0 and lhs != 0)
+        rhs = self.pop(type=bool, size=1)
+        lhs = self.pop(type=bool, size=1)
+        self.push(lhs and rhs)
 
     def handle_ieq(self, dir: IntEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
@@ -333,6 +347,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
+        print(lhs, "<", rhs, lhs < rhs)
         self.push(lhs < rhs)
 
     def handle_sle(self, dir: SignedLessThanOrEqualDirective):
@@ -395,25 +410,105 @@ class FpySequencerModel:
         self.push(lhs >= rhs)
 
     def handle_not(self, dir: NotDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 1:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        val = self.pop()
-        if val != 0:
+        val = self.pop(type=bool, size=1)
+        if val:
             self.push(False)
         else:
             self.push(True)
 
     def handle_fpext(self, dir: FloatExtendDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 4:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        val_32 = self.pop(type=float, size=32)
-        print("fext", val_32)
-        self.push(val_32)
+        val_bytes = self.stack[-4:]
+        self.stack = self.stack[:-4]
+        val_as_float = struct.unpack(">f", val_bytes)[0]
+
+        self.push(val_as_float)
+
+    def handle_siext(self, dir: SignedExtendIntegerDirective):
+        if len(self.stack) < dir.from_size:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        if len(self.stack) - dir.from_size + dir.to_size > self.max_stack_size:
+            return DirectiveErrorCode.STACK_OVERFLOW
+
+        # make sure it's from/to a valid size
+        if dir.from_size not in (1, 2, 4, 8) or dir.to_size not in (1, 2, 4, 8):
+            return DirectiveErrorCode.INVALID_ARGUMENT
+
+        # pop val off stack
+        val_bytes = self.stack[-dir.from_size:]
+        self.stack = self.stack[:-dir.from_size]
+        val_as_int = None
+        if dir.from_size == 1:
+            val_as_int = struct.unpack(">b", val_bytes)[0]
+        elif dir.from_size == 2:
+            val_as_int = struct.unpack(">h", val_bytes)[0]
+        elif dir.from_size == 4:
+            val_as_int = struct.unpack(">i", val_bytes)[0]
+        elif dir.from_size == 8:
+            val_as_int = struct.unpack(">q", val_bytes)[0]
+        else:
+            assert False, dir.from_size
+
+        extended_val = None
+        if dir.to_size == 1:
+            extended_val = struct.pack(">b", val_as_int)
+        elif dir.to_size == 2:
+            extended_val = struct.pack(">h", val_as_int)
+        elif dir.to_size == 4:
+            extended_val = struct.pack(">i", val_as_int)
+        elif dir.to_size == 8:
+            extended_val = struct.pack(">q", val_as_int)
+        else:
+            assert False, dir.to_size
+
+        self.push(extended_val)
+
+    def handle_ziext(self, dir: ZeroExtendIntegerDirective):
+        if len(self.stack) < dir.from_size:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        if len(self.stack) - dir.from_size + dir.to_size > self.max_stack_size:
+            return DirectiveErrorCode.STACK_OVERFLOW
+
+        # make sure it's from/to a valid size
+        if dir.from_size not in (1, 2, 4, 8) or dir.to_size not in (1, 2, 4, 8):
+            return DirectiveErrorCode.INVALID_ARGUMENT
+
+        # pop val off stack
+        val_bytes = self.stack[-dir.from_size:]
+        self.stack = self.stack[:-dir.from_size]
+        val_as_int = None
+        if dir.from_size == 1:
+            val_as_int = struct.unpack(">B", val_bytes)[0]
+        elif dir.from_size == 2:
+            val_as_int = struct.unpack(">H", val_bytes)[0]
+        elif dir.from_size == 4:
+            val_as_int = struct.unpack(">I", val_bytes)[0]
+        elif dir.from_size == 8:
+            val_as_int = struct.unpack(">Q", val_bytes)[0]
+        else:
+            assert False, dir.from_size
+
+        extended_val = None
+        if dir.to_size == 1:
+            extended_val = struct.pack(">B", val_as_int)
+        elif dir.to_size == 2:
+            extended_val = struct.pack(">H", val_as_int)
+        elif dir.to_size == 4:
+            extended_val = struct.pack(">I", val_as_int)
+        elif dir.to_size == 8:
+            extended_val = struct.pack(">Q", val_as_int)
+        else:
+            assert False, dir.to_size
+
+        self.push(extended_val)
 
     def handle_fptrunc(self, dir: FloatTruncateDirective):
         if len(self.stack) < WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        val_64 = self.pop(type=float, size=64)
+        val_64 = self.pop(type=float)
         val_32_bytes = struct.pack(">f", val_64)
         # pad with zeroes
         val_32_bytes += bytes((0, 0, 0, 0))

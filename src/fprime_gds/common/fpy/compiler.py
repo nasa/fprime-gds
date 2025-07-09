@@ -7,7 +7,9 @@ import traceback
 
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateStackDirective,
+    SignedExtendIntegerDirective,
     StorePrmDirective,
+    ZeroExtendIntegerDirective,
     serialize_directives,
     BINARY_COMPARISON_DIRECTIVES,
     FLOAT_INEQUALITY_DIRECTIVES,
@@ -861,7 +863,7 @@ class CheckAndResolveArgumentTypes(Visitor):
             state.expr_types[node.rhs] = F64Type
 
         if lhs_type == IntegerType and rhs_type == IntegerType:
-            # use i64
+            # if both are generic ints use i64
             state.expr_types[node.lhs] = I64Type
             state.expr_types[node.rhs] = I64Type
             return
@@ -1180,7 +1182,6 @@ class GenerateConstExprDirectives(Visitor):
         # it has a constant value at compile time
         serialized_expr_value = expr_value.serialize()
         assert len(serialized_expr_value) <= WORD_SIZE, len(serialized_expr_value)
-        serialized_expr_value += bytes(0 for i in range(0, WORD_SIZE - len(serialized_expr_value)))
 
         # push it to the stack
         state.directives[node] = [PushValDirective(serialized_expr_value)]
@@ -1189,6 +1190,25 @@ class GenerateConstExprDirectives(Visitor):
 class GenerateNonConstExprDirectives(Visitor):
     """for each expr whose value is not known at compile time, but can be calculated at run time,
     generate directives to calculate the value and put it in its register"""
+
+    def extend_to_64_bits(self, type: FppTypeClass) -> list[Directive]:
+        if type.getMaxSize() == 8:
+            # already 8 bytes
+            return []
+        if type == F32Type:
+            return [FloatExtendDirective()]
+
+        # must be an int
+        assert issubclass(type, IntegerType), type
+
+        from_size = type.getMaxSize()
+        assert from_size in (1, 2, 4, 8), from_size
+        to_size = 8
+
+        dir_type = SignedExtendIntegerDirective if type in SIGNED_INTEGER_TYPES else ZeroExtendIntegerDirective
+
+        return [dir_type(from_size, to_size)]
+
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         if node in state.directives:
@@ -1293,37 +1313,31 @@ class GenerateNonConstExprDirectives(Visitor):
         lhs_type = state.expr_types[node.lhs]
         rhs_type = state.expr_types[node.rhs]
 
+        lhs_dirs = state.directives[node.lhs]
+        rhs_dirs = state.directives[node.rhs]
+
+        # get both sides to 64 bit
+        lhs_dirs.extend(self.extend_to_64_bits(lhs_type))
+        rhs_dirs.extend(self.extend_to_64_bits(rhs_type))
+
         fp = False
         if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
             fp = True
-
-        if fp:
-            # put lhs on stack
-            directives.extend(state.directives[node.lhs])
-            # convert int to float if necessary
+            # convert both sides to float
             if issubclass(lhs_type, IntegerType):
                 if lhs_type in UNSIGNED_INTEGER_TYPES:
-                    directives.append(UnsignedIntToFloatDirective())
+                    lhs_dirs.append(UnsignedIntToFloatDirective())
                 else:
-                    directives.append(SignedIntToFloatDirective())
-            # convert F32 to F64 if necessary
-            if lhs_type == F32Type:
-                directives.append(FloatExtendDirective())
-            # put rhs on stack
-            directives.extend(state.directives[node.rhs])
+                    lhs_dirs.append(SignedIntToFloatDirective())
             # convert int to float if necessary
             if issubclass(rhs_type, IntegerType):
                 if rhs_type in UNSIGNED_INTEGER_TYPES:
-                    directives.append(UnsignedIntToFloatDirective())
+                    rhs_dirs.append(UnsignedIntToFloatDirective())
                 else:
-                    directives.append(SignedIntToFloatDirective())
-            # convert F32 to F64 if necessary
-            if rhs_type == F32Type:
-                directives.append(FloatExtendDirective())
-        else:
-            # if both are ints, we can just put them straight on the stack
-            directives.extend(state.directives[node.lhs])
-            directives.extend(state.directives[node.rhs])
+                    rhs_dirs.append(SignedIntToFloatDirective())
+
+        directives.extend(lhs_dirs)
+        directives.extend(rhs_dirs)
 
         dir_type = None
 

@@ -84,6 +84,9 @@ class DirectiveOpcode(Enum):
     # floating point extension and truncation
     FPEXT = 36
     FPTRUNC = 37
+    # signed and zero extension of integers
+    SIEXT = 49
+    ZIEXT = 50
     # floating point conversion to signed/unsigned integer,
     # and vice versa
     FPTOSI = 38
@@ -167,6 +170,19 @@ class LoadDirective(Directive):
     lvar_offset: int | U16Type
     size: int | U16Type
 
+@dataclass
+class SignedExtendIntegerDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SIEXT
+
+    from_size: int| U8Type
+    to_size: int| U8Type
+
+@dataclass
+class ZeroExtendIntegerDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ZIEXT
+
+    from_size: int| U8Type
+    to_size: int| U8Type
 
 @dataclass
 class AllocateStackDirective(Directive):
