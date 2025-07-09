@@ -164,10 +164,13 @@ AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf]
 class AstBody(Ast):
     stmts: list[AstStmt]
 
+@dataclass
+class AstScopedBody(Ast):
+    stmts: list[AstStmt]
 
 for cls in Ast.__subclasses__():
     cls.__hash__ = Ast.__hash__
-    # cls.__repr__ = Ast.__repr__
+    cls.__repr__ = Ast.__repr__
 
 
 @v_args(meta=False, inline=False)
@@ -204,7 +207,7 @@ def handle_str(meta, s: str):
 
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
-    input = no_inline(AstBody)
+    input = no_inline(AstScopedBody)
     pass_stmt = AstPass
 
     assign = AstAssign

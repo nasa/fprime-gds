@@ -39,8 +39,8 @@ class DirectiveOpcode(Enum):
     GOTO = 4
     IF = 5
     NO_OP = 6
-    PUSH_TLM_VAL = 7
-    PUSH_PRM = 8
+    STORE_TLM_VAL = 7
+    STORE_PRM = 8
     # binary stack op directives
     # all of these are handled at the CPP level by one BinaryStackOpDirective
     # boolean ops
@@ -99,11 +99,9 @@ class DirectiveOpcode(Enum):
     POP_DISCARD = 45
 
     CONST_CMD = 46
+    STACK_CMD = 47
 
-    FUNC_CALL = 47
-
-    RETURN_VAL = 48
-    RETURN = 49
+    ALLOCATE_STACK = 48
 
 
 class Directive:
@@ -166,14 +164,22 @@ class Sequence:
 class LoadDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.LOAD
 
-    lvar_idx: int | U8Type
+    lvar_offset: int | U16Type
+    size: int | U16Type
 
+
+@dataclass
+class AllocateStackDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ALLOCATE_STACK
+
+    size: int | U16Type
 
 @dataclass
 class StoreDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STORE
 
-    lvar_idx: int | U8Type
+    lvar_offset: int | U16Type
+    size: int | U16Type
 
 
 @dataclass
@@ -185,7 +191,7 @@ class PopDiscardDirective(Directive):
 class PushValDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_VAL
 
-    val: int | I64Type
+    val: bytes
 
 
 @dataclass
@@ -311,21 +317,19 @@ class NoOpDirective(Directive):
 
 
 @dataclass
-class PushTlmValDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_TLM_VAL
+class StoreTlmValDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STORE_TLM_VAL
     chan_id: int | FwChanIdType
     """FwChanIdType: The telemetry channel ID to get."""
-    offset: int | FwSizeType
-    size: int | U8Type
+    lvar_offset: int | U16Type
 
 
 @dataclass
-class PushPrmDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_PRM
+class StorePrmDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STORE_PRM
     prm_id: int | FwPrmIdType
     """FwPrmIdType: The parameter ID to get the value of."""
-    offset: int | FwSizeType
-    size: int | FwSizeType
+    lvar_offset: int | U16Type
 
 
 @dataclass
