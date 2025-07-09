@@ -823,3 +823,42 @@ else:
     exit(True)
 """
     assert_run_success(fprime_test_api, seq)
+
+
+def test_non_const_str_arg(fprime_test_api):
+    seq = """
+CdhCore.cmdDisp.CMD_NO_OP_STRING(ComFpy.cmdSeq.SeqPath)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+def test_non_const_int_arg(fprime_test_api):
+    seq = """
+var: U8 = 255
+FpyDemo.sendBuffComp.PARAMETER3_PRM_SET(var)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+def test_non_const_float_arg(fprime_test_api):
+    seq = """
+var: F32 = 1.2
+FpyDemo.sendBuffComp.PARAMETER4_PRM_SET(var)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_non_const_builtin_arg(fprime_test_api):
+    seq = """
+var: U32 = 123123
+sleep(var, 0)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+def test_iadd(fprime_test_api):
+    seq = """
+var1: U32 = 500
+var2: U32 = 1000
+if var1 + var2 == 1500:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)

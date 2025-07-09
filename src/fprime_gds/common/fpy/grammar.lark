@@ -35,9 +35,15 @@ _test: or_test
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
           | comparison
-          | atom
-comparison: atom comp_op atom
+?comparison: mul_expr (comp_op mul_expr)?
+# all comparisons have same precedence
 comp_op: COMPARISON_OP
+
+?mul_expr: fdiv_expr ("*" fdiv_expr)?
+?fdiv_expr: idiv_expr ("/" idiv_expr)?
+?idiv_expr: add_expr ("//" add_expr)?
+?add_expr: sub_expr ("+" sub_expr)?
+?sub_expr: atom ("-" atom)?
 
 arguments: _expr ("," _expr)*
 
@@ -76,6 +82,7 @@ NAME: /[^\W\d]\w*/
 COMMENT: /#[^\n]*/
 CONST_TRUE: "True"
 CONST_FALSE: "False"
+ARITHMETIC_OP: "+" | "-" | "*" | "/" | "//"
 COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i

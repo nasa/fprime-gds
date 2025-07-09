@@ -86,7 +86,8 @@ class DirectiveOpcode(Enum):
     FPTRUNC = 37
     # signed and zero extension of integers
     SIEXT = 49
-    ZIEXT = 50
+    IZEXT = 50
+    ITRUNC = 51
     # floating point conversion to signed/unsigned integer,
     # and vice versa
     FPTOSI = 38
@@ -163,6 +164,14 @@ class Sequence:
 
     dirs: list[Directive]
 
+
+@dataclass
+class StackCmdDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STACK_CMD
+
+    size: int | U16Type
+
+
 @dataclass
 class LoadDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.LOAD
@@ -170,25 +179,37 @@ class LoadDirective(Directive):
     lvar_offset: int | U16Type
     size: int | U16Type
 
+
 @dataclass
-class SignedExtendIntegerDirective(Directive):
+class SignedIntegerExtendDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SIEXT
 
-    from_size: int| U8Type
-    to_size: int| U8Type
+    from_size: int | U8Type
+    to_size: int | U8Type
+
 
 @dataclass
-class ZeroExtendIntegerDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ZIEXT
+class IntegerZeroExtendDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IZEXT
 
-    from_size: int| U8Type
-    to_size: int| U8Type
+    from_size: int | U8Type
+    to_size: int | U8Type
+
+
+@dataclass
+class IntegerTruncateDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ITRUNC
+
+    from_size: int | U8Type
+    to_size: int | U8Type
+
 
 @dataclass
 class AllocateStackDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ALLOCATE_STACK
 
     size: int | U16Type
+
 
 @dataclass
 class StoreDirective(Directive):
@@ -304,14 +325,13 @@ def serialize_directives(dirs: list[Directive], output: Path = None):
 @dataclass
 class WaitRelDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.WAIT_REL
-    seconds: int | U32Type
-    useconds: int | U32Type
+    # seconds and useconds are implicit
 
 
 @dataclass
 class WaitAbsDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.WAIT_ABS
-    wakeup_time: TimeType
+    # time base, time context, seconds and useconds are implicit
 
 
 @dataclass
@@ -501,7 +521,6 @@ class UnsignedIntToFloatDirective(Directive):
 @dataclass
 class ExitDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.EXIT
-    success: bool | BoolType
 
 
 INT_EQUALITY_DIRECTIVES: dict[str, type[Directive]] = {

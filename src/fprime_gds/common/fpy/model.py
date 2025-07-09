@@ -10,7 +10,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ExitDirective,
     GotoDirective,
     PopDiscardDirective,
-    SignedExtendIntegerDirective,
+    SignedIntegerExtendDirective,
+    StackCmdDirective,
     StorePrmDirective,
     StoreTlmValDirective,
     IfDirective,
@@ -46,7 +47,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatTruncateDirective,
     WaitAbsDirective,
     WaitRelDirective,
-    ZeroExtendIntegerDirective,
+    IntegerZeroExtendDirective,
 )
 
 WORD_SIZE = 8
@@ -165,9 +166,20 @@ class FpySequencerModel:
         value = self.stack[-size:]
         self.stack = self.stack[:-size]
         if type == int:
-            if signed:
-                return struct.unpack(">q", value)[0]
-            return struct.unpack(">Q", value)[0]
+            fmt_char = None
+            if size == 1:
+                fmt_char = "b"
+            elif size == 2:
+                fmt_char = "h"
+            elif size == 4:
+                fmt_char = "i"
+            elif size == 8:
+                fmt_char = "q"
+            else:
+                assert False, size
+            if not signed:
+                fmt_char = fmt_char.upper()
+            return struct.unpack(">" + fmt_char, value)[0]
         elif type == float:
             if size == 8:
                 return struct.unpack(">d", value)[0]
@@ -232,13 +244,35 @@ class FpySequencerModel:
         self.push(dir.val)
 
     def handle_wait_rel(self, dir: WaitRelDirective):
-        print("wait rel", dir)
+        if len(self.stack) < 8:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        useconds = self.pop(size=4)
+        seconds = self.pop(size=4)
+
+        print("wait rel", seconds, useconds)
 
     def handle_wait_abs(self, dir: WaitAbsDirective):
-        print("wait abs", dir)
+        if len(self.stack) < 11:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        useconds = self.pop(size=4)
+        seconds = self.pop(size=4)
+        time_context = self.pop(size=1)
+        time_base = self.pop(size=2)
+
+        print("wait abs", time_context, time_base, seconds, useconds)
 
     def handle_const_cmd(self, dir: ConstCmdDirective):
-        print("cmd", dir)
+        print("cmd opcode", dir.cmd_opcode, "args", dir.args)
+
+    def handle_stack_cmd(self, dir: StackCmdDirective):
+        if len(self.stack) < dir.size:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        cmd = self.stack[-dir.size:]
+        self.stack = self.stack[:-dir.size]
+
+        print("cmd opcode", cmd[:4], "args", cmd[4:])
 
     def handle_goto(self, dir: GotoDirective):
         if dir.dir_idx > len(self.dirs):
@@ -427,7 +461,7 @@ class FpySequencerModel:
 
         self.push(val_as_float)
 
-    def handle_siext(self, dir: SignedExtendIntegerDirective):
+    def handle_siext(self, dir: SignedIntegerExtendDirective):
         if len(self.stack) < dir.from_size:
             return DirectiveErrorCode.STACK_UNDERFLOW
         if len(self.stack) - dir.from_size + dir.to_size > self.max_stack_size:
@@ -466,7 +500,7 @@ class FpySequencerModel:
 
         self.push(extended_val)
 
-    def handle_ziext(self, dir: ZeroExtendIntegerDirective):
+    def handle_ziext(self, dir: IntegerZeroExtendDirective):
         if len(self.stack) < dir.from_size:
             return DirectiveErrorCode.STACK_UNDERFLOW
         if len(self.stack) - dir.from_size + dir.to_size > self.max_stack_size:
@@ -596,7 +630,8 @@ class FpySequencerModel:
         self.push(lhs / rhs)
 
     def handle_exit(self, dir: ExitDirective):
-        if dir.success:
+        success = self.pop(type=bool, size=1)
+        if success:
             self.next_dir_idx = len(self.dirs)
         else:
             return DirectiveErrorCode.DELIBERATE_FAILURE

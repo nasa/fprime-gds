@@ -7,9 +7,13 @@ import traceback
 
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateStackDirective,
-    SignedExtendIntegerDirective,
+    ConstCmdDirective,
+    FloatTruncateDirective,
+    IntegerTruncateDirective,
+    SignedIntegerExtendDirective,
+    StackCmdDirective,
     StorePrmDirective,
-    ZeroExtendIntegerDirective,
+    IntegerZeroExtendDirective,
     serialize_directives,
     BINARY_COMPARISON_DIRECTIVES,
     FLOAT_INEQUALITY_DIRECTIVES,
@@ -17,7 +21,6 @@ from fprime_gds.common.fpy.bytecode.directives import (
     INT_SIGNED_INEQUALITY_DIRECTIVES,
     INT_UNSIGNED_INEQUALITY_DIRECTIVES,
     AndDirective,
-    ConstCmdDirective,
     Directive,
     FloatExtendDirective,
     IntEqualDirective,
@@ -75,6 +78,8 @@ from fprime_gds.common.fpy.parser import (
     AstExpr,
     AstGetAttr,
     AstGetItem,
+    AstIDiv,
+    AstMath,
     AstNot,
     AstNumber,
     AstOr,
@@ -170,10 +175,9 @@ class FpyCmd(FpyCallable):
 class FpyBuiltin(FpyCallable):
     dir: type[Directive]
 
-    def from_arg_values(self, arg_vals: list[FppType]) -> Directive:
-        assert len(arg_vals) == len(fields(self.dir))
-        arg_vals = [v.val for v in arg_vals]
-        return self.dir(*arg_vals)
+    def __post_init__(self):
+        # builtins are all stack based, so their args are implicit
+        assert len(fields(self.dir)) == 0
 
 
 BUILTINS: dict[str, FpyBuiltin] = {
@@ -731,9 +735,9 @@ class ResolveReferences(Visitor):
             return
 
         for arg in node.args if node.args is not None else []:
-            # arg value refs must be consts
-            if not self.resolve_if_ref(arg, state.consts, state):
-                state.err("Unknown const", arg)
+            # arg value refs must have values at runtime
+            if not self.resolve_if_ref(arg, state.runtime_values, state):
+                state.err("Unknown runtime value", arg)
                 return
 
     def visit_AstIf_AstElif(self, node: AstIf | AstElif, state: CompileState):
@@ -760,6 +764,14 @@ class ResolveReferences(Visitor):
     def visit_AstNot(self, node: AstNot, state: CompileState):
         if not self.resolve_if_ref(node.value, state.runtime_values, state):
             state.err("Unknown runtime value", node.value)
+            return
+
+    def visit_AstMath(self, node: AstMath, state: CompileState):
+        if not self.resolve_if_ref(node.lhs, state.runtime_values, state):
+            state.err("Unknown runtime value", node.lhs)
+            return
+        if not self.resolve_if_ref(node.rhs, state.runtime_values, state):
+            state.err("Unknown runtime value", node.rhs)
             return
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
@@ -791,6 +803,19 @@ class CalculateExprTypes(Visitor):
         else:
             assert False, node.value
         state.expr_types[node] = result_type
+
+    def visit_AstMath(self, node: AstMath, state: CompileState):
+        lhs_type = state.expr_types[node.lhs]
+        rhs_type = state.expr_types[node.rhs]
+
+        if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
+            # if either arg is a float, promote result to float
+            # result will be a float
+            state.expr_types[node] = FloatType
+            return
+
+        # otherwise, result will be an int
+        state.expr_types[node] = IntegerType
 
     def visit_AstString(self, node: AstString, state: CompileState):
         state.expr_types[node] = StringType
@@ -840,6 +865,51 @@ class CheckAndResolveArgumentTypes(Visitor):
             assert False, node.value
 
         assert False, node
+
+    def visit_AstMath(self, node: AstMath, state: CompileState):
+
+        lhs_type = state.expr_types[node.lhs]
+        rhs_type = state.expr_types[node.rhs]
+
+        if not issubclass(lhs_type, NumericalType):
+            state.err(f"Cannot do math on non-numeric type {lhs_type}", node.lhs)
+            return
+        if not issubclass(rhs_type, NumericalType):
+            state.err(f"Cannot do math on non-numeric type {rhs_type}", node.rhs)
+            return
+
+        # args are both numeric
+        # so, what should we interpret the arg types as?
+        # well, i guess we want to know what type we want this expr to be...
+        # so e.g. if we do
+        # var: U8 = 1 + 2
+        # hmm we're going to have to convert both into 64 bit, do the math and then truncate back down
+        # 
+
+        # if either is generic float, pick F64. we want F64 cuz otherwise we need
+        # an FPEXT to convert to F64
+        if lhs_type == FloatType:
+            state.expr_types[node.lhs] = F64Type
+        if rhs_type == FloatType:
+            state.expr_types[node.rhs] = F64Type
+
+        unsigned = (
+            lhs_type in UNSIGNED_INTEGER_TYPES or rhs_type in UNSIGNED_INTEGER_TYPES
+        )
+
+        # if either is generic int, pick 64 bit wide. signedness depending on the other type
+        # or if other type is unspecified signedness, pick I64
+        if lhs_type == IntegerType:
+            if unsigned:
+                state.expr_types[node.lhs] = U64Type
+            else:
+                state.expr_types[node.lhs] = I64Type
+
+        if rhs_type == IntegerType:
+            if unsigned:
+                state.expr_types[node.rhs] = U64Type
+            else:
+                state.expr_types[node.rhs] = I64Type
 
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
 
@@ -965,7 +1035,7 @@ class CheckAndResolveArgumentTypes(Visitor):
         state.expr_types[node.item] = NothingType
 
 
-class CalculateExprValues(Visitor):
+class CalculateConstExprValues(Visitor):
     """for each expr, try to calculate its constant value and store it in a map. stores None if no value could be
     calculated at compile time, and NothingType if the expr had no value"""
 
@@ -1028,6 +1098,7 @@ class CalculateExprValues(Visitor):
         ]
         unknown_value = any(v for v in arg_values if v is None)
         if unknown_value:
+            # we will have to calculate this at runtime
             state.expr_values[node] = None
             return
 
@@ -1059,6 +1130,10 @@ class CalculateExprValues(Visitor):
 
     def visit_AstTest(self, node: AstTest, state: CompileState):
         # we do not calculate compile time value of or/and/nots/cmps at the moment
+        state.expr_values[node] = None
+
+    def visit_AstMath(self, node: AstMath, state: CompileState):
+        # we do not calculate compile time value of arithmetic ops at the moment
         state.expr_values[node] = None
 
     def visit_default(self, node, state):
@@ -1113,41 +1188,6 @@ class GenerateVariableDirectives(Visitor):
         ]
 
 
-class GenerateConstCmdDirectives(Visitor):
-    """for each command or builtin whose arguments were const at runtime (should be all at the moment),
-    generate a directive"""
-
-    def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        func = state.resolved_references[node.func]
-        if isinstance(func, FpyCmd):
-            arg_bytes = bytes()
-            for arg_node in node.args if node.args is not None else []:
-                arg_value = state.expr_values[arg_node]
-                if arg_value is None:
-                    state.err(
-                        f"Only constant arguments to commands are allowed", arg_node
-                    )
-                    return
-                arg_bytes += arg_value.serialize()
-            state.directives[node] = [
-                ConstCmdDirective(func.cmd.get_op_code(), arg_bytes)
-            ]
-        elif isinstance(func, FpyBuiltin):
-            arg_values = []
-            for arg_node in node.args if node.args is not None else []:
-                arg_value = state.expr_values[arg_node]
-                if arg_value is None:
-                    state.err(
-                        f"Only constant arguments to builtins are allowed", arg_node
-                    )
-                    return
-                arg_values.append(arg_value)
-
-            state.directives[node] = [func.from_arg_values(arg_values)]
-        else:
-            state.directives[node] = None
-
-
 class GenerateConstExprDirectives(Visitor):
     """for each expr with a constant compile time value, generate
     directives for how to put it in its register"""
@@ -1191,6 +1231,26 @@ class GenerateNonConstExprDirectives(Visitor):
     """for each expr whose value is not known at compile time, but can be calculated at run time,
     generate directives to calculate the value and put it in its register"""
 
+    def truncate_from_64_bits(self, from_type: FppTypeClass, new_size: int) -> list[Directive]:
+
+        assert new_size in (1, 2, 4, 8), new_size
+        assert from_type.getMaxSize() == 8, from_type.getMaxSize()
+
+        if new_size == 8:
+            # already correct size
+            return []
+
+        if from_type == F64Type:
+            # only one option for float trunc
+            assert new_size == 4, new_size
+            return [FloatTruncateDirective()]
+
+        # must be an int
+        assert issubclass(from_type, IntegerType), from_type
+
+        return [IntegerTruncateDirective(8, new_size)]
+
+
     def extend_to_64_bits(self, type: FppTypeClass) -> list[Directive]:
         if type.getMaxSize() == 8:
             # already 8 bytes
@@ -1205,10 +1265,13 @@ class GenerateNonConstExprDirectives(Visitor):
         assert from_size in (1, 2, 4, 8), from_size
         to_size = 8
 
-        dir_type = SignedExtendIntegerDirective if type in SIGNED_INTEGER_TYPES else ZeroExtendIntegerDirective
+        dir_type = (
+            SignedIntegerExtendDirective
+            if type in SIGNED_INTEGER_TYPES
+            else IntegerZeroExtendDirective
+        )
 
         return [dir_type(from_size, to_size)]
-
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         if node in state.directives:
@@ -1303,6 +1366,76 @@ class GenerateNonConstExprDirectives(Visitor):
 
         state.directives[node] = directives
 
+    def visit_AstMath(self, node: AstMath, state: CompileState):
+        if node in state.directives:
+            # already know how to put it on stack
+            return
+
+        directives = []
+
+        result_type = state.expr_types[node]
+
+        lhs_type = state.expr_types[node.lhs]
+        rhs_type = state.expr_types[node.rhs]
+
+        lhs_dirs = state.directives[node.lhs]
+        rhs_dirs = state.directives[node.rhs]
+
+        # get both sides to 64 bit
+        lhs_dirs.extend(self.extend_to_64_bits(lhs_type))
+        rhs_dirs.extend(self.extend_to_64_bits(rhs_type))
+
+        fp = False
+        if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
+            fp = True
+            # convert both sides to float
+            if issubclass(lhs_type, IntegerType):
+                if lhs_type in UNSIGNED_INTEGER_TYPES:
+                    lhs_dirs.append(UnsignedIntToFloatDirective())
+                else:
+                    lhs_dirs.append(SignedIntToFloatDirective())
+            # convert int to float if necessary
+            if issubclass(rhs_type, IntegerType):
+                if rhs_type in UNSIGNED_INTEGER_TYPES:
+                    rhs_dirs.append(UnsignedIntToFloatDirective())
+                else:
+                    rhs_dirs.append(SignedIntToFloatDirective())
+
+        directives.extend(lhs_dirs)
+        directives.extend(rhs_dirs)
+
+        dir_type = None
+
+        if isinstance(node, AstIDiv)
+            if fp:
+                dir_type = 
+            else:
+                dir_type = IntEqualDirective
+        elif node.op.value == "!=":
+            if fp:
+                dir_type = FloatNotEqualDirective
+            else:
+                dir_type = IntNotEqualDirective
+        else:
+
+            if fp:
+                dir_type = FLOAT_INEQUALITY_DIRECTIVES[node.op.value]
+            else:
+                # if either is signed, consider both as signed
+                signed = (
+                    lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES
+                )
+
+                if signed:
+                    dir_type = INT_SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
+                else:
+                    dir_type = INT_UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
+
+        assert dir_type is not None
+
+        directives.append(dir_type())
+
+        state.directives[node] = directives
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
         if node in state.directives:
             # already know how to put it on stack
@@ -1371,6 +1504,57 @@ class GenerateNonConstExprDirectives(Visitor):
         directives.append(dir_type())
 
         state.directives[node] = directives
+
+
+class GenerateCmdAndBuiltinDirectives(Visitor):
+    """for each command or builtin, generate directives for calling them with
+    appropriate arg values"""
+
+    def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
+        node_args = node.args if node.args is not None else []
+        func = state.resolved_references[node.func]
+        dirs = []
+        if isinstance(func, FpyCmd):
+            const_args = not any(
+                state.expr_values[arg_node] is None for arg_node in node_args
+            )
+            if const_args:
+                # can just hardcode this cmd
+                arg_bytes = bytes()
+                for arg_node in node_args:
+                    arg_value = state.expr_values[arg_node]
+                    arg_bytes += arg_value.serialize()
+                dirs = [ConstCmdDirective(func.cmd.get_op_code(), arg_bytes)]
+            else:
+                arg_byte_count = 0
+                # first push cmd opcode to stack as u32
+                dirs.append(
+                    PushValDirective(U32Type(func.cmd.get_op_code()).serialize())
+                )
+                # push all args to the stack
+                # keep track of how many bytes total we have pushed
+                for arg_node in node_args:
+                    node_dirs = state.directives[arg_node]
+                    assert len(node_dirs) >= 1
+                    dirs.extend(node_dirs)
+                    arg_byte_count = state.expr_types[arg_node].getMaxSize()
+
+                # now that all args are pushed to the stack, pop them and opcode off the stack
+                # as a command
+                dirs.append(StackCmdDirective(arg_byte_count + 4))
+        elif isinstance(func, FpyBuiltin):
+            # put all arg values on stack
+            for arg_node in node_args:
+                node_dirs = state.directives[arg_node]
+                assert len(node_dirs) >= 1
+                dirs.extend(node_dirs)
+                arg_byte_count = state.expr_types[arg_node].getMaxSize()
+
+            dirs.append(func.dir())
+        else:
+            dirs = None
+
+        state.directives[node] = dirs
 
 
 class CountNodeDirectives(Visitor):
@@ -1635,17 +1819,18 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         CheckAndResolveArgumentTypes(),
         # okay, now that we're sure we're passing in all the right args to each func,
         # we can calculate values of type ctors etc etc
-        CalculateExprValues(),
+        CalculateConstExprValues(),
         # now that we know variable values, we can generate directives for vars
         GenerateVariableDirectives(),
-        # for cmds, which have constant arguments, generate the corresponding directives
-        GenerateConstCmdDirectives(),
         # for expressions which have constant values, generate corresponding directives
         # to put the expr on the stack
         GenerateConstExprDirectives(),
         # for expressions which don't have constant values, generate directives to
         # calculate the expr at runtime and put it on the stack
         GenerateNonConstExprDirectives(),
+        # generate directives for calling cmds and builtins now that we know how to
+        # make all expr values
+        GenerateCmdAndBuiltinDirectives(),
         # count the number of directives generated by each node
         CountNodeDirectives(),
         # calculate the index that the node will correspond to in the output file

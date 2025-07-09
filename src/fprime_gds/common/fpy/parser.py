@@ -124,6 +124,37 @@ class AstOr(Ast):
     values: list["AstExpr"]
 
 
+@dataclass
+class AstAdd(Ast):
+    lhs: "AstExpr"
+    rhs: "AstExpr"
+
+
+@dataclass
+class AstSub(Ast):
+    lhs: "AstExpr"
+    rhs: "AstExpr"
+
+
+@dataclass
+class AstMul(Ast):
+    lhs: "AstExpr"
+    rhs: "AstExpr"
+
+
+@dataclass
+class AstIDiv(Ast):
+    lhs: "AstExpr"
+    rhs: "AstExpr"
+
+
+@dataclass
+class AstFDiv(Ast):
+    lhs: "AstExpr"
+    rhs: "AstExpr"
+
+
+AstMath = AstAdd | AstSub | AstIDiv | AstMul | AstFDiv
 AstTest = AstOr | AstAnd | AstNot | AstComparison
 
 
@@ -164,9 +195,11 @@ AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf]
 class AstBody(Ast):
     stmts: list[AstStmt]
 
+
 @dataclass
 class AstScopedBody(Ast):
     stmts: list[AstStmt]
+
 
 for cls in Ast.__subclasses__():
     cls.__hash__ = Ast.__hash__
@@ -201,6 +234,7 @@ def no_meta(type):
 
     return wrapper
 
+
 def handle_str(meta, s: str):
     return s.strip("'").strip('"')
 
@@ -221,6 +255,12 @@ class FpyTransformer(Transformer):
     not_test = AstNot
     comparison = AstComparison
     comp_op = AstInfixOp
+
+    add_expr = AstAdd
+    mul_expr = AstMul
+    idiv_expr = AstIDiv
+    fdiv_expr = AstFDiv
+    sub_expr = AstSub
 
     func_call = AstFuncCall
     arguments = no_inline_or_meta(list)
