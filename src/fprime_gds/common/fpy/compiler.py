@@ -838,7 +838,8 @@ class CheckAndResolveArgumentTypes(Visitor):
             if isinstance(node.value, float):
                 return issubclass(to_type, FloatType)
             if isinstance(node.value, int):
-                return issubclass(to_type, IntegerType)
+                # int literal can be converted into float or int
+                return issubclass(to_type, (FloatType, IntegerType))
 
             assert False, node.value
 
