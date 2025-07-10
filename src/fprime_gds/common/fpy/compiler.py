@@ -813,10 +813,9 @@ class CalculateExprTypes(Visitor):
     def visit_AstNumber(self, node: AstNumber, state: CompileState):
         if isinstance(node.value, float):
             result_type = FloatType
-        elif isinstance(node.value, int):
-            result_type = IntegerType
         else:
-            assert False, node.value
+            # ints can be converted to either float or int
+            result_type = NumericalType
         state.expr_types[node] = result_type
 
     def visit_AstMath(self, node: AstMath, state: CompileState):
@@ -864,7 +863,6 @@ class CheckAndResolveArgumentTypes(Visitor):
     def is_type_interpretable_as(
         self, from_type: FppTypeClass, to_type: FppTypeClass
     ) -> bool:
-
         return issubclass(to_type, from_type)
 
     def visit_AstMath(self, node: AstMath, state: CompileState):
@@ -880,12 +878,13 @@ class CheckAndResolveArgumentTypes(Visitor):
             return
 
         # args are both numeric
-        # so, what should we interpret the arg types as?
-        # well, i guess we want to know what type we want this expr to be...
-        # so e.g. if we do
-        # var: U8 = 1 + 2
-        # hmm we're going to have to convert both into 64 bit, do the math and then truncate back down
-        #
+
+        if lhs_type == NumericalType:
+            # it can be converted into any number. pick int
+            state.expr_types[node.lhs] = I64Type
+        if rhs_type == NumericalType:
+            # it can be converted into any number. pick int
+            state.expr_types[node.rhs] = I64Type
 
         # if either is generic float, pick F64. we want F64 cuz otherwise we need
         # an FPEXT to convert to F64
@@ -1026,10 +1025,10 @@ class CheckAndResolveArgumentTypes(Visitor):
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var_type = state.resolved_references[node.variable].type
         value_type = state.expr_types[node.value]
-        if var_type != value_type:
-            if not self.is_type_interpretable_as(value_type, var_type):
-                state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
-                return
+
+        if not self.is_type_interpretable_as(value_type, var_type):
+            state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
+            return
 
         state.expr_types[node.value] = var_type
 

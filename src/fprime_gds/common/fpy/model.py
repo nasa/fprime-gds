@@ -8,7 +8,14 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ConstCmdDirective,
     Directive,
     ExitDirective,
+    FloatAddDirective,
+    FloatDivideDirective,
+    FloatFloorDivideDirective,
+    FloatMultiplyDirective,
+    FloatSubtractDirective,
     GotoDirective,
+    IntDivideDirective,
+    IntMultiplyDirective,
     PopDiscardDirective,
     SignedIntegerExtendDirective,
     StackCmdDirective,
@@ -578,6 +585,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
+        print(rhs, lhs, rhs + lhs)
         self.push(lhs + rhs)
 
     def handle_isub(self, dir: IntSubtractDirective):
@@ -587,47 +595,54 @@ class FpySequencerModel:
         lhs = self.pop()
         self.push(lhs - rhs)
 
-    def handle_imul(self, dir: IntSubtractDirective):
+    def handle_imul(self, dir: IntMultiplyDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
         self.push(lhs * rhs)
 
-    def handle_idiv(self, dir: IntSubtractDirective):
+    def handle_idiv(self, dir: IntDivideDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
         self.push(lhs // rhs)
 
-    def handle_fadd(self, dir: IntAddDirective):
+    def handle_fadd(self, dir: FloatAddDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs + rhs)
 
-    def handle_isub(self, dir: IntSubtractDirective):
+    def handle_fsub(self, dir: FloatSubtractDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs - rhs)
 
-    def handle_imul(self, dir: IntSubtractDirective):
+    def handle_fmul(self, dir: FloatMultiplyDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs * rhs)
 
-    def handle_idiv(self, dir: IntSubtractDirective):
+    def handle_fdiv(self, dir: FloatDivideDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs / rhs)
+
+    def handle_float_floor_div(self, dir: FloatFloorDivideDirective):
+        if len(self.stack) < 2 * WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        rhs = self.pop(type=float)
+        lhs = self.pop(type=float)
+        self.push(lhs // rhs)
 
     def handle_exit(self, dir: ExitDirective):
         success = self.pop(type=bool, size=1)

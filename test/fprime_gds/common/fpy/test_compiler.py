@@ -820,12 +820,14 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING(ComFpy.cmdSeq.SeqPath)
 """
     assert_run_success(fprime_test_api, seq)
 
+
 def test_non_const_int_arg(fprime_test_api):
     seq = """
 var: U8 = 255
 FpyDemo.sendBuffComp.PARAMETER3_PRM_SET(var)
 """
     assert_run_success(fprime_test_api, seq)
+
 
 def test_non_const_float_arg(fprime_test_api):
     seq = """
@@ -842,11 +844,155 @@ sleep(var, 0)
 """
     assert_run_success(fprime_test_api, seq)
 
-def test_iadd(fprime_test_api):
+
+def test_add_unsigned(fprime_test_api):
     seq = """
 var1: U32 = 500
 var2: U32 = 1000
-if var1 + var2 == 1500:
+if var1 + var2 == 1500 and (var1 + 1) > var1:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_add_signed(fprime_test_api):
+    seq = """
+var1: I32 = -255
+var2: I32 = 255
+if var1 + var2 == 0 and (var1 + 1) > (var1 + -1):
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_add_float(fprime_test_api):
+    seq = """
+var1: F32 = -255
+var2: F32 = 255
+if var1 + var2 == 0 and (var1 + 1) > (var1 + -1):
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_sub_unsigned(fprime_test_api):
+    seq = """
+var1: U32 = 1000
+var2: U32 = 500
+if var1 - var2 == 500 and (var1 - 1) < var1:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_sub_signed(fprime_test_api):
+    seq = """
+var1: I32 = 255
+var2: I32 = 255
+if var1 - var2 == 0 and (var1 - 1) < (var1 - -1):
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_sub_float(fprime_test_api):
+    seq = """
+var1: F32 = 255
+var2: F32 = 255
+if var1 - var2 == 0 and (var1 - 1) < (var1 - -1):
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_sub_unsigned(fprime_test_api):
+    seq = """
+var1: U32 = 1000
+var2: U32 = 500
+if var1 - var2 == 500 and (var1 - 1) < var1:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_sub_signed(fprime_test_api):
+    seq = """
+var1: I32 = 255
+var2: I32 = 255
+if var1 - var2 == 0 and (var1 - 1) < (var1 - -1):
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+
+def test_mul_unsigned(fprime_test_api):
+    seq = """
+var1: U32 = 5
+var2: U32 = 20
+if var1 * var2 == 100 and (var1 * 2) > var1:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_mul_signed(fprime_test_api):
+    seq = """
+var1: I32 = -5
+var2: I32 = 20
+if var1 * var2 == -100 and (var1 * 2) < var1:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_mul_float(fprime_test_api):
+    seq = """
+var1: F32 = 5
+var2: F32 = 20
+if var1 * var2 == 100 and (var1 * 2) > var1:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+def test_div_unsigned(fprime_test_api):
+    seq = """
+var1: U32 = 20
+var2: U32 = 5
+if var1 / var2 == 4 and (var1 / 2) < var1:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_div_signed(fprime_test_api):
+    seq = """
+var1: I32 = -20
+var2: I32 = 5
+if var1 / var2 == -4 and (var1 / -2) > var1:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_div_float(fprime_test_api):
+    seq = """
+var1: F32 = -20
+var2: F32 = 5
+if var1 / var2 == -4 and (var1 / -2) > var1:
     exit(True)
 exit(False)
 """
