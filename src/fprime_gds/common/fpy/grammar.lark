@@ -39,9 +39,9 @@ _test: or_test
 # all comparisons have same precedence
 comp_op: COMPARISON_OP
 
-?mul_expr: fdiv_expr ("*" fdiv_expr)?
-?fdiv_expr: idiv_expr ("/" idiv_expr)?
-?idiv_expr: add_expr ("//" add_expr)?
+?mul_expr: div_expr ("*" div_expr)?
+?div_expr: floordiv_expr ("/" floordiv_expr)?
+?floordiv_expr: add_expr ("//" add_expr)?
 ?add_expr: sub_expr ("+" sub_expr)?
 ?sub_expr: atom ("-" atom)?
 

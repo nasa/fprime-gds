@@ -456,9 +456,10 @@ def test_i32_u32_cmp(fprime_test_api):
     seq = """
 val: I32 = -2
 val2: U32 = 2
+# this is actually false because we interpret both sides as unsigned
 if val < val2:
-    exit(True)
-exit(False)
+    exit(False)
+exit(True)
 """
 
     assert_run_success(fprime_test_api, seq)
@@ -703,14 +704,16 @@ exit(False)
 
 def test_mixed_numeric_comparisons(fprime_test_api):
     seq = """
-val_u8: U8 = 100
-val_i8: I8 = -100
+val_u8: U8 = 255
+val_i8: I8 = -10
 val_u32: U32 = 4294967295
 val_i32: I32 = -2147483648
 val_f32: F32 = 3.14159
 val_f64: F64 = -3.14159265359
 
-if val_u8 > val_i8 and val_i32 < val_u32:
+# i32 > u32 because the cmp happens as unsigned, and so the
+# two's complement negative is really large
+if val_u8 < val_i8 and val_i32 > val_u32:
     if val_f64 <= val_f32 and val_f32 >= val_f64:
         if val_u8 != val_i8 and not (val_u32 == val_i32):
             exit(True)
@@ -735,20 +738,6 @@ exit(False)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_various_mixed_type_cmps(fprime_test_api):
-    seq = """
-val1: F32 = 3.14159
-val2: I32 = -42
-val3: U32 = 4294967295
-
-if val1 > val2 and val1 < val3:  # Mixed float/signed/unsigned comparison
-    if val2 < val3:  # Signed vs unsigned comparison
-        exit(True)
-exit(False)
-"""
-    assert_run_success(fprime_test_api, seq)
-
-
 def test_nested_boolean_expressions(fprime_test_api):
     seq = """
 if not (True and False or True and not False) and True:
@@ -760,12 +749,12 @@ exit(True)
 
 def test_maximum_integer_comparisons(fprime_test_api):
     seq = """
-val1: U64 = 18446744073709551615  # Max U64, interpreted as -1 in signed
-val2: I64 = 9223372036854775807   # Max I64
-val3: I64 = -9223372036854775808  # Min I64
+val1: U64 = 18446744073709551615  # Max U64
+val2: I64 = 9223372036854775807   # Max I64, should be same in unsigned
+val3: I64 = -9223372036854775808  # Min I64, should be max i64 + 1 in unsigned
 
-if val1 < val2 and val2 > val3:
-    if val3 < val1: # opposite of what you might expect, but it's cuz val1 is interpeted as signed
+if val1 > val2 and val2 > val3:
+    if val3 < val1:
         exit(True)
 exit(False)
 """

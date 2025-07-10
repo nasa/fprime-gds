@@ -143,18 +143,18 @@ class AstMul(Ast):
 
 
 @dataclass
-class AstIDiv(Ast):
+class AstFloorDiv(Ast):
     lhs: "AstExpr"
     rhs: "AstExpr"
 
 
 @dataclass
-class AstFDiv(Ast):
+class AstDiv(Ast):
     lhs: "AstExpr"
     rhs: "AstExpr"
 
 
-AstMath = AstAdd | AstSub | AstIDiv | AstMul | AstFDiv
+AstMath = AstAdd | AstSub | AstFloorDiv | AstMul | AstDiv
 AstTest = AstOr | AstAnd | AstNot | AstComparison
 
 
@@ -258,8 +258,8 @@ class FpyTransformer(Transformer):
 
     add_expr = AstAdd
     mul_expr = AstMul
-    idiv_expr = AstIDiv
-    fdiv_expr = AstFDiv
+    div_expr = AstDiv
+    floordiv_expr = AstFloorDiv
     sub_expr = AstSub
 
     func_call = AstFuncCall

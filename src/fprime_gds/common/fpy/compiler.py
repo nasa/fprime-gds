@@ -8,7 +8,18 @@ import traceback
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateStackDirective,
     ConstCmdDirective,
+    FloatAddDirective,
+    FloatDivideDirective,
+    FloatFloorDivideDirective,
+    FloatMultiplyDirective,
+    FloatSubtractDirective,
+    FloatToSignedIntDirective,
+    FloatToUnsignedIntDirective,
     FloatTruncateDirective,
+    IntAddDirective,
+    IntDivideDirective,
+    IntMultiplyDirective,
+    IntSubtractDirective,
     IntegerTruncateDirective,
     SignedIntegerExtendDirective,
     StackCmdDirective,
@@ -70,16 +81,19 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
+    AstAdd,
     AstAnd,
     AstBoolean,
     AstComparison,
     AstElif,
     AstElifs,
     AstExpr,
+    AstDiv,
     AstGetAttr,
     AstGetItem,
-    AstIDiv,
+    AstFloorDiv,
     AstMath,
+    AstMul,
     AstNot,
     AstNumber,
     AstOr,
@@ -87,6 +101,7 @@ from fprime_gds.common.fpy.parser import (
     AstScopedBody,
     AstString,
     Ast,
+    AstSub,
     AstTest,
     AstBody,
     AstLiteral,
@@ -809,13 +824,13 @@ class CalculateExprTypes(Visitor):
         rhs_type = state.expr_types[node.rhs]
 
         if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
-            # if either arg is a float, promote result to float
-            # result will be a float
+            # if either arg is a float, result must be a float (cannot be used as
+            # an int)
             state.expr_types[node] = FloatType
             return
 
-        # otherwise, result will be an int
-        state.expr_types[node] = IntegerType
+        # otherwise, result can be any number as int can be converted to float, or remain int
+        state.expr_types[node] = NumericalType
 
     def visit_AstString(self, node: AstString, state: CompileState):
         state.expr_types[node] = StringType
@@ -846,25 +861,11 @@ class CheckAndResolveArgumentTypes(Visitor):
     """for each syntactic node with arguments (ands/ors/nots/cmps/funcs), check that the argument
     types are right"""
 
-    def is_literal_convertible_to(
-        self, node: AstLiteral, to_type: FppTypeClass, state: CompileState
+    def is_type_interpretable_as(
+        self, from_type: FppTypeClass, to_type: FppTypeClass
     ) -> bool:
 
-        if isinstance(node, AstBoolean):
-            return to_type == BoolType
-
-        if isinstance(node, AstString):
-            return issubclass(to_type, StringType)
-
-        if isinstance(node, AstNumber):
-            if isinstance(node.value, float):
-                return issubclass(to_type, FloatType)
-            if isinstance(node.value, int):
-                return issubclass(to_type, IntegerType)
-
-            assert False, node.value
-
-        assert False, node
+        return issubclass(to_type, from_type)
 
     def visit_AstMath(self, node: AstMath, state: CompileState):
 
@@ -884,7 +885,7 @@ class CheckAndResolveArgumentTypes(Visitor):
         # so e.g. if we do
         # var: U8 = 1 + 2
         # hmm we're going to have to convert both into 64 bit, do the math and then truncate back down
-        # 
+        #
 
         # if either is generic float, pick F64. we want F64 cuz otherwise we need
         # an FPEXT to convert to F64
@@ -924,6 +925,13 @@ class CheckAndResolveArgumentTypes(Visitor):
             return
 
         # args are both numeric
+
+        if lhs_type == NumericalType:
+            # it can be converted into any number. pick int
+            state.expr_types[node.lhs] = I64Type
+        if rhs_type == NumericalType:
+            # it can be converted into any number. pick int
+            state.expr_types[node.rhs] = I64Type
 
         # if either is generic float, pick F64. we want F64 cuz otherwise we need
         # an FPEXT to convert to F64
@@ -981,10 +989,9 @@ class CheckAndResolveArgumentTypes(Visitor):
 
             value_expr_type = state.expr_types[value_expr]
 
-            if value_expr_type == arg_type or (
-                isinstance(value_expr, AstLiteral)
-                and self.is_literal_convertible_to(value_expr, arg_type, state)
-            ):
+            # the type of the arg is a subclass of the value
+            #
+            if self.is_type_interpretable_as(value_expr_type, arg_type):
                 # arg type is good!
                 state.expr_types[value_expr] = arg_type
                 continue
@@ -1020,10 +1027,7 @@ class CheckAndResolveArgumentTypes(Visitor):
         var_type = state.resolved_references[node.variable].type
         value_type = state.expr_types[node.value]
         if var_type != value_type:
-            if not (
-                isinstance(node.value, AstLiteral)
-                and self.is_literal_convertible_to(node.value, var_type, state)
-            ):
+            if not self.is_type_interpretable_as(value_type, var_type):
                 state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
                 return
 
@@ -1231,7 +1235,9 @@ class GenerateNonConstExprDirectives(Visitor):
     """for each expr whose value is not known at compile time, but can be calculated at run time,
     generate directives to calculate the value and put it in its register"""
 
-    def truncate_from_64_bits(self, from_type: FppTypeClass, new_size: int) -> list[Directive]:
+    def truncate_from_64_bits(
+        self, from_type: FppTypeClass, new_size: int
+    ) -> list[Directive]:
 
         assert new_size in (1, 2, 4, 8), new_size
         assert from_type.getMaxSize() == 8, from_type.getMaxSize()
@@ -1249,7 +1255,6 @@ class GenerateNonConstExprDirectives(Visitor):
         assert issubclass(from_type, IntegerType), from_type
 
         return [IntegerTruncateDirective(8, new_size)]
-
 
     def extend_to_64_bits(self, type: FppTypeClass) -> list[Directive]:
         if type.getMaxSize() == 8:
@@ -1272,6 +1277,32 @@ class GenerateNonConstExprDirectives(Visitor):
         )
 
         return [dir_type(from_size, to_size)]
+
+    def convert_to_type(
+        self, from_type: FppTypeClass, to_type: FppTypeClass
+    ) -> list[Directive]:
+        assert from_type.getMaxSize() == 8, from_type
+        assert to_type.getMaxSize() == 8, to_type
+
+        if from_type == to_type:
+            return []
+
+        if from_type == F64Type:
+            if to_type == I64Type:
+                return [FloatToSignedIntDirective()]
+            else:
+                return [FloatToUnsignedIntDirective()]
+        elif from_type == U64Type:
+            if to_type == I64Type:
+                # conversion between signed/unsigned doesn't do anything
+                return []
+            else:
+                return [UnsignedIntToFloatDirective()]
+        elif from_type == I64Type:
+            if to_type == U64Type:
+                return []
+            else:
+                return [SignedIntToFloatDirective()]
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         if node in state.directives:
@@ -1375,6 +1406,8 @@ class GenerateNonConstExprDirectives(Visitor):
 
         result_type = state.expr_types[node]
 
+        assert result_type in NUMERIC_TYPES, result_type
+
         lhs_type = state.expr_types[node.lhs]
         rhs_type = state.expr_types[node.rhs]
 
@@ -1401,41 +1434,68 @@ class GenerateNonConstExprDirectives(Visitor):
                 else:
                     rhs_dirs.append(SignedIntToFloatDirective())
 
+        # what type do we operate on in the middle?
+        intermediate_type = None
+        if fp:
+            intermediate_type = F64Type
+        else:
+            # if either side is signed, consider the result as signed
+            if lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES:
+                intermediate_type = I64Type
+            else:
+                intermediate_type = U64Type
+
         directives.extend(lhs_dirs)
         directives.extend(rhs_dirs)
 
         dir_type = None
 
-        if isinstance(node, AstIDiv)
+        if isinstance(node, AstFloorDiv):
             if fp:
-                dir_type = 
+                dir_type = FloatFloorDivideDirective
             else:
-                dir_type = IntEqualDirective
-        elif node.op.value == "!=":
+                # integer division is always floor div
+                dir_type = IntDivideDirective
+        elif isinstance(node, AstDiv):
             if fp:
-                dir_type = FloatNotEqualDirective
+                dir_type = FloatDivideDirective
             else:
-                dir_type = IntNotEqualDirective
+                dir_type = IntDivideDirective
+        elif isinstance(node, AstMul):
+            if fp:
+                dir_type = FloatMultiplyDirective
+            else:
+                dir_type = IntMultiplyDirective
+        elif isinstance(node, AstAdd):
+            if fp:
+                dir_type = FloatAddDirective
+            else:
+                dir_type = IntAddDirective
+        elif isinstance(node, AstSub):
+            if fp:
+                dir_type = FloatSubtractDirective
+            else:
+                dir_type = IntSubtractDirective
         else:
-
-            if fp:
-                dir_type = FLOAT_INEQUALITY_DIRECTIVES[node.op.value]
-            else:
-                # if either is signed, consider both as signed
-                signed = (
-                    lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES
-                )
-
-                if signed:
-                    dir_type = INT_SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
-                else:
-                    dir_type = INT_UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
-
-        assert dir_type is not None
+            assert False, node
 
         directives.append(dir_type())
 
+        # okay now convert the intermediate type to the result type, but with 64 bits
+        result_type_64_bits = (
+            I64Type
+            if result_type in SIGNED_INTEGER_TYPES
+            else U64Type if result_type in UNSIGNED_INTEGER_TYPES else F64Type
+        )
+        directives.extend(self.convert_to_type(intermediate_type, result_type_64_bits))
+
+        # okay now turn it back into the desired bitwidth
+        directives.extend(
+            self.truncate_from_64_bits(intermediate_type, result_type.getMaxSize())
+        )
+
         state.directives[node] = directives
+
     def visit_AstComparison(self, node: AstComparison, state: CompileState):
         if node in state.directives:
             # already know how to put it on stack
@@ -1489,15 +1549,16 @@ class GenerateNonConstExprDirectives(Visitor):
             if fp:
                 dir_type = FLOAT_INEQUALITY_DIRECTIVES[node.op.value]
             else:
-                # if either is signed, consider both as signed
-                signed = (
-                    lhs_type in SIGNED_INTEGER_TYPES or rhs_type in SIGNED_INTEGER_TYPES
+                # if either is unsigned, consider both as unsigned
+                unsigned = (
+                    lhs_type in UNSIGNED_INTEGER_TYPES
+                    or rhs_type in UNSIGNED_INTEGER_TYPES
                 )
 
-                if signed:
-                    dir_type = INT_SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
-                else:
+                if unsigned:
                     dir_type = INT_UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
+                else:
+                    dir_type = INT_SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
 
         assert dir_type is not None
 

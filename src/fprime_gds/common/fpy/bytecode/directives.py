@@ -77,6 +77,7 @@ class DirectiveOpcode(Enum):
     FSUB = 32
     FMUL = 33
     FDIV = 34
+    FLOAT_FLOOR_DIV = 52
     # end binary stack op directives
 
     # unary stack op dirs
@@ -277,6 +278,10 @@ class FloatMultiplyDirective(Directive):
 @dataclass
 class FloatDivideDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FDIV
+
+@dataclass
+class FloatFloorDivideDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLOAT_FLOOR_DIV
 
 
 HEADER_FORMAT = "!BBBBBHI"
