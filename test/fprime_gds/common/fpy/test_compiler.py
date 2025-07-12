@@ -933,7 +933,6 @@ exit(False)
     assert_run_success(fprime_test_api, seq)
 
 
-
 def test_mul_unsigned(fprime_test_api):
     seq = """
 var1: U32 = 5
@@ -965,6 +964,7 @@ if var1 * var2 == 100 and (var1 * 2) > var1:
 exit(False)
 """
     assert_run_success(fprime_test_api, seq)
+
 
 def test_div_unsigned(fprime_test_api):
     seq = """
@@ -1011,5 +1011,53 @@ exit(False)
 def test_arithmetic_arg_to_builtin(fprime_test_api):
     seq = """
 sleep(123 + 456 * 789, 0)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_chain_mul(fprime_test_api):
+    seq = """
+var1: I32 = 1
+var2: I32 = 2
+var3: I32 = 3
+if var1 * var2 * var3 == 6:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_chain_add(fprime_test_api):
+    seq = """
+var1: I32 = 1
+var2: I32 = 2
+var3: I32 = 3
+if var1 + var2 + var3 == 6:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_chain_sub(fprime_test_api):
+    seq = """
+var1: I32 = 1
+var2: I32 = 2
+var3: I32 = 3
+if var1 - var2 - var3 == -4:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_chain_div(fprime_test_api):
+    seq = """
+var1: I32 = 3
+var2: I32 = 2
+var3: I32 = 1
+if var1 / var3 / var2 == 1:
+    exit(True)
+exit(False)
 """
     assert_run_success(fprime_test_api, seq)

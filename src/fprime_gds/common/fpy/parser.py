@@ -153,8 +153,18 @@ class AstDiv(Ast):
     lhs: "AstExpr"
     rhs: "AstExpr"
 
+@dataclass
+class AstModulo(Ast):
+    lhs: "AstExpr"
+    rhs: "AstExpr"
 
-AstMath = AstAdd | AstSub | AstFloorDiv | AstMul | AstDiv
+@dataclass
+class AstPow(Ast):
+    lhs: "AstExpr"
+    rhs: "AstExpr"
+
+
+AstMath = AstAdd | AstSub | AstFloorDiv | AstMul | AstDiv | AstModulo | AstPow
 AstTest = AstOr | AstAnd | AstNot | AstComparison
 
 
@@ -261,6 +271,8 @@ class FpyTransformer(Transformer):
     div_expr = AstDiv
     floordiv_expr = AstFloorDiv
     sub_expr = AstSub
+    modulo_expr = AstModulo
+    pow_expr = AstPow
 
     func_call = AstFuncCall
     arguments = no_inline_or_meta(list)
