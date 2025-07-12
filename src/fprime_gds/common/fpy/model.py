@@ -10,11 +10,14 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ExitDirective,
     FloatAddDirective,
     FloatDivideDirective,
+    FloatExponentDirective,
     FloatFloorDivideDirective,
+    FloatModuloDirective,
     FloatMultiplyDirective,
     FloatSubtractDirective,
     GotoDirective,
     IntDivideDirective,
+    IntModuloDirective,
     IntMultiplyDirective,
     IntegerTruncateDirective,
     PopDiscardDirective,
@@ -605,6 +608,20 @@ class FpySequencerModel:
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs / rhs)
+
+    def handle_imod(self, dir: IntModuloDirective):
+        if len(self.stack) < 2 * WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        rhs = self.pop()
+        lhs = self.pop()
+        self.push(lhs % rhs)
+
+    def handle_fpow(self, dir: FloatExponentDirective):
+        if len(self.stack) < 2 * WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        rhs = self.pop(type=float)
+        lhs = self.pop(type=float)
+        self.push(lhs**rhs)
 
     def handle_float_floor_div(self, dir: FloatFloorDivideDirective):
         if len(self.stack) < 2 * WORD_SIZE:

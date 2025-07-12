@@ -1061,3 +1061,36 @@ if var1 / var3 / var2 == 1:
 exit(False)
 """
     assert_run_success(fprime_test_api, seq)
+
+
+def test_pow_unsigned(fprime_test_api):
+    seq = """
+var1: U32 = 20
+var2: U32 = 2
+if var1 ** var2 == 400:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_pow_signed(fprime_test_api):
+    seq = """
+var1: I32 = -20
+var2: I32 = 2
+if var1 ** var2 == 400:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_pow_float(fprime_test_api):
+    seq = """
+var1: F32 = 4
+var2: F32 = 0.5
+if var1 ** var2 == 2:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)

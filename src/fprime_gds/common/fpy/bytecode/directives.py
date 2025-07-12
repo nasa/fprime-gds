@@ -72,12 +72,14 @@ class DirectiveOpcode(Enum):
     ISUB = 28
     IMUL = 29
     IDIV = 30
+    IMOD = 54
     # float arithmetic
     FADD = 31
     FSUB = 32
     FMUL = 33
     FDIV = 34
     FLOAT_FLOOR_DIV = 52
+    FPOW = 53
     # end binary stack op directives
 
     # unary stack op dirs
@@ -241,6 +243,11 @@ class ConstCmdDirective(Directive):
 
 
 @dataclass
+class IntModuloDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IMOD
+
+
+@dataclass
 class IntAddDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IADD
 
@@ -276,8 +283,14 @@ class FloatMultiplyDirective(Directive):
 
 
 @dataclass
+class FloatExponentDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPOW
+
+
+@dataclass
 class FloatDivideDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FDIV
+
 
 @dataclass
 class FloatFloorDivideDirective(Directive):

@@ -10,6 +10,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ConstCmdDirective,
     FloatAddDirective,
     FloatDivideDirective,
+    FloatExponentDirective,
     FloatFloorDivideDirective,
     FloatMultiplyDirective,
     FloatSubtractDirective,
@@ -18,6 +19,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatTruncateDirective,
     IntAddDirective,
     IntDivideDirective,
+    IntModuloDirective,
     IntMultiplyDirective,
     IntSubtractDirective,
     IntegerTruncateDirective,
@@ -93,10 +95,12 @@ from fprime_gds.common.fpy.parser import (
     AstGetItem,
     AstFloorDiv,
     AstMath,
+    AstModulo,
     AstMul,
     AstNot,
     AstNumber,
     AstOr,
+    AstPow,
     AstReference,
     AstScopedBody,
     AstString,
@@ -822,6 +826,16 @@ class CalculateExprTypes(Visitor):
         lhs_type = state.expr_types[node.lhs]
         rhs_type = state.expr_types[node.rhs]
 
+        if isinstance(node, AstPow):
+            # pow always returns float
+            state.expr_types[node] = FloatType
+            return
+
+        if isinstance(node, AstModulo):
+            # modulo always returns int
+            state.expr_types[node] = IntegerType
+            return
+
         if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
             # if either arg is a float, result must be a float (cannot be used as
             # an int)
@@ -878,6 +892,8 @@ class CheckAndResolveArgumentTypes(Visitor):
             return
 
         # args are both numeric
+
+        # TODO account for pow and modulo
 
         if lhs_type == NumericalType:
             # it can be converted into any number. pick int
@@ -1475,6 +1491,10 @@ class GenerateNonConstExprDirectives(Visitor):
                 dir_type = FloatSubtractDirective
             else:
                 dir_type = IntSubtractDirective
+        elif isinstance(node, AstPow):
+            dir_type = FloatExponentDirective
+        elif isinstance(node, AstModulo):
+            dir_type = IntModuloDirective
         else:
             assert False, node
 
