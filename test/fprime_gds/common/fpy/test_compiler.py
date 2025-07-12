@@ -997,3 +997,19 @@ if var1 / var2 == -4 and (var1 / -2) > var1:
 exit(False)
 """
     assert_run_success(fprime_test_api, seq)
+
+
+# this test caught one bug (my mom spotted it)
+def test_order_of_operations(fprime_test_api):
+    seq = """
+if 1 - 2 + 3 * 4 == 11 and 10 / 5 * 2 == 1:
+    exit(True)
+exit(False)
+"""
+
+
+def test_arithmetic_arg_to_builtin(fprime_test_api):
+    seq = """
+sleep(123 + 456 * 789, 0)
+"""
+    assert_run_success(fprime_test_api, seq)

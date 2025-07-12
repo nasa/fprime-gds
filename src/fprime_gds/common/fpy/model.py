@@ -16,6 +16,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     GotoDirective,
     IntDivideDirective,
     IntMultiplyDirective,
+    IntegerTruncateDirective,
     PopDiscardDirective,
     SignedIntegerExtendDirective,
     StackCmdDirective,
@@ -155,7 +156,26 @@ class FpySequencerModel:
             print()
         return DirectiveErrorCode.NO_ERROR
 
-    def push(self, val: int | float | bytes | bytearray | bool, signed=True):
+    def get_int_fmt_str(self, size: int, signed: bool) -> str:
+        fmt_char = None
+        if size == 1:
+            fmt_char = "b"
+        elif size == 2:
+            fmt_char = "h"
+        elif size == 4:
+            fmt_char = "i"
+        elif size == 8:
+            fmt_char = "q"
+        else:
+            assert False, size
+        if not signed:
+            fmt_char = fmt_char.upper()
+
+        return ">" + fmt_char
+
+    def push(
+        self, val: int | float | bytes | bytearray | bool, signed=True, size=WORD_SIZE
+    ):
         if isinstance(val, (bytes | bytearray)):
             self.stack += val
         elif isinstance(val, bool):
@@ -165,7 +185,9 @@ class FpySequencerModel:
             self.push(struct.pack(">d", val))
         else:
             assert isinstance(val, int), val
-            self.stack += val.to_bytes(length=8, byteorder="big", signed=signed)
+            fmt_str = self.get_int_fmt_str(size, signed)
+            serialized_val = struct.pack(fmt_str, val)
+            self.stack += serialized_val
 
     def pop(self, type=int, signed=True, size=WORD_SIZE) -> int | float | bytearray:
         """pops one word off the stack and interprets it as an int or float, of
@@ -173,20 +195,8 @@ class FpySequencerModel:
         value = self.stack[-size:]
         self.stack = self.stack[:-size]
         if type == int:
-            fmt_char = None
-            if size == 1:
-                fmt_char = "b"
-            elif size == 2:
-                fmt_char = "h"
-            elif size == 4:
-                fmt_char = "i"
-            elif size == 8:
-                fmt_char = "q"
-            else:
-                assert False, size
-            if not signed:
-                fmt_char = fmt_char.upper()
-            return struct.unpack(">" + fmt_char, value)[0]
+            fmt_str = self.get_int_fmt_str(size, signed)
+            return struct.unpack(fmt_str, value)[0]
         elif type == float:
             if size == 8:
                 return struct.unpack(">d", value)[0]
@@ -276,8 +286,8 @@ class FpySequencerModel:
         if len(self.stack) < dir.size:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
-        cmd = self.stack[-dir.size:]
-        self.stack = self.stack[:-dir.size]
+        cmd = self.stack[-dir.size :]
+        self.stack = self.stack[: -dir.size]
 
         print("cmd opcode", cmd[:4], "args", cmd[4:])
 
@@ -479,33 +489,9 @@ class FpySequencerModel:
             return DirectiveErrorCode.INVALID_ARGUMENT
 
         # pop val off stack
-        val_bytes = self.stack[-dir.from_size:]
-        self.stack = self.stack[:-dir.from_size]
-        val_as_int = None
-        if dir.from_size == 1:
-            val_as_int = struct.unpack(">b", val_bytes)[0]
-        elif dir.from_size == 2:
-            val_as_int = struct.unpack(">h", val_bytes)[0]
-        elif dir.from_size == 4:
-            val_as_int = struct.unpack(">i", val_bytes)[0]
-        elif dir.from_size == 8:
-            val_as_int = struct.unpack(">q", val_bytes)[0]
-        else:
-            assert False, dir.from_size
+        val = self.pop(type=int, signed=True, size=dir.from_size)
 
-        extended_val = None
-        if dir.to_size == 1:
-            extended_val = struct.pack(">b", val_as_int)
-        elif dir.to_size == 2:
-            extended_val = struct.pack(">h", val_as_int)
-        elif dir.to_size == 4:
-            extended_val = struct.pack(">i", val_as_int)
-        elif dir.to_size == 8:
-            extended_val = struct.pack(">q", val_as_int)
-        else:
-            assert False, dir.to_size
-
-        self.push(extended_val)
+        self.push(val, signed=True, size=dir.to_size)
 
     def handle_ziext(self, dir: IntegerZeroExtendDirective):
         if len(self.stack) < dir.from_size:
@@ -518,33 +504,9 @@ class FpySequencerModel:
             return DirectiveErrorCode.INVALID_ARGUMENT
 
         # pop val off stack
-        val_bytes = self.stack[-dir.from_size:]
-        self.stack = self.stack[:-dir.from_size]
-        val_as_int = None
-        if dir.from_size == 1:
-            val_as_int = struct.unpack(">B", val_bytes)[0]
-        elif dir.from_size == 2:
-            val_as_int = struct.unpack(">H", val_bytes)[0]
-        elif dir.from_size == 4:
-            val_as_int = struct.unpack(">I", val_bytes)[0]
-        elif dir.from_size == 8:
-            val_as_int = struct.unpack(">Q", val_bytes)[0]
-        else:
-            assert False, dir.from_size
+        val_as_int = self.pop(type=int, signed=False, size=dir.from_size)
 
-        extended_val = None
-        if dir.to_size == 1:
-            extended_val = struct.pack(">B", val_as_int)
-        elif dir.to_size == 2:
-            extended_val = struct.pack(">H", val_as_int)
-        elif dir.to_size == 4:
-            extended_val = struct.pack(">I", val_as_int)
-        elif dir.to_size == 8:
-            extended_val = struct.pack(">Q", val_as_int)
-        else:
-            assert False, dir.to_size
-
-        self.push(extended_val)
+        self.push(val_as_int, signed=False, size=dir.to_size)
 
     def handle_fptrunc(self, dir: FloatTruncateDirective):
         if len(self.stack) < WORD_SIZE:
@@ -554,6 +516,13 @@ class FpySequencerModel:
         # pad with zeroes
         val_32_bytes += bytes((0, 0, 0, 0))
         self.push(val_32_bytes)
+
+    def handle_itrunc(self, dir: IntegerTruncateDirective):
+        if len(self.stack) < dir.from_size:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        val = self.pop(type=int, size=dir.from_size)
+        self.push(val, size=dir.to_size)
 
     def handle_fptosi(self, dir: FloatToSignedIntDirective):
         if len(self.stack) < WORD_SIZE:
