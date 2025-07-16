@@ -97,6 +97,7 @@ class DirectiveOpcode(Enum):
     FPTOUI = 39
     SITOFP = 40
     UITOFP = 41
+    LOG = 54
     # end unary stack op dirs
 
     LOAD = 42
@@ -159,13 +160,6 @@ class Directive:
             output += primitive_type(value).serialize()
 
         return output
-
-
-@dataclass
-class Sequence:
-    lvar_count: int
-
-    dirs: list[Directive]
 
 
 @dataclass
@@ -295,6 +289,11 @@ class FloatDivideDirective(Directive):
 @dataclass
 class FloatFloorDivideDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLOAT_FLOOR_DIV
+
+
+@dataclass
+class LogDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.LOG
 
 
 HEADER_FORMAT = "!BBBBBHI"

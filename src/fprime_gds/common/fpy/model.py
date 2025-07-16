@@ -1,5 +1,6 @@
 from enum import Enum
 import inspect
+import math
 import struct
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateStackDirective,
@@ -18,6 +19,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntModuloDirective,
     IntMultiplyDirective,
     IntegerTruncateDirective,
+    LogDirective,
     PopDiscardDirective,
     SignedIntegerExtendDirective,
     StackCmdDirective,
@@ -619,6 +621,12 @@ class FpySequencerModel:
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs**rhs)
+
+    def handle_log(self, dir: LogDirective):
+        if len(self.stack) < WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        operand = self.pop(type=float)
+        self.push(math.log(operand))
 
     def handle_float_floor_div(self, dir: FloatFloorDivideDirective):
         if len(self.stack) < 2 * WORD_SIZE:

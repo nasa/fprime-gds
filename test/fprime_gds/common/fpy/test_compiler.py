@@ -1,20 +1,11 @@
 import ast
 from pathlib import Path
 import tempfile
-<<<<<<< HEAD
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.numerical_types import U32Type, U8Type
-from fprime_gds.common.fpy.bytecode.directives import (
-    Directive,
-    Sequence,
-    serialize_directives,
-)
-from fprime_gds.common.fpy.compiler import compile
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
-=======
 from fprime_gds.common.fpy.bytecode.directives import Directive, serialize_directives
 from fprime_gds.common.fpy.codegen import compile
->>>>>>> 9bdc0cbdb9e07727e585a9686d2a2530fa150c75
 from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -22,7 +13,7 @@ from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 
 
-def compile_seq(fprime_test_api, seq: str) -> Sequence:
+def compile_seq(fprime_test_api, seq: str) -> list[Directive]:
     return compile(parse(seq), fprime_test_api.pipeline.dictionary_path)
 
 
@@ -111,6 +102,7 @@ var: U32 = 1
 """
 
     assert_run_success(fprime_test_api, seq)
+
 
 def test_float_log_literal(fprime_test_api):
     seq = """
@@ -403,6 +395,7 @@ exit(False)
 
     assert_run_success(fprime_test_api, seq)
 
+
 def test_get_const_member_of_ctor(fprime_test_api):
     seq = """
 # currently this is not supported, but it should be in the future
@@ -413,6 +406,7 @@ exit(False)
 """
 
     assert_compile_failure(fprime_test_api, seq)
+
 
 def test_float_cmp(fprime_test_api):
     seq = """
@@ -861,8 +855,8 @@ FpyDemo.sendBuffComp.PARAMETER4_PRM_SET(var)
 
 def test_non_const_builtin_arg(fprime_test_api):
     seq = """
-var: U32 = 123123
-sleep(var, 0)
+var: F64 = 123123123.0
+sleep(var)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -1024,15 +1018,16 @@ exit(False)
 # this test caught one bug (my mom spotted it)
 def test_order_of_operations(fprime_test_api):
     seq = """
-if 1 - 2 + 3 * 4 == 11 and 10 / 5 * 2 == 1:
+if 1 - 2 + 3 * 4 == 11 and 10 / 5 * 2 == 4:
     exit(True)
 exit(False)
 """
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_arithmetic_arg_to_builtin(fprime_test_api):
     seq = """
-sleep(123 + 456 * 789, 0)
+sleep(123 + 456 * 789)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -1117,9 +1112,19 @@ exit(False)
 """
     assert_run_success(fprime_test_api, seq)
 
+
 def test_int_literal_as_float(fprime_test_api):
     seq = """
 sleep(1)
 """
 
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_log(fprime_test_api):
+    seq = """
+if log(4) > 1.385 and log(4) < 1.387:
+    exit(True)
+exit(False)
+"""
     assert_run_success(fprime_test_api, seq)
