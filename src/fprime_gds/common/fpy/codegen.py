@@ -4,6 +4,7 @@ import inspect
 from pathlib import Path
 from dataclasses import dataclass, field, fields
 import traceback
+from typing import Callable
 
 from fprime_gds.common.fpy.bytecode.directives import (
     serialize_directives,
@@ -171,23 +172,19 @@ class FpyCmd(FpyCallable):
 
 
 @dataclass
-class FpyBuiltinFunc(FpyCallable):
-    dir: type[Directive]
-
-    def from_arg_values(self, arg_vals: list[FppType]) -> Directive:
-        assert len(arg_vals) == len(fields(self.dir))
-        arg_vals = [v.val for v in arg_vals]
-        return self.dir(*arg_vals)
+class FpyMacro(FpyCallable):
+    instantiate_macro: Callable[[list[FppType]], list[Directive]]
+    """a function which instantiates the macro given the argument values"""
 
 
-BUILTIN_FUNCS: dict[str, FpyBuiltinFunc] = {
-    "sleep": FpyBuiltinFunc(
-        NothingType, [("seconds", U32Type), ("useconds", U32Type)], WaitRelDirective
+MACROS: dict[str, FpyMacro] = {
+    "sleep": FpyMacro(
+        NothingType, [("seconds", F64Type)], lambda args: [WaitRelDirective(int(args[0].val), int(args[0].val * 1000000) % 1000000)]
     ),
-    "sleep_until": FpyBuiltinFunc(
-        NothingType, [("wakeup_time", TimeType)], WaitAbsDirective
+    "sleep_until": FpyMacro(
+        NothingType, [("wakeup_time", TimeType)], lambda args: [WaitAbsDirective(args[0])]
     ),
-    "exit": FpyBuiltinFunc(NothingType, [("success", BoolType)], ExitDirective),
+    "exit": FpyMacro(NothingType, [("success", BoolType)], lambda args: [ExitDirective(args[0].val)]),
 }
 
 
@@ -1070,7 +1067,7 @@ class CalculateExprValues(Visitor):
                 assert False, func.return_type
         else:
             # don't try to calculate the value of this function call
-            # it's something like a cmd or builtin
+            # it's something like a cmd or macro
             state.expr_values[node] = None
 
     def visit_AstTest(self, node: AstTest, state: CompileState):
@@ -1125,7 +1122,7 @@ class GenerateVariableDirectives(Visitor):
 
 
 class GenerateConstCmdDirectives(Visitor):
-    """for each command or builtin whose arguments were const at runtime (should be all at the moment),
+    """for each command or macro whose arguments were const at runtime (should be all at the moment),
     generate a directive"""
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
@@ -1140,18 +1137,18 @@ class GenerateConstCmdDirectives(Visitor):
                     return
                 arg_bytes += arg_value.serialize()
             state.directives[node] = [CmdDirective(func.cmd.get_op_code(), arg_bytes)]
-        elif isinstance(func, FpyBuiltinFunc):
+        elif isinstance(func, FpyMacro):
             arg_values = []
             for arg_node in node.args if node.args is not None else []:
                 arg_value = state.expr_values[arg_node]
                 if arg_value is None:
                     state.err(
-                        f"Only constant arguments to builtins are allowed", arg_node
+                        f"Only constant arguments to macros are allowed", arg_node
                     )
                     return
                 arg_values.append(arg_value)
 
-            state.directives[node] = [func.from_arg_values(arg_values)]
+            state.directives[node] = func.instantiate_macro(arg_values)
         else:
             state.directives[node] = None
 
@@ -1634,9 +1631,9 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
         callable_name_dict[name] = FpyTypeCtor(typ, args, typ)
 
-    # for each builtin function, add it to the callable dict
-    for builtin_name, builtin in BUILTIN_FUNCS.items():
-        callable_name_dict[builtin_name] = builtin
+    # for each macro function, add it to the callable dict
+    for macro_name, macro in MACROS.items():
+        callable_name_dict[macro_name] = macro
 
     state = CompileState(
         tlms=create_namespace(ch_name_dict),

@@ -321,6 +321,16 @@ exit(False)
 
     assert_run_success(fprime_test_api, seq)
 
+def test_get_const_member_of_ctor(fprime_test_api):
+    seq = """
+# currently this is not supported, but it should be in the future
+var: U32 = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED).priority
+if priority == 3:
+    exit(True)
+exit(False)
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
 
 def test_float_cmp(fprime_test_api):
     seq = """
@@ -334,7 +344,7 @@ exit(True)
 
 def test_wait_rel(fprime_test_api):
     seq = """
-sleep(0, 1)
+sleep(1.1)
 """
     assert_run_success(fprime_test_api, seq)
 
