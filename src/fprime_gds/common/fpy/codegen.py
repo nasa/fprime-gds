@@ -132,15 +132,20 @@ FLOAT_TYPES = (
 )
 
 
+# a value of type FppTypeClass is a Python `type` object representing
+# the type of an Fprime value
 FppTypeClass = type[FppType]
 
 
 class NothingType(ABC):
+    """a type which has no valid values in fprime. used to denote
+    a function which doesn't return a value"""
     @classmethod
     def __subclasscheck__(cls, subclass):
         return False
 
 
+# the `type` object representing the NothingType class
 NothingTypeClass = type[NothingType]
 
 
@@ -166,7 +171,7 @@ class FpyCmd(FpyCallable):
 
 
 @dataclass
-class FpyBuiltin(FpyCallable):
+class FpyBuiltinFunc(FpyCallable):
     dir: type[Directive]
 
     def from_arg_values(self, arg_vals: list[FppType]) -> Directive:
@@ -175,14 +180,14 @@ class FpyBuiltin(FpyCallable):
         return self.dir(*arg_vals)
 
 
-BUILTINS: dict[str, FpyBuiltin] = {
-    "sleep": FpyBuiltin(
+BUILTIN_FUNCS: dict[str, FpyBuiltinFunc] = {
+    "sleep": FpyBuiltinFunc(
         NothingType, [("seconds", U32Type), ("useconds", U32Type)], WaitRelDirective
     ),
-    "sleep_until": FpyBuiltin(
+    "sleep_until": FpyBuiltinFunc(
         NothingType, [("wakeup_time", TimeType)], WaitAbsDirective
     ),
-    "exit": FpyBuiltin(NothingType, [("success", BoolType)], ExitDirective),
+    "exit": FpyBuiltinFunc(NothingType, [("success", BoolType)], ExitDirective),
 }
 
 
@@ -1132,7 +1137,7 @@ class GenerateConstCmdDirectives(Visitor):
                     return
                 arg_bytes += arg_value.serialize()
             state.directives[node] = [CmdDirective(func.cmd.get_op_code(), arg_bytes)]
-        elif isinstance(func, FpyBuiltin):
+        elif isinstance(func, FpyBuiltinFunc):
             arg_values = []
             for arg_node in node.args if node.args is not None else []:
                 arg_value = state.expr_values[arg_node]
@@ -1570,12 +1575,16 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     (prm_id_dict, prm_name_dict, versions) = prm_json_dict_loader.construct_dicts(
         dictionary
     )
-    type_name_dict = cmd_json_dict_loader.parsed_types
+    # the type name dict is a mapping of a fully qualified name to an fprime type
+    # here we put into it all types found while parsing all cmds, params and tlm channels
+    type_name_dict: dict[str, FppTypeClass] = cmd_json_dict_loader.parsed_types
     type_name_dict.update(ch_json_dict_loader.parsed_types)
     type_name_dict.update(prm_json_dict_loader.parsed_types)
 
+    # enum const dict is a dict of fully qualified enum const name (like Ref.Choice.ONE) to its fprime value
     enum_const_name_dict: dict[str, FppType] = {}
 
+    # find each enum type, and put each of its values in the enum const dict
     for name, typ in type_name_dict.items():
         if issubclass(typ, EnumType):
             for enum_const_name, val in typ.ENUM_DICT.items():
@@ -1588,15 +1597,20 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     for typ in NUMERIC_TYPES:
         type_name_dict[typ.get_canonical_name()] = typ
     type_name_dict["bool"] = BoolType
+    # note no string type at the moment
 
-    callable_name_dict = {}
+    callable_name_dict: dict[str, FpyCallable] = {}
+    # add all cmds to the callable dict
     for name, cmd in cmd_name_dict.items():
         cmd: CmdTemplate
         args = []
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
+        # cmds are thought of as callables with a "NothingType" return value
         callable_name_dict[name] = FpyCmd(NothingType, args, cmd)
 
+    # for each type in the dict, if it has a constructor, create an FpyTypeCtor
+    # object to track the constructor and put it in the callable name dict
     for name, typ in type_name_dict.items():
         args = []
         if issubclass(typ, SerializableType):
@@ -1617,7 +1631,8 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
         callable_name_dict[name] = FpyTypeCtor(typ, args, typ)
 
-    for builtin_name, builtin in BUILTINS.items():
+    # for each builtin function, add it to the callable dict
+    for builtin_name, builtin in BUILTIN_FUNCS.items():
         callable_name_dict[builtin_name] = builtin
 
     state = CompileState(
@@ -1674,37 +1689,3 @@ def compile(body: AstBody, dictionary: str) -> list[Directive]:
             raise error
 
     return state.directives[body]
-
-
-def main():
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("input", type=Path, help="The input .fpy file")
-    arg_parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        required=False,
-        default=None,
-        help="The output .bin path",
-    )
-    arg_parser.add_argument(
-        "-d",
-        "--dictionary",
-        type=Path,
-        required=True,
-        help="The FPrime dictionary .json file",
-    )
-
-    args = arg_parser.parse_args()
-
-    if not args.input.exists():
-        print(f"Input file {args.input} does not exist")
-        exit(-1)
-
-    body = parse(args.input.read_text())
-    directives = compile(body, args.dictionary)
-    output = args.output
-    if output is None:
-        output = args.input.with_suffix(".bin")
-    serialize_directives(directives, output)
-    print("Done")
