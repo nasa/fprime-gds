@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 import tempfile
+<<<<<<< HEAD
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.numerical_types import U32Type, U8Type
 from fprime_gds.common.fpy.bytecode.directives import (
@@ -10,6 +11,10 @@ from fprime_gds.common.fpy.bytecode.directives import (
 )
 from fprime_gds.common.fpy.compiler import compile
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
+=======
+from fprime_gds.common.fpy.bytecode.directives import Directive, serialize_directives
+from fprime_gds.common.fpy.codegen import compile
+>>>>>>> 9bdc0cbdb9e07727e585a9686d2a2530fa150c75
 from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -106,6 +111,13 @@ var: U32 = 1
 """
 
     assert_run_success(fprime_test_api, seq)
+
+def test_float_log_literal(fprime_test_api):
+    seq = """
+var: F32 = 1.000e-5
+"""
+
+    assert_compile_success(fprime_test_api, seq)
 
 
 def test_exit_success(fprime_test_api):
@@ -391,6 +403,16 @@ exit(False)
 
     assert_run_success(fprime_test_api, seq)
 
+def test_get_const_member_of_ctor(fprime_test_api):
+    seq = """
+# currently this is not supported, but it should be in the future
+var: U32 = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED).priority
+if priority == 3:
+    exit(True)
+exit(False)
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
 
 def test_float_cmp(fprime_test_api):
     seq = """
@@ -404,7 +426,7 @@ exit(True)
 
 def test_wait_rel(fprime_test_api):
     seq = """
-sleep(0, 1)
+sleep(1.1)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -1093,4 +1115,11 @@ if var1 ** var2 == 2:
     exit(True)
 exit(False)
 """
+    assert_run_success(fprime_test_api, seq)
+
+def test_int_literal_as_float(fprime_test_api):
+    seq = """
+sleep(1)
+"""
+
     assert_run_success(fprime_test_api, seq)

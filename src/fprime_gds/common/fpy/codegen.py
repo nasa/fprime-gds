@@ -4,6 +4,7 @@ import inspect
 from pathlib import Path
 from dataclasses import dataclass, field, fields
 import traceback
+from typing import Callable
 
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateStackDirective,
@@ -157,15 +158,21 @@ FLOAT_TYPES = (
 )
 
 
+# a value of type FppTypeClass is a Python `type` object representing
+# the type of an Fprime value
 FppTypeClass = type[FppType]
 
 
 class NothingType(ABC):
+    """a type which has no valid values in fprime. used to denote
+    a function which doesn't return a value"""
+
     @classmethod
     def __subclasscheck__(cls, subclass):
         return False
 
 
+# the `type` object representing the NothingType class
 NothingTypeClass = type[NothingType]
 
 
@@ -191,22 +198,15 @@ class FpyCmd(FpyCallable):
 
 
 @dataclass
-class FpyBuiltin(FpyCallable):
+class FpyMacro(FpyCallable):
     dir: type[Directive]
-
-    def __post_init__(self):
-        # builtins are all stack based, so their args are implicit
-        assert len(fields(self.dir)) == 0
+    """a function which instantiates the macro given the argument exprs"""
 
 
-BUILTINS: dict[str, FpyBuiltin] = {
-    "sleep": FpyBuiltin(
-        NothingType, [("seconds", U32Type), ("useconds", U32Type)], WaitRelDirective
-    ),
-    "sleep_until": FpyBuiltin(
-        NothingType, [("wakeup_time", TimeType)], WaitAbsDirective
-    ),
-    "exit": FpyBuiltin(NothingType, [("success", BoolType)], ExitDirective),
+MACROS: dict[str, FpyMacro] = {
+    "sleep": FpyMacro(NothingType, [("seconds", F64Type)], WaitRelDirective),
+    "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
+    "exit": FpyMacro(NothingType, [("success", BoolType)], ExitDirective),
 }
 
 
@@ -275,6 +275,9 @@ class FpyVariable:
     """the index of the lvar it is stored in"""
 
 
+# a namespace is just a mapping of strings to FpyReferences
+# essentially, it is a name which only exists as a qualifier, and doesn't have a value
+# on its own
 FpyNamespace = dict[str, "FpyReference"]
 
 
@@ -1144,7 +1147,7 @@ class CalculateConstExprValues(Visitor):
                 assert False, func.return_type
         else:
             # don't try to calculate the value of this function call
-            # it's something like a cmd or builtin
+            # it's something like a cmd or macro
             state.expr_values[node] = None
 
     def visit_AstTest(self, node: AstTest, state: CompileState):
@@ -1622,7 +1625,7 @@ class GenerateCmdAndBuiltinDirectives(Visitor):
                 # now that all args are pushed to the stack, pop them and opcode off the stack
                 # as a command
                 dirs.append(StackCmdDirective(arg_byte_count + 4))
-        elif isinstance(func, FpyBuiltin):
+        elif isinstance(func, FpyMacro):
             # put all arg values on stack
             for arg_node in node_args:
                 node_dirs = state.directives[arg_node]
@@ -1822,12 +1825,16 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     (prm_id_dict, prm_name_dict, versions) = prm_json_dict_loader.construct_dicts(
         dictionary
     )
-    type_name_dict = cmd_json_dict_loader.parsed_types
+    # the type name dict is a mapping of a fully qualified name to an fprime type
+    # here we put into it all types found while parsing all cmds, params and tlm channels
+    type_name_dict: dict[str, FppTypeClass] = cmd_json_dict_loader.parsed_types
     type_name_dict.update(ch_json_dict_loader.parsed_types)
     type_name_dict.update(prm_json_dict_loader.parsed_types)
 
+    # enum const dict is a dict of fully qualified enum const name (like Ref.Choice.ONE) to its fprime value
     enum_const_name_dict: dict[str, FppType] = {}
 
+    # find each enum type, and put each of its values in the enum const dict
     for name, typ in type_name_dict.items():
         if issubclass(typ, EnumType):
             for enum_const_name, val in typ.ENUM_DICT.items():
@@ -1840,15 +1847,20 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     for typ in NUMERIC_TYPES:
         type_name_dict[typ.get_canonical_name()] = typ
     type_name_dict["bool"] = BoolType
+    # note no string type at the moment
 
-    callable_name_dict = {}
+    callable_name_dict: dict[str, FpyCallable] = {}
+    # add all cmds to the callable dict
     for name, cmd in cmd_name_dict.items():
         cmd: CmdTemplate
         args = []
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
+        # cmds are thought of as callables with a "NothingType" return value
         callable_name_dict[name] = FpyCmd(NothingType, args, cmd)
 
+    # for each type in the dict, if it has a constructor, create an FpyTypeCtor
+    # object to track the constructor and put it in the callable name dict
     for name, typ in type_name_dict.items():
         args = []
         if issubclass(typ, SerializableType):
@@ -1869,8 +1881,9 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
         callable_name_dict[name] = FpyTypeCtor(typ, args, typ)
 
-    for builtin_name, builtin in BUILTINS.items():
-        callable_name_dict[builtin_name] = builtin
+    # for each macro function, add it to the callable dict
+    for macro_name, macro in MACROS.items():
+        callable_name_dict[macro_name] = macro
 
     state = CompileState(
         tlms=create_namespace(ch_name_dict),
@@ -1925,37 +1938,3 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
             raise error
 
     return state.directives[body]
-
-
-def main():
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("input", type=Path, help="The input .fpy file")
-    arg_parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        required=False,
-        default=None,
-        help="The output .bin path",
-    )
-    arg_parser.add_argument(
-        "-d",
-        "--dictionary",
-        type=Path,
-        required=True,
-        help="The FPrime dictionary .json file",
-    )
-
-    args = arg_parser.parse_args()
-
-    if not args.input.exists():
-        print(f"Input file {args.input} does not exist")
-        exit(-1)
-
-    body = parse(args.input.read_text())
-    directives = compile(body, args.dictionary)
-    output = args.output
-    if output is None:
-        output = args.input.with_suffix(".bin")
-    serialize_directives(directives, output)
-    print("Done")

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from enum import Enum
 import inspect
 import struct
@@ -12,7 +11,6 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatDivideDirective,
     FloatExponentDirective,
     FloatFloorDivideDirective,
-    FloatModuloDirective,
     FloatMultiplyDirective,
     FloatSubtractDirective,
     GotoDirective,
@@ -267,10 +265,9 @@ class FpySequencerModel:
         if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
-        useconds = self.pop(size=4)
-        seconds = self.pop(size=4)
+        seconds = self.pop(type=float)
 
-        print("wait rel", seconds, useconds)
+        print("wait rel", seconds)
 
     def handle_wait_abs(self, dir: WaitAbsDirective):
         if len(self.stack) < 11:
