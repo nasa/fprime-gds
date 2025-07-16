@@ -256,6 +256,9 @@ class FpyVariable:
     """the index of the sreg it is stored in"""
 
 
+# a namespace is just a mapping of strings to FpyReferences
+# essentially, it is a name which only exists as a qualifier, and doesn't have a value
+# on its own
 FpyNamespace = dict[str, "FpyReference"]
 
 
