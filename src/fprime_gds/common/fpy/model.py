@@ -64,7 +64,15 @@ from fprime_gds.common.fpy.bytecode.directives import (
 WORD_SIZE = 8
 # store return addr and prev stack frame offset in stack frame header
 STACK_FRAME_HEADER_SIZE = 2 * WORD_SIZE
+MAX_INT64 = 2**63 - 1
+MIN_INT64 = -2**63
+MASK_64_BIT = 2**64 - 1
 
+def overflow_check(val: int) -> int:
+    masked_val = val & MASK_64_BIT
+    if masked_val > MAX_INT64:
+        return masked_val - 2**64
+    return masked_val
 
 class DirectiveErrorCode(Enum):
     NO_ERROR = 0
@@ -80,6 +88,7 @@ class DirectiveErrorCode(Enum):
     STACK_OVERFLOW = 10
     STACK_UNDERFLOW = 11
     INVALID_ARGUMENT = 12
+    DIVIDE_BY_ZERO = 13
 
 
 class FpySequencerModel:
@@ -551,34 +560,51 @@ class FpySequencerModel:
         val = self.pop(signed=False)
         self.push(float(val))
 
+
     def handle_iadd(self, dir: IntAddDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
-        print(rhs, lhs, rhs + lhs)
-        self.push(lhs + rhs)
+        self.push(overflow_check(lhs + rhs))
 
     def handle_isub(self, dir: IntSubtractDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
-        self.push(lhs - rhs)
+        self.push(overflow_check(lhs - rhs))
 
     def handle_imul(self, dir: IntMultiplyDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
-        self.push(lhs * rhs)
+        self.push(overflow_check(lhs * rhs))
 
     def handle_idiv(self, dir: IntDivideDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
-        self.push(lhs // rhs)
+
+        if lhs == 0:
+            # C++ behavior for division by zero is undefined.
+            return DirectiveErrorCode.DIVIDE_BY_ZERO
+
+        # Special overflow case: MIN_INT64 / -1
+        # This results in MAX_INT64 + 1, which overflows to MIN_INT64 in C++.
+        if rhs == MIN_INT64 and lhs == -1:
+            return MIN_INT64 # C++ specific overflow behavior
+
+        # Perform division, truncating towards zero
+        # This is different from Python's // which floors.
+        python_quotient = int(rhs / lhs)
+
+        # For division, overflow detection isn't typically done with the mask on the result
+        # because the quotient itself is within range, except for the MIN_INT64 / -1 case.
+        # The result of division will usually fit within int64_t's range if the divisor isn't 0.
+        return python_quotient
 
     def handle_fadd(self, dir: FloatAddDirective):
         if len(self.stack) < 2 * WORD_SIZE:

@@ -10,10 +10,20 @@ from fprime_gds.common.fpy.codegen import (
 )
 from fprime.common.models.serialize.numerical_types import I64Type, U64Type, F64Type
 
-from fprime_gds.common.fpy.test_helpers import assert_compile_failure, assert_run_success
+from fprime_gds.common.fpy.model import overflow_check
+from fprime_gds.common.fpy.test_helpers import (
+    assert_compile_failure,
+    assert_run_success,
+)
 
 MAX_BITWIDTH_TYPES = [I64Type, U64Type, F64Type]
-NUMERIC_VALUES = ["-1", "0", "1",]
+NUMERIC_VALUES = [
+    "min",
+    "-1",
+    "0",
+    "1",
+    "max"
+]
 
 
 def get_max(type: FppTypeClass) -> int | float:
@@ -88,7 +98,7 @@ def test_addition_between_max_bitwidth_types(
 
     # in a perfect world, this is the answer
     ans = lhs_val + rhs_val
-    
+
     # but this is not a perfect world.
 
     result_type = None
@@ -99,13 +109,21 @@ def test_addition_between_max_bitwidth_types(
     else:
         result_type = I64Type
 
+    should_fail = False
+    if math.isinf(ans):
+        should_fail = True
+
+    if result_type in INTEGER_TYPES:
+        ans = overflow_check(ans)
+        
+
     # if it's a signed type, value will be modulo max
 
     seq += "if lhs + rhs == " + str(ans) + ":\n"
     seq += "    exit(True)\n"
     seq += "exit(False)\n"
     print(seq)
-    if math.isinf(ans):
+    if should_fail:
         # cannot represent inf in Fpy at the moment
         assert_compile_failure(fprime_test_api, seq)
     else:
