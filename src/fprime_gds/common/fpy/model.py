@@ -588,23 +588,25 @@ class FpySequencerModel:
         rhs = self.pop()
         lhs = self.pop()
 
-        if lhs == 0:
+        # credit to gemini
+        if rhs == 0:
             # C++ behavior for division by zero is undefined.
             return DirectiveErrorCode.DIVIDE_BY_ZERO
 
         # Special overflow case: MIN_INT64 / -1
         # This results in MAX_INT64 + 1, which overflows to MIN_INT64 in C++.
-        if rhs == MIN_INT64 and lhs == -1:
-            return MIN_INT64 # C++ specific overflow behavior
+        if lhs == MIN_INT64 and rhs == -1:
+            self.push(MIN_INT64) # C++ specific overflow behavior
+            return
 
         # Perform division, truncating towards zero
         # This is different from Python's // which floors.
-        python_quotient = int(rhs / lhs)
+        python_quotient = int(lhs / rhs)
 
         # For division, overflow detection isn't typically done with the mask on the result
         # because the quotient itself is within range, except for the MIN_INT64 / -1 case.
         # The result of division will usually fit within int64_t's range if the divisor isn't 0.
-        return python_quotient
+        self.push(python_quotient)
 
     def handle_fadd(self, dir: FloatAddDirective):
         if len(self.stack) < 2 * WORD_SIZE:

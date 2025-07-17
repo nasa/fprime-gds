@@ -10,19 +10,20 @@ from fprime_gds.common.fpy.codegen import (
 )
 from fprime.common.models.serialize.numerical_types import I64Type, U64Type, F64Type
 
-from fprime_gds.common.fpy.model import overflow_check
+from fprime_gds.common.fpy.model import MIN_INT64, overflow_check
 from fprime_gds.common.fpy.test_helpers import (
     assert_compile_failure,
     assert_run_success,
 )
 
 MAX_BITWIDTH_TYPES = [I64Type, U64Type, F64Type]
-NUMERIC_VALUES = [
-    "min",
-    "-1",
-    "0",
-    "1",
-    "max"
+NUMERIC_VALUES = ["min", "-1", "0", "1", "max"]
+
+ARITHMETIC_OPERATORS = [
+    "+",
+    "-",
+    "/",
+    "*",
 ]
 
 
@@ -43,7 +44,7 @@ def get_max(type: FppTypeClass) -> int | float:
 def get_min(type: FppTypeClass) -> int | float:
     assert type in NUMERIC_TYPES
     if type in INTEGER_TYPES:
-        return type.range()[0] + 1
+        return type.range()[0]
 
     # otherwise, return float or double min
 
@@ -59,7 +60,7 @@ def get_fpy_str(type: FppTypeClass) -> str:
     return type.get_canonical_name()
 
 
-def get_val(type: FppTypeClass, val_str: str) -> int | float | None:
+def get_val(type: FppTypeClass, val_str: str) -> int | float:
     assert type in NUMERIC_TYPES
     if val_str == "max":
         return get_max(type)
@@ -67,22 +68,17 @@ def get_val(type: FppTypeClass, val_str: str) -> int | float | None:
         return get_min(type)
 
     if type in INTEGER_TYPES:
-        i = int(val_str)
-        if i < get_min(type) or i > get_max(type):
-            return None
-        return i
-    f = float(val_str)
-    if f < get_min(type) or f > get_max(type):
-        return None
-    return f
+        return int(val_str)
+    return float(val_str)
 
 
 @pytest.mark.parametrize("lhs_type", MAX_BITWIDTH_TYPES)
 @pytest.mark.parametrize("rhs_type", MAX_BITWIDTH_TYPES)
 @pytest.mark.parametrize("lhs_val", NUMERIC_VALUES)
 @pytest.mark.parametrize("rhs_val", NUMERIC_VALUES)
-def test_addition_between_max_bitwidth_types(
-    fprime_test_api, lhs_type, rhs_type, lhs_val, rhs_val
+@pytest.mark.parametrize("op", ARITHMETIC_OPERATORS)
+def test_math_with_max_bitwidth_types(
+    fprime_test_api, lhs_type, rhs_type, lhs_val, rhs_val, op
 ):
     lhs_val = get_val(lhs_type, lhs_val)
     rhs_val = get_val(rhs_type, rhs_val)
@@ -91,15 +87,13 @@ def test_addition_between_max_bitwidth_types(
     seq += "lhs: " + lhs_type.get_canonical_name() + " = " + str(lhs_val) + "\n"
     seq += "rhs: " + rhs_type.get_canonical_name() + " = " + str(rhs_val) + "\n"
 
-    if lhs_val is None or rhs_val is None:
+    if not (get_min(lhs_type) <= lhs_val <= get_max(lhs_type)) or not (
+        get_min(rhs_type) <= rhs_val <= get_max(rhs_type)
+    ):
+        print(lhs_type, get_min(lhs_type))
         # not representable. seq should fail compile
         assert_compile_failure(fprime_test_api, seq)
         return
-
-    # in a perfect world, this is the answer
-    ans = lhs_val + rhs_val
-
-    # but this is not a perfect world.
 
     result_type = None
     if F64Type in (lhs_type, rhs_type):
@@ -110,21 +104,46 @@ def test_addition_between_max_bitwidth_types(
         result_type = I64Type
 
     should_fail = False
+
+    ans = 0
+    if op == "/":
+        if rhs_val == 0:
+            should_fail = True
+            ans = math.inf
+        else:
+            if result_type == F64Type:
+                ans = lhs_val / rhs_val
+            else:
+                if lhs_val == MIN_INT64 and rhs_val == -1:
+                    # cpp specific overflow behavior
+                    ans = MIN_INT64
+                else:
+                    # do int division
+                    ans = int(lhs_val / rhs_val)
+    elif op == "+":
+        ans = lhs_val + rhs_val
+    elif op == "-":
+        ans = lhs_val - rhs_val
+    elif op == "*":
+        ans = lhs_val * rhs_val
+    else:
+        assert False, op
+
+    if result_type != F64Type and op != "/":
+        # if integer and not division, prevent overflow
+        ans = overflow_check(ans)
+
+    # in a perfect world, this is the answer
+    # but this is not a perfect world.
+
     if math.isinf(ans):
         should_fail = True
 
-    if result_type in INTEGER_TYPES:
-        ans = overflow_check(ans)
-        
-
-    # if it's a signed type, value will be modulo max
-
-    seq += "if lhs + rhs == " + str(ans) + ":\n"
+    seq += "if lhs " + op + " rhs == " + str(ans) + ":\n"
     seq += "    exit(True)\n"
     seq += "exit(False)\n"
     print(seq)
     if should_fail:
-        # cannot represent inf in Fpy at the moment
         assert_compile_failure(fprime_test_api, seq)
     else:
         assert_run_success(fprime_test_api, seq)
