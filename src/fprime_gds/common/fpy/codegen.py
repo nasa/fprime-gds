@@ -253,16 +253,14 @@ class FpyVariable:
     """the index of the sreg it is stored in"""
 
 
-# a namespace is just a mapping of strings to FpyReferences
-# essentially, it is a name which only exists as a qualifier, and doesn't have a value
-# on its own
-FpyNamespace = dict[str, "FpyReference"]
+# a scope
+FpyScope = dict[str, "FpyReference"]
 
 
-def create_namespace(
+def create_scope(
     references: dict[str, "FpyReference"],
-) -> FpyNamespace:
-    """from a flat dict of strs to references, creates a hierarchical, namespaced
+) -> FpyScope:
+    """from a flat dict of strs to references, creates a hierarchical, scoped
     dict. no two leaf nodes may have the same name"""
 
     base = {}
@@ -274,7 +272,7 @@ def create_namespace(
         while len(names_strs) > 1:
             existing_child = ns.get(names_strs[0], None)
             if existing_child is None:
-                # this namespace is not defined atm
+                # this scope is not defined atm
                 existing_child = {}
                 ns[names_strs[0]] = existing_child
 
@@ -292,7 +290,7 @@ def create_namespace(
             # broke early. skip this loop
             continue
 
-        # okay, now ns is the complete namespace of the attribute
+        # okay, now ns is the complete scope of the attribute
         # i.e. everything up until the last '.'
         name = names_strs[0]
 
@@ -310,8 +308,8 @@ def create_namespace(
     return base
 
 
-def union_namespace(lhs: FpyNamespace, rhs: FpyNamespace) -> FpyNamespace:
-    """returns the two namespaces, joined into one. if there is a conflict, chooses lhs over rhs"""
+def union_scope(lhs: FpyScope, rhs: FpyScope) -> FpyScope:
+    """returns the two scopes, joined into one. if there is a conflict, chooses lhs over rhs"""
     lhs_keys = set(lhs.keys())
     rhs_keys = set(rhs.keys())
     common_keys = lhs_keys.intersection(rhs_keys)
@@ -319,16 +317,16 @@ def union_namespace(lhs: FpyNamespace, rhs: FpyNamespace) -> FpyNamespace:
     only_lhs_keys = lhs_keys.difference(common_keys)
     only_rhs_keys = rhs_keys.difference(common_keys)
 
-    new = FpyNamespace()
+    new = FpyScope()
 
     for key in common_keys:
         if not isinstance(lhs[key], dict) or not isinstance(rhs[key], dict):
-            # cannot be merged cleanly. one of the two is not a namespace
+            # cannot be merged cleanly. one of the two is not a scope
             print(f"WARNING: {key} is defined as {lhs[key]}, ignoring {rhs[key]}")
             new[key] = lhs[key]
             continue
 
-        new[key] = union_namespace(lhs[key], rhs[key])
+        new[key] = union_scope(lhs[key], rhs[key])
 
     for key in only_lhs_keys:
         new[key] = lhs[key]
@@ -375,7 +373,7 @@ def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
     elif isinstance(ref, FieldReference):
         result_type = ref.type
     elif isinstance(ref, dict):
-        # reference to a namespace. namespaces don't have values
+        # reference to a scope. scopes don't have values
         result_type = NothingType
     else:
         assert False, ref
@@ -387,26 +385,26 @@ def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
 class CompileState:
     """a collection of input, internal and output state variables and maps"""
 
-    types: FpyNamespace
-    """a namespace whose leaf nodes are subclasses of BaseType"""
-    callables: FpyNamespace
-    """a namespace whose leaf nodes are FpyCallable instances"""
-    tlms: FpyNamespace
-    """a namespace whose leaf nodes are ChTemplates"""
-    prms: FpyNamespace
-    """a namespace whose leaf nodes are PrmTemplates"""
-    consts: FpyNamespace
-    """a namespace whose leaf nodes are instances of subclasses of BaseType"""
-    variables: FpyNamespace = field(default_factory=dict)
-    """a namespace whose leaf nodes are FpyVariables"""
-    runtime_values: FpyNamespace = None
-    """a namespace whose leaf nodes are tlms/prms/consts/variables, all of which
+    types: FpyScope
+    """a scope whose leaf nodes are subclasses of BaseType"""
+    callables: FpyScope
+    """a scope whose leaf nodes are FpyCallable instances"""
+    tlms: FpyScope
+    """a scope whose leaf nodes are ChTemplates"""
+    prms: FpyScope
+    """a scope whose leaf nodes are PrmTemplates"""
+    consts: FpyScope
+    """a scope whose leaf nodes are instances of subclasses of BaseType"""
+    variables: FpyScope = field(default_factory=dict)
+    """a scope whose leaf nodes are FpyVariables"""
+    runtime_values: FpyScope = None
+    """a scope whose leaf nodes are tlms/prms/consts/variables, all of which
     have some value at runtime."""
 
     def __post_init__(self):
-        self.runtime_values = union_namespace(
+        self.runtime_values = union_scope(
             self.tlms,
-            union_namespace(self.prms, union_namespace(self.consts, self.variables)),
+            union_scope(self.prms, union_scope(self.consts, self.variables)),
         )
 
     resolved_references: dict[AstReference, FpyReference] = field(
@@ -545,7 +543,7 @@ class AssignIds(TopDownVisitor):
 
 
 class CreateVariables(Visitor):
-    """finds all variable declarations and adds them to the variable namespace"""
+    """finds all variable declarations and adds them to the variable scope"""
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         existing = state.variables.get(node.variable.var, None)
@@ -570,7 +568,7 @@ class CreateVariables(Visitor):
 
 
 class ResolveReferences(Visitor):
-    """for each reference, resolve it in a specific namespace based on its
+    """for each reference, resolve it in a specific scope based on its
     syntactic position, or fail if could not resolve"""
 
     def is_type_constant_size(self, type: FppTypeClass) -> bool:
@@ -601,7 +599,7 @@ class ResolveReferences(Visitor):
             return None
 
         if isinstance(parent, dict):
-            # parent is a namespace
+            # parent is a scope
             attr = parent.get(node.attr, None)
             if attr is None:
                 state.err("Unknown attribute", node)
@@ -656,7 +654,7 @@ class ResolveReferences(Visitor):
         resolved ref, or None if none could be found. Will raise errors if not found"""
 
         if isinstance(parent, (FpyCallable, type, dict)):
-            # right now we don't support resolving index after a callable/type/namespace
+            # right now we don't support resolving index after a callable/type/scope
             state.err("Invalid syntax", node)
             return None
 
@@ -694,9 +692,9 @@ class ResolveReferences(Visitor):
         return None
 
     def resolve_if_ref(
-        self, node: AstExpr, ns: FpyNamespace, state: CompileState
+        self, node: AstExpr, ns: FpyScope, state: CompileState
     ) -> bool:
-        """if the node is a reference, try to resolve it in the given namespace, and return true if success.
+        """if the node is a reference, try to resolve it in the given scope, and return true if success.
         otherwise, if it is not a reference, return true as it doesn't need to be resolved"""
         if not isinstance(node, AstReference):
             return True
@@ -704,9 +702,9 @@ class ResolveReferences(Visitor):
         return self.resolve_ref_in_ns(node, ns, state) is not None
 
     def resolve_ref_in_ns(
-        self, node: AstExpr, ns: FpyNamespace, state: CompileState
+        self, node: AstExpr, ns: FpyScope, state: CompileState
     ) -> FpyReference | None:
-        """recursively resolves a reference in a namespace, returning the resolved ref
+        """recursively resolves a reference in a scope, returning the resolved ref
         or none if none could be found."""
         if isinstance(node, AstVar):
             if not isinstance(ns, dict):
@@ -1021,7 +1019,7 @@ class CalculateExprValues(Visitor):
             # it would have a value
             expr_value = NothingType()
         elif isinstance(ref, dict):
-            # a ref to a namespace doesn't have a value
+            # a ref to a scope doesn't have a value
             expr_value = NothingType()
         else:
             assert False, ref
@@ -1636,11 +1634,11 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         callable_name_dict[macro_name] = macro
 
     state = CompileState(
-        tlms=create_namespace(ch_name_dict),
-        prms=create_namespace(prm_name_dict),
-        types=create_namespace(type_name_dict),
-        callables=create_namespace(callable_name_dict),
-        consts=create_namespace(enum_const_name_dict),
+        tlms=create_scope(ch_name_dict),
+        prms=create_scope(prm_name_dict),
+        types=create_scope(type_name_dict),
+        callables=create_scope(callable_name_dict),
+        consts=create_scope(enum_const_name_dict),
     )
     return state
 
