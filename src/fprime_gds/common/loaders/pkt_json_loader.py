@@ -19,6 +19,10 @@ class PktJsonLoader(JsonLoader):
     SET_NAME = "name"
     MEMBERS = "members"
 
+    def get_packet_set_names(self, path):
+        """ Get the list of packet sets """
+        return [packet_set[self.SET_NAME] for packet_set in self.json_dict[self.PACKETS_FIELD]]
+
     def get_id_dict(self, path, packet_set_name: str, ch_name_dict: dict):
         if path in self.saved_dicts and packet_set_name in self.saved_dicts[path]:
             (id_dict, name_dict) = self.saved_dicts[path][packet_set_name]

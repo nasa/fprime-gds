@@ -59,7 +59,7 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         4000000,
     ]
 
-    def __init__(self, device, baud):
+    def __init__(self, device, baud, skip_check):
         """
         Initialize the serial adapter using the default settings. This does not open the serial port, but sets up all
         the internal variables used when opening the device.
@@ -77,9 +77,14 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         Opens the serial port based on previously supplied settings. If the port is already open, then close it first.
         Then open the port up again.
         """
-        self.close()
-        self.serial = serial.Serial(self.device, self.baud)
-        return self.serial is not None
+        try:
+            self.close()
+            self.serial = serial.Serial(self.device, self.baud)
+            return self.serial is not None
+        except serial.serialutil.SerialException as exc:
+            LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
+            self.close()
+            return False
 
     def close(self):
         """
@@ -100,12 +105,11 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         :return: True, when data was sent through the UART. False otherwise.
         """
         try:
-            if self.serial is None:
-                self.open()
-            written = self.serial.write(frame)
-            # Not believed to be possible to not send everything without getting a timeout exception
-            assert written == len(frame)
-            return True
+            if self.serial is not None or self.open():
+                written = self.serial.write(frame)
+                # Not believed to be possible to not send everything without getting a timeout exception
+                assert written == len(frame)
+                return True
         except serial.serialutil.SerialException as exc:
             LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
             self.close()
@@ -121,17 +125,16 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         """
         data = b""
         try:
-            if self.serial is None:
-                self.open()
-            # Read as much data as possible, while ensuring to block if no data is available at this time. Note: as much
-            # data is read as possible to avoid a long-return time to this call. Minimum data to read is one byte in
-            # order to block this function while data is incoming.
-            self.serial.timeout = timeout
-            data = self.serial.read(1)  # Force a block for at least 1 character
-            while self.serial.in_waiting:
-                data += self.serial.read(
-                    self.serial.in_waiting
-                )  # Drain the incoming data queue
+            if self.serial is not None or self.open():                
+                # Read as much data as possible, while ensuring to block if no data is available at this time. Note: as much
+                # data is read as possible to avoid a long-return time to this call. Minimum data to read is one byte in
+                # order to block this function while data is incoming.
+                self.serial.timeout = timeout
+                data = self.serial.read(1)  # Force a block for at least 1 character
+                while self.serial.in_waiting:
+                    data += self.serial.read(
+                        self.serial.in_waiting
+                    )  # Drain the incoming data queue
         except serial.serialutil.SerialException as exc:
             LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
             self.close()
@@ -161,6 +164,12 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 "default": 9600,
                 "help": "Baud rate of the serial device.",
             },
+            ("--uart-skip-port-check",): {
+                "dest": "skip_check",
+                "default": False,
+                "action": "store_true",
+                "help": "Skip checking that the port exists"
+            }
         }
 
     @classmethod
@@ -175,20 +184,20 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         return cls
 
     @classmethod
-    def check_arguments(cls, device, baud):
+    def check_arguments(cls, device, baud, skip_check):
         """
         Code that should check arguments of this adapter. If there is a problem with this code, then a "ValueError"
         should be raised describing the problem with these arguments.
 
         :param args: arguments as dictionary
         """
-        ports = map(lambda info: info.device, list_ports.comports(include_links=True))
-        if device not in ports:
+        ports = list(map(lambda info: info.device, list_ports.comports(include_links=True)))
+        if not skip_check and device not in ports:
             msg = f"Serial port '{device}' not valid. Available ports: {ports}"
             raise ValueError(
                 msg
             )
-        # Note: baud rate may not *always* work. These are a superset
+        # Note: baud rate may not *always* work. These are a superset.
         try:
             baud = int(baud)
         except ValueError:

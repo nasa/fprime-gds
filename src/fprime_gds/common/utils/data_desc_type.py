@@ -5,10 +5,13 @@ Defines an enumeration that represents each type of data packet that can be down
 """
 from enum import Enum
 
+
+# TODO: these values should be read from the dictionary instead of hardcoded here
+
 DataDescType = Enum(
     "DataDescType",
-    # Command packet type - incoming
     {
+        # Command packet type - incoming
         "FW_PACKET_COMMAND": 0,
         # Telemetry packet type - outgoing
         "FW_PACKET_TELEM": 1,
@@ -24,5 +27,7 @@ DataDescType = Enum(
         "FW_PACKET_HAND": 0xFE,
         # Unknown packet
         "FW_PACKET_UNKNOWN": 0xFF,
+        # Space Packet Idle APID
+        "CCSDS_SPACE_PACKET_IDLE_APID": 0x7FF,
     },
 )

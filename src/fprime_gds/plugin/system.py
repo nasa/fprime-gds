@@ -218,6 +218,7 @@ class Plugins(object):
                 FramerDeframer,
                 FpFramerDeframer,
             )
+            from fprime_gds.common.communication.ccsds.chain import SpacePacketSpaceDataLinkFramerDeframer
             from fprime_gds.common.communication.adapters.base import (
                 BaseAdapter,
                 NoneAdapter,
@@ -233,7 +234,7 @@ class Plugins(object):
                 "framing": {
                     "class": FramerDeframer,
                     "type": PluginType.SELECTION,
-                    "built-in": [FpFramerDeframer],
+                    "built-in": [FpFramerDeframer, SpacePacketSpaceDataLinkFramerDeframer],
                 },
                 "communication": {
                     "class": BaseAdapter,
