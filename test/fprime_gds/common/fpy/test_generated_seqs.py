@@ -147,16 +147,3 @@ def test_math_with_max_bitwidth_types(
         assert_compile_failure(fprime_test_api, seq)
     else:
         assert_run_success(fprime_test_api, seq)
-
-
-# @pytest.mark.parametrize("lhs_type", MAX_BITWIDTH_TYPES)
-# @pytest.mark.parametrize("rhs_type", MAX_BITWIDTH_TYPES)
-# @pytest.mark.parametrize("lhs_val", NUMERIC_TYPES)
-# @pytest.mark.parametrize("rhs_val", NUMERIC_TYPES)
-# def test_addition_between_max_bitwidth_types(fprime_test_api, lhs_type, rhs_type, lhs_val, rhs_val):
-#     # test addition between each numeric type
-
-#     # lhs_val = get_max(lhs_type) if lhs_val == "max" else get_min(lhs_type) if lhs_type == "min" else
-
-#     lhs_max = get_max(lhs_type)
-#     lhs_min = get_min(lhs_type)
