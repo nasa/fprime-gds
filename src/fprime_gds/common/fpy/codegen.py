@@ -1,17 +1,12 @@
 from __future__ import annotations
 from abc import ABC
-import argparse
 import inspect
-from pathlib import Path
 from dataclasses import dataclass, field, fields
 import traceback
 from typing import Callable
 
 from fprime_gds.common.fpy.bytecode.directives import (
-    serialize_directives,
-    BINARY_COMPARISON_DIRECTIVES,
     FLOAT_INEQUALITY_DIRECTIVES,
-    INT_EQUALITY_DIRECTIVES,
     MAX_SERIALIZABLE_REGISTER_SIZE,
     INT_SIGNED_INEQUALITY_DIRECTIVES,
     INT_UNSIGNED_INEQUALITY_DIRECTIVES,
@@ -90,7 +85,6 @@ from fprime_gds.common.fpy.parser import (
     AstAssign,
     AstFuncCall,
     AstVar,
-    parse,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
 
