@@ -3,6 +3,7 @@ from abc import ABC
 import inspect
 from dataclasses import dataclass, field, fields
 import traceback
+import typing
 
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateStackDirective,
@@ -474,7 +475,9 @@ class Visitor:
             params = list(signature.parameters.values())
             assert len(params) == 3
             assert params[1].annotation is not None
-            if isinstance(node, params[1].annotation):
+            annotations = typing.get_type_hints(func)
+            param_type = annotations[params[1].name]
+            if isinstance(node, param_type):
                 return func
         else:
             # call the default
