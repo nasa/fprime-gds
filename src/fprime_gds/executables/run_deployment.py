@@ -9,6 +9,7 @@ import webbrowser
 
 from fprime_gds.executables.cli import (
     BinaryDeployment,
+    ConfigDrivenParser,
     CommParser,
     GdsParser,
     ParserBase,
@@ -37,7 +38,7 @@ def parse_args():
         PluginArgumentParser,
     ]
     # Parse the arguments, and refine through all handlers
-    args, parser = ParserBase.parse_args(arg_handlers, "Run F prime deployment and GDS")
+    args, parser = ConfigDrivenParser.parse_args(arg_handlers, "Run F prime deployment and GDS")
     return args
 
 
@@ -176,7 +177,7 @@ def launch_comm(parsed_args):
 
 def launch_plugin(plugin_class_instance):
     """Launch a plugin instance"""
-    plugin_name = getattr(plugin_class_instance, "get_name", lambda: cls.__name__)()
+    plugin_name = getattr(plugin_class_instance, "get_name", lambda: plugin_class_instance.__class__.__name__)()
     return launch_process(
         plugin_class_instance.get_process_invocation(),
         name=f"{ plugin_name } Plugin App",

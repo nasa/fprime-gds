@@ -585,18 +585,20 @@ class FpySequencerModel:
     def handle_idiv(self, dir: IntDivideDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        rhs = self.pop()
-        lhs = self.pop()
+        rhs = self.pop(signed=False)
+        lhs = self.pop(signed=False)
 
         # credit to gemini
         if rhs == 0:
             # C++ behavior for division by zero is undefined.
+            print(lhs, rhs, "fail")
             return DirectiveErrorCode.DIVIDE_BY_ZERO
 
         # Special overflow case: MIN_INT64 / -1
         # This results in MAX_INT64 + 1, which overflows to MIN_INT64 in C++.
         if lhs == MIN_INT64 and rhs == -1:
             self.push(MIN_INT64) # C++ specific overflow behavior
+            print(lhs, rhs, MIN_INT64)
             return
 
         # Perform division, truncating towards zero
@@ -606,6 +608,7 @@ class FpySequencerModel:
         # For division, overflow detection isn't typically done with the mask on the result
         # because the quotient itself is within range, except for the MIN_INT64 / -1 case.
         # The result of division will usually fit within int64_t's range if the divisor isn't 0.
+        print(lhs, rhs, python_quotient)
         self.push(python_quotient)
 
     def handle_fadd(self, dir: FloatAddDirective):

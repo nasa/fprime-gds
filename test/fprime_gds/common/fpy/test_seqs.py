@@ -1,5 +1,51 @@
 from fprime.common.models.serialize.numerical_types import U32Type
 from fprime_gds.common.fpy.test_helpers import assert_run_success, assert_compile_failure, assert_compile_success, assert_run_failure, lookup_type
+from pathlib import Path
+import tempfile
+from fprime_gds.common.fpy.bytecode.directives import Directive, serialize_directives
+from fprime_gds.common.fpy.codegen import compile
+from fprime_gds.common.fpy.parser import parse
+from fprime_gds.common.testing_fw.api import IntegrationTestAPI
+
+
+def compile_seq(fprime_test_api, seq: str) -> list[Directive]:
+    return compile(parse(seq), fprime_test_api.pipeline.dictionary_path)
+
+
+def run_seq(fprime_test_api: IntegrationTestAPI, directives: list[Directive]):
+    file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
+
+    serialize_directives(directives, Path(file.name))
+
+    fprime_test_api.send_and_assert_command("ComFpy.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
+
+
+def assert_compile_success(fprime_test_api, seq: str):
+    compile_seq(fprime_test_api, seq)
+
+
+def assert_run_success(fprime_test_api, seq: str):
+    directives = compile_seq(fprime_test_api, seq)
+
+    run_seq(fprime_test_api, directives)
+
+
+def assert_compile_failure(fprime_test_api, seq: str):
+    try:
+        compile_seq(fprime_test_api, seq)
+    except BaseException as e:
+        return
+    raise RuntimeError("compile_seq succeeded")
+
+
+def assert_run_failure(fprime_test_api, seq: str):
+    directives = compile_seq(fprime_test_api, seq)
+    try:
+        run_seq(fprime_test_api, directives)
+    except BaseException as e:
+        return
+    raise RuntimeError("run_seq succeeded")
+>>>>>>>> b3ba36f31d980229d80343d5b6a0a71d767aea0c:test/fprime_gds/common/fpy/disabled_test_compiler.py
 
 
 def test_simple_var(fprime_test_api):
@@ -68,7 +114,7 @@ var: U32 = 2
 
 def test_bad_assign_type(fprime_test_api):
     seq = """
-var: asdfasdfasdf = 1
+var: failure = 1
 """
 
     assert_compile_failure(fprime_test_api, seq)
@@ -675,8 +721,13 @@ val1: U64 = 18446744073709551615  # Max U64
 val2: I64 = 9223372036854775807   # Max I64, should be same in unsigned
 val3: I64 = -9223372036854775808  # Min I64, should be max i64 + 1 in unsigned
 
+<<<<<<<< HEAD:test/fprime_gds/common/fpy/test_seqs.py
 if val1 > val2 and val2 > val3:
     if val3 < val1:
+========
+if val1 < val2 and val2 > val3:
+    if val3 < val1: # opposite of what you might expect, but it's cuz val1 is interpreted as signed
+>>>>>>>> b3ba36f31d980229d80343d5b6a0a71d767aea0c:test/fprime_gds/common/fpy/disabled_test_compiler.py
         exit(True)
 exit(False)
 """

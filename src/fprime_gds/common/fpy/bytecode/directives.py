@@ -4,7 +4,6 @@ from typing import ClassVar
 import typing
 from pathlib import Path
 import struct
-from typing import ClassVar
 import zlib
 from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.type_base import BaseType
@@ -14,14 +13,8 @@ from fprime.common.models.serialize.numerical_types import (
     U16Type,
     U64Type,
     U8Type,
-    I16Type,
-    I32Type,
     I64Type,
-    I8Type,
-    F32Type,
-    F64Type,
 )
-from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from enum import Enum
 
