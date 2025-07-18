@@ -115,7 +115,7 @@ var: U32 = 2
 
 def test_bad_assign_type(fprime_test_api):
     seq = """
-var: asdfasdfasdf = 1
+var: failure = 1
 """
 
     assert_compile_failure(fprime_test_api, seq)
@@ -709,7 +709,7 @@ val2: I64 = 9223372036854775807   # Max I64
 val3: I64 = -9223372036854775808  # Min I64
 
 if val1 < val2 and val2 > val3:
-    if val3 < val1: # opposite of what you might expect, but it's cuz val1 is interpeted as signed
+    if val3 < val1: # opposite of what you might expect, but it's cuz val1 is interpreted as signed
         exit(True)
 exit(False)
 """
