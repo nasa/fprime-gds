@@ -199,9 +199,10 @@ class Distributor(DataHandler):
             (length, data_desc, msg) = self.parse_raw_msg_api(raw_msg)
 
             data_desc_key = data_desc_type.DataDescType(data_desc).name
-
             for d in self.__decoders[data_desc_key]:
                 try:
                     d.data_callback(msg)
                 except DecodingException as dexc:
                     LOGGER.warning("Decoding error occurred: %s. Skipping.", dexc)
+            else:
+                LOGGER.warning("No decoder registered for: %s", data_desc_type.DataDescType(data_desc).name)

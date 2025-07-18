@@ -52,6 +52,12 @@ def pytest_addoption(parser):
         action="store_true",
         help="Enable JUnitXML report generation to a specified location"
     )
+    # Add an option to specify a json config file that maps components
+    parser.addoption(
+        "--deployment-config",
+        action="store",
+        help="Path to JSON configuration file for mapping deployment components"
+    )
 
 def pytest_configure(config):
     """ This is a hook to allow plugins and conftest files to perform initial configuration
@@ -85,6 +91,7 @@ def fprime_test_api_session(request):
     pipeline_parser = StandardPipelineParser()
     pipeline = None
     api = None
+    deployment_config = None
     try:
         # Parse the command line arguments into a client connection
         arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
@@ -92,8 +99,12 @@ def fprime_test_api_session(request):
         # Build a new pipeline with the parsed and processed arguments
         pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
 
+        # Get deployment configuration from command line arguments
+        if request.config.option.deployment_config:
+            deployment_config = request.config.option.deployment_config
+
         # Build and set up the integration test api
-        api = IntegrationTestAPI(pipeline, arg_ns.logs)
+        api = IntegrationTestAPI(pipeline, deployment_config, arg_ns.logs)
         api.setup()
 
         # Return the API. Note: the second call here-in will begin after the yield and clean-up after the test

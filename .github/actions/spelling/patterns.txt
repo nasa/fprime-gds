@@ -44,3 +44,6 @@ value="(?:[0-9a-f]{1,2} )*"
 
 # Ignore any text between inline back-ticks
 `(.*?)`
+
+# Python struct packing patterns
+["\']([<>])[xcbB?hHiIlLqQnNefdspP]+["\']

@@ -50,13 +50,11 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
     both. This data is concatenated and returned up the stack for processing.
     """
 
-    # Interval to send a KEEPALIVE packet. None will turn off KEEPALIVE.
-    KEEPALIVE_INTERVAL = 0.500
     # Data to send out as part of the KEEPALIVE packet. Should not be null nor empty.
     KEEPALIVE_DATA = b"sitting well"
     MAXIMUM_DATA_SIZE = 4096
 
-    def __init__(self, address, port, server=True):
+    def __init__(self, address, port, server=True, keepalive_interval=0.5):
         """
         Initialize this adapter by creating a handler for UDP and TCP. A thread for the KEEPALIVE application packets
         will be created, if the interval is not none. Handlers are servers unless server=False.
@@ -64,7 +62,8 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         self.address = address
         self.port = port
         self.stop = False
-        self.keepalive = None
+        self.keepalive_thread = None
+        self.keepalive_interval = keepalive_interval
         self.tcp = TcpHandler(address, port, server=server)
         self.udp = UdpHandler(address, port, server=server)
         self.thtcp = None
@@ -91,11 +90,11 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
             self.thudp.daemon = True
             self.thudp.start()
             # Start up a keep-alive ping if desired. This will hit the TCP uplink, and die if the connection is down
-            if IpAdapter.KEEPALIVE_INTERVAL is not None:
-                self.keepalive = threading.Thread(
-                    target=self.th_alive, name="KeepCommAliveThread", args=[float(self.KEEPALIVE_INTERVAL)]
+            if self.keepalive_interval > 0.0:
+                self.keepalive_thread = threading.Thread(
+                    target=self.th_alive, name="KeepCommAliveThread", args=[self.keepalive_interval]
                 )
-                self.keepalive.start()
+                self.keepalive_thread.start()
         except (ValueError, TypeError) as exc:
             LOGGER.error(
                 f"Failed to start keep-alive thread. {type(exc).__name__}: {str(exc)}"
@@ -186,6 +185,12 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 "default": True,
                 "help": "Run the IP adapter as the client (connects to FSW running TcpServer)",
             },
+            ("--keepalive-interval",): {
+                "dest": "keepalive_interval",
+                "type": float,
+                "default": 0.5000,
+                "help": "Keep alive packet interval. 0.0 = off, default = 0.5",
+            },
         }
 
     @classmethod
@@ -195,7 +200,7 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         return cls
 
     @classmethod
-    def check_arguments(cls, address, port, server=True):
+    def check_arguments(cls, address, port, server=True, keepalive_interval=0.5):
         """
         Code that should check arguments of this adapter. If there is a problem with this code, then a "ValueError"
         should be raised describing the problem with these arguments.

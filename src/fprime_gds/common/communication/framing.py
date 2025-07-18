@@ -11,6 +11,8 @@ that implement this pattern. The current list of implementation classes are:
 
 @author lestarch
 """
+
+from __future__ import annotations
 import abc
 import copy
 import struct
@@ -18,7 +20,10 @@ import sys
 from typing import Type
 
 from .checksum import calculate_checksum, CHECKSUM_MAPPING
-from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin_specification
+from fprime_gds.plugin.definitions import (
+    gds_plugin_implementation,
+    gds_plugin_specification,
+)
 
 
 class FramerDeframer(abc.ABC):
@@ -28,7 +33,7 @@ class FramerDeframer(abc.ABC):
     """
 
     @abc.abstractmethod
-    def frame(self, data):
+    def frame(self, data: bytes) -> bytes:
         """
         Frames outgoing data in the specified format. Expects incoming raw bytes to frame, and adds on the needed header
         and footer bytes. This new array of bytes is returned from the method.
@@ -38,20 +43,27 @@ class FramerDeframer(abc.ABC):
         """
 
     @abc.abstractmethod
-    def deframe(self, data, no_copy=False):
+    def deframe(
+        self, data: bytes, no_copy=False
+    ) -> tuple[(bytes | None), bytes, bytes]:
         """
-        Deframes the incoming data from the specified format. Produces exactly one packet, and leftover bytes. Users
-        wanting all packets to be deframed should call "deframe_all". If no full packet is available, this method
+        Deframes the incoming data from the specified format. 
+        Produces:
+        - One packet, or None if no packet found
+        - leftover bytes (not consumed yet)
+        - Discarded data (consumed and determined not to be valid)
+
+        Users wanting all packets to be deframed should call "deframe_all". If no full packet is available, this method
         returns None. Expects incoming raw bytes to deframe, and returns a deframed packet or None, the leftover
         bytes that were unused, and any bytes discarded from the existing data stream. Will search and discard data up
         until a start token is found. Note: data will be consumed up to the first start token found.
 
         :param data: framed data bytes
         :param no_copy: (optional) will prevent extra copy if True, but "data" input will be destroyed.
-        :return: (packet as array of bytes or None, leftover bytes, any discarded data)
+        :return: (packet as bytes or None, leftover bytes, any discarded data)
         """
 
-    def deframe_all(self, data, no_copy):
+    def deframe_all(self, data: bytes, no_copy: bool):
         """
         Deframes all available packets found in a single set of bytes by calling deframe until a None packet is
         retrieved. This list of packets, and the remaining bytes are returned
@@ -66,11 +78,11 @@ class FramerDeframer(abc.ABC):
         discarded_aggregate = b""
         while True:
             # Deframe and return only on None
-            (packet, data, discarded) = self.deframe(data, no_copy=True)
+            (deframed, data, discarded) = self.deframe(data, no_copy=True)
             discarded_aggregate += discarded
-            if packet is None:
+            if deframed is None: # No more packets available, return aggregate
                 return packets, data, discarded_aggregate
-            packets.append(packet)
+            packets.append(deframed)
 
     @classmethod
     @gds_plugin_specification
@@ -117,7 +129,7 @@ class FpFramerDeframer(FramerDeframer):
     HEADER_FORMAT = None
     START_TOKEN = None
 
-    def __init__(self, checksum_type):
+    def __init__(self, checksum_type="crc32"):
         """Sets constants on construction."""
         # Setup the constants as soon as possible.
         FpFramerDeframer.set_constants()
@@ -197,13 +209,12 @@ class FpFramerDeframer(FramerDeframer):
                 )
                 # If the checksum is valid, return the packet. Otherwise continue to rotate
                 if check == calculate_checksum(
-                    data[: data_size + FpFramerDeframer.HEADER_SIZE],
-                    self.checksum
+                    data[: data_size + FpFramerDeframer.HEADER_SIZE], self.checksum
                 ):
                     data = data[total_size:]
                     return deframed, data, discarded
                 print(
-                    "[WARNING] Checksum validation failed. Have you correctly set '--comm-checksum-type'",
+                    "[WARNING] Checksum validation failed.",
                     file=sys.stderr,
                 )
                 # Bad checksum, rotate 1 and keep looking for non-garbage
@@ -216,29 +227,13 @@ class FpFramerDeframer(FramerDeframer):
 
     @classmethod
     def get_name(cls):
-        """ Get the name of this plugin """
+        """Get the name of this plugin"""
         return "fprime"
-
-    @classmethod
-    def get_arguments(cls):
-        """ Get arguments for the framer/deframer """
-        return {("--comm-checksum-type",): {
-            "dest": "checksum_type",
-            "action": "store",
-            "type": str,
-            "help": "Setup the checksum algorithm. [default: %(default)s]",
-            "choices": [
-                item
-                for item in CHECKSUM_MAPPING.keys()
-                if item != "default"
-            ],
-            "default": "crc32",
-        }}
 
     @classmethod
     @gds_plugin_implementation
     def register_framing_plugin(cls):
-        """ Register a bad plugin """
+        """Register a bad plugin"""
         return cls
 
 
