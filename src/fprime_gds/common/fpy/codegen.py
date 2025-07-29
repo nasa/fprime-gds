@@ -1055,6 +1055,22 @@ class CheckAndResolveArgumentTypes(Visitor):
         state.expr_types[node.item] = NothingType
 
 
+class AllocateVariables(Visitor):
+    def visit_AstAssign(self, node: AstAssign, state: CompileState):
+        existing_var = state.resolved_references[node.variable]
+
+        assert existing_var is not None
+        assert existing_var.type is not None
+
+        value_size = existing_var.type.getMaxSize()
+
+        if existing_var.lvar_offset is None:
+            # doesn't have an lvar idx, allocate one
+            lvar_offset = state.lvar_array_size_bytes
+            state.lvar_array_size_bytes += value_size
+            existing_var.lvar_offset = lvar_offset
+
+
 class CalculateConstExprValues(Visitor):
     """for each expr, try to calculate its constant value and store it in a map. stores None if no value could be
     calculated at compile time, and NothingType if the expr had no value"""
@@ -1161,52 +1177,6 @@ class CalculateConstExprValues(Visitor):
         assert not isinstance(node, AstExpr), node
 
 
-class GenerateVariableDirectives(Visitor):
-    """for each variable assignment or declaration, check the rhs was known
-    at compile time, and generate a directive"""
-
-    def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        existing_var = state.resolved_references[node.variable]
-        # should already have been put in var table
-        assert existing_var is not None
-
-        # we should have type info about the variable
-        assert existing_var.type is not None
-
-        value_type = state.expr_types[node.value]
-        value = state.expr_values[node.value]
-
-        # already type checked
-        assert value_type == type(value), (value_type, type(value))
-
-        if value is None:
-            # expr value is unknown at this point in compile
-            state.err(
-                f"Cannot assign {node.variable.var}: {existing_var.type} to {node.value}, as its value was not known at compile time",
-                node.value,
-            )
-            return
-
-        val_bytes = value.serialize()
-        assert len(val_bytes) == value.getMaxSize(), (
-            len(val_bytes),
-            value.getMaxSize(),
-            value,
-        )
-
-        lvar_offset = existing_var.lvar_offset
-        if lvar_offset is None:
-            # doesn't have an lvar idx, allocate one
-            lvar_offset = state.lvar_array_size_bytes
-            state.lvar_array_size_bytes += len(val_bytes)
-            existing_var.lvar_offset = lvar_offset
-
-        # then push the number to the stack, and then store that in an lvar
-        state.directives[node] = [
-            PushValDirective(val_bytes),
-            StoreDirective(lvar_offset, len(val_bytes)),
-        ]
-
 
 class GenerateConstExprDirectives(Visitor):
     """for each expr with a constant compile time value, generate
@@ -1220,18 +1190,9 @@ class GenerateConstExprDirectives(Visitor):
             return
 
         if expr_type == NothingType:
-            # impossible. nothing type has no value
-            state.directives[node] = None
+            # nothing type has no value
+            state.directives[node] = []
             return
-
-        if expr_type.getMaxSize() > WORD_SIZE:
-            # bigger than 8 bytes
-            # impossible. can't fit in a operand stack word
-            state.directives[node] = None
-            return
-
-        # okay, it is not nothing and it is smaller than 8 bytes.
-        # should be able to put it on stack
 
         expr_value = state.expr_values[node]
 
@@ -1241,7 +1202,6 @@ class GenerateConstExprDirectives(Visitor):
 
         # it has a constant value at compile time
         serialized_expr_value = expr_value.serialize()
-        assert len(serialized_expr_value) <= WORD_SIZE, len(serialized_expr_value)
 
         # push it to the stack
         state.directives[node] = [PushValDirective(serialized_expr_value)]
@@ -1590,7 +1550,10 @@ class GenerateExprMacrosAndCmds(Visitor):
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         node_args = node.args if node.args is not None else []
         func = state.resolved_references[node.func]
-        dirs = []
+        dirs = state.directives.get(node, [])
+        if len(dirs) > 0:
+            # already know how to put this on the stack
+            return
         if isinstance(func, FpyCmd):
             const_args = not any(
                 state.expr_values[arg_node] is None for arg_node in node_args
@@ -1632,6 +1595,10 @@ class GenerateExprMacrosAndCmds(Visitor):
             dirs = None
 
         state.directives[node] = dirs
+
+    def visit_AstAssign(self, node: AstAssign, state: CompileState):
+        var = state.resolved_references[node.variable]
+        state.directives[node] = state.directives[node.value] + [StoreDirective(var.lvar_offset, var.type.getMaxSize())]
 
 
 class CountNodeDirectives(Visitor):
@@ -1904,11 +1871,11 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         # now that we know the type of each expr, we can type check all function calls
         # and also narrow down ambiguous argument types
         CheckAndResolveArgumentTypes(),
+        # now that expr types have been narrowed down, we can allocate lvar space for variables
+        AllocateVariables(),
         # okay, now that we're sure we're passing in all the right args to each func,
         # we can calculate values of type ctors etc etc
         CalculateConstExprValues(),
-        # now that we know variable values, we can generate directives for vars
-        GenerateVariableDirectives(),
         # for expressions which have constant values, generate corresponding directives
         # to put the expr on the stack
         GenerateConstExprDirectives(),
