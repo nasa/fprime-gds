@@ -194,6 +194,7 @@ class QualifiedType(BaseModel):
 class StructMember(BaseModel):
     type: Union[IntegerType, FloatType, BoolType, StringType, QualifiedType]
     size: int = 1
+    index: int
 
 class StructType(BaseModel):
     kind: str
@@ -209,7 +210,7 @@ class StructType(BaseModel):
 class AliasType(BaseModel):
     kind: str
     qualifiedName: str
-    type: Union[AliasType, StructType, ArrayType, IntegerType, FloatType, QualifiedType, StringType]
+    type: Union[AliasType, StructType, ArrayType, IntegerType, BoolType, FloatType, StringType, QualifiedType]
     underlyingType: Union[StructType, ArrayType, IntegerType, BoolType, FloatType, StringType, QualifiedType]
 
     @field_validator('kind')
@@ -222,7 +223,7 @@ class ArrayType(BaseModel):
     kind: str
     qualifiedName: str
     size: int
-    elementType: Union[AliasType, StructType, ArrayType, IntegerType, FloatType, QualifiedType, StringType]
+    elementType: Union[AliasType, StructType, ArrayType, IntegerType, BoolType, FloatType, StringType, QualifiedType]
 
     @field_validator('kind')
     def kind_qualifiedIdentifier(cls, v):
@@ -297,29 +298,33 @@ class DPHeader(BaseModel):
     @computed_field
     @property
     def header(self) -> Dict[str, Union[Type, ArrayType, EnumType]]:
-        # All types/constants that make up the DP header
-        header_dict = {
-            "FwPacketDescriptorType": None,
-            "FwDpIdType": None,
-            "FwDpPriorityType" : None,
-            "Seconds": None,
-            "USeconds": None,
-            "FwTimeBaseStoreType": None,
-            "FwTimeContextStoreType": None,
-            "Fw.DpCfg.ProcType": None,
-            "Fw.DpCfg.CONTAINER_USER_DATA_SIZE": None,
-            "Fw.DpState": None,
-            "FwSizeStoreType": None
+        # Mapping from type/constant names to header field names
+        header_field_names = {
+            "FwPacketDescriptorType": "PacketDescriptor",
+            "FwDpIdType": "Id",
+            "FwDpPriorityType" : "Priority",
+            "Seconds": "Seconds",
+            "USeconds": "USeconds",
+            "FwTimeBaseStoreType": "TimeBase",
+            "FwTimeContextStoreType": "Context",
+            "Fw.DpCfg.ProcType": "ProcTypes",
+            "Fw.DpCfg.CONTAINER_USER_DATA_SIZE": "UserData",
+            "Fw.DpState": "DpState",
+            "FwSizeStoreType": "DataSize"
         }
-        for k in header_dict.keys():
+        # All types/constants that make up the DP header
+        # Key: Values of above header_field_names
+        # Values: Initialized to None, populated below based on type names/constants in the JSON dictionary
+        header_dict = {v: None for v in header_field_names.values()}
+        for k, v in header_field_names.items():
             # Seconds and USeconds are not in the dictionary, but are both always U32
             if k == "Seconds" or k == "USeconds":
-                header_dict[k] = Type(type=IntegerType(name="U32", kind="integer", size=32, signed=False))
+                header_dict[v] = Type(type=IntegerType(name="U32", kind="integer", size=32, signed=False))
             # According to Fw.Dp SDD, Header::UserData is an array of U8 of size Fw::DpCfg::CONTAINER_USER_DATA_SIZE.
             elif k == "Fw.DpCfg.CONTAINER_USER_DATA_SIZE":
                 for t in self.constants:
                     if t.qualifiedName == k:
-                        header_dict[k] = ArrayType(
+                        header_dict[v] = ArrayType(
                             kind="array", 
                             qualifiedName="UserData",
                             size=t.value,
@@ -329,7 +334,7 @@ class DPHeader(BaseModel):
             else:
                 for t in self.typeDefinitions:
                     if t.qualifiedName == k:
-                        header_dict[k] = t
+                        header_dict[v] = t
                         break
 
         return header_dict
@@ -337,12 +342,15 @@ class DPHeader(BaseModel):
     @computed_field
     @property
     def dataId(self) -> AliasType:
-        return self.header.get("FwDpIdType")
+        return self.header.get("Id")
     
     @computed_field
     @property
     def dataSize(self) -> AliasType:
-        return self.header.get("FwSizeStoreType")
+        return self.header.get("DataSize")
+
+    def get_size_store_bytes(self) -> int:
+        return self.header.get("DataSize").underlyingType.size // 8
 
     @model_validator(mode='after')
     def validate_header(self) -> 'DPHeader':
@@ -371,7 +379,8 @@ type_mapping = {
     'U64': 'Q', # Unsigned 64-bit integer
     'F32': 'f',  # 32-bit float
     'F64': 'd',  # 64-bit float
-    'bool': '?' # An 8 bit boolean
+    'bool': '?', # An 8 bit boolean
+    'string': 's'
     # Add more mappings as needed
 }
 
@@ -485,6 +494,7 @@ class DataProductWriter:
         self.binaryFileName = binaryFileName
         self.totalBytesRead = 0
         self.calculatedCRC = 0
+        self.headerJSON = None
 
 
     # ----------------------------------------------------------------------------------------------
@@ -520,8 +530,29 @@ class DataProductWriter:
         except KeyError:
             raise KeyError(f"Unrecognized JSON Dictionary Type: {intType}")
         data = struct.unpack(format_str, bytes_read)[0]
+        return data
 
+    def read_and_deserialize_string(self) -> str:
+        size_store_type_bytes = self.headerJSON.get_size_store_bytes()
+        bytes_read_store = self.binaryFile.read(size_store_type_bytes)
+        if len(bytes_read_store) != size_store_type_bytes:
+            raise IOError(f"Tried to read {size_store_type_bytes} bytes from the binary file, but failed.")
 
+        self.totalBytesRead += size_store_type_bytes
+        
+        format_str = f'{BIG_ENDIAN}H'
+        string_size_data = struct.unpack(format_str, bytes_read_store)[0]
+
+        bytes_read = self.binaryFile.read(string_size_data)
+        if len(bytes_read) != string_size_data:
+            raise IOError(f"Tried to read {string_size_data} bytes from the binary file, but failed.")
+
+        self.calculatedCRC = crc32(bytes_read_store + bytes_read, self.calculatedCRC) & 0xffffffff
+        self.totalBytesRead += string_size_data
+
+        format_str = f'{BIG_ENDIAN}{string_size_data}s'
+        data = struct.unpack(format_str, bytes_read)[0]
+        data = data.decode()
         return data
 
     # -----------------------------------------------------------------------------------------------------------------------
@@ -568,7 +599,7 @@ class DataProductWriter:
     #   AssertionError: If the field_config is not an IntegerType, FloatType, or BoolType.
     # -----------------------------------------------------------------------------------------------------------------------
 
-    def read_field(self, field_config: Union[IntegerType, FloatType, BoolType]) -> Union[int, float, bool]:
+    def read_field(self, field_config: Union[IntegerType, FloatType, BoolType, StringType]) -> Union[int, float, bool]:
 
         if type(field_config) is IntegerType:
             sizeBytes = field_config.size // 8
@@ -578,6 +609,9 @@ class DataProductWriter:
 
         elif type(field_config) is BoolType:
             sizeBytes = field_config.size // 8
+
+        elif type(field_config) is StringType:
+            return self.read_and_deserialize_string()
 
         else:
             assert False, "Unsupported typeKind encountered"
@@ -626,6 +660,8 @@ class DataProductWriter:
         elif isinstance(typeKind, BoolType):
             parent_dict[field_name] = self.read_field(typeKind)
 
+        elif isinstance(typeKind, StringType):
+            parent_dict[field_name] = self.read_field(typeKind)
 
         elif isinstance(typeKind, EnumType):
             value = self.read_field(typeKind.representationType)
@@ -646,7 +682,8 @@ class DataProductWriter:
 
         elif isinstance(typeKind, StructType):
             array_list = []
-            for key, member in typeKind.members.items():
+            sorted_members = dict(sorted(typeKind.members.items(), key=lambda member: member[1].index))
+            for key, member in sorted_members.items():
                 for i in range(member.size):
                     element_dict = {}
                     self.get_struct_item(key, member.type, typeList, element_dict)
@@ -830,7 +867,7 @@ class DataProductWriter:
                         header_json["typeDefinitions"] = dict_json["typeDefinitions"]
                     if "constants" in dict_json:
                         header_json["constants"] = dict_json["constants"]
-                    headerJSON = DPHeader(**header_json)
+                    self.headerJSON = DPHeader(**header_json)
             
             except json.JSONDecodeError as e:
                 raise DictionaryError(self.jsonDict, e.lineno)
@@ -840,10 +877,10 @@ class DataProductWriter:
             with open(self.binaryFileName, 'rb') as self.binaryFile:
 
                 # Read the header data up until the Records
-                headerData = self.get_header_info(headerJSON)
+                headerData = self.get_header_info(self.headerJSON)
 
                 # Read the total data size
-                dataSize = headerData['FwSizeStoreType']
+                dataSize = headerData['DataSize']
 
                 # Restart the count of bytes read
                 self.totalBytesRead = 0
@@ -851,13 +888,12 @@ class DataProductWriter:
                 recordList = [headerData]
 
                 while self.totalBytesRead < dataSize:
-
-                    recordData = self.get_record_data(headerJSON, dictJSON)
+                    recordData = self.get_record_data(self.headerJSON, dictJSON)
                     recordList.append(recordData)
 
                 computedCRC = self.calculatedCRC
                 # Read the data checksum
-                headerData['dataHash'] = self.read_field(headerJSON.dataHash.type)
+                headerData['dataHash'] = self.read_field(self.headerJSON.dataHash.type)
 
                 if computedCRC != headerData['dataHash']:
                     raise CRCError("Data", headerData['dataHash'], computedCRC)
