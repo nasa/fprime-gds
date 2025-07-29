@@ -829,12 +829,12 @@ class LogDeployParser(ParserBase):
                 "default": False,
                 "help": "Log to standard out along with log output files",
             },
-            ("--log-level",): {
+            ("--log-level-gds",): {
                 "action": "store",
-                "dest": "log_level",
-                "choices": ["ALL", "DEBUG", "INFO", "WARNING", "ERROR"],
+                "dest": "log_level_gds",
+                "choices": ["DEBUG", "INFO", "WARNING", "ERROR"],
                 "default": "INFO",
-                "help": "Set the logging level [default: %(default)s]",
+                "help": "Set the logging level of GDS processes [default: %(default)s]",
             },
         }
 
@@ -863,7 +863,7 @@ class LogDeployParser(ParserBase):
                 raise
         # Setup the basic python logging
         fprime_gds.common.logger.configure_py_log(
-            args.logs, mirror_to_stdout=args.log_to_stdout, log_level=args.log_level
+            args.logs, mirror_to_stdout=args.log_to_stdout, log_level=args.log_level_gds
         )
         return args
 
