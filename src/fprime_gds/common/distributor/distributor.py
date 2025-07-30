@@ -203,6 +203,8 @@ class Distributor(DataHandler):
                 try:
                     d.data_callback(msg)
                 except DecodingException as dexc:
-                    LOGGER.warning("Decoding error occurred: %s. Skipping.", dexc)
+                    LOGGER.warning("Decoding error: %s", dexc)
+                except Exception as exc:
+                    LOGGER.warning("Parsing error: %s", exc)
             else:
                 LOGGER.warning("No decoder registered for: %s", data_desc_type.DataDescType(data_desc).name)

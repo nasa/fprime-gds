@@ -13,7 +13,7 @@ import sys
 INITIALIZED = False
 
 
-def configure_py_log(directory=None, filename=sys.argv[0], mirror_to_stdout=False):
+def configure_py_log(directory=None, filename=sys.argv[0], mirror_to_stdout=False, log_level="INFO"):
     """
     Configure the python logging. If logdir is supplied, our logs will go in that directory as a log file. Otherwise,
     logs will go to the CLI.
@@ -40,6 +40,6 @@ def configure_py_log(directory=None, filename=sys.argv[0], mirror_to_stdout=Fals
     for handler in handlers:
         handler.setFormatter(formatter)
         logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().setLevel(log_level)
     logging.info("Logging system initialized!")
     INITIALIZED = True
