@@ -314,7 +314,7 @@ def test_get_const_member_of_ctor(fprime_test_api):
     seq = """
 # currently this is not supported, but it should be in the future
 var: U32 = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED).priority
-if priority == 3:
+if var == 3:
     exit(True)
 exit(False)
 """

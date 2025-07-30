@@ -34,7 +34,6 @@ FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
 class Footer:
     crc: int
 
-
 def serialize_directives(dirs: list[Directive], output: Path):
     output_bytes = bytes()
 
@@ -48,6 +47,22 @@ def serialize_directives(dirs: list[Directive], output: Path):
     footer = Footer(crc)
     output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
     output.write_bytes(output_bytes)
+
+def deserialize_directives(bytes: bytes) -> list[Directive]:
+    header = Header(*struct.unpack_from(HEADER_FORMAT, bytes))
+
+    dirs = []
+    idx = 0
+    offset = HEADER_SIZE
+    while idx < header.statementCount:
+        offset_and_dir = Directive.deserialize(bytes, offset)
+        if offset_and_dir is None:
+            raise RuntimeError("Unable to deserialize sequence")
+        offset, dir = offset_and_dir
+        dirs.append(dir)
+        idx += 1
+
+    return dirs
 
 
 def assemble(body: AstBody):

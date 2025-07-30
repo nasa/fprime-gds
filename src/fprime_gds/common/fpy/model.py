@@ -21,6 +21,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerTruncateDirective,
     LogDirective,
     PopDiscardDirective,
+    PrintDirective,
     SignedIntegerExtendDirective,
     StackCmdDirective,
     StorePrmDirective,
@@ -60,6 +61,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     WaitRelDirective,
     IntegerZeroExtendDirective,
 )
+debug = False
 
 WORD_SIZE = 8
 # store return addr and prev stack frame offset in stack frame header
@@ -138,34 +140,39 @@ class FpySequencerModel:
             return DirectiveErrorCode.NO_ERROR
         return ret
 
-    def run(self, dirs: list[Directive], tlm: dict[int, bytearray]):
+    def run(self, dirs: list[Directive], tlm: dict[int, bytearray]=None):
+        if tlm is None:
+            tlm = {}
         self.reset()
         self.dirs = dirs
         self.tlm_db = tlm
-        # begin the sequence at dir 0
-        print("stack", len(self.stack))
-        for byte in range(0, len(self.stack)):
-
-            print(
-                type(self.stack[byte]),
-                end=" ",
-            )
-        print()
-        while self.next_dir_idx < len(self.dirs):
-            next_dir = self.dirs[self.next_dir_idx]
-            print(f"{self.next_dir_idx}:", next_dir)
-            self.next_dir_idx += 1
-            result = self.dispatch(next_dir)
-            if result != DirectiveErrorCode.NO_ERROR:
-                return result
+        if debug:
+            # begin the sequence at dir 0
             print("stack", len(self.stack))
             for byte in range(0, len(self.stack)):
 
                 print(
-                    self.stack[byte],
+                    type(self.stack[byte]),
                     end=" ",
                 )
             print()
+        while self.next_dir_idx < len(self.dirs):
+            next_dir = self.dirs[self.next_dir_idx]
+            if debug:
+                print(f"{self.next_dir_idx}:", next_dir)
+            self.next_dir_idx += 1
+            result = self.dispatch(next_dir)
+            if result != DirectiveErrorCode.NO_ERROR:
+                return result
+            if debug:
+                print("stack", len(self.stack))
+                for byte in range(0, len(self.stack)):
+
+                    print(
+                        self.stack[byte],
+                        end=" ",
+                    )
+                print()
         return DirectiveErrorCode.NO_ERROR
 
     def get_int_fmt_str(self, size: int, signed: bool) -> str:
@@ -197,6 +204,9 @@ class FpySequencerModel:
             self.push(struct.pack(">d", val))
         else:
             assert isinstance(val, int), val
+            # truncate the integer so that struct can pack it without crashing
+            val = val & ((1 << (size * 8)) - 1)
+            print(val, size)
             fmt_str = self.get_int_fmt_str(size, signed)
             serialized_val = struct.pack(fmt_str, val)
             self.stack += serialized_val
@@ -215,7 +225,6 @@ class FpySequencerModel:
             assert size == 4, size
             return struct.unpack(">f", value)[0]
         elif type == bytes or type == bytearray:
-            assert size == 8, size
             # compiler knows best. always let them have the last word ;)
             return value
         elif type == bool:
@@ -300,7 +309,7 @@ class FpySequencerModel:
         cmd = self.stack[-dir.size :]
         self.stack = self.stack[: -dir.size]
 
-        print("cmd opcode", cmd[:4], "args", cmd[4:])
+        print("cmd opcode", int.from_bytes(cmd[:4], signed=False,byteorder="big"), "args", cmd[4:])
 
     def handle_goto(self, dir: GotoDirective):
         if dir.dir_idx > len(self.dirs):
@@ -313,7 +322,6 @@ class FpySequencerModel:
         if len(self.stack) < 1:
             return DirectiveErrorCode.STACK_UNDERFLOW
         conditional = self.pop(type=bool, size=1)
-        print("conditional", conditional)
         if not conditional:
             self.next_dir_idx = dir.false_goto_dir_index
 
@@ -409,7 +417,6 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop()
         lhs = self.pop()
-        print(lhs, "<", rhs, lhs < rhs)
         self.push(lhs < rhs)
 
     def handle_sle(self, dir: SignedLessThanOrEqualDirective):
@@ -551,7 +558,6 @@ class FpySequencerModel:
         if len(self.stack) < WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         val = self.pop()
-        print(val, "to", float(val))
         self.push(float(val))
 
     def handle_uitofp(self, dir: UnsignedIntToFloatDirective):
@@ -591,14 +597,12 @@ class FpySequencerModel:
         # credit to gemini
         if rhs == 0:
             # C++ behavior for division by zero is undefined.
-            print(lhs, rhs, "fail")
             return DirectiveErrorCode.DIVIDE_BY_ZERO
 
         # Special overflow case: MIN_INT64 / -1
         # This results in MAX_INT64 + 1, which overflows to MIN_INT64 in C++.
         if lhs == MIN_INT64 and rhs == -1:
             self.push(MIN_INT64) # C++ specific overflow behavior
-            print(lhs, rhs, MIN_INT64)
             return
 
         # Perform division, truncating towards zero
@@ -608,7 +612,6 @@ class FpySequencerModel:
         # For division, overflow detection isn't typically done with the mask on the result
         # because the quotient itself is within range, except for the MIN_INT64 / -1 case.
         # The result of division will usually fit within int64_t's range if the divisor isn't 0.
-        print(lhs, rhs, python_quotient)
         self.push(python_quotient)
 
     def handle_fadd(self, dir: FloatAddDirective):
@@ -666,32 +669,19 @@ class FpySequencerModel:
         lhs = self.pop(type=float)
         self.push(lhs // rhs)
 
+    def handle_print(self, dir: PrintDirective):
+        if len(self.stack) < 2:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        str_len = self.pop(size=2, signed=False)
+        if len(self.stack) < str_len:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        str_bytes = self.pop(size=str_len, type=bytes)
+        print(str_bytes.decode())
+        
+
     def handle_exit(self, dir: ExitDirective):
         success = self.pop(type=bool, size=1)
         if success:
             self.next_dir_idx = len(self.dirs)
         else:
             return DirectiveErrorCode.DELIBERATE_FAILURE
-
-
-def main():
-    model = FpySequencerModel()
-
-    seq = [
-        PushValDirective(123123),
-        PushValDirective(1),
-        IntAddDirective(),
-        PushValDirective(123124),
-        IntEqualDirective(),
-        IfDirective(7),
-        ExitDirective(True),
-        ExitDirective(False),
-    ]
-
-    ret = model.run(seq)
-    if ret != DirectiveErrorCode.NO_ERROR:
-        print("seq failed", ret)
-
-
-if __name__ == "__main__":
-    main()

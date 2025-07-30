@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC
 import inspect
 from dataclasses import dataclass, field, fields
+import struct
 import traceback
 import typing
 
@@ -24,6 +25,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntSubtractDirective,
     IntegerTruncateDirective,
     LogDirective,
+    PrintDirective,
     SignedIntegerExtendDirective,
     StackCmdDirective,
     StorePrmDirective,
@@ -199,12 +201,38 @@ class FpyMacro(FpyCallable):
     dir: type[Directive]
     """a function which instantiates the macro given the argument exprs"""
 
+class PrintStrType(StringType.construct_type("print_str_type", 128)):
+    def serialize(self):
+        if self.val is None:
+            raise RuntimeError(type(self))
+        if self.MAX_LENGTH is not None and len(self.val) > self.MAX_LENGTH:
+            raise RuntimeError(len(self.val), self.MAX_LENGTH)
+        return self.val.encode() + struct.pack(">H", len(self.val))
+
+    def deserialize(self, data, offset):
+        """
+        Deserializes a string from the given data buffer.
+        """
+        try:
+            val_size = struct.unpack_from(">H", data, len(data - 2))[0]
+            # Deal with not enough data left in the buffer
+            if len(data[offset + 2 :]) < val_size:
+                msg = f"Not enough data to deserialize string data. Needed: {val_size} Left: {len(data[offset + 2:])}"
+                raise RuntimeError(msg)
+            # Deal with a string that is larger than max string
+            if self.MAX_LENGTH is not None and val_size > self.MAX_LENGTH:
+                raise RuntimeError(val_size, self.MAX_LENGTH)
+            self.val = data[offset  : offset + val_size].decode()
+        except struct.error:
+            raise RuntimeError("Not enough bytes to deserialize string length.")
+
 
 MACROS: dict[str, FpyMacro] = {
     "sleep": FpyMacro(NothingType, [("seconds", F64Type)], WaitRelDirective),
     "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
     "exit": FpyMacro(NothingType, [("success", BoolType)], ExitDirective),
     "log": FpyMacro(F64Type, [("operand", F64Type)], LogDirective),
+    "print": FpyMacro(NothingType, [("msg", PrintStrType)], PrintDirective)
 }
 
 

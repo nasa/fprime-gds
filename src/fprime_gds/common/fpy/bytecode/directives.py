@@ -90,7 +90,7 @@ class DirectiveOpcode(Enum):
     FPTOUI = 39
     SITOFP = 40
     UITOFP = 41
-    LOG = 54
+    LOG = 55
     # end unary stack op dirs
 
     LOAD = 42
@@ -103,6 +103,7 @@ class DirectiveOpcode(Enum):
     STACK_CMD = 47
 
     ALLOCATE_STACK = 48
+    PRINT = 56
 
 
 class Directive:
@@ -154,12 +155,86 @@ class Directive:
 
         return output
 
+    def __repr__(self):
+        r = self.__class__.__old_repr__(self)
+        name = self.__class__.__name__.replace("Directive", "").upper()
+        value = "".join(r.split("(")[1:])
+        return name + "(" + value
+
+    @classmethod
+    def deserialize(cls, data: bytes, offset: int) -> tuple[int, "Directive"] | None:
+        if len(data) - offset < 3:
+            # insufficient space
+            return None
+        opcode = struct.unpack_from(">B", data, offset)[0]
+        arg_size = struct.unpack_from(">H", data, offset + 1)[0]
+        offset += 3
+        if len(data) - offset < arg_size:
+            # insufficient space
+            return None
+        args = data[offset :(offset + arg_size)]
+        offset += arg_size
+        dir_type = [c for c in Directive.__subclasses__() if c.opcode.value == opcode]
+        if len(dir_type) != 1:
+            return None
+
+
+        arg_offset = 0
+        dir_type = dir_type[0]
+        arg_values = []
+
+        for field in fields(dir_type):
+            field_type = field.type if isinstance(field.type, type) else typing.get_origin(field.type)
+
+            if issubclass(field_type, BaseType):
+                # it is already an fprime type
+                # so we can deserialize it
+                instance = field.type()
+                arg_values.append(instance.deserialize(args, arg_offset).val)
+                arg_offset += instance.getSize()
+                continue
+
+            if issubclass(field_type, bytes):
+                # it is just raw bytes. deserialize until the end
+                arg_values.append(args[arg_offset:])
+                arg_offset = len(args)
+                continue
+
+            # okay, it is not a primitive type or bytes
+            primitive_type = None
+            if field_type == UnionType:
+                # it is a union
+                # find out which primitive type it is
+                for arg in field.type.__args__:
+                    if issubclass(arg, BaseType):
+                        # it is a primitive type
+                        primitive_type = arg
+                        break
+            elif issubclass(field.type, BaseType):
+                primitive_type = field.type
+            if primitive_type is None:
+                raise NotImplementedError(
+                    "Unknown how to deserialize field", field.name, "for", cls
+                )
+            instance = primitive_type()
+            instance.deserialize(args, arg_offset)
+            arg_values.append(instance.val)
+            arg_offset += instance.getSize()
+
+        dir = dir_type(*arg_values)
+        return offset, dir
+
 
 @dataclass
 class StackCmdDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STACK_CMD
 
     size: int | U16Type
+
+
+@dataclass
+class PrintDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PRINT
 
 
 @dataclass
@@ -532,6 +607,10 @@ class UnsignedIntToFloatDirective(Directive):
 class ExitDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.EXIT
 
+
+for cls in Directive.__subclasses__():
+    cls.__old_repr__ = cls.__repr__
+    cls.__repr__ = Directive.__repr__
 
 INT_EQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
     "==": IntEqualDirective,
