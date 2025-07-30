@@ -427,6 +427,9 @@ class CompileState:
             union_scope(self.prms, union_scope(self.consts, self.variables)),
         )
 
+    variable_declarations: dict[AstAssign, FpyVariable] = field(
+        default_factory=dict, repr=False
+    )
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
     )
@@ -577,6 +580,7 @@ class CreateVariables(Visitor):
             # new var. put it in the table under this scope
             state.variables[node.variable.var] = var
             state.runtime_values[node.variable.var] = var
+            state.variable_declarations[node] = var
 
         if existing and node.var_type is not None:
             # redeclaring an existing variable
@@ -708,9 +712,7 @@ class ResolveReferences(Visitor):
         )
         return None
 
-    def resolve_if_ref(
-        self, node: AstExpr, ns: FpyScope, state: CompileState
-    ) -> bool:
+    def resolve_if_ref(self, node: AstExpr, ns: FpyScope, state: CompileState) -> bool:
         """if the node is a reference, try to resolve it in the given scope, and return true if success.
         otherwise, if it is not a reference, return true as it doesn't need to be resolved
         """
@@ -807,8 +809,35 @@ class ResolveReferences(Visitor):
                 return
             var.type = type
 
-        if not self.resolve_if_ref(node.value, state.consts, state):
-            state.err("Unknown const", node.value)
+        if not self.resolve_if_ref(node.value, state.runtime_values, state):
+            state.err("Unknown runtime value", node.value)
+            return
+
+
+class CheckUseBeforeDeclare(TopDownVisitor):
+
+    def __init__(self):
+        self.currently_declared_vars: list[FpyVariable] = []
+        """a list of variables that have been declared"""
+        self.refs_that_are_declarations: list[AstReference] = []
+
+    def visit_AstAssign(self, node: AstAssign, state: CompileState):
+        var = state.variable_declarations.get(node, None)
+        if var is None:
+            return
+
+        self.currently_declared_vars.append(var)
+        self.refs_that_are_declarations.append(node.variable)
+
+    def visit_AstReference(self, node: AstReference, state: CompileState):
+        if node in self.refs_that_are_declarations:
+            return
+        ref = state.resolved_references[node]
+        if not isinstance(ref, FpyVariable):
+            return
+
+        if ref not in self.currently_declared_vars:
+            state.err("Variable used before declared", node)
             return
 
 
@@ -1177,7 +1206,6 @@ class CalculateConstExprValues(Visitor):
         assert not isinstance(node, AstExpr), node
 
 
-
 class GenerateConstExprDirectives(Visitor):
     """for each expr with a constant compile time value, generate
     directives for how to put it in its register"""
@@ -1209,7 +1237,7 @@ class GenerateConstExprDirectives(Visitor):
 
 class GenerateExprMacrosAndCmds(Visitor):
     """for each expr whose value is not known at compile time, but can be calculated at run time,
-    generate directives to calculate the value and put it in its register. for each command 
+    generate directives to calculate the value and put it in its register. for each command
     or macro, generate directives for calling them with appropriate arg values"""
 
     def truncate_from_64_bits(
@@ -1598,7 +1626,9 @@ class GenerateExprMacrosAndCmds(Visitor):
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var = state.resolved_references[node.variable]
-        state.directives[node] = state.directives[node.value] + [StoreDirective(var.lvar_offset, var.type.getMaxSize())]
+        state.directives[node] = state.directives[node.value] + [
+            StoreDirective(var.lvar_offset, var.type.getMaxSize())
+        ]
 
 
 class CountNodeDirectives(Visitor):
@@ -1865,6 +1895,7 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         # now that variables have been defined, all names/attributes/indices (references)
         # should be defined
         ResolveReferences(),
+        CheckUseBeforeDeclare(),
         # now that we know what all refs point to, we should be able to figure out the type
         # of every expression
         CalculateExprTypes(),

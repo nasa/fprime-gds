@@ -48,13 +48,13 @@ var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_var_wrong_rhs(fprime_test_api):
+def test_var_assign_to_var(fprime_test_api):
     seq = """
 x: U32 = 1
 var: U32 = x
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_nonexistent_var(fprime_test_api):
@@ -770,7 +770,6 @@ FpyDemo.sendBuffComp.PARAMETER4_PRM_SET(var)
 def test_non_const_builtin_arg(fprime_test_api):
     seq = """
 var: F64 = 123123123.0
-var = var + 1
 sleep(var)
 """
     assert_run_success(fprime_test_api, seq)
@@ -1043,3 +1042,29 @@ if log(4) > 1.385 and log(4) < 1.387:
 exit(False)
 """
     assert_run_success(fprime_test_api, seq)
+
+
+def test_assign_complex(fprime_test_api):
+    seq = """
+var: I64 = 1 + 1
+var = var + 3
+if var == 5:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_assign_cycle(fprime_test_api):
+    seq = """
+var: I64 = var
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_use_before_declare(fprime_test_api):
+    seq = """
+var: I64 = var2
+var2: I64 = 0
+"""
+    assert_compile_failure(fprime_test_api, seq)
