@@ -204,12 +204,16 @@ class FpySequencerModel:
             self.push(struct.pack(">d", val))
         else:
             assert isinstance(val, int), val
-            # truncate the integer so that struct can pack it without crashing
-            val = val & ((1 << (size * 8)) - 1)
-            print(val, size)
-            fmt_str = self.get_int_fmt_str(size, signed)
-            serialized_val = struct.pack(fmt_str, val)
-            self.stack += serialized_val
+            # first convert the int into bits
+            # have to do some stupid python stuff to deal with negatives
+            if val < 0:
+                # this should give us the right bit repr for two's complement
+                val = val + (1 << (size * 8))
+            
+            bits = bin(val)[2:] # remove "0b"
+            # okay now truncate if necessary
+            bits = bits[-(size * 8):]
+            self.stack += int(bits, 2).to_bytes(size, byteorder="big", signed=False)
 
     def pop(self, type=int, signed=True, size=WORD_SIZE) -> int | float | bytearray:
         """pops one word off the stack and interprets it as an int or float, of
@@ -538,9 +542,11 @@ class FpySequencerModel:
     def handle_itrunc(self, dir: IntegerTruncateDirective):
         if len(self.stack) < dir.from_size:
             return DirectiveErrorCode.STACK_UNDERFLOW
+        assert dir.from_size > dir.to_size
 
-        val = self.pop(type=int, size=dir.from_size)
-        self.push(val, size=dir.to_size)
+        val = self.pop(type=bytes, size=dir.from_size)
+        val = val[-dir.to_size:]
+        self.push(val)
 
     def handle_fptosi(self, dir: FloatToSignedIntDirective):
         if len(self.stack) < WORD_SIZE:
