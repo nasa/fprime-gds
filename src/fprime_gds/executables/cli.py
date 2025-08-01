@@ -209,7 +209,9 @@ class ParserBase(ABC):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
-        return cls._parse_args(parser_classes, description, arguments, use_parse_known=True, **kwargs)
+        return cls._parse_args(
+            parser_classes, description, arguments, use_parse_known=True, **kwargs
+        )
 
     @classmethod
     def parse_args(
@@ -233,7 +235,6 @@ class ParserBase(ABC):
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
         return cls._parse_args(parser_classes, description, arguments, **kwargs)
-
 
     @staticmethod
     def _parse_args(
@@ -297,16 +298,17 @@ class ParserBase(ABC):
 
 
 class ConfigDrivenParser(ParserBase):
-    """ Parser that allows options from configuration and command line
+    """Parser that allows options from configuration and command line
 
     This parser reads a configuration file (if supplied) and uses the values to drive the inputs to arguments. Command
     line arguments will still take precedence over the configured values.
     """
+
     DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
 
     @classmethod
     def set_default_configuration(cls, path: Path):
-        """ Set path for (global) default configuration file
+        """Set path for (global) default configuration file
 
         Set the path for default configuration file. If unset, will use 'fprime-gds.yml'. Set to None to disable default
         configuration.
@@ -321,7 +323,7 @@ class ConfigDrivenParser(ParserBase):
         arguments=None,
         **kwargs,
     ):
-        """ Parse and post-process arguments using inputs and config
+        """Parse and post-process arguments using inputs and config
 
         Parse the arguments in two stages: first parse the configuration data, ignoring unknown inputs, then parse the
         full argument set with the supplied configuration to fill in additional options.
@@ -343,23 +345,29 @@ class ConfigDrivenParser(ParserBase):
 
         # Custom flow involving parsing the arguments of this parser first, then passing the configured values
         # as part of the argument source
-        ns_config, _, remaining = ParserBase.parse_known_args([ConfigDrivenParser], description, arguments, **kwargs)
+        ns_config, _, remaining = ParserBase.parse_known_args(
+            [ConfigDrivenParser], description, arguments, **kwargs
+        )
         config_options = ns_config.config_values.get("command-line-options", {})
         config_args = cls.flatten_options(config_options)
         # Argparse allows repeated (overridden) arguments, thus the CLI override is accomplished by providing
         # remaining arguments after the configured ones
-        ns_full, parser = ParserBase.parse_args(parser_classes, description, config_args + remaining, **kwargs)
-        ns_final =  argparse.Namespace(**vars(ns_config), **vars(ns_full))
+        ns_full, parser = ParserBase.parse_args(
+            parser_classes, description, config_args + remaining, **kwargs
+        )
+        ns_final = argparse.Namespace(**vars(ns_config), **vars(ns_full))
         return ns_final, parser
 
     @staticmethod
     def flatten_options(configured_options):
-        """ Flatten options down to arguments """
+        """Flatten options down to arguments"""
         flattened = []
         for option, value in configured_options.items():
             flattened.append(f"--{option}")
             if value is not None:
-                flattened.extend(value if isinstance(value, (list, tuple)) else [f"{value}"])
+                flattened.extend(
+                    value if isinstance(value, (list, tuple)) else [f"{value}"]
+                )
         return flattened
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -375,24 +383,30 @@ class ConfigDrivenParser(ParserBase):
         }
 
     def handle_arguments(self, args, **kwargs):
-        """ Handle the arguments
+        """Handle the arguments
 
         Loads the configuration file specified and fills in the `config_values` attribute of the namespace with the
         loaded configuration dictionary.
         """
         args.config_values = {}
         # Specified but non-existent config file is a hard error
-        if ("-c" in sys.argv[1:] or "--config" in sys.argv[1:]) and not args.config.exists():
-            raise ValueError(f"Specified configuration file '{args.config}' does not exist")
+        if (
+            "-c" in sys.argv[1:] or "--config" in sys.argv[1:]
+        ) and not args.config.exists():
+            raise ValueError(
+                f"Specified configuration file '{args.config}' does not exist"
+            )
         # Read configuration if the file was set and exists
-        if args.config is not None  and args.config.exists():
+        if args.config is not None and args.config.exists():
             print(f"[INFO] Reading command-line configuration from: {args.config}")
             with open(args.config, "r") as file_handle:
                 try:
                     loaded = yaml.safe_load(file_handle)
                     args.config_values = loaded if loaded is not None else {}
                 except Exception as exc:
-                    raise ValueError(f"Malformed configuration {args.config}: {exc}", exc)
+                    raise ValueError(
+                        f"Malformed configuration {args.config}: {exc}", exc
+                    )
         return args
 
 
@@ -576,8 +590,9 @@ class PluginArgumentParser(ParserBase):
     """Parser for arguments coming from plugins"""
 
     DESCRIPTION = "Plugin options"
+    # Defaults:
     FPRIME_CHOICES = {
-        "framing": "fprime",
+        "framing": "space-packet-space-data-link",
         "communication": "ip",
     }
 
