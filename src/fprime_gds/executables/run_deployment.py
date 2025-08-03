@@ -110,6 +110,7 @@ def launch_html(parsed_args):
             "FLASK_APP": "fprime_gds.flask.app",
             "STANDARD_PIPELINE_ARGUMENTS": "|".join(reproduced_arguments),
             "SERVE_LOGS": "YES",
+            "BASE_URL": getattr(parsed_args, 'base_url', ''),
         }
     )
     gse_args = BASE_MODULE_ARGUMENTS + [
@@ -121,7 +122,8 @@ def launch_html(parsed_args):
         str(parsed_args.gui_port),
     ]
     ret = launch_process(gse_args, name="HTML GUI", env=flask_env, launch_time=2)
-    ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/"
+    base_url = getattr(parsed_args, 'base_url', '')
+    ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}{base_url}/"
     print(f"[INFO] Launched UI at: {ui_url}")
     webbrowser.open(
         ui_url,

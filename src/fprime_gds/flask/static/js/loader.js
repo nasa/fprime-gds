@@ -11,7 +11,7 @@
  *
  * @author mstarch
  */
-import {config} from "./config.js";
+import {config, updateConfigWithBaseUrl} from "./config.js";
 import {_settings} from "./settings.js";
 import {SaferParser} from "./json.js";
 SaferParser.register();
@@ -62,7 +62,17 @@ class Loader {
      * Sets up the list of endpoints, and preps for the initial loading of the dictionaries.
      */
     constructor() {
+        this.baseUrl = ""; // Will be loaded from /config endpoint
         this.endpoints = {
+            // Configuration endpoint - must be loaded first
+            "config": {
+                "url": "/config",
+                "startup": true,
+                "running": false,
+                "queued": false,
+                "blocking": true,
+                "priority": 1,
+            },
             // Dictionary endpoints
             "session": {
                 "url": "/session",
@@ -70,6 +80,7 @@ class Loader {
                 "running": false,
                 "queued": false,
                 "blocking": true,
+                "priority": 2,
             },
             "command-dict": {
                 "url": "/dictionary/commands",
@@ -138,6 +149,15 @@ class Loader {
             this.endpoints[endpoint].name = endpoint;
         }
     }
+
+    /**
+     * Constructs a full URL with the base URL prefix
+     * @param path: the API path (e.g., "/events")
+     * @return: full URL with base URL prefix
+     */
+    buildUrl(path) {
+        return this.baseUrl + path;
+    }
     /**
      * Sets up the loader by issuing the initial requests for the dictionary endpoints. Will "finish" when all the dicts
      * have been successfully loaded. This is based on a Promise architecture, so the user is expected to call .then()
@@ -147,26 +167,42 @@ class Loader {
         var _self = this;
         // Return a promise for when this is fully setup
         return new Promise(function(resolve, reject) {
-            // Attempt to load each endpoint tracking number of pending loads
-            var pending = 0;
-            for (let endpoint in _self.endpoints) {
-                endpoint = _self.endpoints[endpoint];
-                // Send out request if not loaded, and update the pending count
-                if (endpoint["startup"] && typeof(endpoint["data"]) === "undefined") {
-                    pending = pending + 1;
-                    _self.load(endpoint["url"]).then(
-                        // Data successfully returned, lower pending count and set it
-                        function(data) {
-                            pending = pending - 1;
-                            endpoint["data"] = data;
-                            // When there are no pending items, then resolve the promise
-                            if (pending == 0) {
-                                resolve();
+            // First, load the config to get the base URL
+            _self.load("/config").then(function(configData) {
+                _self.baseUrl = configData.baseUrl || "";
+                // Update the global config with the base URL
+                updateConfigWithBaseUrl(_self.baseUrl);
+
+                // Now load all other startup endpoints
+                var pending = 0;
+                for (let endpoint in _self.endpoints) {
+                    endpoint = _self.endpoints[endpoint];
+                    // Skip config endpoint as it's already loaded
+                    if (endpoint.name === "config") {
+                        endpoint["data"] = configData;
+                        continue;
+                    }
+                    // Send out request if not loaded, and update the pending count
+                    if (endpoint["startup"] && typeof(endpoint["data"]) === "undefined") {
+                        pending = pending + 1;
+                        _self.load(_self.buildUrl(endpoint["url"])).then(
+                            // Data successfully returned, lower pending count and set it
+                            function(data) {
+                                pending = pending - 1;
+                                endpoint["data"] = data;
+                                // When there are no pending items, then resolve the promise
+                                if (pending == 0) {
+                                    resolve();
+                                }
                             }
-                        }
-                    ).catch(reject);
+                        ).catch(reject);
+                    }
                 }
-            }
+                // If no pending requests, resolve immediately
+                if (pending == 0) {
+                    resolve();
+                }
+            }).catch(reject);
         });
     }
 
@@ -247,7 +283,7 @@ class Loader {
         context.queued = false;
         let start_time = new Date();
         // Load the endpoint and respond to the response
-        _self.load(context.url).then((data) => {
+        _self.load(_self.buildUrl(context.url)).then((data) => {
             let data_items = data.history || data.files || data.logs || data;
             let data_errors = data.errors || [];
 

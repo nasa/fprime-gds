@@ -14,6 +14,8 @@ STANDARD_PIPELINE_ARGUMENTS = os.environ.get("STANDARD_PIPELINE_ARGUMENTS").spli
 
 SERVE_LOGS = os.environ.get("SERVE_LOGS", "YES") == "YES"
 
+BASE_URL = os.environ.get("BASE_URL", "")
+
 MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # Max length of request is 32MiB
 
 

@@ -52,7 +52,16 @@ def construct_app():
 
     :return: setup app
     """
-    app = flask.Flask(__name__, static_url_path="")
+    # Get base URL from environment variable, default to empty string (root)
+    base_url = os.environ.get("BASE_URL", "")
+
+    # Configure Flask with base URL support
+    if base_url:
+        app = flask.Flask(__name__, static_url_path=base_url)
+        app.config['APPLICATION_ROOT'] = base_url
+    else:
+        app = flask.Flask(__name__, static_url_path="")
+
     # Enable compression if it is installed
     if Compress is not None:
         compress = Compress()
@@ -62,6 +71,10 @@ def construct_app():
     # Override defaults from python files specified in 'FP_FLASK_SETTINGS'
     if "FP_FLASK_SETTINGS" in os.environ:
         app.config.from_envvar("FP_FLASK_SETTINGS")
+
+    # Update base URL from app config if available
+    if not base_url and hasattr(app.config, 'BASE_URL'):
+        base_url = app.config.BASE_URL
 
     # JSON encoding settings
     app.json.default = fprime_gds.flask.json.default
@@ -75,6 +88,9 @@ def construct_app():
 
     # Restful API registration
     api = fprime_gds.flask.errors.setup_error_handling(app)
+
+    # Store base URL in app config for use in templates and JavaScript
+    app.config['BASE_URL'] = base_url
 
     # Application routes
     api.add_resource(
@@ -207,15 +223,17 @@ def files_serve(path):
 @app.route("/")
 def index():
     """
-    A function used to serve the JS files needed for the GUI layers.
+    A function used to serve the main index page with base URL support.
     """
-    return flask.send_from_directory("static", "index.html")
+    # Inject base URL into the HTML template context
+    response = flask.make_response(flask.send_from_directory("static", "index.html"))
+    return response
 
 
 @app.route("/logs")
 def log():
     """
-    A function used to serve the JS files needed for the GUI layers.
+    A function used to serve the logs page.
     """
     return flask.send_from_directory("static", "logs.html")
 
@@ -223,6 +241,17 @@ def log():
 @app.route("/session")
 def session():
     return flask.jsonify({"session": uuid.uuid4()}), 200
+
+
+@app.route("/config")
+def config():
+    """
+    A function used to serve configuration information to the frontend.
+    """
+    return flask.jsonify({
+        "baseUrl": app.config.get('BASE_URL', ''),
+        "session": str(uuid.uuid4())
+    }), 200
 
 
 @app.after_request

@@ -345,7 +345,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     </td>
                     <td v-if="!item.uplink">
                         <a v-if="item.state == 'FINISHED'" class="btn btn-secondary"
-                           :href="'/download/files/' + basename" :download="basename">
+                           :href="config.baseUrl + '/download/files/' + basename" :download="basename">
                             Download
                         </a>
                     </td>

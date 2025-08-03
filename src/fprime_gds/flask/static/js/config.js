@@ -16,6 +16,8 @@ export let config = {
     dataSuccessIcon: "/img/success.svg",
     // Set the icon for the condition when there is a data-flow error
     dataErrorIcon: "/img/error.svg",
+    // Base URL for the application (will be set dynamically)
+    baseUrl: "",
     // Data polling interval in milliseconds
     dataPollIntervalsMs: {
         channels: 500,
@@ -24,3 +26,15 @@ export let config = {
     // Summary counter fields containing object of field: bootstrap class
     summaryFields: {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"}
 };
+
+/**
+ * Updates the config with the base URL and adjusts resource paths accordingly
+ * @param baseUrl: the base URL to use for the application
+ */
+export function updateConfigWithBaseUrl(baseUrl) {
+    config.baseUrl = baseUrl;
+    // Update image paths to include base URL
+    config.logo = baseUrl + "/img/logo.svg";
+    config.dataSuccessIcon = baseUrl + "/img/success.svg";
+    config.dataErrorIcon = baseUrl + "/img/error.svg";
+}

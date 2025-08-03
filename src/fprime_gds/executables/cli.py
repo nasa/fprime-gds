@@ -1146,6 +1146,14 @@ class GdsParser(ParserBase):
                 "type": str,
                 "help": "Set the GUI server address [default: %(default)s]",
             },
+            ("--base-url",): {
+                "dest": "base_url",
+                "action": "store",
+                "default": "",
+                "required": False,
+                "type": str,
+                "help": "Set the base URL path for the GDS (e.g., '/fprime-gds-2' for reverse proxy support) [default: %(default)s]",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -1156,6 +1164,19 @@ class GdsParser(ParserBase):
         :param args: parsed args into a namespace
         :return: args namespace
         """
+        # Validate and normalize base URL
+        if args.base_url:
+            # Ensure base URL starts with '/' and doesn't end with '/'
+            if not args.base_url.startswith('/'):
+                args.base_url = '/' + args.base_url
+            if args.base_url.endswith('/') and args.base_url != '/':
+                args.base_url = args.base_url.rstrip('/')
+
+            # Validate that base URL contains only valid URL path characters
+            import re
+            if not re.match(r'^/[a-zA-Z0-9\-._~!$&\'()*+,;=:@/]*$', args.base_url):
+                raise ValueError(f"Invalid base URL '{args.base_url}'. Base URL must contain only valid URL path characters.")
+
         return args
 
 
