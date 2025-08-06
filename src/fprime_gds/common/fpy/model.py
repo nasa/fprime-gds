@@ -15,6 +15,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatMultiplyDirective,
     FloatSubtractDirective,
     GotoDirective,
+    MemCompareDirective,
     SignedIntDivideDirective,
     UnsignedIntDivideDirective,
     IntModuloDirective,
@@ -309,6 +310,8 @@ class FpySequencerModel:
 
     def handle_const_cmd(self, dir: ConstCmdDirective):
         print("cmd opcode", dir.cmd_opcode, "args", dir.args)
+        # always push CmdResponse.OK
+        self.push(0, size=4)
 
     def handle_stack_cmd(self, dir: StackCmdDirective):
         if len(self.stack) < dir.size:
@@ -323,6 +326,8 @@ class FpySequencerModel:
             "args",
             cmd[4:],
         )
+        # always push CmdResponse.OK
+        self.push(0, size=4)
 
     def handle_goto(self, dir: GotoDirective):
         if dir.dir_idx > len(self.dirs):
@@ -713,3 +718,12 @@ class FpySequencerModel:
             self.next_dir_idx = len(self.dirs)
         else:
             return DirectiveErrorCode.DELIBERATE_FAILURE
+
+    def handle_memcmp(self, dir: MemCompareDirective):
+        if len(self.stack) < dir.size * 2:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        
+        rhs = self.pop(type=bytes, size=dir.size)
+        lhs = self.pop(type=bytes, size=dir.size)
+        print(rhs, lhs)
+        self.push(rhs == lhs)

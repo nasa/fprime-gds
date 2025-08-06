@@ -738,8 +738,7 @@ if (val1 > 0) == True and (val2 < 0) == True:  # Compare boolean results
         exit(True)
 exit(False)
 """
-    # cannot currently compare booleans
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_complex_boolean_nesting(fprime_test_api):
@@ -1086,3 +1085,35 @@ var: I64 = var2
 var2: I64 = 0
 """
     assert_compile_failure(fprime_test_api, seq)
+
+
+def test_math_after_cmd(fprime_test_api):
+    seq = """
+var: I32 = 1
+CdhCore.cmdDisp.CMD_NO_OP()
+# making sure that the cmd doesn't mess with the stack
+if var + 1 == 2:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_cmd_return_val(fprime_test_api):
+    seq = """
+ret: Fw.CmdResponse = CdhCore.cmdDisp.CMD_NO_OP()
+if ret == Fw.CmdResponse.OK:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+def test_struct_eq(fprime_test_api):
+    seq = """
+var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+var2: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+var3: Svc.DpRecord = Svc.DpRecord(123, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+exit(var == var2 and var != var3)
+"""
+
+    assert_run_success(fprime_test_api, seq)

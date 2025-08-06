@@ -19,6 +19,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatToUnsignedIntDirective,
     FloatTruncateDirective,
     IntAddDirective,
+    MemCompareDirective,
     SignedIntDivideDirective,
     UnsignedIntDivideDirective,
     IntModuloDirective,
@@ -992,11 +993,19 @@ class CheckAndResolveArgumentTypes(Visitor):
         lhs_type = state.expr_types[node.lhs]
         rhs_type = state.expr_types[node.rhs]
 
-        if not issubclass(lhs_type, NumericalType):
-            state.err(f"Cannot compare non-numeric type {lhs_type}", node.lhs)
-            return
-        if not issubclass(rhs_type, NumericalType):
-            state.err(f"Cannot compare non-numeric type {rhs_type}", node.rhs)
+        non_numeric = not issubclass(lhs_type, NumericalType) or not issubclass(rhs_type, NumericalType)
+
+        if node.op.value in ["==", "!="]:
+            # equality can be checked on any type
+            if non_numeric:
+                if lhs_type != rhs_type:
+                    # but they have to be the same two types if they aren't numeric
+                    state.err(f"Cannot compare {lhs_type} with {rhs_type}", node)
+                # otherwise we're good
+                return
+
+        if non_numeric:
+            state.err(f"Cannot compare {lhs_type} with {rhs_type}", node)
             return
 
         # args are both numeric
@@ -1065,7 +1074,6 @@ class CheckAndResolveArgumentTypes(Visitor):
             value_expr_type = state.expr_types[value_expr]
 
             # the type of the arg is a subclass of the value
-            #
             if self.is_type_interpretable_as(value_expr_type, arg_type):
                 # arg type is good!
                 state.expr_types[value_expr] = arg_type
@@ -1550,6 +1558,20 @@ class GenerateExprMacrosAndCmds(Visitor):
 
         lhs_dirs = state.directives[node.lhs]
         rhs_dirs = state.directives[node.rhs]
+
+        non_numeric = not issubclass(lhs_type, NumericalType) or not issubclass(rhs_type, NumericalType)
+        if node.op.value in ["==", "!="]:
+            if non_numeric:
+                # just compare memory
+                assert lhs_type == rhs_type
+                # their size on the stack should be the same
+                directives.extend(lhs_dirs)
+                directives.extend(rhs_dirs)
+                directives.append(MemCompareDirective(lhs_type.getMaxSize()))
+                if node.op.value == "!=":
+                    directives.append(NotDirective())
+                state.directives[node] = directives
+                return
 
         # get both sides to 64 bit
         lhs_dirs.extend(self.extend_to_64_bits(lhs_type))

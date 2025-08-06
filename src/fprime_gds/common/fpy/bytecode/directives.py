@@ -105,6 +105,7 @@ class DirectiveOpcode(Enum):
 
     ALLOCATE_STACK = 48
     PRINT = 56
+    MEMCMP = 58
 
 
 class Directive:
@@ -236,6 +237,11 @@ class StackCmdDirective(Directive):
 @dataclass
 class PrintDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PRINT
+
+@dataclass
+class MemCompareDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.MEMCMP
+    size: int | U16Type
 
 
 @dataclass
