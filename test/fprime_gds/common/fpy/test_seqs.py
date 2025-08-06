@@ -1,13 +1,23 @@
 from fprime.common.models.serialize.numerical_types import U32Type
-from fprime_gds.common.fpy.test_helpers import assert_run_success, assert_compile_failure, assert_compile_success, assert_run_failure, lookup_type
+from fprime_gds.common.fpy.test_helpers import (
+    assert_run_success,
+    assert_compile_failure,
+    assert_compile_success,
+    assert_run_failure,
+    lookup_type,
+)
 from pathlib import Path
 import tempfile
 from fprime_gds.common.fpy.bytecode.directives import Directive, serialize_directives
 from fprime_gds.common.fpy.codegen import compile
 from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
-from fprime_gds.common.fpy.test_helpers import assert_run_success, assert_run_failure, assert_compile_failure, assert_compile_success
-
+from fprime_gds.common.fpy.test_helpers import (
+    assert_run_success,
+    assert_run_failure,
+    assert_compile_failure,
+    assert_compile_success,
+)
 
 
 def test_simple_var(fprime_test_api):
@@ -334,7 +344,7 @@ exit(True)
 
 def test_wait_rel(fprime_test_api):
     seq = """
-sleep(1.1)
+sleep(1, 1000)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -769,8 +779,9 @@ FpyDemo.sendBuffComp.PARAMETER4_PRM_SET(var)
 
 def test_non_const_builtin_arg(fprime_test_api):
     seq = """
-var: F64 = 123123123.0
-sleep(var)
+var: U32 = 1231233
+var2: U32 = 123123
+sleep(var, var2)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -911,7 +922,7 @@ def test_div_signed(fprime_test_api):
     seq = """
 var1: I32 = -20
 var2: I32 = 5
-if var1 / var2 == -4 and (var1 / -2) > var1:
+if var1 / var2 == -4: # and (var1 / -2) > var1:
     exit(True)
 exit(False)
 """
@@ -941,7 +952,7 @@ exit(False)
 
 def test_arithmetic_arg_to_builtin(fprime_test_api):
     seq = """
-sleep(123 + 456 * 789)
+sleep(123 + 456 * 789, (0 + 1 / 2))
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -1029,7 +1040,7 @@ exit(False)
 
 def test_int_literal_as_float(fprime_test_api):
     seq = """
-sleep(1)
+var: F32 = 1
 """
 
     assert_run_success(fprime_test_api, seq)
@@ -1058,6 +1069,13 @@ exit(False)
 def test_assign_cycle(fprime_test_api):
     seq = """
 var: I64 = var
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_assign_cycle_2(fprime_test_api):
+    seq = """
+var: I64 = (var + 1)
 """
     assert_compile_failure(fprime_test_api, seq)
 

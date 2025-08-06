@@ -15,7 +15,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatMultiplyDirective,
     FloatSubtractDirective,
     GotoDirective,
-    IntDivideDirective,
+    SignedIntDivideDirective,
+    UnsignedIntDivideDirective,
     IntModuloDirective,
     IntMultiplyDirective,
     IntegerTruncateDirective,
@@ -61,20 +62,23 @@ from fprime_gds.common.fpy.bytecode.directives import (
     WaitRelDirective,
     IntegerZeroExtendDirective,
 )
-debug = False
+
+debug = True
 
 WORD_SIZE = 8
 # store return addr and prev stack frame offset in stack frame header
 STACK_FRAME_HEADER_SIZE = 2 * WORD_SIZE
 MAX_INT64 = 2**63 - 1
-MIN_INT64 = -2**63
+MIN_INT64 = -(2**63)
 MASK_64_BIT = 2**64 - 1
+
 
 def overflow_check(val: int) -> int:
     masked_val = val & MASK_64_BIT
     if masked_val > MAX_INT64:
         return masked_val - 2**64
     return masked_val
+
 
 class DirectiveErrorCode(Enum):
     NO_ERROR = 0
@@ -140,7 +144,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.NO_ERROR
         return ret
 
-    def run(self, dirs: list[Directive], tlm: dict[int, bytearray]=None):
+    def run(self, dirs: list[Directive], tlm: dict[int, bytearray] = None):
         if tlm is None:
             tlm = {}
         self.reset()
@@ -209,10 +213,10 @@ class FpySequencerModel:
             if val < 0:
                 # this should give us the right bit repr for two's complement
                 val = val + (1 << (size * 8))
-            
-            bits = bin(val)[2:] # remove "0b"
+
+            bits = bin(val)[2:]  # remove "0b"
             # okay now truncate if necessary
-            bits = bits[-(size * 8):]
+            bits = bits[-(size * 8) :]
             self.stack += int(bits, 2).to_bytes(size, byteorder="big", signed=False)
 
     def pop(self, type=int, signed=True, size=WORD_SIZE) -> int | float | bytearray:
@@ -313,7 +317,12 @@ class FpySequencerModel:
         cmd = self.stack[-dir.size :]
         self.stack = self.stack[: -dir.size]
 
-        print("cmd opcode", int.from_bytes(cmd[:4], signed=False,byteorder="big"), "args", cmd[4:])
+        print(
+            "cmd opcode",
+            int.from_bytes(cmd[:4], signed=False, byteorder="big"),
+            "args",
+            cmd[4:],
+        )
 
     def handle_goto(self, dir: GotoDirective):
         if dir.dir_idx > len(self.dirs):
@@ -347,22 +356,23 @@ class FpySequencerModel:
             )
         ] = whole_value
 
-    def handle_push_prm(self, dir: StorePrmDirective):
+    def handle_store_prm(self, dir: StorePrmDirective):
         whole_value: bytearray = self.prm_db.get(dir.prm_id, None)
         if whole_value is None:
             return DirectiveErrorCode.PRM_NOT_FOUND
 
-        if dir.offset + dir.size > len(whole_value):
-            return DirectiveErrorCode.PRM_ACCESS_OUT_OF_BOUNDS
+        if (
+            self.stack_frame_start + dir.lvar_offset + len(whole_value)
+            > self.max_stack_size
+        ):
+            return DirectiveErrorCode.STACK_OVERFLOW
 
-        if dir.size > 8:
-            return DirectiveErrorCode.STACK_MISALIGNMENT
-
-        value = whole_value[dir.offset : (dir.offset + dir.size)]
-        # pad value up to 8 bytes
-        padded_value = value.extend(0 for i in range(0, 8 - len(value)))
-
-        self.push(padded_value)
+        self.stack[
+            self.stack_frame_start
+            + dir.lvar_offset : (
+                self.stack_frame_start + dir.lvar_offset + len(whole_value)
+            )
+        ] = whole_value
 
     def handle_or(self, dir: OrDirective):
         if len(self.stack) < 2:
@@ -545,7 +555,7 @@ class FpySequencerModel:
         assert dir.from_size > dir.to_size
 
         val = self.pop(type=bytes, size=dir.from_size)
-        val = val[-dir.to_size:]
+        val = val[-dir.to_size :]
         self.push(val)
 
     def handle_fptosi(self, dir: FloatToSignedIntDirective):
@@ -572,7 +582,6 @@ class FpySequencerModel:
         val = self.pop(signed=False)
         self.push(float(val))
 
-
     def handle_iadd(self, dir: IntAddDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
@@ -594,7 +603,7 @@ class FpySequencerModel:
         lhs = self.pop()
         self.push(overflow_check(lhs * rhs))
 
-    def handle_idiv(self, dir: IntDivideDirective):
+    def handle_udiv(self, dir: UnsignedIntDivideDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop(signed=False)
@@ -605,19 +614,33 @@ class FpySequencerModel:
             # C++ behavior for division by zero is undefined.
             return DirectiveErrorCode.DIVIDE_BY_ZERO
 
-        # Special overflow case: MIN_INT64 / -1
-        # This results in MAX_INT64 + 1, which overflows to MIN_INT64 in C++.
-        if lhs == MIN_INT64 and rhs == -1:
-            self.push(MIN_INT64) # C++ specific overflow behavior
-            return
-
         # Perform division, truncating towards zero
         # This is different from Python's // which floors.
         python_quotient = int(lhs / rhs)
 
         # For division, overflow detection isn't typically done with the mask on the result
-        # because the quotient itself is within range, except for the MIN_INT64 / -1 case.
-        # The result of division will usually fit within int64_t's range if the divisor isn't 0.
+        # because the quotient itself is within range
+        self.push(python_quotient)
+
+    def handle_sdiv(self, dir: SignedIntDivideDirective):
+        if len(self.stack) < 2 * WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        rhs = self.pop(signed=True)
+        lhs = self.pop(signed=True)
+
+        # credit to gemini
+        if rhs == 0:
+            # C++ behavior for division by zero is undefined.
+            return DirectiveErrorCode.DIVIDE_BY_ZERO
+
+        # Special overflow case: MIN_INT64 / -1
+        # This results in MAX_INT64 + 1, which overflows to MIN_INT64 in C++.
+        if lhs == MIN_INT64 and rhs == -1:
+            self.push(MIN_INT64)  # C++ specific overflow behavior
+            return
+
+        python_quotient = int(lhs / rhs)
+
         self.push(python_quotient)
 
     def handle_fadd(self, dir: FloatAddDirective):
@@ -683,7 +706,6 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_UNDERFLOW
         str_bytes = self.pop(size=str_len, type=bytes)
         print(str_bytes.decode())
-        
 
     def handle_exit(self, dir: ExitDirective):
         success = self.pop(type=bool, size=1)

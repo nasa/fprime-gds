@@ -64,7 +64,8 @@ class DirectiveOpcode(Enum):
     IADD = 27
     ISUB = 28
     IMUL = 29
-    IDIV = 30
+    UDIV = 30
+    SDIV = 57
     IMOD = 54
     # float arithmetic
     FADD = 31
@@ -325,8 +326,14 @@ class IntMultiplyDirective(Directive):
 
 
 @dataclass
-class IntDivideDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IDIV
+class UnsignedIntDivideDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UDIV
+
+
+@dataclass
+class SignedIntDivideDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SDIV
+
 
 
 @dataclass

@@ -19,7 +19,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatToUnsignedIntDirective,
     FloatTruncateDirective,
     IntAddDirective,
-    IntDivideDirective,
+    SignedIntDivideDirective,
+    UnsignedIntDivideDirective,
     IntModuloDirective,
     IntMultiplyDirective,
     IntSubtractDirective,
@@ -228,7 +229,7 @@ class PrintStrType(StringType.construct_type("print_str_type", 128)):
 
 
 MACROS: dict[str, FpyMacro] = {
-    "sleep": FpyMacro(NothingType, [("seconds", F64Type)], WaitRelDirective),
+    "sleep": FpyMacro(NothingType, [("seconds", U32Type,), ("microseconds", U32Type)], WaitRelDirective),
     "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
     "exit": FpyMacro(NothingType, [("success", BoolType)], ExitDirective),
     "log": FpyMacro(F64Type, [("operand", F64Type)], LogDirective),
@@ -295,10 +296,12 @@ class FpyVariable:
 
     type_ref: AstExpr
     """the expression denoting the var's type"""
+    declaration: AstAssign
+    """the node where this var is declared"""
     type: FppTypeClass | None = None
     """the resolved type of the variable. None if type unsure at the moment"""
     lvar_offset: int | None = None
-    """the index of the lvar it is stored in"""
+    """the offset in the lvar array where this var is stored"""
 
 
 # a scope
@@ -455,9 +458,6 @@ class CompileState:
             union_scope(self.prms, union_scope(self.consts, self.variables)),
         )
 
-    variable_declarations: dict[AstAssign, FpyVariable] = field(
-        default_factory=dict, repr=False
-    )
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
     )
@@ -604,11 +604,10 @@ class CreateVariables(Visitor):
                 )
                 return
 
-            var = FpyVariable(node.var_type, None)
+            var = FpyVariable(node.var_type, node)
             # new var. put it in the table under this scope
             state.variables[node.variable.var] = var
             state.runtime_values[node.variable.var] = var
-            state.variable_declarations[node] = var
 
         if existing and node.var_type is not None:
             # redeclaring an existing variable
@@ -842,26 +841,29 @@ class ResolveReferences(Visitor):
             return
 
 
-class CheckUseBeforeDeclare(TopDownVisitor):
+class CheckUseBeforeDeclare(Visitor):
 
     def __init__(self):
         self.currently_declared_vars: list[FpyVariable] = []
-        """a list of variables that have been declared"""
-        self.refs_that_are_declarations: list[AstReference] = []
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        var = state.variable_declarations.get(node, None)
-        if var is None:
+        var = state.resolved_references[node.variable]
+        
+        if var.declaration != node:
+            # this is not the node that declares this variable
             return
+
+        # this node declares this variable
 
         self.currently_declared_vars.append(var)
-        self.refs_that_are_declarations.append(node.variable)
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
-        if node in self.refs_that_are_declarations:
-            return
         ref = state.resolved_references[node]
         if not isinstance(ref, FpyVariable):
+            return
+
+        if ref.declaration.variable == node:
+            # this is the initial name of the variable. don't crash
             return
 
         if ref not in self.currently_declared_vars:
@@ -1488,12 +1490,15 @@ class GenerateExprMacrosAndCmds(Visitor):
                 dir_type = FloatFloorDivideDirective
             else:
                 # integer division is always floor div
-                dir_type = IntDivideDirective
+                dir_type = UnsignedIntDivideDirective
         elif isinstance(node, AstDiv):
             if fp:
                 dir_type = FloatDivideDirective
             else:
-                dir_type = IntDivideDirective
+                if intermediate_type == I64Type:
+                    dir_type = SignedIntDivideDirective
+                else:
+                    dir_type = UnsignedIntDivideDirective
         elif isinstance(node, AstMul):
             if fp:
                 dir_type = FloatMultiplyDirective
@@ -1868,6 +1873,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     type_name_dict["bool"] = BoolType
     # note no string type at the moment
 
+    cmd_response_type = type_name_dict["Fw.CmdResponse"]
     callable_name_dict: dict[str, FpyCallable] = {}
     # add all cmds to the callable dict
     for name, cmd in cmd_name_dict.items():
@@ -1875,8 +1881,8 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         args = []
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
-        # cmds are thought of as callables with a "NothingType" return value
-        callable_name_dict[name] = FpyCmd(NothingType, args, cmd)
+        # cmds are thought of as callables with a Fw.CmdResponse return value
+        callable_name_dict[name] = FpyCmd(cmd_response_type, args, cmd)
 
     # for each type in the dict, if it has a constructor, create an FpyTypeCtor
     # object to track the constructor and put it in the callable name dict
