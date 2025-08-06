@@ -25,13 +25,19 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntModuloDirective,
     IntMultiplyDirective,
     IntSubtractDirective,
-    IntegerTruncateDirective,
+    IntegerTruncate64To16Directive,
+    IntegerTruncate64To32Directive,
+    IntegerTruncate64To8Directive,
     FloatLogDirective,
     PrintDirective,
-    IntegerSignedExtendDirective,
+    IntegerSignedExtend16To64Directive,
+    IntegerSignedExtend32To64Directive,
+    IntegerSignedExtend8To64Directive,
     StackCmdDirective,
     StorePrmDirective,
-    IntegerZeroExtendDirective,
+    IntegerZeroExtend16To64Directive,
+    IntegerZeroExtend32To64Directive,
+    IntegerZeroExtend8To64Directive,
     FLOAT_INEQUALITY_DIRECTIVES,
     FLOAT_INEQUALITY_DIRECTIVES,
     INT_SIGNED_INEQUALITY_DIRECTIVES,
@@ -1297,7 +1303,12 @@ class GenerateExprMacrosAndCmds(Visitor):
         # must be an int
         assert issubclass(from_type, IntegerType), from_type
 
-        return [IntegerTruncateDirective(8, new_size)]
+        if new_size == 1:
+            return [IntegerTruncate64To8Directive()]
+        elif new_size == 2:
+            return [IntegerTruncate64To16Directive()]
+
+        return [IntegerTruncate64To32Directive()]
 
     def extend_to_64_bits(self, type: FppTypeClass) -> list[Directive]:
         if type.getMaxSize() == 8:
@@ -1313,13 +1324,20 @@ class GenerateExprMacrosAndCmds(Visitor):
         assert from_size in (1, 2, 4, 8), from_size
         to_size = 8
 
-        dir_type = (
-            IntegerSignedExtendDirective
-            if type in SIGNED_INTEGER_TYPES
-            else IntegerZeroExtendDirective
-        )
-
-        return [dir_type(from_size, to_size)]
+        if type in SIGNED_INTEGER_TYPES:
+            if from_size == 1:
+                return [IntegerSignedExtend8To64Directive()]
+            elif from_size == 2:
+                return [IntegerSignedExtend16To64Directive()]
+            else:
+                return [IntegerSignedExtend32To64Directive()]
+        else:
+            if from_size == 1:
+                return [IntegerZeroExtend8To64Directive()]
+            elif from_size == 2:
+                return [IntegerZeroExtend16To64Directive()]
+            else:
+                return [IntegerZeroExtend32To64Directive()]
 
     def convert_to_type(
         self, from_type: FppTypeClass, to_type: FppTypeClass

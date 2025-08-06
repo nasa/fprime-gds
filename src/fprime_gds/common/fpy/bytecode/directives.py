@@ -24,7 +24,7 @@ FwPrmIdType = U32Type
 FwOpcodeType = U32Type
 
 
-class DirectiveOpcode(Enum):
+class DirectiveId(Enum):
     INVALID = 0
     WAIT_REL = 1
     WAIT_ABS = 2
@@ -61,40 +61,50 @@ class DirectiveOpcode(Enum):
     FGT = 26
     FGE = 27
     NOT = 28
-    # floating point extension and truncation
-    FPEXT = 29
-    FPTRUNC = 30
     # floating point conversion to signed/unsigned integer,
     # and vice versa
-    FPTOSI = 31
-    FPTOUI = 32
-    SITOFP = 33
-    UITOFP = 34
+    FPTOSI = 29
+    FPTOUI = 30
+    SITOFP = 31
+    UITOFP = 32
     # integer arithmetic
-    IADD = 35
-    ISUB = 36
-    IMUL = 37
-    UDIV = 38
-    SDIV = 39
-    IMOD = 40
+    IADD = 33
+    ISUB = 34
+    IMUL = 35
+    UDIV = 36
+    SDIV = 37
+    IMOD = 38
     # float arithmetic
-    FADD = 41
-    FSUB = 42
-    FMUL = 43
-    FDIV = 44
-    FLOAT_FLOOR_DIV = 46
-    FPOW = 46
-    FLOG = 47
+    FADD = 39
+    FSUB = 40
+    FMUL = 41
+    FDIV = 42
+    FLOAT_FLOOR_DIV = 43
+    FPOW = 44
+    FLOG = 45
+    # floating point bitwidth conversions
+    FPEXT = 46
+    FPTRUNC = 47
+    # integer bitwidth conversions
+    # signed integer extend
+    SIEXT_8_64 = 48
+    SIEXT_16_64 = 49
+    SIEXT_32_64 = 50
+    # zero (unsigned) integer extend
+    ZIEXT_8_64 = 51
+    ZIEXT_16_64 = 52
+    ZIEXT_32_64 = 53
+    # integer truncate
+    ITRUNC_64_8 = 54
+    ITRUNC_64_16 = 55
+    ITRUNC_64_32 = 56
     # end stack op dirs
 
-    EXIT = 48
-    ALLOCATE = 49
-    STORE = 50
-    LOAD = 51
-    PUSH_VAL = 52
-    SIEXT = 53
-    ZIEXT = 54
-    ITRUNC = 55
+    EXIT = 57
+    ALLOCATE = 58
+    STORE = 59
+    LOAD = 60
+    PUSH_VAL = 61
     DISCARD = 56
 
     STACK_CMD = 57
@@ -105,7 +115,7 @@ class DirectiveOpcode(Enum):
 
 
 class Directive:
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.INVALID
+    opcode: ClassVar[DirectiveId] = DirectiveId.INVALID
 
     def serialize(self) -> bytes:
         arg_bytes = self.serialize_args()
@@ -225,63 +235,72 @@ class Directive:
 
 @dataclass
 class StackCmdDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STACK_CMD
+    opcode: ClassVar[DirectiveId] = DirectiveId.STACK_CMD
 
     size: int | U16Type
 
 
 @dataclass
 class PrintDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PRINT
+    opcode: ClassVar[DirectiveId] = DirectiveId.PRINT
 
 @dataclass
 class MemCompareDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.MEMCMP
+    opcode: ClassVar[DirectiveId] = DirectiveId.MEMCMP
     size: int | U16Type
 
 
 @dataclass
 class LoadDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.LOAD
+    opcode: ClassVar[DirectiveId] = DirectiveId.LOAD
 
     lvar_offset: int | U16Type
     size: int | U16Type
 
 
 @dataclass
-class IntegerSignedExtendDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SIEXT
-
-    from_size: int | U8Type
-    to_size: int | U8Type
+class IntegerSignedExtend8To64Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_8_64
+@dataclass
+class IntegerSignedExtend16To64Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_16_64
+@dataclass
+class IntegerSignedExtend32To64Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_32_64
 
 
 @dataclass
-class IntegerZeroExtendDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ZIEXT
-
-    from_size: int | U8Type
-    to_size: int | U8Type
+class IntegerZeroExtend8To64Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_8_64
+@dataclass
+class IntegerZeroExtend16To64Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_16_64
+@dataclass
+class IntegerZeroExtend32To64Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_32_64
 
 
 @dataclass
-class IntegerTruncateDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ITRUNC
-
-    from_size: int | U8Type
-    to_size: int | U8Type
+class IntegerTruncate64To8Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_8
+@dataclass
+class IntegerTruncate64To16Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_16
+@dataclass
+class IntegerTruncate64To32Directive(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_32
 
 
 @dataclass
 class AllocateDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ALLOCATE
+    opcode: ClassVar[DirectiveId] = DirectiveId.ALLOCATE
 
     size: int | U16Type
 
 
 @dataclass
 class StoreDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STORE
+    opcode: ClassVar[DirectiveId] = DirectiveId.STORE
 
     lvar_offset: int | U16Type
     size: int | U16Type
@@ -289,21 +308,21 @@ class StoreDirective(Directive):
 
 @dataclass
 class DiscardDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DISCARD
+    opcode: ClassVar[DirectiveId] = DirectiveId.DISCARD
 
     size: int | U16Type
 
 
 @dataclass
 class PushValDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.PUSH_VAL
+    opcode: ClassVar[DirectiveId] = DirectiveId.PUSH_VAL
 
     val: bytes
 
 
 @dataclass
 class ConstCmdDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.CONST_CMD
+    opcode: ClassVar[DirectiveId] = DirectiveId.CONST_CMD
 
     cmd_opcode: int | FwOpcodeType
     args: bytes
@@ -311,68 +330,68 @@ class ConstCmdDirective(Directive):
 
 @dataclass
 class IntModuloDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IMOD
+    opcode: ClassVar[DirectiveId] = DirectiveId.IMOD
 
 
 @dataclass
 class IntAddDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IADD
+    opcode: ClassVar[DirectiveId] = DirectiveId.IADD
 
 
 @dataclass
 class IntSubtractDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ISUB
+    opcode: ClassVar[DirectiveId] = DirectiveId.ISUB
 
 
 @dataclass
 class IntMultiplyDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IMUL
+    opcode: ClassVar[DirectiveId] = DirectiveId.IMUL
 
 
 @dataclass
 class UnsignedIntDivideDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UDIV
+    opcode: ClassVar[DirectiveId] = DirectiveId.UDIV
 
 
 @dataclass
 class SignedIntDivideDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SDIV
+    opcode: ClassVar[DirectiveId] = DirectiveId.SDIV
 
 
 
 @dataclass
 class FloatAddDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FADD
+    opcode: ClassVar[DirectiveId] = DirectiveId.FADD
 
 
 @dataclass
 class FloatSubtractDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FSUB
+    opcode: ClassVar[DirectiveId] = DirectiveId.FSUB
 
 
 @dataclass
 class FloatMultiplyDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FMUL
+    opcode: ClassVar[DirectiveId] = DirectiveId.FMUL
 
 
 @dataclass
 class FloatExponentDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPOW
+    opcode: ClassVar[DirectiveId] = DirectiveId.FPOW
 
 
 @dataclass
 class FloatDivideDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FDIV
+    opcode: ClassVar[DirectiveId] = DirectiveId.FDIV
 
 
 @dataclass
 class FloatFloorDivideDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLOAT_FLOOR_DIV
+    opcode: ClassVar[DirectiveId] = DirectiveId.FLOAT_FLOOR_DIV
 
 
 @dataclass
 class FloatLogDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLOG
+    opcode: ClassVar[DirectiveId] = DirectiveId.FLOG
 
 
 HEADER_FORMAT = "!BBBBBHI"
@@ -420,37 +439,37 @@ def serialize_directives(dirs: list[Directive], output: Path = None):
 
 @dataclass
 class WaitRelDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.WAIT_REL
+    opcode: ClassVar[DirectiveId] = DirectiveId.WAIT_REL
     # seconds and useconds are implicit
 
 
 @dataclass
 class WaitAbsDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.WAIT_ABS
+    opcode: ClassVar[DirectiveId] = DirectiveId.WAIT_ABS
     # time base, time context, seconds and useconds are implicit
 
 
 @dataclass
 class GotoDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.GOTO
+    opcode: ClassVar[DirectiveId] = DirectiveId.GOTO
     dir_idx: int | U32Type
 
 
 @dataclass
 class IfDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IF
+    opcode: ClassVar[DirectiveId] = DirectiveId.IF
     false_goto_dir_index: int | U32Type
     """U32: The dir index to go to if the top of stack is false."""
 
 
 @dataclass
 class NoOpDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NO_OP
+    opcode: ClassVar[DirectiveId] = DirectiveId.NO_OP
 
 
 @dataclass
 class StoreTlmValDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STORE_TLM_VAL
+    opcode: ClassVar[DirectiveId] = DirectiveId.STORE_TLM_VAL
     chan_id: int | FwChanIdType
     """FwChanIdType: The telemetry channel ID to get."""
     lvar_offset: int | U16Type
@@ -458,7 +477,7 @@ class StoreTlmValDirective(Directive):
 
 @dataclass
 class StorePrmDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.STORE_PRM
+    opcode: ClassVar[DirectiveId] = DirectiveId.STORE_PRM
     prm_id: int | FwPrmIdType
     """FwPrmIdType: The parameter ID to get the value of."""
     lvar_offset: int | U16Type
@@ -466,157 +485,157 @@ class StorePrmDirective(Directive):
 
 @dataclass
 class OrDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.OR
+    opcode: ClassVar[DirectiveId] = DirectiveId.OR
     # lhs and rhs implied
 
 
 @dataclass
 class AndDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.AND
+    opcode: ClassVar[DirectiveId] = DirectiveId.AND
     # lhs and rhs implied
 
 
 @dataclass
 class IntEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IEQ
+    opcode: ClassVar[DirectiveId] = DirectiveId.IEQ
     # lhs and rhs implied
 
 
 @dataclass
 class IntNotEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.INE
+    opcode: ClassVar[DirectiveId] = DirectiveId.INE
     # lhs and rhs implied
 
 
 @dataclass
 class UnsignedLessThanDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ULT
+    opcode: ClassVar[DirectiveId] = DirectiveId.ULT
     # lhs and rhs implied
 
 
 @dataclass
 class UnsignedLessThanOrEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ULE
+    opcode: ClassVar[DirectiveId] = DirectiveId.ULE
     # lhs and rhs implied
 
 
 @dataclass
 class UnsignedGreaterThanDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UGT
+    opcode: ClassVar[DirectiveId] = DirectiveId.UGT
     # lhs and rhs implied
 
 
 @dataclass
 class UnsignedGreaterThanOrEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UGE
+    opcode: ClassVar[DirectiveId] = DirectiveId.UGE
     # lhs and rhs implied
 
 
 @dataclass
 class SignedLessThanDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SLT
+    opcode: ClassVar[DirectiveId] = DirectiveId.SLT
     # lhs and rhs implied
 
 
 @dataclass
 class SignedLessThanOrEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SLE
+    opcode: ClassVar[DirectiveId] = DirectiveId.SLE
     # lhs and rhs implied
 
 
 @dataclass
 class SignedGreaterThanDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SGT
+    opcode: ClassVar[DirectiveId] = DirectiveId.SGT
     # lhs and rhs implied
 
 
 @dataclass
 class SignedGreaterThanOrEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SGE
+    opcode: ClassVar[DirectiveId] = DirectiveId.SGE
     # lhs and rhs implied
 
 
 @dataclass
 class FloatGreaterThanOrEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FGE
+    opcode: ClassVar[DirectiveId] = DirectiveId.FGE
     # lhs and rhs implied
 
 
 @dataclass
 class FloatLessThanOrEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLE
+    opcode: ClassVar[DirectiveId] = DirectiveId.FLE
     # lhs and rhs implied
 
 
 @dataclass
 class FloatLessThanDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLT
+    opcode: ClassVar[DirectiveId] = DirectiveId.FLT
     # lhs and rhs implied
 
 
 @dataclass
 class FloatGreaterThanDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FGT
+    opcode: ClassVar[DirectiveId] = DirectiveId.FGT
     # lhs and rhs implied
 
 
 @dataclass
 class FloatEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FEQ
+    opcode: ClassVar[DirectiveId] = DirectiveId.FEQ
     # lhs and rhs implied
 
 
 @dataclass
 class FloatNotEqualDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FNE
+    opcode: ClassVar[DirectiveId] = DirectiveId.FNE
     # lhs and rhs implied
 
 
 @dataclass
 class NotDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.NOT
+    opcode: ClassVar[DirectiveId] = DirectiveId.NOT
     # src implied
 
 
 @dataclass
 class FloatTruncateDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTRUNC
+    opcode: ClassVar[DirectiveId] = DirectiveId.FPTRUNC
     # src implied
 
 
 @dataclass
 class FloatExtendDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPEXT
+    opcode: ClassVar[DirectiveId] = DirectiveId.FPEXT
     # src implied
 
 
 @dataclass
 class FloatToSignedIntDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTOSI
+    opcode: ClassVar[DirectiveId] = DirectiveId.FPTOSI
     # src implied
 
 
 @dataclass
 class SignedIntToFloatDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SITOFP
+    opcode: ClassVar[DirectiveId] = DirectiveId.SITOFP
     # src implied
 
 
 @dataclass
 class FloatToUnsignedIntDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FPTOUI
+    opcode: ClassVar[DirectiveId] = DirectiveId.FPTOUI
     # src implied
 
 
 @dataclass
 class UnsignedIntToFloatDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.UITOFP
+    opcode: ClassVar[DirectiveId] = DirectiveId.UITOFP
     # src implied
 
 
 @dataclass
 class ExitDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.EXIT
+    opcode: ClassVar[DirectiveId] = DirectiveId.EXIT
 
 
 for cls in Directive.__subclasses__():

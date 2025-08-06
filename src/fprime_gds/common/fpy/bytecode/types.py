@@ -8,7 +8,7 @@ from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.numerical_types import U32Type, U16Type, U8Type
 from fprime.common.models.serialize.string_type import StringType
 
-from fprime_gds.common.fpy.bytecode.directives import DirectiveOpcode
+from fprime_gds.common.fpy.bytecode.directives import DirectiveId
 from fprime_gds.common.loaders.json_loader import PRIMITIVE_TYPE_MAP
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
@@ -121,37 +121,37 @@ def prm_id_from_json(js, ctx: BytecodeParseContext):
 
 FPY_DIRECTIVES: list[StatementTemplate] = [
     StatementTemplate(
-        DirectiveOpcode.WAIT_REL.value,
+        DirectiveId.WAIT_REL.value,
         "WAIT_REL",
         [U32Type, U32Type],
     ),
     StatementTemplate(
-        DirectiveOpcode.WAIT_ABS.value,
+        DirectiveId.WAIT_ABS.value,
         "WAIT_ABS",
         [time_type_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.SET_SER_REG.value,
+        DirectiveId.SET_SER_REG.value,
         "SET_SER_REG",
         [U8Type, arbitrary_type_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.GOTO.value,
+        DirectiveId.GOTO.value,
         "GOTO",
         [goto_tag_or_idx_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.IF.value,
+        DirectiveId.IF.value,
         "IF",
         [U8Type, goto_tag_or_idx_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.GET_TLM.value,
+        DirectiveId.GET_TLM.value,
         "GET_TLM",
         [U8Type, U8Type, tlm_chan_id_from_json],
     ),
     StatementTemplate(
-        DirectiveOpcode.GET_PRM.value,
+        DirectiveId.GET_PRM.value,
         "GET_PRM",
         [U8Type, prm_id_from_json],
     ),

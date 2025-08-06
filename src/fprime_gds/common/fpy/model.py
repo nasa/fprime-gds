@@ -20,11 +20,9 @@ from fprime_gds.common.fpy.bytecode.directives import (
     UnsignedIntDivideDirective,
     IntModuloDirective,
     IntMultiplyDirective,
-    IntegerTruncateDirective,
     FloatLogDirective,
     DiscardDirective,
     PrintDirective,
-    IntegerSignedExtendDirective,
     StackCmdDirective,
     StorePrmDirective,
     StoreTlmValDirective,
@@ -61,7 +59,15 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatTruncateDirective,
     WaitAbsDirective,
     WaitRelDirective,
-    IntegerZeroExtendDirective,
+    IntegerZeroExtend16To64Directive,
+    IntegerZeroExtend32To64Directive,
+    IntegerZeroExtend8To64Directive,
+    IntegerSignedExtend16To64Directive,
+    IntegerSignedExtend32To64Directive,
+    IntegerSignedExtend8To64Directive,
+    IntegerTruncate64To16Directive,
+    IntegerTruncate64To32Directive,
+    IntegerTruncate64To8Directive
 )
 
 debug = True
@@ -515,35 +521,71 @@ class FpySequencerModel:
 
         self.push(val_as_float)
 
-    def handle_siext(self, dir: IntegerSignedExtendDirective):
-        if len(self.stack) < dir.from_size:
+    def handle_siext_8_64(self, dir: IntegerSignedExtend8To64Directive):
+        if len(self.stack) < 1:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        if len(self.stack) - dir.from_size + dir.to_size > self.max_stack_size:
+        if len(self.stack) + 7 > self.max_stack_size:
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        # make sure it's from/to a valid size
-        if dir.from_size not in (1, 2, 4, 8) or dir.to_size not in (1, 2, 4, 8):
-            return DirectiveErrorCode.INVALID_ARGUMENT
-
         # pop val off stack
-        val = self.pop(type=int, signed=True, size=dir.from_size)
+        val = self.pop(type=int, signed=True, size=1)
 
-        self.push(val, signed=True, size=dir.to_size)
+        self.push(val, signed=True, size=8)
 
-    def handle_ziext(self, dir: IntegerZeroExtendDirective):
-        if len(self.stack) < dir.from_size:
+    def handle_siext_16_64(self, dir: IntegerSignedExtend16To64Directive):
+        if len(self.stack) < 2:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        if len(self.stack) - dir.from_size + dir.to_size > self.max_stack_size:
+        if len(self.stack) + 6 > self.max_stack_size:
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        # make sure it's from/to a valid size
-        if dir.from_size not in (1, 2, 4, 8) or dir.to_size not in (1, 2, 4, 8):
-            return DirectiveErrorCode.INVALID_ARGUMENT
+        # pop val off stack
+        val = self.pop(type=int, signed=True, size=2)
+
+        self.push(val, signed=True, size=8)
+
+    def handle_siext_32_64(self, dir: IntegerSignedExtend32To64Directive):
+        if len(self.stack) < 4:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        if len(self.stack) + 4 > self.max_stack_size:
+            return DirectiveErrorCode.STACK_OVERFLOW
 
         # pop val off stack
-        val_as_int = self.pop(type=int, signed=False, size=dir.from_size)
+        val = self.pop(type=int, signed=True, size=4)
 
-        self.push(val_as_int, signed=False, size=dir.to_size)
+        self.push(val, signed=True, size=8)
+
+    def handle_ziext_8_64(self, dir: IntegerZeroExtend8To64Directive):
+        if len(self.stack) < 1:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        if len(self.stack) + 7 > self.max_stack_size:
+            return DirectiveErrorCode.STACK_OVERFLOW
+
+        # pop val off stack
+        val = self.pop(type=int, signed=False, size=1)
+
+        self.push(val, signed=False, size=8)
+
+    def handle_ziext_16_64(self, dir: IntegerZeroExtend16To64Directive):
+        if len(self.stack) < 2:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        if len(self.stack) + 6 > self.max_stack_size:
+            return DirectiveErrorCode.STACK_OVERFLOW
+
+        # pop val off stack
+        val = self.pop(type=int, signed=False, size=2)
+
+        self.push(val, signed=False, size=8)
+
+    def handle_ziext_32_64(self, dir: IntegerZeroExtend32To64Directive):
+        if len(self.stack) < 4:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        if len(self.stack) + 4 > self.max_stack_size:
+            return DirectiveErrorCode.STACK_OVERFLOW
+
+        # pop val off stack
+        val = self.pop(type=int, signed=False, size=4)
+
+        self.push(val, signed=False, size=8)
 
     def handle_fptrunc(self, dir: FloatTruncateDirective):
         if len(self.stack) < WORD_SIZE:
@@ -554,13 +596,26 @@ class FpySequencerModel:
         val_32_bytes += bytes((0, 0, 0, 0))
         self.push(val_32_bytes)
 
-    def handle_itrunc(self, dir: IntegerTruncateDirective):
-        if len(self.stack) < dir.from_size:
+    def handle_itrunc_64_8(self, dir: IntegerTruncate64To8Directive):
+        if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        assert dir.from_size > dir.to_size
 
-        val = self.pop(type=bytes, size=dir.from_size)
-        val = val[-dir.to_size :]
+        val = self.pop(type=bytes, size=8)
+        val = val[-1 :]
+        self.push(val)
+    def handle_itrunc_64_16(self, dir: IntegerTruncate64To16Directive):
+        if len(self.stack) < 8:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        val = self.pop(type=bytes, size=8)
+        val = val[-2 :]
+        self.push(val)
+    def handle_itrunc_64_32(self, dir: IntegerTruncate64To32Directive):
+        if len(self.stack) < 8:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        val = self.pop(type=bytes, size=8)
+        val = val[-4 :]
         self.push(val)
 
     def handle_fptosi(self, dir: FloatToSignedIntDirective):
