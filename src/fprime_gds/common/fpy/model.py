@@ -3,7 +3,7 @@ import inspect
 import math
 import struct
 from fprime_gds.common.fpy.bytecode.directives import (
-    AllocateStackDirective,
+    AllocateDirective,
     AndDirective,
     ConstCmdDirective,
     Directive,
@@ -21,10 +21,10 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntModuloDirective,
     IntMultiplyDirective,
     IntegerTruncateDirective,
-    LogDirective,
-    PopDiscardDirective,
+    FloatLogDirective,
+    DiscardDirective,
     PrintDirective,
-    SignedIntegerExtendDirective,
+    IntegerSignedExtendDirective,
     StackCmdDirective,
     StorePrmDirective,
     StoreTlmValDirective,
@@ -242,7 +242,7 @@ class FpySequencerModel:
         else:
             assert False, type
 
-    def handle_allocate_stack(self, dir: AllocateStackDirective):
+    def handle_allocate_stack(self, dir: AllocateDirective):
         if len(self.stack) + dir.size > self.max_stack_size:
             return DirectiveErrorCode.STACK_OVERFLOW
 
@@ -251,7 +251,7 @@ class FpySequencerModel:
     def handle_no_op(self, dir: NoOpDirective):
         pass
 
-    def handle_pop_discard(self, dir: PopDiscardDirective):
+    def handle_pop_discard(self, dir: DiscardDirective):
         if len(self.stack) < WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         self.pop()
@@ -515,7 +515,7 @@ class FpySequencerModel:
 
         self.push(val_as_float)
 
-    def handle_siext(self, dir: SignedIntegerExtendDirective):
+    def handle_siext(self, dir: IntegerSignedExtendDirective):
         if len(self.stack) < dir.from_size:
             return DirectiveErrorCode.STACK_UNDERFLOW
         if len(self.stack) - dir.from_size + dir.to_size > self.max_stack_size:
@@ -690,7 +690,7 @@ class FpySequencerModel:
         lhs = self.pop(type=float)
         self.push(lhs**rhs)
 
-    def handle_log(self, dir: LogDirective):
+    def handle_log(self, dir: FloatLogDirective):
         if len(self.stack) < WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         operand = self.pop(type=float)

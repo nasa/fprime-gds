@@ -7,7 +7,7 @@ import traceback
 import typing
 
 from fprime_gds.common.fpy.bytecode.directives import (
-    AllocateStackDirective,
+    AllocateDirective,
     ConstCmdDirective,
     FloatAddDirective,
     FloatDivideDirective,
@@ -26,9 +26,9 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntMultiplyDirective,
     IntSubtractDirective,
     IntegerTruncateDirective,
-    LogDirective,
+    FloatLogDirective,
     PrintDirective,
-    SignedIntegerExtendDirective,
+    IntegerSignedExtendDirective,
     StackCmdDirective,
     StorePrmDirective,
     IntegerZeroExtendDirective,
@@ -233,7 +233,7 @@ MACROS: dict[str, FpyMacro] = {
     "sleep": FpyMacro(NothingType, [("seconds", U32Type,), ("microseconds", U32Type)], WaitRelDirective),
     "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
     "exit": FpyMacro(NothingType, [("success", BoolType)], ExitDirective),
-    "log": FpyMacro(F64Type, [("operand", F64Type)], LogDirective),
+    "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
     "print": FpyMacro(NothingType, [("msg", PrintStrType)], PrintDirective)
 }
 
@@ -1314,7 +1314,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         to_size = 8
 
         dir_type = (
-            SignedIntegerExtendDirective
+            IntegerSignedExtendDirective
             if type in SIGNED_INTEGER_TYPES
             else IntegerZeroExtendDirective
         )
@@ -1847,7 +1847,7 @@ class GenerateBodyDirectives(Visitor):
     def visit_AstBody(self, node: AstBody | AstScopedBody, state: CompileState):
         dirs = []
         if isinstance(node, AstScopedBody):
-            dirs.append(AllocateStackDirective(state.lvar_array_size_bytes))
+            dirs.append(AllocateDirective(state.lvar_array_size_bytes))
         for stmt in node.stmts:
             stmt_dirs = state.directives.get(stmt, None)
             if stmt_dirs is not None:

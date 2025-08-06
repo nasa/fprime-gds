@@ -26,86 +26,82 @@ FwOpcodeType = U32Type
 
 class DirectiveOpcode(Enum):
     INVALID = 0
-    EXIT = 1
-    WAIT_REL = 2
-    WAIT_ABS = 3
+    WAIT_REL = 1
+    WAIT_ABS = 2
     GOTO = 4
     IF = 5
     NO_OP = 6
     STORE_TLM_VAL = 7
     STORE_PRM = 8
-    # binary stack op directives
-    # all of these are handled at the CPP level by one BinaryStackOpDirective
+    CONST_CMD = 9
+    # stack op directives
+    # all of these are handled at the CPP level by one StackOpDirective
     # boolean ops
-    OR = 9
-    AND = 10
+    OR = 10
+    AND = 11
     # integer equalities
-    IEQ = 11
-    INE = 12
+    IEQ = 12
+    INE = 13
     # unsigned integer inequalities
-    ULT = 13
-    ULE = 14
-    UGT = 15
-    UGE = 16
+    ULT = 14
+    ULE = 15
+    UGT = 16
+    UGE = 17
     # signed integer inequalities
-    SLT = 17
-    SLE = 18
-    SGT = 19
-    SGE = 20
+    SLT = 18
+    SLE = 19
+    SGT = 20
+    SGE = 21
     # floating point equalities
-    FEQ = 21
-    FNE = 22
+    FEQ = 22
+    FNE = 23
     # floating point inequalities
-    FLT = 23
-    FLE = 24
-    FGT = 25
-    FGE = 26
-    # integer arithmetic
-    IADD = 27
-    ISUB = 28
-    IMUL = 29
-    UDIV = 30
-    SDIV = 57
-    IMOD = 54
-    # float arithmetic
-    FADD = 31
-    FSUB = 32
-    FMUL = 33
-    FDIV = 34
-    FLOAT_FLOOR_DIV = 52
-    FPOW = 53
-    # end binary stack op directives
-
-    # unary stack op dirs
-    NOT = 35
+    FLT = 24
+    FLE = 25
+    FGT = 26
+    FGE = 27
+    NOT = 28
     # floating point extension and truncation
-    FPEXT = 36
-    FPTRUNC = 37
-    # signed and zero extension of integers
-    SIEXT = 49
-    IZEXT = 50
-    ITRUNC = 51
+    FPEXT = 29
+    FPTRUNC = 30
     # floating point conversion to signed/unsigned integer,
     # and vice versa
-    FPTOSI = 38
-    FPTOUI = 39
-    SITOFP = 40
-    UITOFP = 41
-    LOG = 55
-    # end unary stack op dirs
+    FPTOSI = 31
+    FPTOUI = 32
+    SITOFP = 33
+    UITOFP = 34
+    # integer arithmetic
+    IADD = 35
+    ISUB = 36
+    IMUL = 37
+    UDIV = 38
+    SDIV = 39
+    IMOD = 40
+    # float arithmetic
+    FADD = 41
+    FSUB = 42
+    FMUL = 43
+    FDIV = 44
+    FLOAT_FLOOR_DIV = 46
+    FPOW = 46
+    FLOG = 47
+    # end stack op dirs
 
-    LOAD = 42
-    PUSH_VAL = 43
+    EXIT = 48
+    ALLOCATE = 49
+    STORE = 50
+    LOAD = 51
+    PUSH_VAL = 52
+    SIEXT = 53
+    ZIEXT = 54
+    ITRUNC = 55
+    DISCARD = 56
 
-    STORE = 44
-    POP_DISCARD = 45
+    STACK_CMD = 57
 
-    CONST_CMD = 46
-    STACK_CMD = 47
+    PRINT = 58
+    MEMCMP = 59
 
-    ALLOCATE_STACK = 48
-    PRINT = 56
-    MEMCMP = 58
 
 
 class Directive:
@@ -253,7 +249,7 @@ class LoadDirective(Directive):
 
 
 @dataclass
-class SignedIntegerExtendDirective(Directive):
+class IntegerSignedExtendDirective(Directive):
     opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.SIEXT
 
     from_size: int | U8Type
@@ -262,7 +258,7 @@ class SignedIntegerExtendDirective(Directive):
 
 @dataclass
 class IntegerZeroExtendDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.IZEXT
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ZIEXT
 
     from_size: int | U8Type
     to_size: int | U8Type
@@ -277,8 +273,8 @@ class IntegerTruncateDirective(Directive):
 
 
 @dataclass
-class AllocateStackDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ALLOCATE_STACK
+class AllocateDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.ALLOCATE
 
     size: int | U16Type
 
@@ -292,8 +288,10 @@ class StoreDirective(Directive):
 
 
 @dataclass
-class PopDiscardDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.POP_DISCARD
+class DiscardDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.DISCARD
+
+    size: int | U16Type
 
 
 @dataclass
@@ -373,8 +371,8 @@ class FloatFloorDivideDirective(Directive):
 
 
 @dataclass
-class LogDirective(Directive):
-    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.LOG
+class FloatLogDirective(Directive):
+    opcode: ClassVar[DirectiveOpcode] = DirectiveOpcode.FLOG
 
 
 HEADER_FORMAT = "!BBBBBHI"
