@@ -885,8 +885,7 @@ class CalculateExprTypes(Visitor):
         if isinstance(node.value, float):
             result_type = FloatType
         else:
-            # ints can be converted to either float or int
-            result_type = NumericalType
+            result_type = IntegerType
         state.expr_types[node] = result_type
 
     def visit_AstMath(self, node: AstMath, state: CompileState):
@@ -1479,9 +1478,9 @@ class GenerateExprMacrosAndCmds(Visitor):
         lhs_dirs.extend(self.extend_to_64_bits(lhs_type))
         rhs_dirs.extend(self.extend_to_64_bits(rhs_type))
 
-        fp = False
-        if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
-            fp = True
+        # an op happens in fp if it isn't a modulo, and (either of its args are floats, or if it's a pow (which is always float))
+        fp = not isinstance(node, AstModulo) and (issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType) or isinstance(node, AstPow))
+        if fp:
             # convert both sides to float
             if issubclass(lhs_type, IntegerType):
                 if lhs_type in UNSIGNED_INTEGER_TYPES:

@@ -809,8 +809,8 @@ exit(False)
 
 def test_add_float(fprime_test_api):
     seq = """
-var1: F32 = -255
-var2: F32 = 255
+var1: F32 = -255.0
+var2: F32 = 255.0
 if var1 + var2 == 0 and (var1 + 1) > (var1 + -1):
     exit(True)
 exit(False)
@@ -842,8 +842,8 @@ exit(False)
 
 def test_sub_float(fprime_test_api):
     seq = """
-var1: F32 = 255
-var2: F32 = 255
+var1: F32 = 255.0
+var2: F32 = 255.0
 if var1 - var2 == 0 and (var1 - 1) < (var1 - -1):
     exit(True)
 exit(False)
@@ -897,8 +897,8 @@ exit(False)
 
 def test_mul_float(fprime_test_api):
     seq = """
-var1: F32 = 5
-var2: F32 = 20
+var1: F32 = 5.0
+var2: F32 = 20.0
 if var1 * var2 == 100 and (var1 * 2) > var1:
     exit(True)
 exit(False)
@@ -930,8 +930,8 @@ exit(False)
 
 def test_div_float(fprime_test_api):
     seq = """
-var1: F32 = -20
-var2: F32 = 5
+var1: F32 = -20.0
+var2: F32 = 5.0
 if var1 / var2 == -4 and (var1 / -2) > var1:
     exit(True)
 exit(False)
@@ -1028,7 +1028,7 @@ exit(False)
 
 def test_pow_float(fprime_test_api):
     seq = """
-var1: F32 = 4
+var1: F32 = 4.0
 var2: F32 = 0.5
 if var1 ** var2 == 2:
     exit(True)
@@ -1042,12 +1042,12 @@ def test_int_literal_as_float(fprime_test_api):
 var: F32 = 1
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_log(fprime_test_api):
     seq = """
-if log(4) > 1.385 and log(4) < 1.387:
+if log(4.0) > 1.385 and log(4.0) < 1.387:
     exit(True)
 exit(False)
 """
