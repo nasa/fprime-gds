@@ -105,12 +105,12 @@ class DirectiveId(Enum):
     STORE = 59
     LOAD = 60
     PUSH_VAL = 61
-    DISCARD = 56
+    DISCARD = 62
+    MEMCMP = 63
 
-    STACK_CMD = 57
+    STACK_CMD = 64
 
-    PRINT = 58
-    MEMCMP = 59
+    PRINT = 59
 
 
 
@@ -237,7 +237,7 @@ class Directive:
 class StackCmdDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STACK_CMD
 
-    size: int | U16Type
+    args_size: int | U16Type
 
 
 @dataclass

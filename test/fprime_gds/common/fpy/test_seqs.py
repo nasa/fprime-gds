@@ -285,7 +285,7 @@ CdhCore.cmdDisp.CMD_NO_OP
 
 def test_get_struct_member(fprime_test_api):
     seq = """
-if ComFpy.cmdSeq.Debug.nextStatementOpcode == 0:
+if FpyDemo.cmdSeq.Debug.nextStatementOpcode == 0:
     # should be 0 because we aren't in debug mode
     exit(True)
 exit(False)
@@ -295,7 +295,7 @@ exit(False)
         fprime_test_api,
         seq,
         {
-            "ComFpy.cmdSeq.Debug": lookup_type(
+            "FpyDemo.cmdSeq.Debug": lookup_type(
                 fprime_test_api, "Svc.FpySequencer.DebugTelemetry"
             )(
                 {
@@ -755,7 +755,7 @@ else:
 
 def test_non_const_str_arg(fprime_test_api):
     seq = """
-CdhCore.cmdDisp.CMD_NO_OP_STRING(ComFpy.cmdSeq.SeqPath)
+CdhCore.cmdDisp.CMD_NO_OP_STRING(FpyDemo.cmdSeq.SeqPath)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -778,7 +778,7 @@ FpyDemo.sendBuffComp.PARAMETER4_PRM_SET(var)
 
 def test_non_const_builtin_arg(fprime_test_api):
     seq = """
-var: U32 = 1231233
+var: U32 = 1
 var2: U32 = 123123
 sleep(var, var2)
 """
@@ -951,7 +951,7 @@ exit(False)
 
 def test_arithmetic_arg_to_builtin(fprime_test_api):
     seq = """
-sleep(123 + 456 * 789, (0 + 1 / 2))
+sleep(1 + 2 * 0, (0 + 1 / 2))
 """
     assert_run_success(fprime_test_api, seq)
 

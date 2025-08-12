@@ -92,11 +92,6 @@ class AstFuncCall(Ast):
     args: list["AstExpr"] | None
 
 
-@dataclass
-class AstInfixOp(Ast):
-    value: str
-
-
 @dataclass()
 class AstPass(Ast):
     pass
@@ -105,7 +100,7 @@ class AstPass(Ast):
 @dataclass
 class AstComparison(Ast):
     lhs: "AstExpr"
-    op: AstInfixOp
+    op: str
     rhs: "AstExpr"
 
 
@@ -125,51 +120,25 @@ class AstOr(Ast):
 
 
 @dataclass
-class AstAdd(Ast):
-    lhs: "AstExpr"
-    rhs: "AstExpr"
+class AstBinaryMathOp(Ast):
+    lhs: AstExpr
+    op: str
+    rhs: AstExpr
 
 
 @dataclass
-class AstSub(Ast):
-    lhs: "AstExpr"
-    rhs: "AstExpr"
+class AstUnaryMathOp(Ast):
+    val: AstExpr
+    op: str
 
 
-@dataclass
-class AstMul(Ast):
-    lhs: "AstExpr"
-    rhs: "AstExpr"
-
-
-@dataclass
-class AstFloorDiv(Ast):
-    lhs: "AstExpr"
-    rhs: "AstExpr"
-
-
-@dataclass
-class AstDiv(Ast):
-    lhs: "AstExpr"
-    rhs: "AstExpr"
-
-@dataclass
-class AstModulo(Ast):
-    lhs: "AstExpr"
-    rhs: "AstExpr"
-
-@dataclass
-class AstPow(Ast):
-    lhs: "AstExpr"
-    rhs: "AstExpr"
-
-
-AstMath = AstAdd | AstSub | AstFloorDiv | AstMul | AstDiv | AstModulo | AstPow
 AstTest = AstOr | AstAnd | AstNot | AstComparison
-
+AstStackOp = AstBinaryMathOp | AstComparison | AstUnaryMathOp
 
 AstReference = AstGetAttr | AstGetItem | AstVar
-AstExpr = Union[AstFuncCall, AstTest, AstLiteral, AstReference]
+AstExpr = Union[
+    AstFuncCall, AstTest, AstLiteral, AstReference, AstBinaryMathOp, AstUnaryMathOp
+]
 
 
 @dataclass
@@ -264,15 +233,8 @@ class FpyTransformer(Transformer):
     and_test = no_inline(AstAnd)
     not_test = AstNot
     comparison = AstComparison
-    comp_op = AstInfixOp
-
-    add_expr = AstAdd
-    mul_expr = AstMul
-    div_expr = AstDiv
-    floordiv_expr = AstFloorDiv
-    sub_expr = AstSub
-    modulo_expr = AstModulo
-    pow_expr = AstPow
+    binary_math_op = AstBinaryMathOp
+    unary_math_op = AstUnaryMathOp
 
     func_call = AstFuncCall
     arguments = no_inline_or_meta(list)
@@ -292,3 +254,10 @@ class FpyTransformer(Transformer):
     STRING = handle_str
     CONST_TRUE = lambda a, b: True
     CONST_FALSE = lambda a, b: False
+    ADD_OP: str
+    SUB_OP: str
+    DIV_OP: str
+    MUL_OP: str
+    FLOOR_DIV_OP: str
+    MOD_OP: str
+    POW_OP: str

@@ -35,25 +35,24 @@ _test: or_test
 ?and_test: not_test_ ("and" not_test_)*
 ?not_test_: "not" not_test_ -> not_test
           | comparison
-?comparison: sum (comp_op sum)?
+?comparison: sum (COMPARISON_OP sum)?
 # all comparisons have same precedence
-comp_op: COMPARISON_OP
 
-?sum: sum "+" term -> add_expr
-    | sum "-" term -> sub_expr
+?sum: sum ADD_OP term -> binary_math_op
+    | sum SUB_OP term -> binary_math_op
     | term
 
-?term: term "*" factor -> mul_expr
-     | term "/" factor -> div_expr
-     | term "//" factor -> floordiv_expr
-     | term "%" factor -> modulo_expr
+?term: term MUL_OP factor -> binary_math_op
+     | term DIV_OP factor -> binary_math_op
+     | term FLOOR_DIV_OP factor -> binary_math_op
+     | term MOD_OP factor -> binary_math_op
      | factor
 
-?factor: "+" factor -> unary_plus_expr
-       | "-" factor -> unary_minus_expr
+?factor: ADD_OP factor -> unary_math_op
+       | SUB_OP factor -> unary_math_op
        | power
 
-?power: atom "**" factor -> pow_expr
+?power: atom POW_OP factor -> binary_math_op
       | atom
 
 arguments: _expr ("," _expr)*
@@ -93,7 +92,13 @@ NAME: /[^\W\d]\w*/
 COMMENT: /#[^\n]*/
 CONST_TRUE: "True"
 CONST_FALSE: "False"
-ARITHMETIC_OP: "+" | "-" | "*" | "/" | "//"
+ADD_OP: "+"
+SUB_OP: "-"
+DIV_OP: "/"
+MUL_OP: "*"
+FLOOR_DIV_OP: "//"
+MOD_OP: "%"
+POW_OP: "**"
 COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i

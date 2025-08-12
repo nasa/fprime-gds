@@ -260,7 +260,7 @@ class FpySequencerModel:
     def handle_pop_discard(self, dir: DiscardDirective):
         if len(self.stack) < WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.pop()
+        self.pop(size=dir.size, type=bytes)
 
     def handle_load(self, dir: LoadDirective):
         if len(self.stack) + dir.size > self.max_stack_size:
@@ -320,17 +320,17 @@ class FpySequencerModel:
         self.push(0, size=4)
 
     def handle_stack_cmd(self, dir: StackCmdDirective):
-        if len(self.stack) < dir.size:
+        if len(self.stack) < dir.args_size + 4:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
-        cmd = self.stack[-dir.size :]
-        self.stack = self.stack[: -dir.size]
+        cmd = self.stack[-(dir.args_size + 4) :]
+        self.stack = self.stack[: -(dir.args_size + 4)]
 
         print(
             "cmd opcode",
-            int.from_bytes(cmd[:4], signed=False, byteorder="big"),
+            int.from_bytes(cmd[-4:], signed=False, byteorder="big"),
             "args",
-            cmd[4:],
+            cmd[:-4],
         )
         # always push CmdResponse.OK
         self.push(0, size=4)
