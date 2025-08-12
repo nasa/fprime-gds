@@ -1125,6 +1125,38 @@ class IntegrationTestAPI(DataHandler):
         return results
 
     ######################################################################################
+    #   File Uplink functions
+    ######################################################################################
+
+    def uplink_file_and_await_completion(self, file_path, destination=None, timeout=10):
+        """
+        This function will upload a file and wait for its completion, awaiting for the
+        FileReceived event.
+
+        Args:
+            file_path: the path to the file to upload
+            destination: the destination path for the uploaded file
+            timeout: the maximum time to wait for the event
+        """
+        self.uplink_file(file_path, destination)
+        self.await_event("FileReceived", timeout=timeout)
+
+    def uplink_file(self, file_path, destination=None):
+        """
+        This function will upload a file to the specified location.
+
+        Note: this will simply put the file on the outgoing queue. No guarantee
+        is made on when the file will be delivered. To wait for the completion of
+        the file uplink, use uplink_file_and_await_completion()
+
+        Args:
+            file_path: the path to the file to upload
+        """
+        uplink_file = Path(self.pipeline.up_store) / Path(file_path).name
+        shutil.copy2(file_path, uplink_file)
+        self.pipeline.files.uplinker.enqueue(str(uplink_file), destination)
+
+    ######################################################################################
     #   History Searches
     ######################################################################################
     class __HistorySearcher:
