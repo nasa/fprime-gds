@@ -120,24 +120,26 @@ class AstOr(Ast):
 
 
 @dataclass
-class AstBinaryMathOp(Ast):
+class AstBinaryOp(Ast):
     lhs: AstExpr
     op: str
     rhs: AstExpr
 
 
 @dataclass
-class AstUnaryMathOp(Ast):
+class AstUnaryOp(Ast):
     val: AstExpr
     op: str
 
 
 AstTest = AstOr | AstAnd | AstNot | AstComparison
-AstStackOp = AstBinaryMathOp | AstComparison | AstUnaryMathOp
+AstStackOp = AstBinaryOp | AstComparison | AstUnaryOp
+AstUnaryStackOp = AstUnaryOp
+AstBinaryStackOp = AstBinaryOp | AstComparison
 
 AstReference = AstGetAttr | AstGetItem | AstVar
 AstExpr = Union[
-    AstFuncCall, AstTest, AstLiteral, AstReference, AstBinaryMathOp, AstUnaryMathOp
+    AstFuncCall, AstTest, AstLiteral, AstReference, AstBinaryOp, AstUnaryOp
 ]
 
 
@@ -233,8 +235,8 @@ class FpyTransformer(Transformer):
     and_test = no_inline(AstAnd)
     not_test = AstNot
     comparison = AstComparison
-    binary_math_op = AstBinaryMathOp
-    unary_math_op = AstUnaryMathOp
+    binary_op = AstBinaryOp
+    unary_math_op = AstUnaryOp
 
     func_call = AstFuncCall
     arguments = no_inline_or_meta(list)

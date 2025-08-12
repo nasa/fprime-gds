@@ -31,28 +31,35 @@ _expr: _test
 
 # logical tests
 _test: or_test
-?or_test: and_test ("or" and_test)*
-?and_test: not_test_ ("and" not_test_)*
-?not_test_: "not" not_test_ -> not_test
-          | comparison
-?comparison: sum (COMPARISON_OP sum)?
-# all comparisons have same precedence
 
-?sum: sum ADD_OP term -> binary_math_op
-    | sum SUB_OP term -> binary_math_op
+?or_test: or_test OR_OP and_test -> binary_op
+        | and_test
+
+?and_test: and_test AND_OP not_test -> binary_op
+         | not_test
+
+?not_test: NOT_OP not_test -> unary_op
+          | comparison
+
+# all comparisons have same precedence
+?comparison: comparison COMPARISON_OP sum -> binary_op
+           | sum
+
+?sum: sum ADD_OP term -> binary_op
+    | sum SUB_OP term -> binary_op
     | term
 
-?term: term MUL_OP factor -> binary_math_op
-     | term DIV_OP factor -> binary_math_op
-     | term FLOOR_DIV_OP factor -> binary_math_op
-     | term MOD_OP factor -> binary_math_op
+?term: term MUL_OP factor -> binary_op
+     | term DIV_OP factor -> binary_op
+     | term FLOOR_DIV_OP factor -> binary_op
+     | term MOD_OP factor -> binary_op
      | factor
 
-?factor: ADD_OP factor -> unary_math_op
-       | SUB_OP factor -> unary_math_op
+?factor: ADD_OP factor -> unary_op # unary plus (identity)
+       | SUB_OP factor -> unary_op # unary minus (negation)
        | power
 
-?power: atom POW_OP factor -> binary_math_op
+?power: atom POW_OP factor -> binary_op
       | atom
 
 arguments: _expr ("," _expr)*
@@ -99,6 +106,9 @@ MUL_OP: "*"
 FLOOR_DIV_OP: "//"
 MOD_OP: "%"
 POW_OP: "**"
+OR_OP: "or"
+AND_OP: "and"
+NOT_OP: "not"
 COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i

@@ -106,7 +106,8 @@ from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
     AstAdd,
     AstAnd,
-    AstBinaryMathOp,
+    AstBinaryOp,
+    AstBinaryStackOp,
     AstBoolean,
     AstComparison,
     AstElif,
@@ -135,6 +136,7 @@ from fprime_gds.common.fpy.parser import (
     AstIf,
     AstAssign,
     AstFuncCall,
+    AstUnaryStackOp,
     AstVar,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
@@ -272,91 +274,135 @@ MACROS: dict[str, FpyMacro] = {
 
 
 @dataclass
+class FpyStackOpVariant:
+    input_type: FppTypeClass
+    output_type: FppTypeClass
+
+
+@dataclass
+class FpyBinaryStackOpVariant(FpyStackOpVariant):
+    directive: type[Directive]
+
+    def generate(
+        self, lhs_dirs: list[Directive], rhs_dirs: list[Directive]
+    ) -> list[Directive]:
+        return lhs_dirs + rhs_dirs + [self.directive()]
+
+
+@dataclass
+class FpyMemCompareVariant:
+
+    def generate(
+        self, lhs_dirs: list[Directive], rhs_dirs: list[Directive]
+    ) -> list[Directive]:
+        directives.append(MemCompareDirective(lhs_type.getMaxSize()))
+        if node.op == "!=":
+            directives.append(NotDirective())
+
+
+@dataclass
 class FpyStackOp:
-    variants: dict[FppTypeClass, type[Directive]]
-    """a map of which fpp class this stack op can operate on, to which directive must be used"""
-    default_variant: type[Directive] = None
-    """a directive which can be used for any type"""
+    variants: list[FpyStackOpVariant]
+
+    def pick_variant(self, arg_types: list[FppTypeClass]) -> FpyStackOpVariant | None:
+
+        if any(not issubclass(t, NumericalType) for t in arg_types):
+            # at least one arg is not numeric
+            # return the non numeric variant, or none if we don't have one
+            return self.non_numeric
+
+        if any(issubclass(t, FloatType) for t in arg_types):
+            # at least one arg is a float
+            # return the float variant, or none if we don't have one
+            return self.float
+
+        if any(t in UNSIGNED_INTEGER_TYPES for t in arg_types):
+            # at least one arg is unsigned
+            return self.unsigned
+
+        return self.signed
 
 
-STACK_OPS: dict[str, FpyStackOp] = {
+BINARY_STACK_OPS: dict[str, FpyStackOp] = {
     "**": FpyStackOp({F64Type: FloatExponentDirective}),
     "%": FpyStackOp({I64Type: IntModuloDirective, U64Type: IntModuloDirective}),
     "+": FpyStackOp(
-        {I64Type: IntAddDirective, U64Type: IntAddDirective, F64Type: FloatAddDirective}
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, IntAddDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, IntAddDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatAddDirective),
+        ],
     ),
     "-": FpyStackOp(
-        {
-            I64Type: IntSubtractDirective,
-            U64Type: IntSubtractDirective,
-            F64Type: FloatSubtractDirective,
-        }
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, IntSubtractDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, IntSubtractDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatSubtractDirective),
+        ],
     ),
     "*": FpyStackOp(
-        {
-            I64Type: IntMultiplyDirective,
-            U64Type: IntMultiplyDirective,
-            F64Type: FloatMultiplyDirective,
-        }
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, IntMultiplyDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, IntMultiplyDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatMultiplyDirective),
+        ],
     ),
     "/": FpyStackOp(
-        {
-            I64Type: SignedIntDivideDirective,
-            U64Type: UnsignedIntDivideDirective,
-            F64Type: FloatDivideDirective,
-        }
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, SignedIntDivideDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedIntDivideDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatDivideDirective),
+        ],
     ),
     "//": FpyStackOp(
-        {
-            I64Type: SignedIntDivideDirective,
-            U64Type: UnsignedIntDivideDirective,
-            F64Type: FloatFloorDivideDirective,
-        }
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, SignedIntDivideDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedIntDivideDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatFloorDivideDirective),
+        ],
     ),
     ">": FpyStackOp(
-        {
-            I64Type: SignedGreaterThanDirective,
-            U64Type: UnsignedGreaterThanDirective,
-            F64Type: FloatGreaterThanDirective
-        }
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, SignedGreaterThanDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedGreaterThanDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatGreaterThanDirective),
+        ],
     ),
     ">=": FpyStackOp(
-        {
-            I64Type: SignedGreaterThanOrEqualDirective,
-            U64Type: UnsignedGreaterThanOrEqualDirective,
-            F64Type: FloatGreaterThanOrEqualDirective
-        }
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, SignedGreaterThanOrEqualDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedGreaterThanOrEqualDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatGreaterThanOrEqualDirective),
+        ],
     ),
     "<=": FpyStackOp(
-        {
-            I64Type: SignedLessThanOrEqualDirective,
-            U64Type: UnsignedLessThanOrEqualDirective,
-            F64Type: FloatLessThanOrEqualDirective
-        }
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, SignedLessThanOrEqualDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedLessThanOrEqualDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatLessThanOrEqualDirective),
+        ],
     ),
     "<": FpyStackOp(
-        {
-            I64Type: SignedLessThanDirective,
-            U64Type: UnsignedLessThanDirective,
-            F64Type: FloatLessThanDirective
-        }
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, SignedLessThanDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedLessThanDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatLessThanDirective),
+        ],
     ),
     "==": FpyStackOp(
-        {
-            I64Type: IntEqualDirective,
-            U64Type: IntEqualDirective,
-            F64Type: FloatEqualDirective,
-        },
-        MemCompareDirective
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, IntEqualDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, IntEqualDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatEqualDirective),
+        ],
     ),
-    "==": FpyStackOp(
-        {
-            I64Type: IntEqualDirective,
-            U64Type: IntEqualDirective,
-            F64Type: FloatEqualDirective,
-        },
-        MemCompareDirective
-    )
+    "!=": FpyStackOp(
+        [
+            FpyBinaryStackOpVariant(I64Type, I64Type, IntNotEqualDirective),
+            FpyBinaryStackOpVariant(U64Type, U64Type, IntNotEqualDirective),
+            FpyBinaryStackOpVariant(F64Type, F64Type, FloatNotEqualDirective),
+        ],
+    ),
 }
 
 
@@ -591,7 +637,7 @@ class CompileState:
     )
     """expr to its fprime type, or nothing type if none"""
 
-    intermediate_types: dict[AstStackOp, FppTypeClass] = field(default_factory=dict)
+    variants: dict[AstStackOp, FpyStackOpVariant] = field(default_factory=dict)
 
     expr_values: dict[AstExpr, FppType | NothingType | None] = field(
         default_factory=dict
@@ -920,8 +966,8 @@ class ResolveReferences(Visitor):
             state.err("Unknown runtime value", node.condition)
             return
 
-    def visit_AstComparison(self, node: AstComparison, state: CompileState):
-        # lhs/rhs side of comparison, if they are refs, must be refs to "runtime vals"
+    def visit_AstBinaryStackOp(self, node: AstBinaryStackOp, state: CompileState):
+        # lhs/rhs side of stack op, if they are refs, must be refs to "runtime vals"
         if not self.resolve_if_ref(node.lhs, state.runtime_values, state):
             state.err("Unknown runtime value", node.lhs)
             return
@@ -940,12 +986,9 @@ class ResolveReferences(Visitor):
             state.err("Unknown runtime value", node.value)
             return
 
-    def visit_AstMath(self, node: AstMath, state: CompileState):
-        if not self.resolve_if_ref(node.lhs, state.runtime_values, state):
-            state.err("Unknown runtime value", node.lhs)
-            return
-        if not self.resolve_if_ref(node.rhs, state.runtime_values, state):
-            state.err("Unknown runtime value", node.rhs)
+    def visit_AstUnaryStackOp(self, node: AstUnaryStackOp, state: CompileState):
+        if not self.resolve_if_ref(node.val, state.runtime_values, state):
+            state.err("Unknown runtime value", node.val)
             return
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
@@ -999,35 +1042,78 @@ class CheckUseBeforeDeclare(Visitor):
 class CalculateExprTypes(Visitor):
     """stores in state the fprime type of each expression, or NothingType if the expr had no type"""
 
+    def can_interpret_type(self, type: FppTypeClass, as_type: FppTypeClass) -> bool:
+        if type == as_type:
+            return True
+        if type in GENERIC_NUMERIC_TYPES and issubclass(as_type, type):
+            # if type is a generic number type, and it's a superclass of the dest type, we
+            # can interpret it as the dest type
+            return True
+
+        if type == StringType and issubclass(as_type, type):
+            # if type is a generic string type, we can convert it to any string type
+            return True
+
+        # otherwise, cannot interpret
+        return False
+
+    def can_convert_type(self, type: FppTypeClass, to_type: FppTypeClass) -> bool:
+        if type == to_type:
+            return True
+
+        if not issubclass(type, NumericalType) or not issubclass(
+            to_type, NumericalType
+        ):
+            # only allow conversions between numerical types
+            return False
+
+        if issubclass(type, FloatType) and issubclass(to_type, IntegerType):
+            # cannot convert float to int
+            return False
+
+        # otherwise we're good
+        return True
+
     def visit_AstNumber(self, node: AstNumber, state: CompileState):
+        # give a best guess as to the final type of this node. we don't actually know
+        # its bitwidth or signedness yet
         if isinstance(node.value, float):
             result_type = FloatType
         else:
             result_type = IntegerType
         state.expr_types[node] = result_type
 
-    def visit_AstMath(self, node: AstMath, state: CompileState):
+    def visit_AstBinaryStackOp(self, node: AstBinaryStackOp, state: CompileState):
         lhs_type = state.expr_types[node.lhs]
         rhs_type = state.expr_types[node.rhs]
 
-        if isinstance(node, AstPow):
-            # pow always returns float
-            state.expr_types[node] = FloatType
+        variant = BINARY_STACK_OPS[node.op].pick_variant([lhs_type, rhs_type])
+        if variant is None:
+            state.err(
+                f"Operator {node.op} undefined for argument types {lhs_type}, {rhs_type}",
+                node,
+            )
             return
 
-        if isinstance(node, AstModulo):
-            # modulo always returns int
-            state.expr_types[node] = IntegerType
+        # check if we can interpret or convert arg types as the input to the op
+        if self.can_interpret_type(
+            lhs_type, variant.input_type
+        ) or self.can_convert_type(lhs_type, variant.input_type):
+            state.expr_types[node.lhs] = variant.input_type
+        else:
+            state.err(f"Expected {variant.input_type}, found {lhs_type}", node.lhs)
             return
 
-        if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
-            # if either arg is a float, result must be a float (cannot be used as
-            # an int)
-            state.expr_types[node] = FloatType
+        if self.can_interpret_type(
+            rhs_type, variant.input_type
+        ) or self.can_convert_type(rhs_type, variant.input_type):
+            state.expr_types[node.rhs] = variant.input_type
+        else:
+            state.err(f"Expected {variant.input_type}, found {rhs_type}", node.rhs)
             return
 
-        # otherwise, result can be any number as int can be converted to float, or remain int
-        state.expr_types[node] = NumericalType
+        state.variants[node] = variant
+        state.expr_types[node] = variant.output_type
 
     def visit_AstString(self, node: AstString, state: CompileState):
         state.expr_types[node] = StringType
@@ -1040,146 +1126,8 @@ class CalculateExprTypes(Visitor):
         state.expr_types[node] = get_ref_fpp_type_class(ref)
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        ref = state.resolved_references[node.func]
-        assert isinstance(ref, FpyCallable)
-        state.expr_types[node] = ref.return_type
-
-    def visit_AstOr_AstAnd_AstNot_AstComparison(
-        self, node: AstOr | AstAnd | AstNot | AstComparison, state: CompileState
-    ):
-        state.expr_types[node] = BoolType
-
-    def visit_default(self, node, state):
-        # coding error, missed an expr
-        assert not isinstance(node, AstExpr), node
-
-class CalculateIntermediateTypes(Visitor):
-    def visit_AstStackOp(self, node: AstStackOp, state: CompileState):
-
-        lhs_type = state.expr_types[node.lhs]
-        rhs_type = state.expr_types[node.rhs]
-
-        intermediate_type = None
-        valid_intermediate_types = 
-        if issubclass(lhs_type, NumericalType) and issubclass(
-            rhs_type, NumericalType
-        ):
-            # both args are numeric. we should be able to find an intermediate type
-            fp = issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType)
-            unsigned = (
-                lhs_type in UNSIGNED_INTEGER_TYPES or rhs_type in UNSIGNED_INTEGER_TYPES
-            )
-            intermediate_type = F64Type if fp else U64Type if unsigned else I64Type
-        else:
-            if lhs_type != rhs_type:
-                # cannot find an intermediate type
-                state.err(f"Cannot compare {lhs_type} with {rhs_type}", node)
-                return
-            intermediate_type = lhs_type
-
-        # domain check
-        if node.op != "==" and node.op != "!=":
-            # all of these ops require numeric intermediate types
-            if intermediate_type not in NUMERIC_TYPES:
-                state.err(f"Cannot compare {lhs_type} with {rhs_type}", node)
-                return
-
-        # some of them require specific numeric types
-        if node.op == "%":
-            # cannot do float intermediate type. if it's float, 
-        
-
-        if node.op == "%":
-            intermediate_type = U64Type if unsigned else I64Type
-        elif node.op == "**":
-            intermediate_type = F64Type
-        else:
-            if node.op in ["==", "!="]:
-        state.intermediate_types[node] = intermediate_type
-
-
-class CheckAndResolveArgumentTypes(Visitor):
-    """for each syntactic node with arguments (ands/ors/nots/cmps/funcs), check that the argument
-    types are right"""
-
-
-    def visit_AstBinaryMathOp(self, node: AstBinaryMathOp, state: CompileState):
-        # if it's an "unspecified" type, we have the opportunity to interpret it
-        # directly as our intermediate type
-        if lhs_type in GENERIC_NUMERIC_TYPES:
-            if not issubclass(intermediate_type, lhs_type):
-                state.err(f"{lhs_type} is not interpretable as {intermediate_type}", node.lhs)
-                return
-            # interpret it as the intermediate type
-            lhs_type = intermediate_type
-        if rhs_type in GENERIC_NUMERIC_TYPES:
-            if not issubclass(intermediate_type, rhs_type):
-                state.err(f"{rhs_type} is not interpretable as {intermediate_type}", node.rhs)
-                return
-            rhs_type = intermediate_type
-
-        state.expr_types[node.lhs] = lhs_type
-        state.expr_types[node.rhs] = rhs_type
-
-    def visit_AstComparison(self, node: AstComparison, state: CompileState):
-
-        lhs_type = state.expr_types[node.lhs]
-        rhs_type = state.expr_types[node.rhs]
-
-
-        fp = issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType)
-        unsigned = (
-            lhs_type in UNSIGNED_INTEGER_TYPES or rhs_type in UNSIGNED_INTEGER_TYPES
-        )
-
-        if isinstance(node, AstModulo):
-            intermediate_type = U64Type if unsigned else I64Type
-        elif isinstance(node, AstPow):
-            intermediate_type = F64Type
-        else:
-            # for all other operations, we have float/signed/unsigned option
-            intermediate_type = F64Type if fp else U64Type if unsigned else I64Type
-
-        # args are both numeric
-
-        if lhs_type == NumericalType:
-            # it can be converted into any number. pick int
-            state.expr_types[node.lhs] = I64Type
-        if rhs_type == NumericalType:
-            # it can be converted into any number. pick int
-            state.expr_types[node.rhs] = I64Type
-
-        # if either is generic float, pick F64. we want F64 cuz otherwise we need
-        # an FPEXT to convert to F64
-        if lhs_type == FloatType:
-            state.expr_types[node.lhs] = F64Type
-        if rhs_type == FloatType:
-            state.expr_types[node.rhs] = F64Type
-
-        if lhs_type == IntegerType and rhs_type == IntegerType:
-            # if both are generic ints use i64
-            state.expr_types[node.lhs] = I64Type
-            state.expr_types[node.rhs] = I64Type
-            return
-
-        if lhs_type == IntegerType:
-            # try to interpret it as the rhs_type if rhs_type is integer
-            if issubclass(rhs_type, IntegerType):
-                state.expr_types[node.lhs] = state.expr_types[node.rhs]
-            else:
-                # otherwise rhs is a float. just use i64
-                state.expr_types[node.lhs] = I64Type
-
-        if rhs_type == IntegerType:
-            # try to interpret it as the rhs_type if rhs_type is integer
-            if issubclass(lhs_type, IntegerType):
-                state.expr_types[node.rhs] = state.expr_types[node.lhs]
-            else:
-                # otherwise lhs is a float. just use i64
-                state.expr_types[node.rhs] = I64Type
-
-    def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
+        assert isinstance(func, FpyCallable)
         func_args = func.args
         node_args = node.args if node.args else []
 
@@ -1206,7 +1154,9 @@ class CheckAndResolveArgumentTypes(Visitor):
             value_expr_type = state.expr_types[value_expr]
 
             # the type of the arg is a subclass of the value
-            if self.is_type_interpretable_as(value_expr_type, arg_type):
+            if self.can_interpret_type(
+                value_expr_type, arg_type
+            ) or self.can_convert_type(value_expr_type, arg_type):
                 # arg type is good!
                 state.expr_types[value_expr] = arg_type
                 continue
@@ -1214,27 +1164,28 @@ class CheckAndResolveArgumentTypes(Visitor):
             # it is not. these are not compatible
             state.errors.append(
                 CompileException(
-                    f"Cannot convert {value_expr} ({value_expr_type}) to {arg_type}",
+                    f"Expected {arg_type}, found {value_expr_type}",
                     value_expr,
                 )
             )
             return
 
         # got thru all args successfully
+        state.expr_types[node] = func.return_type
 
     def visit_AstOr_AstAnd(self, node: AstOr | AstAnd, state: CompileState):
         # "or/and" can have as many args as you want. they all need to be bools tho
         for val in node.values:
             val_type = state.expr_types[val]
-            if val_type != BoolType:
-                state.err(f"Arguments to 'and'/'or' must be booleans", val)
+            if not self.can_interpret_type(val_type, BoolType) and not self.can_convert_type(val_type, BoolType):
+                state.err(f"Expected {BoolType}, found {val_type}", val)
                 return
             state.expr_types[val] = BoolType
 
     def visit_AstNot(self, node: AstNot, state: CompileState):
         val_type = state.expr_types[node.value]
-        if val_type != BoolType:
-            state.err(f"Argument to 'not' must be boolean", node.value)
+        if not self.can_interpret_type(val_type, BoolType) and not self.can_convert_type(val_type, BoolType):
+            state.err(f"Expected {BoolType}, found {val_type}", node.value)
             return
         state.expr_types[node.value] = BoolType
 
@@ -1242,8 +1193,8 @@ class CheckAndResolveArgumentTypes(Visitor):
         var_type = state.resolved_references[node.variable].type
         value_type = state.expr_types[node.value]
 
-        if not self.is_type_interpretable_as(value_type, var_type):
-            state.err(f"Cannot interpret {node.value} as {var_type}", node.value)
+        if not self.can_interpret_type(value_type, var_type) and not self.can_convert_type(value_type, var_type):
+            state.err(f"Expected {var_type}, found {value_type}", node.value)
             return
 
         state.expr_types[node.value] = var_type
@@ -1252,6 +1203,10 @@ class CheckAndResolveArgumentTypes(Visitor):
         # the node of the index number has no expression value, it's an arg
         # but only at syntax level
         state.expr_types[node.item] = NothingType
+
+    def visit_default(self, node, state):
+        # coding error, missed an expr
+        assert not isinstance(node, AstExpr), node
 
 
 class AllocateVariables(Visitor):
@@ -1410,6 +1365,14 @@ class GenerateExprMacrosAndCmds(Visitor):
     generate directives to calculate the value and put it in its register. for each command
     or macro, generate directives for calling them with appropriate arg values"""
 
+    def get_64_bit_type(self, type: FppTypeClass) -> FppTypeClass:
+        assert type in NUMERIC_TYPES, type
+        return (
+            I64Type
+            if type in SIGNED_INTEGER_TYPES
+            else U64Type if type in UNSIGNED_INTEGER_TYPES else F64Type
+        )
+
     def truncate_from_64_bits(
         self, from_type: FppTypeClass, new_size: int
     ) -> list[Directive]:
@@ -1465,31 +1428,46 @@ class GenerateExprMacrosAndCmds(Visitor):
             else:
                 return [IntegerZeroExtend32To64Directive()]
 
-    def convert_to_type(
+    def convert_type(
         self, from_type: FppTypeClass, to_type: FppTypeClass
     ) -> list[Directive]:
-        assert from_type.getMaxSize() == 8, from_type
-        assert to_type.getMaxSize() == 8, to_type
-
         if from_type == to_type:
             return []
 
-        if from_type == F64Type:
-            if to_type == I64Type:
-                return [FloatToSignedIntDirective()]
-            else:
-                return [FloatToUnsignedIntDirective()]
-        elif from_type == U64Type:
-            if to_type == I64Type:
-                # conversion between signed/unsigned doesn't do anything
-                return []
-            else:
-                return [UnsignedIntToFloatDirective()]
-        elif from_type == I64Type:
-            if to_type == U64Type:
-                return []
-            else:
-                return [SignedIntToFloatDirective()]
+        # only valid runtime type conversion is between two numeric types
+        assert from_type in NUMERIC_TYPES and to_type in NUMERIC_TYPES, (
+            from_type,
+            to_type,
+        )
+        # also invalid to convert from a float to an integer at runtime due to loss of precision
+        assert not (from_type in FLOAT_TYPES and to_type in INTEGER_TYPES), (
+            from_type,
+            to_type,
+        )
+
+        dirs = []
+        # first go to 64 bit width
+        dirs.extend(self.extend_to_64_bits(from_type))
+        from_64_bit = self.get_64_bit_type(from_type)
+        to_64_bit = self.get_64_bit_type(to_type)
+
+        # now convert from int to float if necessary
+        if from_64_bit == U64Type and to_64_bit == F64Type:
+            dirs.append(UnsignedIntToFloatDirective())
+            from_64_bit = F64Type
+        elif from_64_bit == I64Type and to_64_bit == F64Type:
+            dirs.append(SignedIntToFloatDirective())
+            from_64_bit = F64Type
+        elif from_64_bit == U64Type or from_64_bit == I64Type:
+            assert to_64_bit == U64Type or to_64_bit == I64Type
+            # conversion from signed to unsigned int is implicit, doesn't need code gen
+            from_64_bit = to_64_bit
+
+        assert from_64_bit == to_64_bit, (from_64_bit, to_64_bit)
+
+        # now truncate back down to desired size
+        dirs.extend(self.truncate_from_64_bits(to_64_bit, to_type.getMaxSize()))
+        return dirs
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         if node in state.directives:
@@ -1584,147 +1562,30 @@ class GenerateExprMacrosAndCmds(Visitor):
 
         state.directives[node] = directives
 
-    def visit_AstBinaryMathOp(self, node: AstBinaryMathOp, state: CompileState):
+    def visit_AstBinaryStackOp(self, node: AstBinaryStackOp, state: CompileState):
         if node in state.directives:
             # already know how to put it on stack
             return
 
         directives = []
 
+        lhs_type = state.expr_types[node.lhs]
+        rhs_type = state.expr_types[node.rhs]
         result_type = state.expr_types[node]
 
-        assert result_type in NUMERIC_TYPES, result_type
-
-        lhs_type = state.expr_types[node.lhs]
-        rhs_type = state.expr_types[node.rhs]
-
         lhs_dirs = state.directives[node.lhs]
         rhs_dirs = state.directives[node.rhs]
 
-        # get both sides to 64 bit
-        lhs_dirs.extend(self.extend_to_64_bits(lhs_type))
-        rhs_dirs.extend(self.extend_to_64_bits(rhs_type))
-
-        intermediate_type = state.intermediate_types[node]
-        if intermediate_type == F64Type:
-            # convert both sides to float
-            if issubclass(lhs_type, IntegerType):
-                if lhs_type in UNSIGNED_INTEGER_TYPES:
-                    lhs_dirs.append(UnsignedIntToFloatDirective())
-                else:
-                    lhs_dirs.append(SignedIntToFloatDirective())
-            # convert int to float if necessary
-            if issubclass(rhs_type, IntegerType):
-                if rhs_type in UNSIGNED_INTEGER_TYPES:
-                    rhs_dirs.append(UnsignedIntToFloatDirective())
-                else:
-                    rhs_dirs.append(SignedIntToFloatDirective())
-
-        directives.extend(lhs_dirs)
-        directives.extend(rhs_dirs)
-
-        dir_type = STACK_OPS[node.op].variants[intermediate_type]
-
-        directives.append(dir_type())
-
-        # okay now convert the intermediate type to the result type, but with 64 bits
-        result_type_64_bits = (
-            I64Type
-            if result_type in SIGNED_INTEGER_TYPES
-            else U64Type if result_type in UNSIGNED_INTEGER_TYPES else F64Type
-        )
-        directives.extend(self.convert_to_type(intermediate_type, result_type_64_bits))
-
-        # okay now turn it back into the desired bitwidth
-        directives.extend(
-            self.truncate_from_64_bits(intermediate_type, result_type.getMaxSize())
-        )
-
-        state.directives[node] = directives
-
-    def visit_AstComparison(self, node: AstComparison, state: CompileState):
-        if node in state.directives:
-            # already know how to put it on stack
-            return
-
-        directives = []
-
-        lhs_type = state.expr_types[node.lhs]
-        rhs_type = state.expr_types[node.rhs]
-
-        lhs_dirs = state.directives[node.lhs]
-        rhs_dirs = state.directives[node.rhs]
-
-        non_numeric = not issubclass(lhs_type, NumericalType) or not issubclass(
-            rhs_type, NumericalType
-        )
-        if node.op.value in ["==", "!="]:
-            if non_numeric:
-                # just compare memory
-                assert lhs_type == rhs_type
-                # their size on the stack should be the same
-                directives.extend(lhs_dirs)
-                directives.extend(rhs_dirs)
-                directives.append(MemCompareDirective(lhs_type.getMaxSize()))
-                if node.op.value == "!=":
-                    directives.append(NotDirective())
-                state.directives[node] = directives
-                return
-
-        # get both sides to 64 bit
-        lhs_dirs.extend(self.extend_to_64_bits(lhs_type))
-        rhs_dirs.extend(self.extend_to_64_bits(rhs_type))
-
-        fp = False
-        if issubclass(lhs_type, FloatType) or issubclass(rhs_type, FloatType):
-            fp = True
-            # convert both sides to float
-            if issubclass(lhs_type, IntegerType):
-                if lhs_type in UNSIGNED_INTEGER_TYPES:
-                    lhs_dirs.append(UnsignedIntToFloatDirective())
-                else:
-                    lhs_dirs.append(SignedIntToFloatDirective())
-            # convert int to float if necessary
-            if issubclass(rhs_type, IntegerType):
-                if rhs_type in UNSIGNED_INTEGER_TYPES:
-                    rhs_dirs.append(UnsignedIntToFloatDirective())
-                else:
-                    rhs_dirs.append(SignedIntToFloatDirective())
-
-        directives.extend(lhs_dirs)
-        directives.extend(rhs_dirs)
-
-        dir_type = None
-
-        if node.op.value == "==":
-            if fp:
-                dir_type = FloatEqualDirective
-            else:
-                dir_type = IntEqualDirective
-        elif node.op.value == "!=":
-            if fp:
-                dir_type = FloatNotEqualDirective
-            else:
-                dir_type = IntNotEqualDirective
-        else:
-
-            if fp:
-                dir_type = FLOAT_INEQUALITY_DIRECTIVES[node.op.value]
-            else:
-                # if either is unsigned, consider both as unsigned
-                unsigned = (
-                    lhs_type in UNSIGNED_INTEGER_TYPES
-                    or rhs_type in UNSIGNED_INTEGER_TYPES
-                )
-
-                if unsigned:
-                    dir_type = INT_UNSIGNED_INEQUALITY_DIRECTIVES[node.op.value]
-                else:
-                    dir_type = INT_SIGNED_INEQUALITY_DIRECTIVES[node.op.value]
-
-        assert dir_type is not None
-
-        directives.append(dir_type())
+        # which variant of the op did we pick?
+        variant = state.variants[node]
+        intermediate_type = variant.input_type
+        # convert lhs and rhs to intermediate type
+        lhs_dirs.extend(self.convert_type(lhs_type, intermediate_type))
+        rhs_dirs.extend(self.convert_type(rhs_type, intermediate_type))
+        # generate the actual op itself
+        directives = variant.generate(lhs_dirs, rhs_dirs)
+        # and convert the result of the op into the desired result of this expr
+        directives.extend(self.convert_type(variant.output_type, result_type))
 
         state.directives[node] = directives
 
@@ -2052,9 +1913,6 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         # now that we know what all refs point to, we should be able to figure out the type
         # of every expression
         CalculateExprTypes(),
-        # now that we know the type of each expr, we can type check all function calls
-        # and also narrow down ambiguous argument types
-        CheckAndResolveArgumentTypes(),
         # now that expr types have been narrowed down, we can allocate lvar space for variables
         AllocateVariables(),
         # okay, now that we're sure we're passing in all the right args to each func,
