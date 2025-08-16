@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields, astuple
+from dataclasses import dataclass, field, fields, astuple
 from types import UnionType
 from typing import ClassVar
 import typing
@@ -14,6 +14,11 @@ from fprime.common.models.serialize.numerical_types import (
     U64Type,
     U8Type,
     I64Type,
+    I16Type,
+    I32Type,
+    I8Type,
+    F32Type,
+    F64Type
 )
 from fprime.common.models.serialize.bool_type import BoolType
 from enum import Enum
@@ -113,7 +118,6 @@ class DirectiveId(Enum):
     PRINT = 59
 
 
-
 class Directive:
     opcode: ClassVar[DirectiveId] = DirectiveId.INVALID
 
@@ -180,19 +184,22 @@ class Directive:
         if len(data) - offset < arg_size:
             # insufficient space
             return None
-        args = data[offset :(offset + arg_size)]
+        args = data[offset : (offset + arg_size)]
         offset += arg_size
         dir_type = [c for c in Directive.__subclasses__() if c.opcode.value == opcode]
         if len(dir_type) != 1:
             return None
-
 
         arg_offset = 0
         dir_type = dir_type[0]
         arg_values = []
 
         for field in fields(dir_type):
-            field_type = field.type if isinstance(field.type, type) else typing.get_origin(field.type)
+            field_type = (
+                field.type
+                if isinstance(field.type, type)
+                else typing.get_origin(field.type)
+            )
 
             if issubclass(field_type, BaseType):
                 # it is already an fprime type
@@ -232,6 +239,12 @@ class Directive:
         dir = dir_type(*arg_values)
         return offset, dir
 
+@dataclass
+class StackOpDirective(Directive):
+    stack_args: ClassVar[list[type[BaseType]]] = []
+    """the argument types this dir pops off the stack"""
+    stack_output_type: ClassVar[type[BaseType]] = BaseType
+    """the type this dir pushes to the stack"""
 
 @dataclass
 class StackCmdDirective(Directive):
@@ -243,6 +256,7 @@ class StackCmdDirective(Directive):
 @dataclass
 class PrintDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.PRINT
+
 
 @dataclass
 class MemCompareDirective(Directive):
@@ -259,36 +273,83 @@ class LoadDirective(Directive):
 
 
 @dataclass
-class IntegerSignedExtend8To64Directive(Directive):
+class IntegerSignedExtend8To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_8_64
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        I8Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = I64Type
+
+
 @dataclass
-class IntegerSignedExtend16To64Directive(Directive):
+class IntegerSignedExtend16To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_16_64
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        I16Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = I64Type
+
+
 @dataclass
-class IntegerSignedExtend32To64Directive(Directive):
+class IntegerSignedExtend32To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_32_64
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        I32Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
-class IntegerZeroExtend8To64Directive(Directive):
+class IntegerZeroExtend8To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_8_64
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        U8Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = U64Type
+
+
 @dataclass
-class IntegerZeroExtend16To64Directive(Directive):
+class IntegerZeroExtend16To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_16_64
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        U16Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = U64Type
+
 @dataclass
-class IntegerZeroExtend32To64Directive(Directive):
+class IntegerZeroExtend32To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_32_64
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        U32Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = U64Type
 
 
 @dataclass
-class IntegerTruncate64To8Directive(Directive):
+class IntegerTruncate64To8Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_8
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        U64Type|I64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = U8Type|I8Type
+
+
 @dataclass
-class IntegerTruncate64To16Directive(Directive):
+class IntegerTruncate64To16Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_16
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        U64Type|I64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = U16Type|I16Type
+
+
 @dataclass
-class IntegerTruncate64To32Directive(Directive):
+class IntegerTruncate64To32Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_32
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        U64Type|I64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = U32Type|I32Type
 
 
 @dataclass
@@ -329,69 +390,120 @@ class ConstCmdDirective(Directive):
 
 
 @dataclass
-class IntModuloDirective(Directive):
+class IntModuloDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.IMOD
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        I64Type|U64Type, I64Type|U64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = I64Type|U64Type
 
 
 @dataclass
-class IntAddDirective(Directive):
+class IntAddDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.IADD
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        I64Type|U64Type, I64Type|U64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = I64Type|U64Type
 
 
 @dataclass
-class IntSubtractDirective(Directive):
+class IntSubtractDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ISUB
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        I64Type|U64Type, I64Type|U64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = I64Type|U64Type
 
 
 @dataclass
-class IntMultiplyDirective(Directive):
+class IntMultiplyDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.IMUL
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        I64Type|U64Type, I64Type|U64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = I64Type|U64Type
 
 
 @dataclass
-class UnsignedIntDivideDirective(Directive):
+class UnsignedIntDivideDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.UDIV
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        U64Type, U64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = U64Type
 
 
 @dataclass
-class SignedIntDivideDirective(Directive):
+class SignedIntDivideDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SDIV
-
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        I64Type, I64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
-class FloatAddDirective(Directive):
+class FloatAddDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FADD
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        F64Type, F64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
-class FloatSubtractDirective(Directive):
+class FloatSubtractDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FSUB
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        F64Type, F64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
-class FloatMultiplyDirective(Directive):
+class FloatMultiplyDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FMUL
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        F64Type, F64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
-class FloatExponentDirective(Directive):
+class FloatExponentDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FPOW
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        F64Type, F64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
-class FloatDivideDirective(Directive):
+class FloatDivideDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FDIV
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        F64Type, F64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
-class FloatFloorDivideDirective(Directive):
+class FloatFloorDivideDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FLOAT_FLOOR_DIV
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        F64Type, F64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
-class FloatLogDirective(Directive):
+class FloatLogDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FLOG
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        F64Type, F64Type
+    ]
+    stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 HEADER_FORMAT = "!BBBBBHI"

@@ -236,7 +236,7 @@ class FpyTransformer(Transformer):
     not_test = AstNot
     comparison = AstComparison
     binary_op = AstBinaryOp
-    unary_math_op = AstUnaryOp
+    unary_op = AstUnaryOp
 
     func_call = AstFuncCall
     arguments = no_inline_or_meta(list)

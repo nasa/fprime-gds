@@ -29,6 +29,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     SignedIntDivideDirective,
     SignedLessThanDirective,
     SignedLessThanOrEqualDirective,
+    StackOpDirective,
     UnsignedGreaterThanDirective,
     UnsignedGreaterThanOrEqualDirective,
     UnsignedIntDivideDirective,
@@ -272,137 +273,67 @@ MACROS: dict[str, FpyMacro] = {
     "print": FpyMacro(NothingType, [("msg", PrintStrType)], PrintDirective),
 }
 
-
-@dataclass
-class FpyStackOpVariant:
-    input_type: FppTypeClass
-    output_type: FppTypeClass
-
-
-@dataclass
-class FpyBinaryStackOpVariant(FpyStackOpVariant):
-    directive: type[Directive]
-
-    def generate(
-        self, lhs_dirs: list[Directive], rhs_dirs: list[Directive]
-    ) -> list[Directive]:
-        return lhs_dirs + rhs_dirs + [self.directive()]
-
-
-@dataclass
-class FpyMemCompareVariant:
-
-    def generate(
-        self, lhs_dirs: list[Directive], rhs_dirs: list[Directive]
-    ) -> list[Directive]:
-        directives.append(MemCompareDirective(lhs_type.getMaxSize()))
-        if node.op == "!=":
-            directives.append(NotDirective())
-
-
 @dataclass
 class FpyStackOp:
     variants: list[FpyStackOpVariant]
 
-    def pick_variant(self, arg_types: list[FppTypeClass]) -> FpyStackOpVariant | None:
-
-        if any(not issubclass(t, NumericalType) for t in arg_types):
-            # at least one arg is not numeric
-            # return the non numeric variant, or none if we don't have one
-            return self.non_numeric
-
-        if any(issubclass(t, FloatType) for t in arg_types):
-            # at least one arg is a float
-            # return the float variant, or none if we don't have one
-            return self.float
-
-        if any(t in UNSIGNED_INTEGER_TYPES for t in arg_types):
-            # at least one arg is unsigned
-            return self.unsigned
-
-        return self.signed
 
 
-BINARY_STACK_OPS: dict[str, FpyStackOp] = {
-    "**": FpyStackOp({F64Type: FloatExponentDirective}),
-    "%": FpyStackOp({I64Type: IntModuloDirective, U64Type: IntModuloDirective}),
-    "+": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, IntAddDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, IntAddDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatAddDirective),
-        ],
-    ),
-    "-": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, IntSubtractDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, IntSubtractDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatSubtractDirective),
-        ],
-    ),
-    "*": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, IntMultiplyDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, IntMultiplyDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatMultiplyDirective),
-        ],
-    ),
-    "/": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, SignedIntDivideDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedIntDivideDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatDivideDirective),
-        ],
-    ),
-    "//": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, SignedIntDivideDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedIntDivideDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatFloorDivideDirective),
-        ],
-    ),
-    ">": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, SignedGreaterThanDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedGreaterThanDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatGreaterThanDirective),
-        ],
-    ),
-    ">=": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, SignedGreaterThanOrEqualDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedGreaterThanOrEqualDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatGreaterThanOrEqualDirective),
-        ],
-    ),
-    "<=": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, SignedLessThanOrEqualDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedLessThanOrEqualDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatLessThanOrEqualDirective),
-        ],
-    ),
-    "<": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, SignedLessThanDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, UnsignedLessThanDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatLessThanDirective),
-        ],
-    ),
-    "==": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, IntEqualDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, IntEqualDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatEqualDirective),
-        ],
-    ),
-    "!=": FpyStackOp(
-        [
-            FpyBinaryStackOpVariant(I64Type, I64Type, IntNotEqualDirective),
-            FpyBinaryStackOpVariant(U64Type, U64Type, IntNotEqualDirective),
-            FpyBinaryStackOpVariant(F64Type, F64Type, FloatNotEqualDirective),
-        ],
-    ),
+BINARY_STACK_OPS: dict[str, list[type[StackOpDirective]]] = {
+    "**": [FloatExponentDirective],
+    "%": [IntModuloDirective],
+    "+": [
+        IntAddDirective,
+        FloatAddDirective,
+    ],
+    "-": [
+        IntSubtractDirective,
+        FloatSubtractDirective,
+    ],
+    "*": [
+        IntMultiplyDirective,
+        FloatMultiplyDirective,
+    ],
+    "/": [
+        SignedIntDivideDirective,
+        UnsignedIntDivideDirective,
+        FloatDivideDirective,
+    ],
+    "//": [
+        SignedIntDivideDirective,
+        UnsignedIntDivideDirective,
+        FloatFloorDivideDirective,
+    ],
+    ">": [
+        SignedGreaterThanDirective,
+        UnsignedGreaterThanDirective,
+        FloatGreaterThanDirective,
+    ],
+    ">=": [
+        SignedGreaterThanOrEqualDirective,
+        UnsignedGreaterThanOrEqualDirective,
+        FloatGreaterThanOrEqualDirective,
+    ],
+    "<=": [
+        SignedLessThanOrEqualDirective,
+        UnsignedLessThanOrEqualDirective,
+        FloatLessThanOrEqualDirective,
+    ],
+    "<": [
+        SignedLessThanDirective,
+        UnsignedLessThanDirective,
+        FloatLessThanDirective,
+    ],
+    "==": [
+        IntEqualDirective,
+        IntEqualDirective,
+        FloatEqualDirective,
+    ],
+    "!=": [
+        IntNotEqualDirective,
+        IntNotEqualDirective,
+        FloatNotEqualDirective,
+    ],
 }
 
 
@@ -637,7 +568,7 @@ class CompileState:
     )
     """expr to its fprime type, or nothing type if none"""
 
-    variants: dict[AstStackOp, FpyStackOpVariant] = field(default_factory=dict)
+    stack_op_directives: dict[AstStackOp, type[StackOpDirective]] = field(default_factory=dict)
 
     expr_values: dict[AstExpr, FppType | NothingType | None] = field(
         default_factory=dict
@@ -1074,6 +1005,120 @@ class CalculateExprTypes(Visitor):
         # otherwise we're good
         return True
 
+    def conversion_cost(self, from_type: FppTypeClass, to_type: FppTypeClass) -> int:
+
+        if not self.can_convert_type(from_type, to_type):
+            return -1
+
+        if from_type == to_type:
+            return 0
+
+        assert issubclass(from_type, NumericalType) and issubclass(to_type, NumericalType), (from_type, to_type)
+
+        if (from_type in UNSIGNED_INTEGER_TYPES and to_type in UNSIGNED_INTEGER_TYPES) \
+            or (from_type in SIGNED_INTEGER_TYPES and to_type in SIGNED_INTEGER_TYPES) \
+            or (from_type in FLOAT_TYPES and to_type in FLOAT_TYPES):
+            # just bitwidth change
+            return 1
+
+
+    def pick_stack_op(self, arg_types: list[FppTypeClass], op: str) -> type[StackOpDirective]:
+
+        # given the input argument types, which stack operation do we want to choose to perform the
+        # operation the user is requesting?
+
+        # well, we definitely don't want to lose any information. so don't choose an op which requires
+        # ints if the user has floats. make that a compile error
+        # okay, but even if we aren't losing information, we could still be doing some potentially confusing
+        # or misleading transformations on the data. for instance, the user gives us two unsigned ints and
+        # adds them, if they're large they might expect the result not to wrap around but if we convert to
+        # i64 then it would wrap around.
+        # good thing is that we never truncate b/c all of our stack ops take u64 bit width vals
+        #
+
+        dirs = BINARY_STACK_OPS[op]
+        dirs = [d for d in dirs if len(d.stack_args) == len(arg_types)]
+
+        # choose a dir in stages. first, the least cost would be the one
+        # which takes in the same argument types
+
+        for dir in dirs:
+            args_compatible = True
+            for dir_arg_type, arg_type in zip(dir.stack_args, arg_types):
+                if not issubclass(arg_type, dir_arg_type):
+                    # this allows us to check if the types are the same
+                    # or if dir_arg_type is a union of arg_type + other things
+                    args_compatible = False
+                    break
+
+            if not args_compatible:
+                continue
+                
+            return dir
+
+        for dir in dirs:
+            args_compatible = True
+            for dir_arg_type, arg_type in zip(dir.stack_args, arg_types):
+                if arg_type in UNSIGNED_INTEGER_TYPES
+                    # this allows us to check if the types are the same
+                    # or if dir_arg_type is a union of arg_type + other things
+                    args_compatible = False
+                    break
+
+            if not args_compatible:
+                continue
+                
+            return dir
+
+        # then the next cost would be just a bit width change
+
+        for dir in dirs:
+            args_compatible = True
+            for dir_arg_type, arg_type in zip(dir.stack_args, arg_types):
+                if arg_type in UNSIGNED_INTEGER_TYPES
+                    # this allows us to check if the types are the same
+                    # or if dir_arg_type is a union of arg_type + other things
+                    args_compatible = False
+                    break
+
+            if not args_compatible:
+                continue
+                
+            return dir
+
+        # finally allow int to float conversion
+
+        # if still nothing, then we can't do this op with these argument types
+        
+
+        if any(not issubclass(t, NumericalType) for t in arg_types):
+            # at least one arg is not numeric
+            return None
+
+        if any(issubclass(t, FloatType) for t in arg_types):
+            # at least one arg is a float
+            # return the float variant, or none if we don't have one
+            for variant in self.variants:
+                if issubclass(variant.input_type, FloatType):
+                    return variant
+            # no variant takes in floats
+            return None
+
+        if any(t in UNSIGNED_INTEGER_TYPES for t in arg_types):
+            # at least one arg is unsigned
+            for variant in self.variants:
+                if variant.input_type in UNSIGNED_INTEGER_TYPES:
+                    return variant
+            # no variant takes in unsigned ints
+            return None
+
+        for variant in self.variants:
+            if variant.input_type in SIGNED_INTEGER_TYPES:
+                return variant
+        return None
+
+
+
     def visit_AstNumber(self, node: AstNumber, state: CompileState):
         # give a best guess as to the final type of this node. we don't actually know
         # its bitwidth or signedness yet
@@ -1177,14 +1222,18 @@ class CalculateExprTypes(Visitor):
         # "or/and" can have as many args as you want. they all need to be bools tho
         for val in node.values:
             val_type = state.expr_types[val]
-            if not self.can_interpret_type(val_type, BoolType) and not self.can_convert_type(val_type, BoolType):
+            if not self.can_interpret_type(
+                val_type, BoolType
+            ) and not self.can_convert_type(val_type, BoolType):
                 state.err(f"Expected {BoolType}, found {val_type}", val)
                 return
             state.expr_types[val] = BoolType
 
     def visit_AstNot(self, node: AstNot, state: CompileState):
         val_type = state.expr_types[node.value]
-        if not self.can_interpret_type(val_type, BoolType) and not self.can_convert_type(val_type, BoolType):
+        if not self.can_interpret_type(
+            val_type, BoolType
+        ) and not self.can_convert_type(val_type, BoolType):
             state.err(f"Expected {BoolType}, found {val_type}", node.value)
             return
         state.expr_types[node.value] = BoolType
@@ -1193,7 +1242,9 @@ class CalculateExprTypes(Visitor):
         var_type = state.resolved_references[node.variable].type
         value_type = state.expr_types[node.value]
 
-        if not self.can_interpret_type(value_type, var_type) and not self.can_convert_type(value_type, var_type):
+        if not self.can_interpret_type(
+            value_type, var_type
+        ) and not self.can_convert_type(value_type, var_type):
             state.err(f"Expected {var_type}, found {value_type}", node.value)
             return
 
