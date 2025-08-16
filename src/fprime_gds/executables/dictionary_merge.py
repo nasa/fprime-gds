@@ -109,7 +109,7 @@ def merge_non_unique(non_unique1, non_unique2):
 def merge_unique(unique1, unique2):
     """ Merge the unique blocks in JSON dictionaries
 
-    JSON dictionaries have some nunique definitions (e.g. "eventDefinitions") that must be merged ensuring that entries
+    JSON dictionaries have some unique definitions (e.g. "eventDefinitions") that must be merged ensuring that entries
     are not duplicated between the sets. This function will create a superset of the two blocks. Duplicated definitions
     will result in a ValueError.
 
