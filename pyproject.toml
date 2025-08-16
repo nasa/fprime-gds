@@ -67,6 +67,7 @@ fprime-dp-write = "fprime_gds.executables.data_product_writer:main"
 fprime-gds = "fprime_gds.executables.run_deployment:main"
 fprime-prm-write = "fprime_gds.common.tools.params:main"
 fprime-fpyc = "fprime_gds.common.fpy.main:main"
+fprime-merge-dictionary = "fprime_gds.executables.dictionary_merge:main"
 
 # For Pytest fixtures
 [project.entry-points."pytest11"]
