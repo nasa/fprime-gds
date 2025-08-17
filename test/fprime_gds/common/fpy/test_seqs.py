@@ -415,6 +415,21 @@ exit(False)
 
     assert_run_success(fprime_test_api, seq)
 
+def test_assign_float_to_int(fprime_test_api):
+    seq = """
+val: I64 = 1.0
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_float_mod(fprime_test_api):
+    seq = """
+if 1.0 % 1 == 0:
+    pass
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
 
 # caught one bug
 def test_and_of_ors(fprime_test_api):
@@ -948,10 +963,16 @@ exit(False)
 """
     assert_run_success(fprime_test_api, seq)
 
+def test_arithmetic_arg_to_builtin_bad_type(fprime_test_api):
+    seq = """
+sleep(1 + 2 * 0, (0 + 1 / 2))
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
 
 def test_arithmetic_arg_to_builtin(fprime_test_api):
     seq = """
-sleep(1 + 2 * 0, (0 + 1 / 2))
+sleep(1 + 2 * 0, (0 + 1 // 2))
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -997,7 +1018,7 @@ def test_chain_div(fprime_test_api):
 var1: I32 = 3
 var2: I32 = 2
 var3: I32 = 1
-if var1 / var3 / var2 == 1:
+if var1 / var3 / var2 == 3/2:
     exit(True)
 exit(False)
 """
@@ -1040,9 +1061,10 @@ exit(False)
 def test_int_literal_as_float(fprime_test_api):
     seq = """
 var: F32 = 1
+exit(var == 1.0)
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_log(fprime_test_api):
