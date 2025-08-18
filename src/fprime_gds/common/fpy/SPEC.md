@@ -2,7 +2,36 @@ Nothing type is a type whose set of values is an empty set
 Unit type is a type whose set of values is a set with one element
 BIG question: what if we made an arbitrary precision int type? and float tpye?
 
+# Types
 
+The following types are built into Fpy:
+* Numeric types: `U8, U16, U32, U64, I8, I16, I32, I64, F32, F64`
+* Boolean type: `bool`
+* Time type: `Fw.Time`
+
+In addition, any displayable type defined in FPP is accessible in Fpy via its fully-qualified name. This includes user-defined structs, arrays and enums.
+
+## Structs
+You can instantiate a new struct at runtime by calling its constructor. For example, a struct defined as
+```
+module Fw {
+    struct Example {
+        intValue: U8
+        boolValue: bool
+    }
+}
+```
+can be constructed in Fpy like:
+```
+Fw.Example(0, True)
+```
+
+You can then access members of the struct
+## Struct constructors
+All 
+
+
+# Functions
 
 
 
