@@ -851,6 +851,11 @@ class LogDeployParser(ParserBase):
                 "default": "INFO",
                 "help": "Set the logging level of GDS processes [default: %(default)s]",
             },
+            ("--disable-data-logging",): {
+                "action": "store_true",
+                "default": False,
+                "help": "Disable logging of each data item",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -1071,6 +1076,7 @@ class StandardPipelineParser(CompositeParser):
             "packet_spec": args_ns.packet_spec,
             "packet_set_name": args_ns.packet_set_name,
             "logging_prefix": args_ns.logs,
+            "data_logging_enabled": not args_ns.disable_data_logging
         }
         pipeline = pipeline if pipeline else StandardPipeline()
         pipeline.transport_implementation = args_ns.connection_transport
