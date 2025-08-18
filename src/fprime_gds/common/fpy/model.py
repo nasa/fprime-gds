@@ -17,8 +17,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     GotoDirective,
     MemCompareDirective,
     SignedIntDivideDirective,
+    SignedModuloDirective,
     UnsignedIntDivideDirective,
-    IntModuloDirective,
     IntMultiplyDirective,
     FloatLogDirective,
     DiscardDirective,
@@ -57,6 +57,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatToSignedIntDirective,
     FloatToUnsignedIntDirective,
     FloatTruncateDirective,
+    UnsignedModuloDirective,
     WaitAbsDirective,
     WaitRelDirective,
     IntegerZeroExtend16To64Directive,
@@ -731,12 +732,19 @@ class FpySequencerModel:
         lhs = self.pop(type=float)
         self.push(lhs / rhs)
 
-    def handle_imod(self, dir: IntModuloDirective):
+    def handle_smod(self, dir: SignedModuloDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        rhs = self.pop()
-        lhs = self.pop()
-        self.push(lhs % rhs)
+        rhs = self.pop(signed=True)
+        lhs = self.pop(signed=True)
+        self.push(lhs % rhs, signed=True)
+
+    def handle_umod(self, dir: UnsignedModuloDirective):
+        if len(self.stack) < 2 * WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        rhs = self.pop(signed=False)
+        lhs = self.pop(signed=False)
+        self.push(lhs % rhs, signed=False)
 
     def handle_fpow(self, dir: FloatExponentDirective):
         if len(self.stack) < 2 * WORD_SIZE:
