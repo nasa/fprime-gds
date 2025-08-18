@@ -29,6 +29,31 @@ FwPrmIdType = U32Type
 FwOpcodeType = U32Type
 
 
+HEADER_FORMAT = "!BBBBBHI"
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+
+
+@dataclass
+class Header:
+    majorVersion: int
+    minorVersion: int
+    patchVersion: int
+    schemaVersion: int
+    argumentCount: int
+    statementCount: int
+    bodySize: int
+
+
+FOOTER_FORMAT = "!I"
+FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
+
+
+@dataclass
+class Footer:
+    crc: int
+
+
+
 class DirectiveId(Enum):
     INVALID = 0
     WAIT_REL = 1
@@ -238,6 +263,25 @@ class Directive:
 
         dir = dir_type(*arg_values)
         return offset, dir
+
+def serialize_directives(dirs: list[Directive], output: Path = None):
+    output_bytes = bytes()
+
+    for dir in dirs:
+        output_bytes += dir.serialize()
+
+    header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
+    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
+
+    crc = zlib.crc32(output_bytes) % (1 << 32)
+    footer = Footer(crc)
+    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
+
+    if output is None:
+        output = input.with_suffix(".bin")
+
+    output.write_bytes(output_bytes)
+
 
 @dataclass
 class StackOpDirective(Directive):
@@ -504,50 +548,6 @@ class FloatLogDirective(StackOpDirective):
         F64Type, F64Type
     ]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
-
-
-HEADER_FORMAT = "!BBBBBHI"
-HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
-
-
-@dataclass
-class Header:
-    majorVersion: int
-    minorVersion: int
-    patchVersion: int
-    schemaVersion: int
-    argumentCount: int
-    statementCount: int
-    bodySize: int
-
-
-FOOTER_FORMAT = "!I"
-FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
-
-
-@dataclass
-class Footer:
-    crc: int
-
-
-def serialize_directives(dirs: list[Directive], output: Path = None):
-    output_bytes = bytes()
-
-    for dir in dirs:
-        output_bytes += dir.serialize()
-
-    header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
-    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
-
-    crc = zlib.crc32(output_bytes) % (1 << 32)
-    footer = Footer(crc)
-    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
-
-    if output is None:
-        output = input.with_suffix(".bin")
-
-    output.write_bytes(output_bytes)
-
 
 @dataclass
 class WaitRelDirective(Directive):
@@ -834,39 +834,70 @@ for cls in StackOpDirective.__subclasses__():
     cls.__old_repr__ = cls.__repr__
     cls.__repr__ = Directive.__repr__
 
-INT_EQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
-    "==": IntEqualDirective,
-    "!=": IntNotEqualDirective,
+UNARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
+    "not": {BoolType: NotDirective},
+    "+": {},
+    "-": {},
 }
 
-FLOAT_EQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
-    "==": FloatEqualDirective,
-    "!=": FloatNotEqualDirective,
+BINARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
+    "**": {F64Type: FloatExponentDirective},
+    "%": {I64Type: IntModuloDirective, U64Type: IntModuloDirective},
+    "+": {
+        I64Type: IntAddDirective,
+        U64Type: IntAddDirective,
+        F64Type: FloatAddDirective,
+    },
+    "-": {
+        I64Type: IntSubtractDirective,
+        U64Type: IntSubtractDirective,
+        F64Type: FloatSubtractDirective,
+    },
+    "*": {
+        I64Type: IntMultiplyDirective,
+        U64Type: IntMultiplyDirective,
+        F64Type: FloatMultiplyDirective,
+    },
+    "/": {
+        I64Type: SignedIntDivideDirective,
+        U64Type: UnsignedIntDivideDirective,
+        F64Type: FloatDivideDirective,
+    },
+    "//": {
+        I64Type: SignedIntDivideDirective,
+        U64Type: UnsignedIntDivideDirective,
+        F64Type: FloatFloorDivideDirective,
+    },
+    ">": {
+        I64Type: SignedGreaterThanDirective,
+        U64Type: UnsignedGreaterThanDirective,
+        F64Type: FloatGreaterThanDirective,
+    },
+    ">=": {
+        I64Type: SignedGreaterThanOrEqualDirective,
+        U64Type: UnsignedGreaterThanOrEqualDirective,
+        F64Type: FloatGreaterThanOrEqualDirective,
+    },
+    "<=": {
+        I64Type: SignedLessThanOrEqualDirective,
+        U64Type: UnsignedLessThanOrEqualDirective,
+        F64Type: FloatLessThanOrEqualDirective,
+    },
+    "<": {
+        I64Type: SignedLessThanDirective,
+        U64Type: UnsignedLessThanDirective,
+        F64Type: FloatLessThanDirective,
+    },
+    "==": {
+        I64Type: IntEqualDirective,
+        U64Type: IntEqualDirective,
+        F64Type: FloatEqualDirective,
+    },
+    "!=": {
+        I64Type: IntNotEqualDirective,
+        U64Type: IntNotEqualDirective,
+        F64Type: FloatNotEqualDirective,
+    },
+    "or": {BoolType: OrDirective},
+    "and": {BoolType: AndDirective},
 }
-
-
-INT_SIGNED_INEQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
-    ">": SignedGreaterThanDirective,
-    "<": SignedLessThanDirective,
-    ">=": SignedGreaterThanOrEqualDirective,
-    "<=": SignedLessThanOrEqualDirective,
-}
-INT_UNSIGNED_INEQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
-    ">": UnsignedGreaterThanDirective,
-    "<": UnsignedLessThanDirective,
-    ">=": UnsignedGreaterThanOrEqualDirective,
-    "<=": UnsignedLessThanOrEqualDirective,
-}
-FLOAT_INEQUALITY_DIRECTIVES: dict[str, type[Directive]] = {
-    ">": FloatGreaterThanDirective,
-    "<": FloatLessThanDirective,
-    ">=": FloatGreaterThanOrEqualDirective,
-    "<=": FloatLessThanOrEqualDirective,
-}
-
-BINARY_COMPARISON_DIRECTIVES = {}
-BINARY_COMPARISON_DIRECTIVES.update(INT_EQUALITY_DIRECTIVES)
-BINARY_COMPARISON_DIRECTIVES.update(INT_SIGNED_INEQUALITY_DIRECTIVES)
-BINARY_COMPARISON_DIRECTIVES.update(INT_UNSIGNED_INEQUALITY_DIRECTIVES)
-BINARY_COMPARISON_DIRECTIVES.update(FLOAT_EQUALITY_DIRECTIVES)
-BINARY_COMPARISON_DIRECTIVES.update(FLOAT_INEQUALITY_DIRECTIVES)

@@ -415,6 +415,7 @@ exit(False)
 
     assert_run_success(fprime_test_api, seq)
 
+
 def test_assign_float_to_int(fprime_test_api):
     seq = """
 val: I64 = 1.0
@@ -422,14 +423,6 @@ val: I64 = 1.0
 
     assert_compile_failure(fprime_test_api, seq)
 
-
-def test_float_mod(fprime_test_api):
-    seq = """
-if 1.0 % 1 == 0:
-    pass
-"""
-
-    assert_compile_failure(fprime_test_api, seq)
 
 # caught one bug
 def test_and_of_ors(fprime_test_api):
@@ -963,6 +956,7 @@ exit(False)
 """
     assert_run_success(fprime_test_api, seq)
 
+
 def test_arithmetic_arg_to_builtin_bad_type(fprime_test_api):
     seq = """
 sleep(1 + 2 * 0, (0 + 1 / 2))
@@ -1130,6 +1124,7 @@ exit(False)
 """
     assert_run_success(fprime_test_api, seq)
 
+
 def test_struct_eq(fprime_test_api):
     seq = """
 var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
@@ -1139,3 +1134,28 @@ exit(var == var2 and var != var3)
 """
 
     assert_run_success(fprime_test_api, seq)
+
+
+def test_mod_unsigned(fprime_test_api):
+    seq = """
+var1: U32 = 5
+var2: U32 = 20
+exit(var2 % var1 == 0 and (var2 + 1) % var1 == 1)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_mod_signed(fprime_test_api):
+    seq = """
+var1: I32 = -5
+var2: I32 = 20
+exit(var2 % var1 == 0 and (var2 + 1) % var1 == -4)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_mod_float(fprime_test_api):
+    seq = """
+exit(1.0 % 1 == 0)
+"""
+    assert_compile_failure(fprime_test_api, seq)

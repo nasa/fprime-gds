@@ -7,36 +7,13 @@ import traceback
 import typing
 
 from fprime_gds.common.fpy.bytecode.directives import (
+    BINARY_STACK_OPS,
+    UNARY_STACK_OPS,
     AllocateDirective,
     ConstCmdDirective,
-    FloatAddDirective,
-    FloatDivideDirective,
-    FloatExponentDirective,
-    FloatFloorDivideDirective,
-    FloatGreaterThanDirective,
-    FloatGreaterThanOrEqualDirective,
-    FloatLessThanDirective,
-    FloatLessThanOrEqualDirective,
-    FloatMultiplyDirective,
-    FloatSubtractDirective,
-    FloatToSignedIntDirective,
-    FloatToUnsignedIntDirective,
     FloatTruncateDirective,
-    IntAddDirective,
     MemCompareDirective,
-    NoOpDirective,
-    SignedGreaterThanDirective,
-    SignedGreaterThanOrEqualDirective,
-    SignedIntDivideDirective,
-    SignedLessThanDirective,
-    SignedLessThanOrEqualDirective,
     StackOpDirective,
-    UnsignedGreaterThanDirective,
-    UnsignedGreaterThanOrEqualDirective,
-    UnsignedIntDivideDirective,
-    IntModuloDirective,
-    IntMultiplyDirective,
-    IntSubtractDirective,
     IntegerTruncate64To16Directive,
     IntegerTruncate64To32Directive,
     IntegerTruncate64To8Directive,
@@ -50,34 +27,21 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerZeroExtend16To64Directive,
     IntegerZeroExtend32To64Directive,
     IntegerZeroExtend8To64Directive,
-    FLOAT_INEQUALITY_DIRECTIVES,
-    FLOAT_INEQUALITY_DIRECTIVES,
-    INT_SIGNED_INEQUALITY_DIRECTIVES,
-    INT_UNSIGNED_INEQUALITY_DIRECTIVES,
-    AndDirective,
     Directive,
     FloatExtendDirective,
-    IntEqualDirective,
     ExitDirective,
-    FloatEqualDirective,
-    FloatNotEqualDirective,
     LoadDirective,
     StoreTlmValDirective,
     GotoDirective,
     IfDirective,
     NotDirective,
-    IntNotEqualDirective,
-    OrDirective,
     PushValDirective,
     SignedIntToFloatDirective,
     StoreDirective,
     UnsignedIntToFloatDirective,
-    UnsignedLessThanDirective,
-    UnsignedLessThanOrEqualDirective,
     WaitAbsDirective,
     WaitRelDirective,
 )
-from fprime_gds.common.fpy.model import WORD_SIZE
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
@@ -260,74 +224,6 @@ MACROS: dict[str, FpyMacro] = {
     "print": FpyMacro(NothingType, [("msg", PrintStrType)], PrintDirective),
 }
 
-
-UNARY_STACK_OPS: dict[str, dict[FppTypeClass, type[StackOpDirective]]] = {
-    "not": {BoolType: NotDirective},
-    "+": {},
-    "-": {},
-}
-
-BINARY_STACK_OPS: dict[str, dict[FppTypeClass, type[StackOpDirective]]] = {
-    "**": {F64Type: FloatExponentDirective},
-    "%": {I64Type: IntModuloDirective, I64Type: IntModuloDirective},
-    "+": {
-        I64Type: IntAddDirective,
-        U64Type: IntAddDirective,
-        F64Type: FloatAddDirective,
-    },
-    "-": {
-        I64Type: IntSubtractDirective,
-        U64Type: IntSubtractDirective,
-        F64Type: FloatSubtractDirective,
-    },
-    "*": {
-        I64Type: IntMultiplyDirective,
-        U64Type: IntMultiplyDirective,
-        F64Type: FloatMultiplyDirective,
-    },
-    "/": {
-        I64Type: SignedIntDivideDirective,
-        U64Type: UnsignedIntDivideDirective,
-        F64Type: FloatDivideDirective,
-    },
-    "//": {
-        I64Type: SignedIntDivideDirective,
-        U64Type: UnsignedIntDivideDirective,
-        F64Type: FloatFloorDivideDirective,
-    },
-    ">": {
-        I64Type: SignedGreaterThanDirective,
-        U64Type: UnsignedGreaterThanDirective,
-        F64Type: FloatGreaterThanDirective,
-    },
-    ">=": {
-        I64Type: SignedGreaterThanOrEqualDirective,
-        U64Type: UnsignedGreaterThanOrEqualDirective,
-        F64Type: FloatGreaterThanOrEqualDirective,
-    },
-    "<=": {
-        I64Type: SignedLessThanOrEqualDirective,
-        U64Type: UnsignedLessThanOrEqualDirective,
-        F64Type: FloatLessThanOrEqualDirective,
-    },
-    "<": {
-        I64Type: SignedLessThanDirective,
-        U64Type: UnsignedLessThanDirective,
-        F64Type: FloatLessThanDirective,
-    },
-    "==": {
-        I64Type: IntEqualDirective,
-        U64Type: IntEqualDirective,
-        F64Type: FloatEqualDirective,
-    },
-    "!=": {
-        I64Type: IntNotEqualDirective,
-        U64Type: IntNotEqualDirective,
-        F64Type: FloatNotEqualDirective,
-    },
-    "or": {BoolType: OrDirective},
-    "and": {BoolType: AndDirective},
-}
 
 
 @dataclass
@@ -564,12 +460,10 @@ class CompileState:
     stack_op_directives: dict[AstOp, type[StackOpDirective]] = field(
         default_factory=dict
     )
-
-    intermediate_types: dict[AstOp, FppTypeClass] = field(
-        default_factory=dict
-    )
+    """some stack operation to which directive will be emitted for it"""
 
     type_conversions: dict[AstExpr, FppTypeClass] = field(default_factory=dict)
+    """expr to fprime type it must be converted into at runtime"""
 
     expr_values: dict[AstExpr, FppType | NothingType | None] = field(
         default_factory=dict
@@ -825,7 +719,7 @@ class ResolveReferences(Visitor):
 
         if not self.is_type_constant_size(value_type):
             state.err(
-                f"{value_type} has non-constant sized members, cannot access members",
+                f"{value_type.__name__} has non-constant sized members, cannot access members",
                 node,
             )
             return None
@@ -963,6 +857,20 @@ class CheckUseBeforeDeclare(Visitor):
 class CalculateExprTypes(Visitor):
     """stores in state the fprime type of each expression, or NothingType if the expr had no type"""
 
+    def coerce_expr_type(self, node: AstExpr, type: FppTypeClass, state: CompileState) -> bool:
+        node_type = state.expr_types[node]
+        if self.can_interpret_type(
+            node_type, type
+        ):
+            state.expr_types[node] = type
+            return True
+        if self.can_convert_type(node_type, type):
+            state.type_conversions[node] = type
+            return True
+        state.err(f"Expected {type.__name__}, found {node_type.__name__}", node)
+        return False
+
+
     def can_interpret_type(self, type: FppTypeClass, as_type: FppTypeClass) -> bool:
         if type == as_type:
             return True
@@ -993,7 +901,7 @@ class CalculateExprTypes(Visitor):
             return False
 
         if issubclass(type, FloatType) and issubclass(to_type, IntegerType):
-            # cannot convert float to int
+            # cannot convert float to int (i.e. don't allow it)
             return False
 
         # otherwise we're good
@@ -1053,7 +961,7 @@ class CalculateExprTypes(Visitor):
             ):
                 if lhs_type != rhs_type:
                     state.err(
-                        f"Op {node.op} undefined for {lhs_type}, {rhs_type}", node
+                        f"Op {node.op} undefined for {lhs_type.__name__}, {rhs_type.__name__}", node
                     )
                     return
                 # otherwise we're good
@@ -1063,32 +971,12 @@ class CalculateExprTypes(Visitor):
 
         intermediate_type = self.pick_intermediate_type([lhs_type, rhs_type], node.op)
         if intermediate_type is None:
-            state.err(f"Op {node.op} undefined for {lhs_type}, {rhs_type}", node)
+            state.err(f"Op {node.op} undefined for {lhs_type.__name__}, {rhs_type.__name__}", node)
             return
 
-        # check if we can interpret or convert arg types as the input to the op
-        if self.can_interpret_type(
-            lhs_type, intermediate_type
-        ):
-            state.expr_types[node.lhs] = intermediate_type
-        elif self.can_convert_type(lhs_type, intermediate_type):
-            # don't actually modify the type of the expr, but remind the codegen
-            # that we have to convert it
-            state.type_conversions[node.lhs] = intermediate_type
-        else:
-            # we were able to find an intermediate type, but our type conversion/interpretation
-            # rules prevent us from making both sides this type
-            state.err(f"Expected {intermediate_type}, found {lhs_type}", node.lhs)
+        if not self.coerce_expr_type(node.lhs, intermediate_type, state):
             return
-
-        if self.can_interpret_type(
-            rhs_type, intermediate_type
-        ):
-            state.expr_types[node.rhs] = intermediate_type
-        elif self.can_convert_type(rhs_type, intermediate_type):
-            state.type_conversions[node.rhs] = intermediate_type
-        else:
-            state.err(f"Expected {intermediate_type}, found {rhs_type}", node.rhs)
+        if not self.coerce_expr_type(node.rhs, intermediate_type, state):
             return
 
         # okay now find which actual directive we're going to use based on this intermediate
@@ -1097,7 +985,6 @@ class CalculateExprTypes(Visitor):
         dir = BINARY_STACK_OPS[node.op][intermediate_type]
 
         state.stack_op_directives[node] = dir
-        state.intermediate_types[node] = intermediate_type
         state.expr_types[node] = dir.stack_output_type
 
     def visit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
@@ -1105,18 +992,10 @@ class CalculateExprTypes(Visitor):
 
         intermediate_type = self.pick_intermediate_type([val_type], node.op)
         if intermediate_type is None:
-            state.err(f"Op {node.op} undefined for {val_type}", node)
+            state.err(f"Op {node.op} undefined for {val_type.__name__}", node)
             return
 
-        # check if we can interpret or convert arg types as the input to the op
-        if self.can_interpret_type(
-            val_type, intermediate_type
-        ):
-            state.expr_types[node.val] = intermediate_type
-        elif self.can_convert_type(val_type, intermediate_type):
-            state.type_conversions[node.val] = intermediate_type
-        else:
-            state.err(f"Expected {intermediate_type}, found {val_type}", node.val)
+        if not self.coerce_expr_type(node.val, intermediate_type, state):
             return
 
         # okay now find which actual directive we're going to use based on this intermediate
@@ -1125,7 +1004,6 @@ class CalculateExprTypes(Visitor):
         chosen_dir = UNARY_STACK_OPS[node.op][intermediate_type]
 
         state.stack_op_directives[node] = chosen_dir
-        state.intermediate_types[node] = intermediate_type
         state.expr_types[node] = chosen_dir.stack_output_type
 
     def visit_AstString(self, node: AstString, state: CompileState):
@@ -1168,45 +1046,17 @@ class CalculateExprTypes(Visitor):
         for value_expr, arg in zip(node_args, func_args):
             arg_name, arg_type = arg
 
-            value_expr_type = state.expr_types[value_expr]
-
-            # the type of the arg is a subclass of the value
-            if self.can_interpret_type(
-                value_expr_type, arg_type
-            ):
-                state.expr_types[value_expr] = arg_type
-                continue
-            if self.can_convert_type(value_expr_type, arg_type):
-                state.type_conversions[value_expr] = arg_type
-                continue
-
-            # it is not. these are not compatible
-            state.errors.append(
-                CompileException(
-                    f"Expected {arg_type}, found {value_expr_type}",
-                    value_expr,
-                )
-            )
-            return
+            if not self.coerce_expr_type(value_expr, arg_type, state):
+                return
 
         # got thru all args successfully
         state.expr_types[node] = func.return_type
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var_type = state.resolved_references[node.variable].type
-        value_type = state.expr_types[node.value]
 
-        if self.can_interpret_type(
-            value_type, var_type
-        ):
-            state.expr_types[node.value] = var_type
+        if not self.coerce_expr_type(node.value, var_type, state):
             return
-        
-        if self.can_convert_type(value_type, var_type):
-            state.type_conversions[node.value] = var_type
-            return
-
-        state.err(f"Expected {var_type}, found {value_type}", node.value)
 
     def visit_default(self, node, state):
         # coding error, missed an expr

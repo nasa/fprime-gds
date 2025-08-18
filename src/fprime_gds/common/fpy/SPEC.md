@@ -1,69 +1,49 @@
 Nothing type is a type whose set of values is an empty set
 Unit type is a type whose set of values is a set with one element
+BIG question: what if we made an arbitrary precision int type? and float tpye?
 
-# `if` statement
 
-## Syntactical and semantic checks
 
-`"if" condition ":" INDENT stmt* DEDENT ("elif" condition ":" INDENT stmt* DEDENT)* ["else" ":" INDENT stmt* DEDENT]`
 
-1. where `condition` is an expression which evaluates to a boolean
-2. where `stmt` is a statement
 
-## Code generation
+# Type coercion
 
-1. `if` generates `IF`, followed by the generated code for the first body, followed by `GOTO` to the end of the if statement
-2. `elif` generates `IF`, followed by the generated code for its body, followed by `GOTO` to the end of the if statement
-3. `else` generates the code for its body
+The compiler implicitly attempts type coercion when an expression's type isn't what it needs to be. Functions, operators and variable assignments all require their input values be of a specific type. If the input expression's type doesn't match, the compiler will first attempt interpreting the expression differently, and then attempt converting the type at runtime. If neither are possible, a compiler error is raised.
 
-# `not` boolean operator
+## Interpretation
+Some expressions do not have a well-defined type when considered in isolation. Numeric literals are a good example. The literal `1` is an integer of unspecified bitwidth and signedness. When it's on the right-hand side of an assignment to a `U32` variable, the compiler can safely interpret the literal as a `U32`.
 
-## Syntactical and semantic checks
+1. Integer literals can be interpreted as any signed or unsigned integer or float type.
+2. Float literals can be interpreted as any float type.
+3. String literals can be interpreted as any string type.
 
-`"not" value` evaluates to a boolean at runtime
+## Conversion
 
-1. where `value` is an expression which evaluates to a boolean
+Even if an expression cannot be interpreted as a different type, it can often be converted at runtime.
 
-## Code generation
+1. Integer expressions can be converted to any signed or unsigned integer or float type.
+2. Float expressions can be converted to any float type.
 
-1. `not` generates `NOT`
+There is currently no support for converting string expressions to other string expressions.
 
-# `and` and `or` boolean operators
 
-## Syntactical and semantic checks
 
-`value (op value)+` evaluates to a boolean at runtime
 
-1. where `op: "and"|"or"`
-2. where `value` is an expression which evaluates to a boolean
+# Operators
 
-## Code generation
+Fpy supports the following operators:
+* Basic arithmetic: `+, -, *, /`
+* Modulo: `%`
+* Exponentiation: `**`
+* Floor division: `//`
+* Boolean: `and, or, not`
+* Comparison: `<, >, <=, >=, ==, !=`
 
-1. Each `and` or `or` between two `value`s generates an `AND` or `OR`, respectively
+## Intermediate types
 
-# Infix comparisons
 
-## Syntactical and semantic checks
 
-`lhs op rhs` evaluates to a boolean at runtime
+Under the hood, all numeric operators only work with 64 bit types. When you add a `U8` and a `U16`, the compiler uses the 
 
-1. where `op: ">" | "<" | "<=" | ">=" | "==" | "!="`
-2. and `lhs`, `rhs` are expressions which evaluate to a number
-
-If either `lhs` or `rhs` evaluate to a float:
-3. both `lhs` and `rhs` must evaluate to floats of the same bit width
-
-Otherwise, `lhs` and `rhs` evaluate to integer values. All comparisons between integer values are valid.
-
-## Code generation
-
-### Equality comparisons
-
-1. `==` or `!=` between two floats generates `FEQ` or `FNE`, respectively
-2. `==` or `!=` between two ints generates `IEQ` or `INE`, respectively
-
-### Inequality comparisons
-
-1. `>`, `<`, `<=`, or `>=` between two floats generates `FGT`, `FLT`, `FLE` or `FGE`, respectively
-2. `>`, `<`, `<=`, or `>=` between two unsigned ints generates `UGT`, `ULT`, `ULE` or `UGE`, respectively
-2. `>`, `<`, `<=`, or `>=` between two ints, where at least one is signed, generates `SGT`, `SLT`, `SLE` or `SGE`, respectively
+You are able to add two integers with different bitwidths in Fpy. But the `FpySequencer` does 
+The `FpySequencer` does not know how to add
