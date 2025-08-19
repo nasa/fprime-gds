@@ -746,6 +746,13 @@ class FpySequencerModel:
         lhs = self.pop(signed=False)
         self.push(lhs % rhs, signed=False)
 
+    def handle_fmod(self, dir: UnsignedModuloDirective):
+        if len(self.stack) < 2 * WORD_SIZE:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        rhs = self.pop(type=float)
+        lhs = self.pop(type=float)
+        self.push(lhs % rhs)
+
     def handle_fpow(self, dir: FloatExponentDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW

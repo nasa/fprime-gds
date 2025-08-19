@@ -1135,6 +1135,23 @@ exit(var == var2 and var != var3)
 
     assert_run_success(fprime_test_api, seq)
 
+def test_complex_eq_fail(fprime_test_api):
+    seq = """
+var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+var2: Fw.CmdResponse = Fw.CmdResponse.OK
+exit(var == var2)
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+def test_mod_float(fprime_test_api):
+    seq = """
+var1: F32 = 25.25
+var2: F32 = 5
+exit(var1 % var2 == 0.25 and (var1 + 1) % var2 == 1.25)
+"""
+    assert_run_success(fprime_test_api, seq)
+
 
 def test_mod_unsigned(fprime_test_api):
     seq = """

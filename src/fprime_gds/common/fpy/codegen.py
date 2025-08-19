@@ -134,6 +134,8 @@ FLOAT_TYPES = (
     F64Type,
 )
 
+NUMERIC_OPERATORS = ["+", "-", "*", "/", "%", "**", "//"]
+
 
 # a value of type FppTypeClass is a Python `type` object representing
 # the type of an Fprime value
@@ -223,7 +225,6 @@ MACROS: dict[str, FpyMacro] = {
     "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
     "print": FpyMacro(NothingType, [("msg", PrintStrType)], PrintDirective),
 }
-
 
 
 @dataclass
@@ -857,11 +858,11 @@ class CheckUseBeforeDeclare(Visitor):
 class CalculateExprTypes(Visitor):
     """stores in state the fprime type of each expression, or NothingType if the expr had no type"""
 
-    def coerce_expr_type(self, node: AstExpr, type: FppTypeClass, state: CompileState) -> bool:
+    def coerce_expr_type(
+        self, node: AstExpr, type: FppTypeClass, state: CompileState
+    ) -> bool:
         node_type = state.expr_types[node]
-        if self.can_interpret_type(
-            node_type, type
-        ):
+        if self.can_interpret_type(node_type, type):
             state.expr_types[node] = type
             return True
         if self.can_convert_type(node_type, type):
@@ -869,7 +870,6 @@ class CalculateExprTypes(Visitor):
             return True
         state.err(f"Expected {type.__name__}, found {node_type.__name__}", node)
         return False
-
 
     def can_interpret_type(self, type: FppTypeClass, as_type: FppTypeClass) -> bool:
         if type == as_type:
@@ -914,8 +914,17 @@ class CalculateExprTypes(Visitor):
         if op == "and" or op == "or" or op == "not":
             return BoolType
 
+        non_numeric = any(not issubclass(t, NumericalType) for t in arg_types)
+
+        if op == "==" or op == "!=":
+            if non_numeric:
+                if len(set(arg_types)) != 1:
+                    # can only compare equality between the same types
+                    return None
+                return arg_types[0]
+
         # all arguments should be numeric
-        if any(not issubclass(t, NumericalType) for t in arg_types):
+        if non_numeric:
             # cannot find intermediate type
             return None
 
@@ -925,11 +934,6 @@ class CalculateExprTypes(Visitor):
 
         float = any(issubclass(t, FloatType) for t in arg_types)
         unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
-
-        if op == "%":
-            if unsigned:
-                return U64Type
-            return I64Type
 
         if float:
             # at least one arg is a float
@@ -954,24 +958,12 @@ class CalculateExprTypes(Visitor):
         lhs_type = state.expr_types[node.lhs]
         rhs_type = state.expr_types[node.rhs]
 
-        if node.op == "==" or node.op == "!=":
-            # equality between two non-numeric types is handled specially
-            if not issubclass(lhs_type, NumericalType) or not issubclass(
-                rhs_type, NumericalType
-            ):
-                if lhs_type != rhs_type:
-                    state.err(
-                        f"Op {node.op} undefined for {lhs_type.__name__}, {rhs_type.__name__}", node
-                    )
-                    return
-                # otherwise we're good
-                state.expr_types[node] = BoolType
-                state.stack_op_directives[node] = MemCompareDirective
-                return
-
         intermediate_type = self.pick_intermediate_type([lhs_type, rhs_type], node.op)
         if intermediate_type is None:
-            state.err(f"Op {node.op} undefined for {lhs_type.__name__}, {rhs_type.__name__}", node)
+            state.err(
+                f"Op {node.op} undefined for {lhs_type.__name__}, {rhs_type.__name__}",
+                node,
+            )
             return
 
         if not self.coerce_expr_type(node.lhs, intermediate_type, state):
@@ -982,10 +974,22 @@ class CalculateExprTypes(Visitor):
         # okay now find which actual directive we're going to use based on this intermediate
         # type, and save it
 
-        dir = BINARY_STACK_OPS[node.op][intermediate_type]
+        dir = None
+        if (
+            node.op == "==" or node.op == "!="
+        ) and intermediate_type not in NUMERIC_TYPES:
+            dir = MemCompareDirective
+        else:
+            dir = BINARY_STACK_OPS[node.op][intermediate_type]
 
         state.stack_op_directives[node] = dir
-        state.expr_types[node] = dir.stack_output_type
+
+        result_type = None
+        if node.op in NUMERIC_OPERATORS:
+            result_type = intermediate_type
+        else:
+            result_type = BoolType
+        state.expr_types[node] = result_type
 
     def visit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
         val_type = state.expr_types[node.val]
@@ -1003,8 +1007,14 @@ class CalculateExprTypes(Visitor):
 
         chosen_dir = UNARY_STACK_OPS[node.op][intermediate_type]
 
+        result_type = None
+        if node.op in NUMERIC_OPERATORS:
+            result_type = intermediate_type
+        else:
+            result_type = BoolType
+
         state.stack_op_directives[node] = chosen_dir
-        state.expr_types[node] = chosen_dir.stack_output_type
+        state.expr_types[node] = result_type
 
     def visit_AstString(self, node: AstString, state: CompileState):
         state.expr_types[node] = StringType

@@ -33,11 +33,19 @@ All
 
 # Functions
 
+conversion
+* coercion (implicit)
+* casting (explicit)
+
+no more interpretation
+int has Integer type
 
 
-# Type coercion
+# Type conversion
 
-The compiler implicitly attempts type coercion when an expression's type isn't what it needs to be. Functions, operators and variable assignments all require their input values be of a specific type. If the input expression's type doesn't match, the compiler will first attempt interpreting the expression differently, and then attempt to have the type converted at runtime. If neither are possible, a compiler error is raised.
+The compiler implicitly attempts type conversion when an expression's type isn't what it needs to be. Functions, operators and variable assignments all require their input values be of a specific type. 
+
+If the input expression's type doesn't match, the compiler will first attempt interpreting the expression differently, and then attempt to have the type converted at runtime. If neither are possible, a compiler error is raised.
 
 ## Interpretation
 Some expressions do not have a well-defined type when considered in isolation. Numeric literals are a good example. The literal `1` is an integer of unspecified bitwidth and signedness. When it's on the right-hand side of an assignment to a `U32` variable, the compiler can safely interpret the literal as a `U32`.
@@ -55,6 +63,8 @@ Even if an expression cannot be interpreted as a different type, it can often be
 
 There is currently no support for converting string expressions to other string expressions.
 
+if a rule no mqatcvh, then no coerce
+
 # Operators
 
 Fpy supports the following operators:
@@ -65,20 +75,19 @@ Fpy supports the following operators:
 * Boolean: `and, or, not`
 * Comparison: `<, >, <=, >=, ==, !=`
 
+Each time an operator is used, an intermediate type must be picked and both args must be converted to that type.
+
 ## Intermediate types
 
-Each operator is defined for one or more intermediate types. The intermediate type for an operator is decided as follows:
+Intermediate types are picked via the following rules:
 
-Special rules:
-1. Boolean operators always take `bool`.
-2. `/` and `**` always take `F64`.
-3. `%` takes `U64` if either argument is unsigned, otherwise `I64`.
-4. `==` and `!=` may take any type, so long as the left and right hand sides are the same type.
-
-For all other operators:
-1. If either argument is a float, take `F64`.
-2. If either argument is an unsigned integer, take `U64`.
-3. Otherwise, take `I64`.
+1. The intermediate type of Boolean operators is always `bool`.
+2. The intermediate type of `==` and `!=` may be any type, so long as the left and right hand sides are the same type. If both are numeric then continue.
+3. If either argument is non-numeric, raise an error.
+4. If the operator is `/` or `**`, the intermediate type is always `F64`.
+5. If either argument is a float, the intermediate type is `F64`.
+6. If either argument is an unsigned integer, the intermediate type is `U64`.
+7. Otherwise, the intermediate type is `I64`.
 
 If the expressions given to the operator are not of the intermediate type, type coercion rules are applied.
 
