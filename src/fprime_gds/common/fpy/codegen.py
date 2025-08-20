@@ -1486,7 +1486,6 @@ class GenerateExprMacrosAndCmds(Visitor):
                 node_dirs = state.directives[arg_node]
                 assert len(node_dirs) >= 1
                 dirs.extend(node_dirs)
-                arg_byte_count = state.expr_types[arg_node].getMaxSize()
 
             dirs.append(func.dir())
         else:

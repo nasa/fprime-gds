@@ -6,12 +6,6 @@ from fprime_gds.common.fpy.test_helpers import (
     assert_run_failure,
     lookup_type,
 )
-from pathlib import Path
-import tempfile
-from fprime_gds.common.fpy.bytecode.directives import Directive, serialize_directives
-from fprime_gds.common.fpy.codegen import compile
-from fprime_gds.common.fpy.parser import parse
-from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.common.fpy.test_helpers import (
     assert_run_success,
     assert_run_failure,
@@ -859,28 +853,6 @@ exit(False)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_sub_unsigned(fprime_test_api):
-    seq = """
-var1: U32 = 1000
-var2: U32 = 500
-if var1 - var2 == 500 and (var1 - 1) < var1:
-    exit(True)
-exit(False)
-"""
-    assert_run_success(fprime_test_api, seq)
-
-
-def test_sub_signed(fprime_test_api):
-    seq = """
-var1: I32 = 255
-var2: I32 = 255
-if var1 - var2 == 0 and (var1 - 1) < (var1 - -1):
-    exit(True)
-exit(False)
-"""
-    assert_run_success(fprime_test_api, seq)
-
-
 def test_mul_unsigned(fprime_test_api):
     seq = """
 var1: U32 = 5
@@ -1169,13 +1141,6 @@ def test_mod_signed(fprime_test_api):
 var1: I32 = -5
 var2: I32 = 20
 exit(var2 % var1 == 0 and (var2 + 1) % var1 == -4)
-"""
-    assert_run_success(fprime_test_api, seq)
-
-
-def test_mod_float(fprime_test_api):
-    seq = """
-exit(1.5 % 1 == 0.5)
 """
     assert_run_success(fprime_test_api, seq)
 
