@@ -191,13 +191,6 @@ class Directive:
 
             # okay, it is not a primitive type or bytes
             field_type = typing.get_type_hints(self.__class__)[field.name]
-            print(
-                type(field_type),
-                type(field.type),
-                field_type,
-                field.type,
-                typing.get_origin(field_type),
-            )
             primitive_type = None
             if is_union(field_type):
                 # it is a union
@@ -322,7 +315,7 @@ class StackOpDirective(Directive):
 class StackCmdDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STACK_CMD
 
-    args_size: int | U16Type
+    args_size: Union[int, U16Type]
 
 
 @dataclass
@@ -333,15 +326,15 @@ class PrintDirective(Directive):
 @dataclass
 class MemCompareDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.MEMCMP
-    size: int | U16Type
+    size: Union[int, U16Type]
 
 
 @dataclass
 class LoadDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.LOAD
 
-    lvar_offset: int | U16Type
-    size: int | U16Type
+    lvar_offset: Union[int, U16Type]
+    size: Union[int, U16Type]
 
 
 @dataclass
@@ -402,22 +395,22 @@ class IntegerTruncate64To32Directive(StackOpDirective):
 class AllocateDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.ALLOCATE
 
-    size: int | U16Type
+    size: Union[int, U16Type]
 
 
 @dataclass
 class StoreDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE
 
-    lvar_offset: int | U16Type
-    size: int | U16Type
+    lvar_offset: Union[int, U16Type]
+    size: Union[int, U16Type]
 
 
 @dataclass
 class DiscardDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.DISCARD
 
-    size: int | U16Type
+    size: Union[int, U16Type]
 
 
 @dataclass
@@ -431,7 +424,7 @@ class PushValDirective(Directive):
 class ConstCmdDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.CONST_CMD
 
-    cmd_opcode: int | FwOpcodeType
+    cmd_opcode: Union[int, FwOpcodeType]
     args: bytes
 
 
@@ -540,13 +533,13 @@ class WaitAbsDirective(Directive):
 @dataclass
 class GotoDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.GOTO
-    dir_idx: int | U32Type
+    dir_idx: Union[int, U32Type]
 
 
 @dataclass
 class IfDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.IF
-    false_goto_dir_index: int | U32Type
+    false_goto_dir_index: Union[int, U32Type]
     """U32: The dir index to go to if the top of stack is false."""
 
 
@@ -558,17 +551,17 @@ class NoOpDirective(Directive):
 @dataclass
 class StoreTlmValDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE_TLM_VAL
-    chan_id: int | FwChanIdType
+    chan_id: Union[int, FwChanIdType]
     """FwChanIdType: The telemetry channel ID to get."""
-    lvar_offset: int | U16Type
+    lvar_offset: Union[int, U16Type]
 
 
 @dataclass
 class StorePrmDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE_PRM
-    prm_id: int | FwPrmIdType
+    prm_id: Union[int, FwPrmIdType]
     """FwPrmIdType: The parameter ID to get the value of."""
-    lvar_offset: int | U16Type
+    lvar_offset: Union[int, U16Type]
 
 
 @dataclass

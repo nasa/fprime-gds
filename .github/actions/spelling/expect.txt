@@ -29,6 +29,7 @@ BGR
 Biberstein
 bibtex
 bitmaps
+bitwidth
 breadcrumb
 Btns
 BUGLIST
@@ -40,6 +41,7 @@ cata
 CCB
 CCFF
 ccsds
+Cdh
 cdh
 Cdioux
 cdn
@@ -136,9 +138,11 @@ fastentrypoints
 fbuild
 fd
 FEEDNAME
+feq
 FEQ
 FFCC
 FFFF
+fge
 FGE
 FGT
 fileurl
