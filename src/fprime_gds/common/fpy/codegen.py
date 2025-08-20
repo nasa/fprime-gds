@@ -772,7 +772,7 @@ class ResolveReferences(Visitor):
         """if the node is a reference, try to resolve it in the given scope, and return true if success.
         otherwise, if it is not a reference, return true as it doesn't need to be resolved
         """
-        if not isinstance(node, AstReference):
+        if not is_instance_compat(node, AstReference):
             return True
 
         return self.resolve_ref_in_ns(node, ns, state) is not None
@@ -1101,7 +1101,7 @@ class CalculateExprTypes(Visitor):
 
     def visit_default(self, node, state):
         # coding error, missed an expr
-        assert not isinstance(node, AstExpr), node
+        assert not is_instance_compat(node, AstExpr), node
 
 
 class AllocateVariables(Visitor):
@@ -1219,7 +1219,7 @@ class CalculateConstExprValues(Visitor):
 
     def visit_default(self, node, state):
         # coding error, missed an expr
-        assert not isinstance(node, AstExpr), node
+        assert not is_instance_compat(node, AstExpr), node
 
 
 class GenerateConstExprDirectives(Visitor):
