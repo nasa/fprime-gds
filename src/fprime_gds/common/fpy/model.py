@@ -212,7 +212,7 @@ class FpySequencerModel:
     def push(
         self, val: int | float | bytes | bytearray | bool, signed=True, size=WORD_SIZE
     ):
-        if isinstance(val, (bytes | bytearray)):
+        if isinstance(val, (bytes, bytearray)):
             self.stack += val
         elif isinstance(val, bool):
             # push a byte onto stack
