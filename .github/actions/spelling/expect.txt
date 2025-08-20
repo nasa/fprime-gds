@@ -343,7 +343,7 @@ sideeffect
 siext
 SIGALRM
 signedness
-SITOFP
+sitofp
 sizeb
 sle
 SMAP
