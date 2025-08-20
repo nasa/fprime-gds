@@ -1,6 +1,6 @@
 Nothing type is a type whose set of values is an empty set
 Unit type is a type whose set of values is a set with one element
-BIG question: what if we made an arbitrary precision int type? and float tpye?
+BIG question: what if we made an arbitrary precision int type? and float type?
 
 # Types
 
@@ -63,7 +63,7 @@ Even if an expression cannot be interpreted as a different type, it can often be
 
 There is currently no support for converting string expressions to other string expressions.
 
-if a rule no mqatcvh, then no coerce
+if a rule no match, then no coerce
 
 # Operators
 
