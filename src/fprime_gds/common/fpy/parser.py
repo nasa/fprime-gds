@@ -71,7 +71,7 @@ class AstBoolean(Ast):
     value: TypingLiteral[True] | TypingLiteral[False]
 
 
-AstLiteral = AstString | AstNumber | AstBoolean
+AstLiteral = Union[AstString, AstNumber, AstBoolean]
 
 
 @dataclass
@@ -109,9 +109,9 @@ class AstUnaryOp(Ast):
     val: AstExpr
 
 
-AstOp = AstBinaryOp | AstUnaryOp
+AstOp = Union[AstBinaryOp, AstUnaryOp]
 
-AstReference = AstGetAttr | AstGetItem | AstVar
+AstReference = Union[AstGetAttr, AstGetItem, AstVar]
 AstExpr = Union[
     AstFuncCall, AstLiteral, AstReference, AstOp
 ]
