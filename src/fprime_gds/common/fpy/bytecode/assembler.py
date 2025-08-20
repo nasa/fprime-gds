@@ -95,7 +95,7 @@ def main():
         exit(-1)
 
     body = parse(args.input.read_text())
-    directives = assemble(body, args.dictionary)
+    directives = assemble(body)
     output = args.output
     if output is None:
         output = args.input.with_suffix(".bin")
