@@ -65,7 +65,7 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
     return dirs
 
 
-def assemble(body: AstBody):
+def assemble(body: AstBody) -> list[Directive]:
     directive_idx = 0
     gotos: dict[str, int] = {}
     for stmt in body:
@@ -74,6 +74,8 @@ def assemble(body: AstBody):
         else:
             assert isinstance(stmt, AstDirStmt), stmt
             directive_idx += 1
+    
+    return []
 
 
 def main():
