@@ -1,15 +1,19 @@
 from __future__ import annotations
-try:
-    from types import UnionType as UnionTypeCompat
-except ImportError:
-    from typing import Union as UnionTypeCompat
-from dataclasses import dataclass, field, fields, astuple
+import sys
+
+# In Python 3.10+, the '|' syntax creates a types.UnionType
+if sys.version_info >= (3, 10):
+    from types import UnionType
+else:
+    # For Python 3.9, we create a dummy type. The 'is' check will fail gracefully.
+    UnionType = object()
+from dataclasses import dataclass, fields, astuple
 from typing import ClassVar
 import typing
+from typing import Union
 from pathlib import Path
 import struct
 import zlib
-from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.numerical_types import (
     U32Type,
@@ -25,6 +29,17 @@ from fprime.common.models.serialize.numerical_types import (
 )
 from fprime.common.models.serialize.bool_type import BoolType
 from enum import Enum
+
+
+def is_union(tp: typing.Any) -> bool:
+    """
+    Checks if a type hint is a union.
+
+    Works for both `typing.Union[A, B]` and `A | B` (Python 3.10+) syntax.
+    """
+    origin = typing.get_origin(tp)
+    return origin is typing.Union or origin is UnionType
+
 
 FwSizeType = U64Type
 FwChanIdType = U32Type
@@ -176,8 +191,15 @@ class Directive:
 
             # okay, it is not a primitive type or bytes
             field_type = typing.get_type_hints(self.__class__)[field.name]
+            print(
+                type(field_type),
+                type(field.type),
+                field_type,
+                field.type,
+                typing.get_origin(field_type),
+            )
             primitive_type = None
-            if typing.get_origin(field_type) == UnionTypeCompat:
+            if is_union(field_type):
                 # it is a union
                 # find out which primitive type it is
                 for arg in field_type.__args__:
@@ -246,7 +268,7 @@ class Directive:
 
             # okay, it is not a primitive type or bytes
             primitive_type = None
-            if field_type == UnionTypeCompat:
+            if field_type == Union:
                 # it is a union
                 # find out which primitive type it is
                 for arg in field.type.__args__:
@@ -290,8 +312,8 @@ def serialize_directives(dirs: list[Directive], output: Path = None):
 
 @dataclass
 class StackOpDirective(Directive):
-    stack_args: ClassVar[list[type[BaseType]]] = []
     """the argument types this dir pops off the stack"""
+
     stack_output_type: ClassVar[type[BaseType]] = BaseType
     """the type this dir pushes to the stack"""
 
@@ -325,63 +347,54 @@ class LoadDirective(Directive):
 @dataclass
 class IntegerSignedExtend8To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_8_64
-    stack_args: ClassVar[list[type[BaseType]]] = [I8Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class IntegerSignedExtend16To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_16_64
-    stack_args: ClassVar[list[type[BaseType]]] = [I16Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class IntegerSignedExtend32To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SIEXT_32_64
-    stack_args: ClassVar[list[type[BaseType]]] = [I32Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class IntegerZeroExtend8To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_8_64
-    stack_args: ClassVar[list[type[BaseType]]] = [U8Type]
     stack_output_type: ClassVar[type[BaseType]] = U64Type
 
 
 @dataclass
 class IntegerZeroExtend16To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_16_64
-    stack_args: ClassVar[list[type[BaseType]]] = [U16Type]
     stack_output_type: ClassVar[type[BaseType]] = U64Type
 
 
 @dataclass
 class IntegerZeroExtend32To64Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ZIEXT_32_64
-    stack_args: ClassVar[list[type[BaseType]]] = [U32Type]
     stack_output_type: ClassVar[type[BaseType]] = U64Type
 
 
 @dataclass
 class IntegerTruncate64To8Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_8
-    stack_args: ClassVar[list[type[BaseType]]] = [U64Type | I64Type]
     stack_output_type: ClassVar[type[BaseType]] = I8Type
 
 
 @dataclass
 class IntegerTruncate64To16Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_16
-    stack_args: ClassVar[list[type[BaseType]]] = [U64Type | I64Type]
     stack_output_type: ClassVar[type[BaseType]] = I16Type
 
 
 @dataclass
 class IntegerTruncate64To32Directive(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ITRUNC_64_32
-    stack_args: ClassVar[list[type[BaseType]]] = [U64Type | I64Type]
     stack_output_type: ClassVar[type[BaseType]] = I32Type
 
 
@@ -425,105 +438,90 @@ class ConstCmdDirective(Directive):
 @dataclass
 class FloatModuloDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FMOD
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class SignedModuloDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SMOD
-    stack_args: ClassVar[list[type[BaseType]]] = [I64Type, I64Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class UnsignedModuloDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.UMOD
-    stack_args: ClassVar[list[type[BaseType]]] = [U64Type, U64Type]
     stack_output_type: ClassVar[type[BaseType]] = U64Type
 
 
 @dataclass
 class IntAddDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.IADD
-    stack_args: ClassVar[list[type[BaseType]]] = [I64Type | U64Type, I64Type | U64Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class IntSubtractDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.ISUB
-    stack_args: ClassVar[list[type[BaseType]]] = [I64Type | U64Type, I64Type | U64Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class IntMultiplyDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.IMUL
-    stack_args: ClassVar[list[type[BaseType]]] = [I64Type | U64Type, I64Type | U64Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class UnsignedIntDivideDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.UDIV
-    stack_args: ClassVar[list[type[BaseType]]] = [U64Type, U64Type]
     stack_output_type: ClassVar[type[BaseType]] = U64Type
 
 
 @dataclass
 class SignedIntDivideDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SDIV
-    stack_args: ClassVar[list[type[BaseType]]] = [I64Type, I64Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class FloatAddDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FADD
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class FloatSubtractDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FSUB
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class FloatMultiplyDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FMUL
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class FloatExponentDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FPOW
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class FloatDivideDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FDIV
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class FloatFloorDivideDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FLOAT_FLOOR_DIV
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class FloatLogDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FLOG
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
@@ -590,14 +588,20 @@ class AndDirective(StackOpDirective):
 @dataclass
 class IntEqualDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.IEQ
-    stack_args: ClassVar[list[type[BaseType]]] = [U64Type | I64Type, U64Type | I64Type]
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        Union[I64Type, U64Type],
+        Union[I64Type, U64Type],
+    ]
     stack_output_type: ClassVar[type[BaseType]] = BoolType
 
 
 @dataclass
 class IntNotEqualDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.INE
-    stack_args: ClassVar[list[type[BaseType]]] = [U64Type | I64Type, U64Type | I64Type]
+    stack_args: ClassVar[list[type[BaseType]]] = [
+        Union[I64Type, U64Type],
+        Union[I64Type, U64Type],
+    ]
     stack_output_type: ClassVar[type[BaseType]] = BoolType
 
 
@@ -681,70 +685,60 @@ class FloatLessThanDirective(StackOpDirective):
 @dataclass
 class FloatGreaterThanDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FGT
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = BoolType
 
 
 @dataclass
 class FloatEqualDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FEQ
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = BoolType
 
 
 @dataclass
 class FloatNotEqualDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FNE
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = BoolType
 
 
 @dataclass
 class NotDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.NOT
-    stack_args: ClassVar[list[type[BaseType]]] = [BoolType]
     stack_output_type: ClassVar[type[BaseType]] = BoolType
 
 
 @dataclass
 class FloatTruncateDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FPTRUNC
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F32Type
 
 
 @dataclass
 class FloatExtendDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FPEXT
-    stack_args: ClassVar[list[type[BaseType]]] = [F32Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class FloatToSignedIntDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FPTOSI
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type]
     stack_output_type: ClassVar[type[BaseType]] = I64Type
 
 
 @dataclass
 class SignedIntToFloatDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.SITOFP
-    stack_args: ClassVar[list[type[BaseType]]] = [I64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
 
 
 @dataclass
 class FloatToUnsignedIntDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FPTOUI
-    stack_args: ClassVar[list[type[BaseType]]] = [F64Type]
     stack_output_type: ClassVar[type[BaseType]] = U64Type
 
 
 @dataclass
 class UnsignedIntToFloatDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.UITOFP
-    stack_args: ClassVar[list[type[BaseType]]] = [U64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
     # src implied
 
