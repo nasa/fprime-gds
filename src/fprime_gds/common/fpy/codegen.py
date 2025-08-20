@@ -1720,7 +1720,6 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     type_name_dict["bool"] = BoolType
     # note no string type at the moment
 
-    print(type_name_dict)
     cmd_response_type = type_name_dict["Fw.CmdResponse"]
     callable_name_dict: dict[str, FpyCallable] = {}
     # add all cmds to the callable dict
