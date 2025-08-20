@@ -41,7 +41,6 @@ CCB
 CCFF
 ccsds
 cdh
-Cdh 
 Cdioux
 cdn
 cdxoefg
@@ -85,7 +84,6 @@ deframed
 deframer
 deframing
 DEPRECATEDLIST
-DESER
 deser
 Deserial
 deserializes

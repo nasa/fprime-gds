@@ -63,6 +63,7 @@ class StandardPipeline:
         logging_prefix=None,
         packet_spec=None,
         packet_set_name=None,
+        data_logging_enabled=True
     ):
         """
         Setup the standard pipeline for moving data from the middleware layer through the GDS layers using the standard
@@ -113,7 +114,7 @@ class StandardPipeline:
         # Register distributor to client socket
         self.client_socket.register(self.distributor)
         # Final setup step is to make a logging directory, and register in the logger
-        if logging_prefix:
+        if logging_prefix and data_logging_enabled:
             self.setup_logging(logging_prefix)
 
     @property

@@ -145,7 +145,6 @@ FppTypeClass = type[FppType]
 class NothingType(ABC):
     """a type which has no valid values in fprime. used to denote
     a function which doesn't return a value"""
-
     @classmethod
     def __subclasscheck__(cls, subclass):
         return False

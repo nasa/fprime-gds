@@ -189,7 +189,6 @@ def no_meta(type):
 
     return wrapper
 
-
 def handle_str(meta, s: str):
     return s.strip("'").strip('"')
 
