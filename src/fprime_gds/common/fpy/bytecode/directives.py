@@ -417,11 +417,13 @@ class ConstCmdDirective(Directive):
     cmd_opcode: int | FwOpcodeType
     args: bytes
 
+
 @dataclass
 class FloatModuloDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FMOD
     stack_args: ClassVar[list[type[BaseType]]] = [F64Type, F64Type]
     stack_output_type: ClassVar[type[BaseType]] = F64Type
+
 
 @dataclass
 class SignedModuloDirective(StackOpDirective):
@@ -764,7 +766,11 @@ UNARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
 
 BINARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
     "**": {F64Type: FloatExponentDirective},
-    "%": {I64Type: SignedModuloDirective, U64Type: UnsignedModuloDirective},
+    "%": {
+        I64Type: SignedModuloDirective,
+        U64Type: UnsignedModuloDirective,
+        F64Type: FloatModuloDirective,
+    },
     "+": {
         I64Type: IntAddDirective,
         U64Type: IntAddDirective,

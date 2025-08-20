@@ -52,7 +52,8 @@ def run_seq(
 
     serialize_directives(dirs, Path(file.name))
 
-    # fprime_test_api.send_and_assert_command("FpyDemo.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
+    fprime_test_api.send_and_assert_command("Ref.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
+    return
     
 
     model = FpySequencerModel()

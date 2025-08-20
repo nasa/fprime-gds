@@ -142,35 +142,35 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("hello world")
 
 def test_call_cmd_with_int_arg(fprime_test_api):
     seq = """
-FpyDemo.sendBuffComp.PARAMETER3_PRM_SET(4)
+Ref.sendBuffComp.PARAMETER3_PRM_SET(4)
 """
     assert_run_success(fprime_test_api, seq)
 
 
 def test_bad_enum_ctor(fprime_test_api):
     seq = """
-FpyDemo.SG5.Settings(123, 0.5, 0.5, FpyDemo.SignalType(1))
+Ref.SG5.Settings(123, 0.5, 0.5, Ref.SignalType(1))
 """
     assert_compile_failure(fprime_test_api, seq)
 
 
 def test_cmd_with_enum(fprime_test_api):
     seq = """
-FpyDemo.SG5.Settings(123, 0.5, 0.5, FpyDemo.SignalType.TRIANGLE)
+Ref.SG5.Settings(123, 0.5, 0.5, Ref.SignalType.TRIANGLE)
 """
     assert_run_success(fprime_test_api, seq)
 
 
 def test_instantiate_type_for_cmd(fprime_test_api):
     seq = """
-FpyDemo.typeDemo.CHOICE_PAIR(FpyDemo.ChoicePair(FpyDemo.Choice.ONE, FpyDemo.Choice.TWO))
+Ref.typeDemo.CHOICE_PAIR(Ref.ChoicePair(Ref.Choice.ONE, Ref.Choice.TWO))
 """
     assert_run_success(fprime_test_api, seq)
 
 
 def test_var_with_enum_type(fprime_test_api):
     seq = """
-var: FpyDemo.Choice = FpyDemo.Choice.ONE
+var: Ref.Choice = Ref.Choice.ONE
 """
 
     assert_run_success(fprime_test_api, seq)
@@ -285,7 +285,7 @@ CdhCore.cmdDisp.CMD_NO_OP
 
 def test_get_struct_member(fprime_test_api):
     seq = """
-if FpyDemo.cmdSeq.Debug.nextStatementOpcode == 0:
+if Ref.cmdSeq.Debug.nextStatementOpcode == 0:
     # should be 0 because we aren't in debug mode
     exit(True)
 exit(False)
@@ -295,7 +295,7 @@ exit(False)
         fprime_test_api,
         seq,
         {
-            "FpyDemo.cmdSeq.Debug": lookup_type(
+            "Ref.cmdSeq.Debug": lookup_type(
                 fprime_test_api, "Svc.FpySequencer.DebugTelemetry"
             )(
                 {
@@ -763,7 +763,7 @@ else:
 
 def test_non_const_str_arg(fprime_test_api):
     seq = """
-CdhCore.cmdDisp.CMD_NO_OP_STRING(FpyDemo.cmdSeq.SeqPath)
+CdhCore.cmdDisp.CMD_NO_OP_STRING(Ref.cmdSeq.SeqPath)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -771,7 +771,7 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING(FpyDemo.cmdSeq.SeqPath)
 def test_non_const_int_arg(fprime_test_api):
     seq = """
 var: U8 = 255
-FpyDemo.sendBuffComp.PARAMETER3_PRM_SET(var)
+Ref.sendBuffComp.PARAMETER3_PRM_SET(var)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -779,7 +779,7 @@ FpyDemo.sendBuffComp.PARAMETER3_PRM_SET(var)
 def test_non_const_float_arg(fprime_test_api):
     seq = """
 var: F32 = 1.2
-FpyDemo.sendBuffComp.PARAMETER4_PRM_SET(var)
+Ref.sendBuffComp.PARAMETER4_PRM_SET(var)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -1135,6 +1135,7 @@ exit(var == var2 and var != var3)
 
     assert_run_success(fprime_test_api, seq)
 
+
 def test_complex_eq_fail(fprime_test_api):
     seq = """
 var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
@@ -1143,6 +1144,7 @@ exit(var == var2)
 """
 
     assert_compile_failure(fprime_test_api, seq)
+
 
 def test_mod_float(fprime_test_api):
     seq = """
@@ -1173,6 +1175,22 @@ exit(var2 % var1 == 0 and (var2 + 1) % var1 == -4)
 
 def test_mod_float(fprime_test_api):
     seq = """
-exit(1.0 % 1 == 0)
+exit(1.5 % 1 == 0.5)
 """
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_bool_stack_value(fprime_test_api):
+    seq = """
+exit((1 == 1) == True)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def testasdf(fprime_test_api):
+    seq = """
+val: U64 = 18446744073709551615
+val2: I64 = -1
+exit(val == val2)
+"""
+    assert_run_success(fprime_test_api, seq)
