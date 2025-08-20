@@ -42,7 +42,6 @@ CCB
 CCFF
 ccsds
 Cdh
-cdh
 Cdioux
 cdn
 cdxoefg
