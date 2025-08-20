@@ -338,15 +338,12 @@ seqgen
 serializables
 serialutil
 sge
-SGE
 sgt
-SGT
 showinitializer
 sideeffect
 siext
 SIGALRM
 signedness
-sitofp
 SITOFP
 sizeb
 sle
@@ -406,10 +403,8 @@ ucf
 udp
 udiv
 uge
-UGE
 UIs
 uitofp
-UITOFP
 uk
 ul
 umod
