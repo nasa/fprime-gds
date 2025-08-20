@@ -1,3 +1,4 @@
+from __future__ import annotations
 from fprime.common.models.serialize.numerical_types import U32Type
 from fprime_gds.common.fpy.test_helpers import (
     assert_run_success,
