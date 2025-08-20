@@ -93,6 +93,7 @@ def fprime_test_api_session(request):
     api = None
     deployment_config = None
     try:
+        print(request.config.known_args_namespace)
         # Parse the command line arguments into a client connection
         arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
 

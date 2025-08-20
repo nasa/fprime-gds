@@ -44,6 +44,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
 )
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
+from fprime_gds.common.loaders.event_json_loader import EventJsonLoader
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.cmd_template import CmdTemplate
@@ -1690,11 +1691,16 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     (prm_id_dict, prm_name_dict, versions) = prm_json_dict_loader.construct_dicts(
         dictionary
     )
+    event_json_dict_loader = EventJsonLoader(dictionary)
+    (event_id_dict, event_name_dict, versions) = event_json_dict_loader.construct_dicts(
+        dictionary
+    )
     # the type name dict is a mapping of a fully qualified name to an fprime type
     # here we put into it all types found while parsing all cmds, params and tlm channels
     type_name_dict: dict[str, FppTypeClass] = cmd_json_dict_loader.parsed_types
     type_name_dict.update(ch_json_dict_loader.parsed_types)
     type_name_dict.update(prm_json_dict_loader.parsed_types)
+    type_name_dict.update(event_json_dict_loader.parsed_types)
 
     # enum const dict is a dict of fully qualified enum const name (like Ref.Choice.ONE) to its fprime value
     enum_const_name_dict: dict[str, FppType] = {}
@@ -1714,6 +1720,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     type_name_dict["bool"] = BoolType
     # note no string type at the moment
 
+    print(type_name_dict)
     cmd_response_type = type_name_dict["Fw.CmdResponse"]
     callable_name_dict: dict[str, FpyCallable] = {}
     # add all cmds to the callable dict
