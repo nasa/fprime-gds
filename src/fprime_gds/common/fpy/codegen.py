@@ -145,6 +145,7 @@ FppTypeClass = type[FppType]
 class NothingType(ABC):
     """a type which has no valid values in fprime. used to denote
     a function which doesn't return a value"""
+
     @classmethod
     def __subclasscheck__(cls, subclass):
         return False
@@ -376,16 +377,16 @@ def union_scope(lhs: FpyScope, rhs: FpyScope) -> FpyScope:
     return new
 
 
-FpyReference = (
-    ChTemplate
-    | PrmTemplate
-    | FppType
-    | FpyCallable
-    | FppTypeClass
-    | FpyVariable
-    | FieldReference
-    | dict  # dict of FpyReference
-)
+FpyReference = typing.Union[
+    ChTemplate,
+    PrmTemplate,
+    FppType,
+    FpyCallable,
+    FppTypeClass,
+    FpyVariable,
+    FieldReference,
+    dict,  # dict of FpyReference
+]
 """some named concept in fpy"""
 
 
