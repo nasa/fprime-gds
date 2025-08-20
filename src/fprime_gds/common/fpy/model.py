@@ -1,7 +1,9 @@
+from __future__ import annotations
 from enum import Enum
 import inspect
 import math
 import struct
+import typing
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateDirective,
     AndDirective,
@@ -140,7 +142,9 @@ class FpySequencerModel:
             params = list(signature.parameters.values())
             assert len(params) == 2
             assert params[1].annotation is not None
-            if isinstance(dir, params[1].annotation):
+            annotations = typing.get_type_hints(func)
+            param_type = annotations[params[1].name]
+            if isinstance(dir, param_type):
                 handler_fn = func
                 break
 
