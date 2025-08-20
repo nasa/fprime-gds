@@ -1065,7 +1065,7 @@ class StandardPipelineParser(CompositeParser):
     def pipeline_factory(args_ns, pipeline=None) -> StandardPipeline:
         """A factory of the standard pipeline given the handled arguments"""
         pipeline_arguments = {
-            "config": ConfigManager(),
+            "config": ConfigManager.get_instance(),
             "dictionary": args_ns.dictionary,
             "file_store": args_ns.files_storage_directory,
             "packet_spec": args_ns.packet_spec,

@@ -20,6 +20,7 @@ purpose is to define the interface for an encoder.
 
 @bug No known bugs
 """
+
 import abc
 import logging
 
@@ -49,7 +50,7 @@ class Encoder(
         super().__init__()
         if config is None:
             # Retrieve defaults for the configs
-            config = ConfigManager()
+            config = ConfigManager.get_instance()
         self.config = config
 
     def data_callback(self, data, sender=None):

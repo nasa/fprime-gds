@@ -87,18 +87,19 @@ class StandardPipeline:
             raise PermissionError(
                 f"{file_store} is not writable. Fix permissions or change storage directory with --file-storage-directory."
             )
+        # Load dictionaries
         self.dictionary_path = Path(dictionary)
-        # Loads the distributor and client socket
-        self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
-        self.client_socket = self.__transport_type()
-        # Setup dictionaries encoders and decoders
         self.dictionaries.load_dictionaries(
             self.dictionary_path, packet_spec, packet_set_name
-        )        
+        )
         # Update config to use Fw types defined in the JSON dictionary
         if self.dictionaries.fw_type_name:
             for fw_type_name, fw_type in self.dictionaries.fw_type_name.items():
                 config.set("types", fw_type_name, fw_type)
+        # Loads the distributor and client socket
+        self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
+        self.client_socket = self.__transport_type()
+        # Setup encoders and decoders
         self.coders.setup_coders(
             self.dictionaries, self.distributor, self.client_socket, config
         )
