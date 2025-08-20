@@ -232,7 +232,6 @@ logpath
 logselect
 luxon
 lvar
-LVAR
 makeindex
 MAKEVAR
 marijnh
