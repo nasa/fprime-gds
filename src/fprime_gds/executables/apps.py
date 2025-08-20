@@ -218,14 +218,6 @@ class GdsStandardApp(GdsApp):
         return {
             **cls.get_additional_arguments(),
             **StandardPipelineParser().get_arguments(),
-            **{
-                ("--log-directly",): {
-                    "dest": "log_directly",
-                    "action": "store_true",
-                    "default": True,
-                    "help": "Logging directory is used directly, no extra dated directories created.",
-                }
-            },
         }
 
     @classmethod
