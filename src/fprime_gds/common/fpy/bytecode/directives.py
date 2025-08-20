@@ -12,7 +12,6 @@ import zlib
 from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.numerical_types import (
-    NumericalType,
     U32Type,
     U16Type,
     U64Type,
@@ -176,17 +175,18 @@ class Directive:
                 continue
 
             # okay, it is not a primitive type or bytes
+            field_type = typing.get_type_hints(self.__class__)[field.name]
             primitive_type = None
-            if typing.get_origin(field.type) == UnionTypeCompat:
+            if typing.get_origin(field_type) == UnionTypeCompat:
                 # it is a union
                 # find out which primitive type it is
-                for arg in field.type.__args__:
+                for arg in field_type.__args__:
                     if issubclass(arg, BaseType):
                         # it is a primitive type
                         primitive_type = arg
                         break
-            elif issubclass(field.type, BaseType):
-                primitive_type = field.type
+            elif issubclass(field_type, BaseType):
+                primitive_type = field_type
             if primitive_type is None:
                 raise NotImplementedError(
                     "Unknown how to serialize field", field.name, "for", self
