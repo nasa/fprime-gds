@@ -1,3 +1,4 @@
+from __future__ import annotations
 try:
     from types import UnionType as UnionTypeCompat
 except ImportError:
