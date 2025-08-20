@@ -38,7 +38,9 @@ def parse_args():
         PluginArgumentParser,
     ]
     # Parse the arguments, and refine through all handlers
-    args, parser = ConfigDrivenParser.parse_args(arg_handlers, "Run F prime deployment and GDS")
+    args, parser = ConfigDrivenParser.parse_args(
+        arg_handlers, "Run F prime deployment and GDS"
+    )
     return args
 
 
@@ -175,11 +177,20 @@ def launch_comm(parsed_args):
     )
 
 
-def launch_plugin(plugin_class_instance):
+def launch_plugin(parsed_args, plugin_class_instance):
     """Launch a plugin instance"""
-    plugin_name = getattr(plugin_class_instance, "get_name", lambda: plugin_class_instance.__class__.__name__)()
+    plugin_name = getattr(
+        plugin_class_instance,
+        "get_name",
+        lambda: plugin_class_instance.__class__.__name__,
+    )()
+    # Set logging to use a subdirectory within the root logs directory
+    plugin_logs = os.path.join(parsed_args.logs, plugin_name)
+    os.mkdir(plugin_logs)
+    parsed_args.logs = plugin_logs
+    parsed_args.log_directly = True
     return launch_process(
-        plugin_class_instance.get_process_invocation(),
+        plugin_class_instance.get_process_invocation(parsed_args),
         name=f"{ plugin_name } Plugin App",
         launch_time=1,
     )
@@ -218,11 +229,11 @@ def main():
     try:
         procs = [launcher(parsed_args) for launcher in launchers]
         _ = [
-            launch_plugin(cls())
+            launch_plugin(parsed_args, cls())
             for cls in Plugins.system().get_feature_classes("gds_app")
         ]
         _ = [
-            instance().run()
+            instance().run(parsed_args)
             for instance in Plugins.system().get_feature_classes("gds_function")
         ]
 
