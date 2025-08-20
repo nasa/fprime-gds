@@ -1,5 +1,8 @@
+try:
+    from types import UnionType as UnionTypeCompat
+except ImportError:
+    from typing import Union as UnionTypeCompat
 from dataclasses import dataclass, field, fields, astuple
-from types import UnionType
 from typing import ClassVar
 import typing
 from pathlib import Path
@@ -173,7 +176,7 @@ class Directive:
 
             # okay, it is not a primitive type or bytes
             primitive_type = None
-            if typing.get_origin(field.type) == UnionType:
+            if typing.get_origin(field.type) == UnionTypeCompat:
                 # it is a union
                 # find out which primitive type it is
                 for arg in field.type.__args__:
@@ -242,7 +245,7 @@ class Directive:
 
             # okay, it is not a primitive type or bytes
             primitive_type = None
-            if field_type == UnionType:
+            if field_type == UnionTypeCompat:
                 # it is a union
                 # find out which primitive type it is
                 for arg in field.type.__args__:

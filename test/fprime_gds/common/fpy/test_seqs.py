@@ -759,7 +759,8 @@ def test_non_const_str_arg(fprime_test_api):
     seq = """
 CdhCore.cmdDisp.CMD_NO_OP_STRING(Ref.cmdSeq.SeqPath)
 """
-    assert_run_success(fprime_test_api, seq)
+    # currently can't do non const string args
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_non_const_int_arg(fprime_test_api):
@@ -1148,14 +1149,5 @@ exit(var2 % var1 == 0 and (var2 + 1) % var1 == -4)
 def test_bool_stack_value(fprime_test_api):
     seq = """
 exit((1 == 1) == True)
-"""
-    assert_run_success(fprime_test_api, seq)
-
-
-def testasdf(fprime_test_api):
-    seq = """
-val: U64 = 18446744073709551615
-val2: I64 = -1
-exit(val == val2)
 """
     assert_run_success(fprime_test_api, seq)

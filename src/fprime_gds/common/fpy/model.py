@@ -12,6 +12,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatDivideDirective,
     FloatExponentDirective,
     FloatFloorDivideDirective,
+    FloatModuloDirective,
     FloatMultiplyDirective,
     FloatSubtractDirective,
     GotoDirective,
@@ -746,7 +747,7 @@ class FpySequencerModel:
         lhs = self.pop(signed=False)
         self.push(lhs % rhs, signed=False)
 
-    def handle_fmod(self, dir: UnsignedModuloDirective):
+    def handle_fmod(self, dir: FloatModuloDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
         rhs = self.pop(type=float)
