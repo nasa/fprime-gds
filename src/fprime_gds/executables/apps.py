@@ -14,8 +14,8 @@ command line that will be spun into its own process.
 import subprocess
 import sys
 from abc import ABC, abstractmethod
-from argparse import Namespace
-from typing import final, List, Dict, Tuple, Type
+import argparse
+from typing import final, List, Dict, Tuple, Type, Optional
 
 from fprime_gds.plugin.definitions import gds_plugin_specification, gds_plugin
 from fprime_gds.plugin.system import Plugins
@@ -40,7 +40,7 @@ class GdsBaseFunction(ABC):
     """
 
     @abstractmethod
-    def run(self):
+    def run(self, parsed_args):
         """Run the start-up function
 
         Run the start-up function unconstrained by the limitations of running in a dedicated subprocess.
@@ -110,13 +110,13 @@ class GdsApp(GdsBaseFunction):
         self.process = None
         self.arguments = arguments
 
-    def run(self):
+    def run(self, parsed_args):
         """Run the application as an isolated process
 
         GdsFunction objects require an implementation of the `run` command. This implementation will take the arguments
         provided from `get_process_invocation` function and supplies them as an invocation of the isolated subprocess.
         """
-        invocation_arguments = self.get_process_invocation()
+        invocation_arguments = self.get_process_invocation(parsed_args)
         self.process = subprocess.Popen(invocation_arguments)
 
     def wait(self, timeout=None):
@@ -137,7 +137,9 @@ class GdsApp(GdsBaseFunction):
         return self.process.returncode
 
     @abstractmethod
-    def get_process_invocation(self) -> List[str]:
+    def get_process_invocation(
+        self, namespace: Optional[argparse.Namespace] = None
+    ) -> List[str]:
         """Run the start-up function
 
         Run the start-up function unconstrained by the limitations of running in a dedicated subprocess.
@@ -230,7 +232,7 @@ class GdsStandardApp(GdsApp):
         """Start function to contain behavior based in standard pipeline"""
         raise NotImplementedError()
 
-    def get_process_invocation(self):
+    def get_process_invocation(self, namespace=None):
         """Return the process invocation for this class' main
 
         The process invocation of this application is to run cls.main and supply it a reproduced version of the
@@ -247,7 +249,8 @@ class GdsStandardApp(GdsApp):
         composite_parser = CompositeParser(
             [self.get_cli_parser(), StandardPipelineParser]
         )
-        namespace, _, _ = ParserBase.parse_known_args([composite_parser])
+        if namespace is None:
+            namespace, _, _ = ParserBase.parse_known_args([composite_parser])
         args = composite_parser.reproduce_cli_args(namespace)
         return [sys.executable, "-c", f"import {module}\n{module}.{cls}.main()"] + args
 
@@ -261,7 +264,7 @@ class GdsStandardApp(GdsApp):
                     []
                 )  # Disable plugin system unless specified through init
             # In the case where `init` sets up the plugin system, we want to pass the assertion
-            # triggered by the code above that turns it off in the not-setup case. 
+            # triggered by the code above that turns it off in the not-setup case.
             except AssertionError:
                 pass
             plugin_name = getattr(cls, "get_name", lambda: cls.__name__)()
