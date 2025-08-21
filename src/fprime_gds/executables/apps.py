@@ -40,7 +40,7 @@ class GdsBaseFunction(ABC):
     """
 
     @abstractmethod
-    def run(self):
+    def run(self, parsed_args):
         """Run the start-up function
 
         Run the start-up function unconstrained by the limitations of running in a dedicated subprocess.

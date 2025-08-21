@@ -5,6 +5,7 @@
 ####
 import os
 import sys
+import copy
 import webbrowser
 
 from fprime_gds.executables.cli import (
@@ -184,13 +185,14 @@ def launch_plugin(parsed_args, plugin_class_instance):
         "get_name",
         lambda: plugin_class_instance.__class__.__name__,
     )()
+    plugin_args = copy.deepcopy(parsed_args)
     # Set logging to use a subdirectory within the root logs directory
-    plugin_logs = os.path.join(parsed_args.logs, plugin_name)
+    plugin_logs = os.path.join(plugin_args.logs, plugin_name)
     os.mkdir(plugin_logs)
-    parsed_args.logs = plugin_logs
-    parsed_args.log_directly = True
+    plugin_args.logs = plugin_logs
+    plugin_args.log_directly = True
     return launch_process(
-        plugin_class_instance.get_process_invocation(parsed_args),
+        plugin_class_instance.get_process_invocation(plugin_args),
         name=f"{ plugin_name } Plugin App",
         launch_time=1,
     )

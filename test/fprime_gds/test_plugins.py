@@ -129,7 +129,7 @@ class StartFunction(GdsFunction):
         """Start-Up function file annotation"""
         self.start_up_function_file = start_up_file
 
-    def run(self):
+    def run(self, parsed_args):
         """Run function"""
         with open(self.start_up_function_file, "a+") as file_handle:
             file_handle.write("ACK\n")
@@ -168,7 +168,7 @@ class StartApp(GdsApp):
         super().__init__()
         self.start_up_app_file = start_up_file
 
-    def get_process_invocation(self):
+    def get_process_invocation(self, parsed_args):
         """Process invocation"""
         return [sys.executable, __file__, self.start_up_app_file, "ACK-2"]
 
@@ -194,12 +194,16 @@ class StartApp(GdsApp):
         """Register a good plugin"""
         return cls
 
+
 @gds_plugin(GdsStandardApp)
 class StandardAppTester(GdsStandardApp):
     """A test plugin that uses the standard app functionality"""
+
     INIT_CALLED = False
 
-    def __init__(self, test_arg, test_arg_with_default, start_up_file, **pipeline_arguments):
+    def __init__(
+        self, test_arg, test_arg_with_default, start_up_file, **pipeline_arguments
+    ):
         """Initialize the standard app tester"""
         super().__init__(**pipeline_arguments)
         self.test_arg = test_arg
@@ -218,12 +222,16 @@ class StandardAppTester(GdsStandardApp):
         """
         return {
             ("--test-arg",): {"type": str, "help": "Test argument", "required": True},
-            ("--test-arg-with-default",): {"type": str, "help": "Test argument with default", "default": "test-default"},
+            ("--test-arg-with-default",): {
+                "type": str,
+                "help": "Test argument with default",
+                "default": "test-default",
+            },
             ("--start-up-file",): {
                 "type": str,
                 "help": "File to run start-up function on",
                 "required": True,
-            }
+            },
         }
 
     @classmethod
@@ -231,16 +239,18 @@ class StandardAppTester(GdsStandardApp):
         """Allows standard application plugins to initialize before argument parsing is performed"""
         cls.INIT_CALLED = True
 
-
     def start(self, pipeline: StandardPipeline):
-        """Start function to contain behavior based in standard pipeline """
+        """Start function to contain behavior based in standard pipeline"""
         with open(self.start_up_file, "a+") as file_handle:
             if self.INIT_CALLED:
                 print("[TestStandardApp] init called", file=file_handle)
             print("[TestStandardApp] start called", file=file_handle)
             print("[TestStandardApp] test-arg", self.test_arg, file=file_handle)
-            print("[TestStandardApp] test-arg-with-default", self.test_arg_with_default, file=file_handle)
-
+            print(
+                "[TestStandardApp] test-arg-with-default",
+                self.test_arg_with_default,
+                file=file_handle,
+            )
 
 
 @pytest.fixture()
@@ -343,7 +353,7 @@ def test_plugin_validation(plugins):
 
 def test_plugin_arguments(plugins):
     """Tests that arguments can be parsed and supplied to a plugin"""
-    plugin_system = plugins 
+    plugin_system = plugins
     a_string = "a_string"
     a_number = "201"
     to_parse = [
@@ -391,11 +401,13 @@ def test_plugin_check_arguments(plugins):
 
 
 def test_plugin_decorator(plugins):
-    """ Test that the plugin decorator works with known good class """
+    """Test that the plugin decorator works with known good class"""
+
     @gds_plugin(FramerDeframer)
     class MyGood(FramerDeframer):
         def frame(self, data):
             pass
+
         def deframe(self, data, no_copy=False):
             pass
 
@@ -407,24 +419,29 @@ def test_plugin_decorator(plugins):
 
 
 def test_plugin_decorator_without_class():
-    """ Test that the plugin decorator fails if a class is not provided """
+    """Test that the plugin decorator fails if a class is not provided"""
     with pytest.raises(Exception):
+
         @gds_plugin
         class MyGood(Good):
             pass
 
+
 def test_plugin_decorator_class_mismatch():
-    """ Test that the plugin decorator fails if it is supplied the wrong plugin class """
+    """Test that the plugin decorator fails if it is supplied the wrong plugin class"""
     with pytest.raises(Exception):
+
         @gds_plugin(StartApp)
-        class MyGood(Good): # Good is a FramerDeframer
+        class MyGood(Good):  # Good is a FramerDeframer
             pass
 
+
 def test_plugin_decorator_not_a_plugin():
-    """ Test that the plugin decorator fails if it is supplied a class which is not a plugin """
+    """Test that the plugin decorator fails if it is supplied a class which is not a plugin"""
     with pytest.raises(Exception):
+
         @gds_plugin(object)
-        class MyGood(Good): # Good is a FramerDeframer
+        class MyGood(Good):  # Good is a FramerDeframer
             pass
 
 
@@ -441,7 +458,9 @@ def test_start_function(start_up):
 )
 def test_disabled_start_function(start_up):
     """Test disabled start-up functions"""
-    assert "" == start_up.read(), "Failed to read empty file: Function ran when disabled"
+    assert (
+        "" == start_up.read()
+    ), "Failed to read empty file: Function ran when disabled"
 
 
 @pytest.mark.parametrize("start_up", [(f"{__name__}:StartApp", [])], indirect=True)
@@ -457,7 +476,12 @@ def test_disabled_start_app(start_up):
     """Test disabled start-up functions"""
     assert "" == start_up.read(), "Failed to read empty file"
 
-@pytest.mark.parametrize("start_up", [(f"{__name__}:StandardAppTester", ["--test-arg", "test"])], indirect=True)
+
+@pytest.mark.parametrize(
+    "start_up",
+    [(f"{__name__}:StandardAppTester", ["--test-arg", "test"])],
+    indirect=True,
+)
 def test_standard_app(start_up):
     """Test standard app functionality"""
     lines = [line.strip() for line in start_up.readlines()]
@@ -473,7 +497,17 @@ def test_standard_app(start_up):
     assert expected_lines[3] in lines, "Test argument with default not passed"
     assert expected_lines == lines, "Ordering of lines not correct"
 
-@pytest.mark.parametrize("start_up", [(f"{__name__}:StandardAppTester", ["--test-arg", "test", "--test-arg-with-default", "test-non-default"])], indirect=True)
+
+@pytest.mark.parametrize(
+    "start_up",
+    [
+        (
+            f"{__name__}:StandardAppTester",
+            ["--test-arg", "test", "--test-arg-with-default", "test-non-default"],
+        )
+    ],
+    indirect=True,
+)
 def test_standard_app_with_non_defaults(start_up):
     """Test standard app functionality"""
     lines = [line.strip() for line in start_up.readlines()]
@@ -486,8 +520,11 @@ def test_standard_app_with_non_defaults(start_up):
     assert expected_lines[0] in lines, "Plugin not initialized"
     assert expected_lines[1] in lines, "Plugin not started"
     assert expected_lines[2] in lines, "Test argument not passed"
-    assert expected_lines[3] in lines, "Test argument with overridden default not passed"
+    assert (
+        expected_lines[3] in lines
+    ), "Test argument with overridden default not passed"
     assert expected_lines == lines, "Ordering of lines not correct"
+
 
 def main():
     """Run main entry point function for StartApp plugin
