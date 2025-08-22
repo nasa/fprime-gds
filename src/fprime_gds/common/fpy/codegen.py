@@ -134,6 +134,8 @@ MAX_DIRECTIVES_COUNT = 1024
 MAX_DIRECTIVE_SIZE = 2048
 MAX_STACK_SIZE = 65535
 
+COMPILER_MAX_STRING_SIZE = 128
+
 GENERIC_NUMERIC_TYPES = (NumericalType, FloatType, IntegerType)
 
 NUMERIC_TYPES = (
@@ -225,16 +227,13 @@ class FpyMacro(FpyCallable):
     """a function which instantiates the macro given the argument exprs"""
 
 
-DefaultStrType = StringType.construct_type("default_fpy_str_type", None)
-
-
-class PrintStrType(StringType.construct_type("print_str_type", None)):
+class PrintStrType(StringType.construct_type("print_str_type", COMPILER_MAX_STRING_SIZE)):
     def serialize(self):
         if self.val is None:
             raise RuntimeError(type(self))
         if self.MAX_LENGTH is not None and len(self.val) > self.MAX_LENGTH:
             raise RuntimeError(len(self.val), self.MAX_LENGTH)
-        return self.val.encode() + struct.pack(">H", len(self.val))
+        return self.val.encode("utf-8") + struct.pack(">H", len(self.val))
 
     def deserialize(self, data, offset):
         """
@@ -249,7 +248,7 @@ class PrintStrType(StringType.construct_type("print_str_type", None)):
             # Deal with a string that is larger than max string
             if self.MAX_LENGTH is not None and val_size > self.MAX_LENGTH:
                 raise RuntimeError(val_size, self.MAX_LENGTH)
-            self.val = data[offset : offset + val_size].decode()
+            self.val = data[offset : offset + val_size].decode("utf-8")
         except struct.error:
             raise RuntimeError("Not enough bytes to deserialize string length.")
 
@@ -659,7 +658,7 @@ class CreateVariables(Visitor):
             return
 
 
-class ResolveReferences(Visitor):
+class ResolveReferences(TopDownVisitor):
     """for each reference, resolve it in a specific scope based on its
     syntactic position, or fail if could not resolve"""
 
@@ -870,6 +869,12 @@ class ResolveReferences(Visitor):
             state.err("Unknown runtime value", node.value)
             return
 
+    def visit_AstReference(self, node: AstReference, state: CompileState):
+        # make sure that all refs are resolved when we get to them
+        if node not in state.resolved_references:
+            state.err("Unknown variable", node)
+            return
+
 
 class CheckUseBeforeDeclare(Visitor):
 
@@ -888,9 +893,6 @@ class CheckUseBeforeDeclare(Visitor):
         self.currently_declared_vars.append(var)
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
-        if node not in state.resolved_references:
-            state.err("Unknown variable", node)
-            return
         ref = state.resolved_references[node]
         if not isinstance(ref, FpyVariable):
             return
@@ -970,9 +972,6 @@ class CalculateExprTypes(Visitor):
                 if len(set(arg_types)) != 1:
                     # can only compare equality between the same types
                     return None
-                arg_type = arg_types[0]
-                if arg_type == StringType:
-                    return
                 return arg_types[0]
 
         # all arguments should be numeric

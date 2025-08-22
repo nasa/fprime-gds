@@ -8,11 +8,13 @@ from fprime_gds.common.fpy.test_helpers import (
     lookup_type,
 )
 
-# define this function if you want to just use the Python fpy model
-@pytest.fixture(name="fprime_test_api", scope="module")
-def fprime_test_api_override():
-    """A file-specific override that simply returns None."""
-    return None
+
+# # define this function if you want to just use the Python fpy model
+# @pytest.fixture(name="fprime_test_api", scope="module")
+# def fprime_test_api_override():
+#     """A file-specific override that simply returns None."""
+#     return None
+
 
 def test_simple_var(fprime_test_api):
     seq = """
@@ -1152,6 +1154,7 @@ exit((1 == 1) == True)
 """
     assert_run_success(fprime_test_api, seq)
 
+
 def test_u8_too_large(fprime_test_api):
     seq = """
 var: U8 = 123
@@ -1159,15 +1162,32 @@ var = 256
 """
     assert_compile_failure(fprime_test_api, seq)
 
+
 def test_string_eq(fprime_test_api):
     seq = """
 exit("asdf" == "asdf")
 """
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
+
+def test_string_var_eq(fprime_test_api):
+    seq = """
+var: string = "test"
+var1: string = "test"
+exit(var == var1)
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_string_type(fprime_test_api):
+    seq = """
+var: string = "test"
+"""
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_too_many_dirs(fprime_test_api):
     from fprime_gds.common.fpy.codegen import MAX_DIRECTIVES_COUNT
+
     seq = "CdhCore.cmdDisp.CMD_NO_OP()\n" * (MAX_DIRECTIVES_COUNT + 1)
     assert_compile_failure(fprime_test_api, seq)
 
@@ -1175,5 +1195,23 @@ def test_too_many_dirs(fprime_test_api):
 def test_dir_too_large(fprime_test_api):
     # TODO this doesn't actually crash cuz the dir is too large... not sure at the moment how to trigger this
     from fprime_gds.common.fpy.codegen import MAX_DIRECTIVE_SIZE
-    seq = "CdhCore.cmdDisp.CMD_NO_OP_STRING(\"" + "a" * MAX_DIRECTIVE_SIZE + "\")"
+
+    seq = 'CdhCore.cmdDisp.CMD_NO_OP_STRING("' + "a" * MAX_DIRECTIVE_SIZE + '")'
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_readme_examples(fprime_test_api):
+    seq = """
+Ref.recvBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
+param4: F32 = 15.0
+Ref.recvBuffComp.PARAMETER4_PRM_SET(param4)
+
+prm_3: U8 = Ref.sendBuffComp.parameter3
+cmds_dispatched: U32 = CdhCore.cmdDisp.CommandsDispatched
+
+signal_pair: Ref.SignalPair = Ref.SG1.PairOutput
+
+signal_pair_time: F32 = Ref.SG1.PairOutput.time
+com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
+"""
     assert_compile_failure(fprime_test_api, seq)
