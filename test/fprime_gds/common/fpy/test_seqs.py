@@ -1213,5 +1213,10 @@ signal_pair: Ref.SignalPair = Ref.SG1.PairOutput
 
 signal_pair_time: F32 = Ref.SG1.PairOutput.time
 com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
+value: bool = 1 > 2 and (3 + 4) != 5
+many_cmds_dispatched: bool = cmds_dispatched >= 123
+record1: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+record2: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+records_equal: bool = record1 == record2 # == True
 """
     assert_compile_failure(fprime_test_api, seq)

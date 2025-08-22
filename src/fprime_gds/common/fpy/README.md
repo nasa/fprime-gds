@@ -40,6 +40,8 @@ For types, Fpy has most of the same basic ones that FPP does:
 * Floats: `F32, F64`
 * Boolean: `bool`
 
+Float literals are denoted with a decimal point (`5.0`, `0.123`) and Boolean literals have a capitalized first letter: `True`, `False`. There is no way to differentiate between signed and unsigned integer literals, so the compiler looks at where the literal is used to determine the signedness.
+
 ## Dictionary Types
 
 Fpy also has access to all structs, arrays and enums in the FPrime dictionary:
@@ -67,9 +69,9 @@ Fpy supports the following math operations:
 * Modulo: `%`
 * Exponentiation: `**`
 * Floor division: `//`
-* Logarithm: `log(x)` (see [Log Macro](#log-macro))
+* Natural logarithm: `log(x)`
 
-The behavior of these operators is designed to mimic Python. In particular, **division always returns a float**. This may be confusing coming from C++, but it is consistent with Python's implementation. This means that `5 / 2 == 2.5`, not `2`
+The behavior of these operators is designed to mimic Python. Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
 
 ## Variable Arguments to Commands
 
@@ -102,8 +104,32 @@ Fpy supports getting the value of parameters:
 prm_3: U8 = Ref.sendBuffComp.parameter3
 ```
 
-A significant limitation of this is that it will only return the value most recently saved to the parameter database. This means you must command `_PRM_SAVE` before the value will update in the sequence.
+A significant limitation of this is that it will only return the value most recently saved to the parameter database. This means you must command `_PRM_SAVE` before the sequence will see the new value.
 
+## Conditionals
+Fpy supports comparison operators:
+```py
+value: bool = 1 > 2 and (3 + 4) != 5
+```
+* Inequalities: `>, <, >=, <=`
+* Equalities: `==, !=`
+* Boolean functions: `and, or, not`
+
+
+The inequality operators can compare two numbers of any type together. The equality operators, in addition to comparing numbers, can check for equality between two of the same complex type:
+```py
+record1: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+record2: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+records_equal: bool = record1 == record2 # == True
+```
+## If/elif/else
+
+This is particularly useful for checking telemetry channel values:
+
+```py
+cmds_dispatched: U32 = CdhCore.cmdDisp.CommandsDispatched
+many_cmds_dispatched: bool = cmds_dispatched >= 123
+```
 ## Getting Struct Members and Array Items
 
 You can access members of structs by name, or array elements by index:
@@ -115,18 +141,40 @@ signal_pair_time: F32 = Ref.SG1.PairOutput.time
 com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
 ```
 
+You cannot reassign struct members or array elements however:
+```py
+signal_pair: Ref.SignalPair = Ref.SG1.PairOutput
+# compiler error:
+signal_pair.time = 0.2
+
+com_queue_depth: Svc.ComQueueDepth = ComCcsds.comQueue.comQueueDepth
+# compiler error:
+com_queue_depth[0] = 1
+```
+
 ## Relative and Absolute Sleep
+You can pause the execution of a sequence for a relative duration, or until an absolute time:
+```py
+CdhCore.cmdDisp.CMD_NO_OP_STRING("second 0")
+# sleep for 1 second and 0 microseconds
+sleep(1, 0)
+CdhCore.cmdDisp.CMD_NO_OP_STRING("second 1")
+
+
+CdhCore.cmdDisp.CMD_NO_OP_STRING("today")
+# sleep until 12345678900 seconds and 0 microseconds after the epoch
+sleep_until(0, 0, 12345678900, 0)
+CdhCore.cmdDisp.CMD_NO_OP_STRING("much later")
+```
+
+Make sure that the `Svc.FpySequencer.checkTimers` port is connected to a rate group. The sequencer only checks if a sleep is done when the port is called, so the more frequently you call it, the more accurate the wakeup time.
 
 ## Exit Macro
-
-## Log Macro
-
-## Math
-
-You can do math in Fpy
-
-## Literals
-
-Integer literals are 
-
-
+You can end the execution of the sequence early by calling the `exit` macro:
+```py
+# exit takes a boolean argument
+# True means "end the sequence without an error"
+exit(True)
+# False means "end the sequence and raise an error"
+exit(False)
+```
