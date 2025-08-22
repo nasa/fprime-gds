@@ -788,6 +788,8 @@ class FpySequencerModel:
         print(str_bytes.decode())
 
     def handle_exit(self, dir: ExitDirective):
+        if len(self.stack) < 1:
+            return DirectiveErrorCode.STACK_UNDERFLOW
         success = self.pop(type=bool, size=1)
         if success:
             self.next_dir_idx = len(self.dirs)

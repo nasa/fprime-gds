@@ -1151,3 +1151,29 @@ def test_bool_stack_value(fprime_test_api):
 exit((1 == 1) == True)
 """
     assert_run_success(fprime_test_api, seq)
+
+def test_u8_too_large(fprime_test_api):
+    seq = """
+var: U8 = 123
+var = 256
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+def test_string_eq(fprime_test_api):
+    seq = """
+exit("asdf" == "asdf")
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_too_many_dirs(fprime_test_api):
+    from fprime_gds.common.fpy.codegen import MAX_DIRECTIVES_COUNT
+    seq = "CdhCore.cmdDisp.CMD_NO_OP()\n" * (MAX_DIRECTIVES_COUNT + 1)
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_dir_too_large(fprime_test_api):
+    # TODO this doesn't actually crash cuz the dir is too large... not sure at the moment how to trigger this
+    from fprime_gds.common.fpy.codegen import MAX_DIRECTIVE_SIZE
+    seq = "CdhCore.cmdDisp.CMD_NO_OP_STRING(\"" + "a" * MAX_DIRECTIVE_SIZE + "\")"
+    assert_compile_failure(fprime_test_api, seq)

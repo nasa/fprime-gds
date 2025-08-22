@@ -1,16 +1,19 @@
 from __future__ import annotations
 from abc import ABC
 import inspect
-from dataclasses import dataclass, field, fields
+from dataclasses import astuple, dataclass, field, fields
+from pathlib import Path
 import struct
 import traceback
 import typing
 from typing import Union, get_origin, get_args
+import zlib
 
 # In Python 3.10+, the `|` operator creates a `types.UnionType`.
 # We need to handle this for forward compatibility, but it won't exist in 3.9.
 try:
     from types import UnionType
+
     UNION_TYPES = (Union, UnionType)
 except ImportError:
     UNION_TYPES = (Union,)
@@ -62,6 +65,7 @@ from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.enum_type import EnumType
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.array_type import ArrayType
+from fprime.common.models.serialize.type_exceptions import TypeException
 from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
@@ -103,6 +107,7 @@ from fprime_gds.common.fpy.parser import (
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
 
+
 def is_instance_compat(obj, cls):
     """
     A wrapper for isinstance() that correctly handles Union types in Python 3.9+.
@@ -119,10 +124,15 @@ def is_instance_compat(obj, cls):
         # It's a Union type, so get its arguments.
         # e.g., get_args(Union[int, str]) returns (int, str)
         return isinstance(obj, get_args(cls))
-    
-    # It's not a Union, so it's a regular type (like int) or a 
+
+    # It's not a Union, so it's a regular type (like int) or a
     # tuple of types ((int, str)), which isinstance handles natively.
     return isinstance(obj, cls)
+
+
+MAX_DIRECTIVES_COUNT = 1024
+MAX_DIRECTIVE_SIZE = 2048
+MAX_STACK_SIZE = 65535
 
 GENERIC_NUMERIC_TYPES = (NumericalType, FloatType, IntegerType)
 
@@ -193,7 +203,9 @@ class CompileException(BaseException):
         self.stack_trace = "\n".join(traceback.format_stack(limit=8)[:-1])
 
     def __str__(self):
-        return f'{self.stack_trace}\nAt line {self.node.meta.line} "{self.node.node_text}": {self.msg}'
+        if self.node is not None:
+            return f'{self.stack_trace}\nAt line {self.node.meta.line} "{self.node.node_text}": {self.msg}'
+        return f'{self.stack_trace}\n{self.msg}'
 
 
 @dataclass
@@ -213,7 +225,10 @@ class FpyMacro(FpyCallable):
     """a function which instantiates the macro given the argument exprs"""
 
 
-class PrintStrType(StringType.construct_type("print_str_type", 128)):
+DefaultStrType = StringType.construct_type("default_fpy_str_type", None)
+
+
+class PrintStrType(StringType.construct_type("print_str_type", None)):
     def serialize(self):
         if self.val is None:
             raise RuntimeError(type(self))
@@ -873,6 +888,9 @@ class CheckUseBeforeDeclare(Visitor):
         self.currently_declared_vars.append(var)
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
+        if node not in state.resolved_references:
+            state.err("Unknown variable", node)
+            return
         ref = state.resolved_references[node]
         if not isinstance(ref, FpyVariable):
             return
@@ -952,6 +970,9 @@ class CalculateExprTypes(Visitor):
                 if len(set(arg_types)) != 1:
                     # can only compare equality between the same types
                     return None
+                arg_type = arg_types[0]
+                if arg_type == StringType:
+                    return
                 return arg_types[0]
 
         # all arguments should be numeric
@@ -1127,14 +1148,24 @@ class CalculateConstExprValues(Visitor):
     def visit_AstLiteral(self, node: AstLiteral, state: CompileState):
         literal_type = state.expr_types[node]
         if literal_type != NothingType:
+            # make sure it's not a generic type
             assert (
                 literal_type in NUMERIC_TYPES
-                or issubclass(literal_type, StringType)
+                or (
+                    issubclass(literal_type, StringType)
+                    and not literal_type == StringType
+                )
                 or literal_type == BoolType
             ), literal_type
-            state.expr_values[node] = literal_type(node.value)
+            try:
+                state.expr_values[node] = literal_type(node.value)
+            except TypeException as e:
+                state.err(f"For type {literal_type.__name__}: {e}", node)
         else:
-            state.expr_values[node] = literal_type()
+            try:
+                state.expr_values[node] = literal_type()
+            except TypeException as e:
+                state.err(f"For type {literal_type.__name__}: {e}", node)
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         ref = state.resolved_references[node]
@@ -1706,6 +1737,49 @@ class GenerateBodyDirectives(Visitor):
         state.directives[node] = dirs
 
 
+HEADER_FORMAT = "!BBBBBHI"
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+
+
+@dataclass
+class Header:
+    majorVersion: int
+    minorVersion: int
+    patchVersion: int
+    schemaVersion: int
+    argumentCount: int
+    statementCount: int
+    bodySize: int
+
+
+FOOTER_FORMAT = "!I"
+FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
+
+
+@dataclass
+class Footer:
+    crc: int
+
+
+def serialize_directives(dirs: list[Directive], output: Path):
+    output_bytes = bytes()
+
+    for dir in dirs:
+        dir_bytes = dir.serialize()
+        if len(dir_bytes) > MAX_DIRECTIVE_SIZE:
+            raise CompileException(f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})", None)
+        output_bytes += dir_bytes
+
+    header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
+    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
+
+    crc = zlib.crc32(output_bytes) % (1 << 32)
+    footer = Footer(crc)
+    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
+
+    output.write_bytes(output_bytes)
+
+
 def get_base_compile_state(dictionary: str) -> CompileState:
     """return the initial state of the compiler, based on the given dict path"""
     cmd_json_dict_loader = CmdJsonLoader(dictionary)
@@ -1834,4 +1908,10 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         for error in state.errors:
             raise error
 
-    return state.directives[body]
+    dirs = state.directives[body]
+    if len(dirs) > MAX_DIRECTIVES_COUNT:
+        raise CompileException(
+            f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})", None
+        )
+
+    return dirs

@@ -1,12 +1,15 @@
 from __future__ import annotations
-import sys
+import typing
+from typing import Any
 
-# In Python 3.10+, the '|' syntax creates a types.UnionType
-if sys.version_info >= (3, 10):
+# This makes the code forward-compatible. In Python 3.10+, the `|` operator
+# creates a types.UnionType. In 3.9, only typing.Union exists.
+try:
     from types import UnionType
-else:
-    # For Python 3.9, we create a dummy type. The 'is' check will fail gracefully.
-    UnionType = object()
+    UNION_TYPES = (typing.Union, UnionType)
+except ImportError:
+    UNION_TYPES = (typing.Union,)
+
 from dataclasses import dataclass, fields, astuple
 from typing import ClassVar
 import typing
@@ -31,14 +34,21 @@ from fprime.common.models.serialize.bool_type import BoolType
 from enum import Enum
 
 
-def is_union(tp: typing.Any) -> bool:
+def get_union_members(type_hint: type) -> list[type]:
     """
-    Checks if a type hint is a union.
+    If the type_hint is a Union, returns a list of its member types.
+    Otherwise, returns the original type_hint.
+    """
+    # get_origin returns the base type (e.g., Union for Union[int, str])
+    # or None if it's a simple type like int.
+    origin = typing.get_origin(type_hint)
 
-    Works for both `typing.Union[A, B]` and `A | B` (Python 3.10+) syntax.
-    """
-    origin = typing.get_origin(tp)
-    return origin is typing.Union or origin is UnionType
+    if origin in UNION_TYPES:
+        # get_args returns the type arguments (e.g., (int, str))
+        return list(typing.get_args(type_hint))
+    
+    # Not a Union, so return the type itself
+    return [type_hint]
 
 
 FwSizeType = U64Type
@@ -47,28 +57,7 @@ FwPrmIdType = U32Type
 FwOpcodeType = U32Type
 
 
-HEADER_FORMAT = "!BBBBBHI"
-HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-
-@dataclass
-class Header:
-    majorVersion: int
-    minorVersion: int
-    patchVersion: int
-    schemaVersion: int
-    argumentCount: int
-    statementCount: int
-    bodySize: int
-
-
-FOOTER_FORMAT = "!I"
-FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
-
-
-@dataclass
-class Footer:
-    crc: int
 
 
 class DirectiveId(Enum):
@@ -191,17 +180,14 @@ class Directive:
 
             # okay, it is not a primitive type or bytes
             field_type = typing.get_type_hints(self.__class__)[field.name]
+            union_members = get_union_members(field_type)
             primitive_type = None
-            if is_union(field_type):
-                # it is a union
-                # find out which primitive type it is
-                for arg in field_type.__args__:
-                    if issubclass(arg, BaseType):
-                        # it is a primitive type
-                        primitive_type = arg
-                        break
-            elif issubclass(field_type, BaseType):
-                primitive_type = field_type
+            # find out which primitive type it is
+            for arg in union_members:
+                if issubclass(arg, BaseType):
+                    # it is a primitive type
+                    primitive_type = arg
+                    break
             if primitive_type is None:
                 raise NotImplementedError(
                     "Unknown how to serialize field", field.name, "for", self
@@ -230,7 +216,7 @@ class Directive:
             return None
         args = data[offset : (offset + arg_size)]
         offset += arg_size
-        dir_type = [c for c in Directive.__subclasses__() if c.opcode.value == opcode]
+        dir_type = [c for c in (Directive.__subclasses__() + StackOpDirective.__subclasses__()) if c.opcode.value == opcode]
         if len(dir_type) != 1:
             return None
 
@@ -238,69 +224,36 @@ class Directive:
         dir_type = dir_type[0]
         arg_values = []
 
+        # go through each field in the type of the directive
         for field in fields(dir_type):
-            field_type = (
-                field.type
-                if isinstance(field.type, type)
-                else typing.get_origin(field.type)
-            )
+            field_type = typing.get_type_hints(dir_type)[field.name]
+            # get a list of all union members of the field type
+            # or a list containing just the type if it is not a union
+            union_types = get_union_members(field_type)
 
-            if issubclass(field_type, BaseType):
-                # it is already an fprime type
-                # so we can deserialize it
-                instance = field.type()
-                arg_values.append(instance.deserialize(args, arg_offset).val)
+            base_type = None
+            for t in union_types:
+                if issubclass(t, BaseType):
+                    base_type = t
+
+            # if one of the members of the union was a sub of basetype
+            if base_type is not None:
+                # deserialize using that basetype and add to argvalue list
+                instance = base_type()
+                instance.deserialize(args, arg_offset)
+                arg_values.append(instance.val)
                 arg_offset += instance.getSize()
                 continue
-
-            if issubclass(field_type, bytes):
-                # it is just raw bytes. deserialize until the end
-                arg_values.append(args[arg_offset:])
-                arg_offset = len(args)
-                continue
-
-            # okay, it is not a primitive type or bytes
-            primitive_type = None
-            if field_type == Union:
-                # it is a union
-                # find out which primitive type it is
-                for arg in field.type.__args__:
-                    if issubclass(arg, BaseType):
-                        # it is a primitive type
-                        primitive_type = arg
-                        break
-            elif issubclass(field.type, BaseType):
-                primitive_type = field.type
-            if primitive_type is None:
-                raise NotImplementedError(
-                    "Unknown how to deserialize field", field.name, "for", cls
-                )
-            instance = primitive_type()
-            instance.deserialize(args, arg_offset)
-            arg_values.append(instance.val)
-            arg_offset += instance.getSize()
+            # none of the args were base types. the only other thing we could be
+            # is a byte array. assert that that's true
+            assert len(union_types) == 1 and union_types[0] == bytes
+            # it is just raw bytes. deserialize until the end
+            arg_values.append(args[arg_offset:])
+            arg_offset = len(args)
+            continue
 
         dir = dir_type(*arg_values)
         return offset, dir
-
-
-def serialize_directives(dirs: list[Directive], output: Path = None):
-    output_bytes = bytes()
-
-    for dir in dirs:
-        output_bytes += dir.serialize()
-
-    header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
-    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
-
-    crc = zlib.crc32(output_bytes) % (1 << 32)
-    footer = Footer(crc)
-    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
-
-    if output is None:
-        output = input.with_suffix(".bin")
-
-    output.write_bytes(output_bytes)
 
 
 @dataclass
@@ -315,7 +268,7 @@ class StackOpDirective(Directive):
 class StackCmdDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STACK_CMD
 
-    args_size: Union[int, U16Type]
+    args_size: Union[int, U32Type]
 
 
 @dataclass
@@ -326,15 +279,15 @@ class PrintDirective(Directive):
 @dataclass
 class MemCompareDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.MEMCMP
-    size: Union[int, U16Type]
+    size: Union[int, U32Type]
 
 
 @dataclass
 class LoadDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.LOAD
 
-    lvar_offset: Union[int, U16Type]
-    size: Union[int, U16Type]
+    lvar_offset: Union[int, U32Type]
+    size: Union[int, U32Type]
 
 
 @dataclass
@@ -395,22 +348,22 @@ class IntegerTruncate64To32Directive(StackOpDirective):
 class AllocateDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.ALLOCATE
 
-    size: Union[int, U16Type]
+    size: Union[int, U32Type]
 
 
 @dataclass
 class StoreDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE
 
-    lvar_offset: Union[int, U16Type]
-    size: Union[int, U16Type]
+    lvar_offset: Union[int, U32Type]
+    size: Union[int, U32Type]
 
 
 @dataclass
 class DiscardDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.DISCARD
 
-    size: Union[int, U16Type]
+    size: Union[int, U32Type]
 
 
 @dataclass
@@ -553,7 +506,7 @@ class StoreTlmValDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE_TLM_VAL
     chan_id: Union[int, FwChanIdType]
     """FwChanIdType: The telemetry channel ID to get."""
-    lvar_offset: Union[int, U16Type]
+    lvar_offset: Union[int, U32Type]
 
 
 @dataclass
@@ -561,7 +514,7 @@ class StorePrmDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE_PRM
     prm_id: Union[int, FwPrmIdType]
     """FwPrmIdType: The parameter ID to get the value of."""
-    lvar_offset: Union[int, U16Type]
+    lvar_offset: Union[int, U32Type]
 
 
 @dataclass

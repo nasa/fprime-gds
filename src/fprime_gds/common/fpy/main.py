@@ -5,8 +5,7 @@ from fprime_gds.common.fpy.bytecode.assembler import deserialize_directives
 import fprime_gds.common.fpy.model 
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse
-from fprime_gds.common.fpy.codegen import compile
-from fprime_gds.common.fpy.bytecode.directives import serialize_directives
+from fprime_gds.common.fpy.codegen import compile, serialize_directives
 
 
 def compile_main():

@@ -98,3 +98,11 @@ The result type is the type of the value produced by the operator.
 2. For boolean and comparison operators, the result type is `bool`.
 
 Normal type coercion rules apply to the result, of course. Once the operator has produced a value, it may be coerced into some other type depending on context.
+
+
+# Macros
+
+## exit
+## log
+## sleep
+## sleep_until
