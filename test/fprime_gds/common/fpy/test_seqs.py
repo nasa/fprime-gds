@@ -1218,5 +1218,13 @@ many_cmds_dispatched: bool = cmds_dispatched >= 123
 record1: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 record2: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 records_equal: bool = record1 == record2 # == True
+random_value: I8 = 4 # chosen by fair dice roll. guaranteed to be random
+
+if random_value < 0:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("won't happen")
+elif random_value > 0 and random_value <= 6:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("should happen!")
+else:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("uh oh...")
 """
     assert_compile_failure(fprime_test_api, seq)

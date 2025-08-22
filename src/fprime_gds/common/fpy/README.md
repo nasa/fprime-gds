@@ -124,12 +124,27 @@ records_equal: bool = record1 == record2 # == True
 ```
 ## If/elif/else
 
-This is particularly useful for checking telemetry channel values:
-
+You can branch off of conditionals with `if`, `elif` and `else`:
 ```py
-cmds_dispatched: U32 = CdhCore.cmdDisp.CommandsDispatched
-many_cmds_dispatched: bool = cmds_dispatched >= 123
+random_value: I8 = 4 # chosen by fair dice roll. guaranteed to be random
+
+if random_value < 0:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("won't happen")
+elif random_value > 0 and random_value <= 6:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("should happen!")
+else:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("uh oh...")
 ```
+
+This is particularly useful for checking telemetry channel values:
+```py
+# dispatch a no-op
+CdhCore.cmdDisp.CMD_NO_OP()
+# the commands dispatched count should be >= 1
+if CdhCore.cmdDisp.CommandsDispatched >= 1:
+    CdhCore.cmdDisp.CMD_NO_OP_STRING("should happen")
+```
+
 ## Getting Struct Members and Array Items
 
 You can access members of structs by name, or array elements by index:
@@ -143,10 +158,12 @@ com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
 
 You cannot reassign struct members or array elements however:
 ```py
+# Ref.SignalPair is a struct type
 signal_pair: Ref.SignalPair = Ref.SG1.PairOutput
 # compiler error:
 signal_pair.time = 0.2
 
+# Svc.ComQueueDepth is an array type
 com_queue_depth: Svc.ComQueueDepth = ComCcsds.comQueue.comQueueDepth
 # compiler error:
 com_queue_depth[0] = 1
