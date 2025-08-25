@@ -20,7 +20,7 @@ def test_pkt_encoder():
     """
     Tests the encoding of the packet encoder
     """
-    config = ConfigManager()
+    config = ConfigManager.get_instance()
     config.set("types", "msg_len", "U16")
 
     enc = PktEncoder()

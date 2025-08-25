@@ -37,6 +37,13 @@ class DataHandlerPlugin(DataHandler, abc.ABC):
     data types it handles (whereas DataHandler leaves that up to the registration call). Users shall concretely subclass
     this class with their own data handling functionality.
     """
+    def __init__(self, **kwargs):
+        """ Initialize """
+        self.publisher = None
+
+    def set_publisher(self, publisher):
+        """ Set publishing pipeline """
+        self.publisher = publisher
 
     @abc.abstractmethod
     def get_handled_descriptors() -> List[str]:
@@ -113,3 +120,52 @@ class HandlerRegistrar(abc.ABC):
         """
         for registrant in self._registrants:
             registrant.data_callback(data, sender)
+
+
+class MappedRegistrar(abc.ABC):
+    """ Class to register a mapping """
+
+    def __init__(self):
+        """ Initialize an empty registrant list  """
+        super().__init__()
+        self._registrants = {}
+
+    def register(self, id, registrant):
+        """
+        Register a registrant with this registrar associated with the ID. Will be stored and called back when asked to
+        send data to all the handlers registered at the id
+
+        :param id: id to register to
+        :param registrant: handler to register
+        """
+        self._registrants[id] = self._registrants.get(id, HandlerRegistrar())
+        self._registrants[id].register(registrant)
+
+    def deregister(self, id, registrant):
+        """
+        Remove a registrant from the registrar such that it will not be called back later. Note: ignores invalid
+        removals by trapping the error, as the desired effect is already satisfied.
+
+        :param id: id to register to
+        :param registrant: registrant to remove
+        :return: True if found, False if not. May safely be ignored.
+        """
+        try:
+            self._registrants[id].deregister(registrant)
+            return True
+        except (ValueError, KeyError):
+            return False
+
+    def send_to_all(self, id, data, sender=None):
+        """
+        Sends the given data to all registrants at id.
+
+        :param id: id to send to 
+        :param data: data to send back to registrants
+        :param sender: (optional) sender to pass to data_callback
+        """
+        try:
+            self._registrants[id].send_to_all(data, sender)
+        except KeyError:
+            print("KeyERROR")
+            pass

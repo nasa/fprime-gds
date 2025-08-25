@@ -15,6 +15,7 @@ Based on the ConfigManager class written by Len Reder in the fprime Gse
          ALL RIGHTS RESERVED. U.S. Government Sponsorship acknowledged.
 """
 import configparser
+import inspect
 
 # Custom type modules
 from fprime.common.models.serialize.numerical_types import (
@@ -40,7 +41,7 @@ class ConfigBadTypeException(Exception):
             config_name (string): Name of the config containing the bad type
             type_str (string): Bad type string that caused the error
         """
-        print(f"Invalid type string {type_str} read in configuration {config_name}")
+        super().__init__(f"Invalid type string {type_str} read in configuration {config_name}")
 
 
 class ConfigManager(configparser.ConfigParser):
@@ -63,6 +64,11 @@ class ConfigManager(configparser.ConfigParser):
         """
         # Cannot use super() function since ConfigParser is an old-style class
         configparser.ConfigParser.__init__(self)
+
+        # No spurious copies of config manager
+        stack_info = inspect.stack()
+        caller_stack_info = stack_info[1]
+        assert caller_stack_info.function == "get_instance", "Cannot construct config manager without singleton"
 
         # Set default properties
         self.__prop = {}

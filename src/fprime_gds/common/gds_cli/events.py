@@ -7,7 +7,7 @@ from typing import Iterable
 import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.gds_cli.base_commands import QueryHistoryCommand
-from fprime_gds.common.pipeline.dictionaries import Dictionaries
+from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 

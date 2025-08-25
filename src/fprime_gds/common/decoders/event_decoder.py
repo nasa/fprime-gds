@@ -43,7 +43,7 @@ class EventDecoder(decoder.Decoder):
 
         if config is None:
             # Retrieve defaults for the configs
-            config = config_manager.ConfigManager().get_instance()
+            config = config_manager.ConfigManager.get_instance()
 
         self.__dict = event_dict
         self.id_obj = config.get_type("FwEventIdType")

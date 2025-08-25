@@ -41,7 +41,7 @@ class PktDecoder(ChDecoder):
             An initialized PktDecoder object
         """
         if config is None:
-            config = config_manager.ConfigManager().get_instance()
+            config = config_manager.ConfigManager.get_instance()
         super().__init__(ch_dict, config)
 
         self.__dict = pkt_name_dict

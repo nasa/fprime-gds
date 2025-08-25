@@ -18,7 +18,7 @@ def test_ch_encoder():
     """
     Tests the encoding of the channel encoder
     """
-    config = ConfigManager()
+    config = ConfigManager.get_instance()
     config.set("types", "msg_len", "U16")
 
     enc = ChEncoder()

@@ -75,7 +75,7 @@ class APITestCases(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.pipeline = UTPipeline()
-        config = ConfigManager()
+        config = ConfigManager.get_instance()
         path = os.path.join(os.path.dirname(__file__), "./UnitTestDictionary.xml")
         file_store = os.path.join(os.path.dirname(__file__), "./")
         cls.pipeline.setup(config, path, file_store)
