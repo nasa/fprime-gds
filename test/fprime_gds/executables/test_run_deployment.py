@@ -27,8 +27,10 @@ class TestRunDeployment(unittest.TestCase):
         with bin_file.open(mode="wb") as fake_app:
             fake_app.write("fake app".encode("utf-8"))
 
+        unit_test_dictionary = Path(__file__).parent.parent / "common" / "testing_fw" / "UnitTestDictionary.xml"
         dictionary_dir = system_dir / "dict"
         dictionary_dir.mkdir(parents=True)
         dictionary_file = dictionary_dir / "TestTopologyAppDictionary.xml"
         with dictionary_file.open(mode="w") as fake_dictionary:
-            fake_dictionary.write("<test></test>")
+            with open(unit_test_dictionary, "r") as file_handle:
+                fake_dictionary.write(file_handle.read())

@@ -65,11 +65,6 @@ class ConfigManager(configparser.ConfigParser):
         # Cannot use super() function since ConfigParser is an old-style class
         configparser.ConfigParser.__init__(self)
 
-        # No spurious copies of config manager
-        stack_info = inspect.stack()
-        caller_stack_info = stack_info[1]
-        assert caller_stack_info.function == "get_instance", "Cannot construct config manager without singleton"
-
         # Set default properties
         self.__prop = {}
         self._set_defaults()

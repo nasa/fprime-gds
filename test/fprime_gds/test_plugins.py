@@ -163,7 +163,7 @@ class StartApp(GdsApp):
     This plugin implementation creates a start-up application that will run in a separate process
     """
 
-    def __init__(self, start_up_file):
+    def __init__(self, namespace, start_up_file):
         """Start-Up function file annotation"""
         super().__init__()
         self.start_up_app_file = start_up_file
