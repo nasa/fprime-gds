@@ -30,8 +30,6 @@ from typing import Any, Dict, List, Tuple
 import fprime_gds.common.logger
 from fprime_gds.common.communication.adapters.ip import check_port
 from fprime_gds.common.models.dictionaries import Dictionaries
-from fprime_gds.common.data_types.ch_data import ChData
-from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.transport import ThreadedTCPSocketClient
 from fprime_gds.common.utils.config_manager import ConfigManager

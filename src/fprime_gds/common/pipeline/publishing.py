@@ -9,10 +9,6 @@ This file contains a basic publishing pipeline. It reads and writes data bound f
 
 from typing import Type
 
-import fprime.common.models.serialize.time_type
-import copy
-
-
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.encoders.ch_encoder import ChEncoder
@@ -22,8 +18,6 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 
 from fprime_gds.common.handlers import DataHandler, MappedRegistrar
 from ..models import dictionaries
-
-
 
 
 class PublishingPipeline(DataHandler, MappedRegistrar):

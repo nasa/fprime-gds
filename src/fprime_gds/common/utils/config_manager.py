@@ -15,7 +15,6 @@ Based on the ConfigManager class written by Len Reder in the fprime Gse
          ALL RIGHTS RESERVED. U.S. Government Sponsorship acknowledged.
 """
 import configparser
-import inspect
 
 # Custom type modules
 from fprime.common.models.serialize.numerical_types import (
