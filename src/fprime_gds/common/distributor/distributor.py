@@ -45,7 +45,7 @@ class Distributor(DataHandler):
         """
         if config is None:
             # Retrieve singleton for the configs, or defaults if singleton unused
-            config = config_manager.ConfigManager().get_instance()
+            config = config_manager.ConfigManager.get_instance()
 
         self.__decoders = {key.name: [] for key in list(data_desc_type.DataDescType)}
 

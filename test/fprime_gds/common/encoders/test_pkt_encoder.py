@@ -23,6 +23,8 @@ def test_pkt_encoder():
     config = ConfigManager()
     config.set("types", "msg_len", "U16")
 
+    # Required to set the global config for UTs to meet expected values
+    ConfigManager.get_instance().set("types", "msg_len", "U32")
     enc = PktEncoder()
     enc_config = PktEncoder(config)
 

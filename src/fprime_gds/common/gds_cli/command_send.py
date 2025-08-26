@@ -9,7 +9,7 @@ from fprime.common.models.serialize.type_exceptions import NotInitializedExcepti
 
 import fprime_gds.common.gds_cli.test_api_utils as test_api_utils
 from fprime_gds.common.gds_cli.base_commands import BaseCommand
-from fprime_gds.common.pipeline.dictionaries import Dictionaries
+from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI

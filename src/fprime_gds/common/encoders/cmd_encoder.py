@@ -68,7 +68,7 @@ class CmdEncoder(encoder.Encoder):
         """
 
         if config is None:
-            config = config_manager.ConfigManager().get_instance()
+            config = config_manager.ConfigManager.get_instance()
         super().__init__(config)
 
         self.len_obj = self.config.get_type("msg_len")

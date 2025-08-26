@@ -27,9 +27,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 # Required to set the checksum as a module variable
-import fprime_gds.common.communication.checksum
 import fprime_gds.common.logger
 from fprime_gds.common.communication.adapters.ip import check_port
+from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.transport import ThreadedTCPSocketClient
 from fprime_gds.common.utils.config_manager import ConfigManager
@@ -175,6 +175,18 @@ class ParserBase(ABC):
             for flags, argparse_ins in self.get_arguments().items()
         ]
         return list(itertools.chain.from_iterable(cli_pairs))
+
+    def handle_values(self, values: Dict[str, Any]):
+        """Post-process the parser's arguments in dictionary form
+
+        Handle arguments from the given parser in dictionary form. This will convert to/from the namespace and then
+        delegate to handle_arguments.
+
+        Args:
+            args: arguments namespace of processed arguments
+        Returns: dictionary with processed results of arguments.
+        """
+        return vars(self.handle_arguments(args=argparse.Namespace(**values), kwargs={}))
 
     @abstractmethod
     def handle_arguments(self, args, **kwargs):
@@ -1007,6 +1019,19 @@ class DictionaryParser(DetectionParser):
         elif args.dictionary is None:
             args = super().handle_arguments(args, **kwargs)
             args.dictionary = find_dict(args.deployment)
+
+        # Setup dictionaries encoders and decoders
+        dictionaries = Dictionaries()
+
+        dictionaries.load_dictionaries(
+            args.dictionary, args.packet_spec, args.packet_set_name
+        )
+        config = ConfigManager.get_instance()
+        # Update config to use Fw types defined in the JSON dictionary
+        if dictionaries.fw_type_name:
+            for fw_type_name, fw_type in dictionaries.fw_type_name.items():
+                config.set("types", fw_type_name, fw_type)
+        args.dictionaries = dictionaries
         return args
 
 
@@ -1071,12 +1096,10 @@ class StandardPipelineParser(CompositeParser):
         """A factory of the standard pipeline given the handled arguments"""
         pipeline_arguments = {
             "config": ConfigManager.get_instance(),
-            "dictionary": args_ns.dictionary,
+            "dictionaries": args_ns.dictionaries,
             "file_store": args_ns.files_storage_directory,
-            "packet_spec": args_ns.packet_spec,
-            "packet_set_name": args_ns.packet_set_name,
             "logging_prefix": args_ns.logs,
-            "data_logging_enabled": not args_ns.disable_data_logging
+            "data_logging_enabled": not args_ns.disable_data_logging,
         }
         pipeline = pipeline if pipeline else StandardPipeline()
         pipeline.transport_implementation = args_ns.connection_transport

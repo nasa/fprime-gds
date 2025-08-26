@@ -24,7 +24,7 @@ class SeqBinaryWriter:
         Constructor
         """
         if config is None:
-            config = config_manager.ConfigManager().get_instance()
+            config = config_manager.ConfigManager.get_instance()
 
         self.__fd = None
         self.__timebase = timebase

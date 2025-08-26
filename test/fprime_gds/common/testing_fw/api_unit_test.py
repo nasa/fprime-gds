@@ -7,6 +7,7 @@ import unittest
 # these imports are needed to generate data objects.
 from fprime.common.models.serialize.numerical_types import I32Type, U32Type
 from fprime.common.models.serialize.time_type import TimeType
+from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.data_types.event_data import EventData
@@ -75,10 +76,17 @@ class APITestCases(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.pipeline = UTPipeline()
-        config = ConfigManager()
+        config = ConfigManager.get_instance()
         path = os.path.join(os.path.dirname(__file__), "./UnitTestDictionary.xml")
+
+        # Load test dictionary
+        dictionaries = Dictionaries()
+        dictionaries.load_dictionaries(
+            path, None, None
+        )
+
         file_store = os.path.join(os.path.dirname(__file__), "./")
-        cls.pipeline.setup(config, path, file_store)
+        cls.pipeline.setup(config, dictionaries, file_store)
         log_path = os.path.join(os.path.dirname(__file__), "./logs")
         cls.api = IntegrationTestAPI(cls.pipeline, log_path)
         cls.case_list = []  # TODO find a better way to do this.

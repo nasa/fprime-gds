@@ -57,6 +57,7 @@ class Dictionaries:
 
         :param dictionary: dictionary path used for loading dictionaries
         :param packet_spec: specification for packets, or None, for packetized telemetry
+        :param packet_set_name: name of packet set in case multiple are available
         """
         if Path(dictionary).is_file() and ".json" in Path(dictionary).suffixes:
             # Events

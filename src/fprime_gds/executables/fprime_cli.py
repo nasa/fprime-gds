@@ -227,7 +227,7 @@ class CommandSubparserInjector(CliSubparserInjectorBase):
             argcomplete.warn("No dictionary found to get command names from")
             return []
 
-        from fprime_gds.common.pipeline.dictionaries import Dictionaries
+        from fprime_gds.common.models.dictionaries import Dictionaries
 
         dictionary = Dictionaries()
         dictionary.load_dictionaries(dict_path, None, None)

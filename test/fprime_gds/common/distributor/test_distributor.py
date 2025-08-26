@@ -14,7 +14,7 @@ def test_distributor():
     """
     Tests the raw messages and leftover data for the distributor
     """
-    config = config_manager.ConfigManager()
+    config = config_manager.ConfigManager.get_instance()
     config.set("types", "msg_len", "U16")
 
     dist = Distributor(config)

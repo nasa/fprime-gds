@@ -23,7 +23,7 @@ from fprime_gds.common.transport import RoutingTag, ThreadedTCPSocketClient
 from fprime_gds.common.utils.config_manager import ConfigManager
 
 # Local imports for the sake of composition
-from . import dictionaries, encoding, files, histories
+from . import encoding, files, histories
 
 
 class StandardPipeline:
@@ -49,7 +49,7 @@ class StandardPipeline:
         self.up_store = None
         self.down_store = None
 
-        self.__dictionaries = dictionaries.Dictionaries()
+        self.__dictionaries = None
         self.__coders = encoding.EncodingDecoding()
         self.__histories = histories.Histories()
         self.__filing = files.Filing()
@@ -58,26 +58,23 @@ class StandardPipeline:
     def setup(
         self,
         config: ConfigManager,
-        dictionary,
+        dictionaries,
         file_store,
         logging_prefix=None,
-        packet_spec=None,
-        packet_set_name=None,
-        data_logging_enabled=True
+        data_logging_enabled=True,
     ):
         """
         Setup the standard pipeline for moving data from the middleware layer through the GDS layers using the standard
         patterns. This allows just registering the consumers, and invoking 'setup' all other of the GDS support layer.
 
         :param config: config object used when constructing the pipeline.
-        :param dictionary: dictionary path. Used to setup loading of dictionaries.
+        :param dictionaries: dictionary path. Used to setup loading of dictionaries.
         :param file_store: uplink/downlink storage directory
         :param logging_prefix: logging prefix. Defaults to not logging at all.
         :param packet_spec: location of packetized telemetry XML specification.
         """
-        assert (
-            dictionary is not None and Path(dictionary).is_file()
-        ), f"Dictionary {dictionary} does not exist"
+        self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
+        self.client_socket = self.__transport_type()
         # File storage configuration for uplink and downlink
         self.up_store = Path(file_store) / "fprime-uplink"
         self.down_store = Path(file_store) / "fprime-downlink"
@@ -88,19 +85,7 @@ class StandardPipeline:
             raise PermissionError(
                 f"{file_store} is not writable. Fix permissions or change storage directory with --file-storage-directory."
             )
-        # Load dictionaries
-        self.dictionary_path = Path(dictionary)
-        self.dictionaries.load_dictionaries(
-            self.dictionary_path, packet_spec, packet_set_name
-        )
-        # Update config to use Fw types defined in the JSON dictionary
-        if self.dictionaries.fw_type_name:
-            for fw_type_name, fw_type in self.dictionaries.fw_type_name.items():
-                config.set("types", fw_type_name, fw_type)
-        # Loads the distributor and client socket
-        self.distributor = fprime_gds.common.distributor.distributor.Distributor(config)
-        self.client_socket = self.__transport_type()
-        # Setup encoders and decoders
+        self.__dictionaries = dictionaries
         self.coders.setup_coders(
             self.dictionaries, self.distributor, self.client_socket, config
         )

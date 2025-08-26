@@ -231,7 +231,7 @@ def main():
     try:
         procs = [launcher(parsed_args) for launcher in launchers]
         _ = [
-            launch_plugin(parsed_args, cls())
+            launch_plugin(parsed_args, cls(namespace=parsed_args))
             for cls in Plugins.system().get_feature_classes("gds_app")
         ]
         _ = [

@@ -23,10 +23,13 @@ from fprime_gds.executables.cli import (
     CompositeParser,
     ParserBase,
     BareArgumentParser,
+    MiddleWareParser,
+    DictionaryParser,
     StandardPipelineParser,
     PluginArgumentParser,
 )
 from fprime_gds.common.pipeline.standard import StandardPipeline
+from fprime_gds.common.pipeline.publishing import PublishingPipeline
 
 
 class GdsBaseFunction(ABC):
@@ -201,6 +204,18 @@ class GdsStandardApp(GdsApp):
             dictionary of flag tuple to argparse kwargs
         """
         return {}
+    
+    @classmethod
+    def get_additional_cli_parsers(cls) -> List[ParserBase]:
+        """ Supply a list of CLI parser objects
+        
+        Supply a list of CLI parser objects to the CLI system. This allows use of full ParserBase objects instead of
+        the more restrictive dictionary approach seen in get_additional_arguments.
+
+        Returns:
+            list of parser objects as passed to ParserBase
+        """
+        return []
 
     @classmethod
     def init(cls):
@@ -250,7 +265,7 @@ class GdsStandardApp(GdsApp):
             [self.get_cli_parser(), StandardPipelineParser]
         )
         if namespace is None:
-            namespace, _, _ = ParserBase.parse_known_args([composite_parser])
+            namespace, _, _ = ParserBase.parse_known_args([composite_parser], client=True)
         args = composite_parser.reproduce_cli_args(namespace)
         return [sys.executable, "-c", f"import {module}\n{module}.{cls}.main()"] + args
 
@@ -268,26 +283,33 @@ class GdsStandardApp(GdsApp):
             except AssertionError:
                 pass
             plugin_name = getattr(cls, "get_name", lambda: cls.__name__)()
+            plugin_composite = CompositeParser([cls.get_cli_parser()] + cls.get_additional_cli_parsers())
+
             parsed_arguments, _ = ParserBase.parse_args(
-                [cls.get_cli_parser(), StandardPipelineParser, PluginArgumentParser],
+                [ StandardPipelineParser, PluginArgumentParser, plugin_composite],
                 f"{plugin_name}: a standard app plugin",
+                client=True,
             )
             pipeline = StandardPipeline()
-            # Turn off history and filing
+            # Turn off history, file handling, and logging
             pipeline.histories.implementation = None
             pipeline.filing = None
+            parsed_arguments.disable_data_logging = True 
             pipeline = StandardPipelineParser.pipeline_factory(
                 parsed_arguments, pipeline
             )
             application = cls(
-                **cls.get_cli_parser().extract_arguments(parsed_arguments)
+                **cls.get_cli_parser().extract_arguments(parsed_arguments),
+                namespace=parsed_arguments, 
+
             )
             application.start(pipeline)
             sys.exit(0)
         except Exception as e:
             print(f"[ERROR] Error launching {cls.__name__}: {e}", file=sys.stderr)
-            raise
             sys.exit(148)
+
+
 
 
 @gds_plugin(GdsApp)
@@ -297,10 +319,25 @@ class CustomDataHandlers(GdsStandardApp):
     A GdsApp plugin, built using the GdsStandardApp helper, that uses the provided standard pipeline to register each
     custom DataHandler plugin as a consumer of the appropriate type.
     """
+    PLUGIN_PARSER = CompositeParser([MiddleWareParser, DictionaryParser])
 
-    def __init__(self, **kwargs):
+    def __init__(self, namespace, **kwargs):
         """Required __init__ implementation"""
         super().__init__(**kwargs)
+        self.connection_transport = namespace.connection_transport
+        self.connection_uri = namespace.connection_uri
+        self.dictionaries  = namespace.dictionaries
+
+    @classmethod
+    def get_additional_arguments(cls):
+        """ Supplies additional arguments needed """
+        return {}
+
+    @classmethod
+    def get_additional_cli_parsers(cls):
+        """ Requires MiddleWareParser and Dictionary Parser"""
+        return [cls.PLUGIN_PARSER]
+
 
     @classmethod
     def init(cls):
@@ -315,10 +352,15 @@ class CustomDataHandlers(GdsStandardApp):
             "FW_PACKET_FILE": pipeline.coders.register_file_consumer,
             "FW_PACKET_PACKETIZED_TLM": pipeline.coders.register_packet_consumer,
         }
+        self.publisher = PublishingPipeline()
+        self.publisher.transport_implementation = self.connection_transport
+        self.publisher.setup(self.dictionaries)
+        self.publisher.connect(self.connection_uri)
 
         data_handlers = Plugins.system().get_feature_classes("data_handler")
         for data_handler_class in data_handlers:
             data_handler = data_handler_class()
+            data_handler.set_publisher(self.publisher)
             descriptors = data_handler.get_handled_descriptors()
             for descriptor in descriptors:
                 DESCRIPTOR_TO_FUNCTION.get(descriptor, lambda discard: discard)(
