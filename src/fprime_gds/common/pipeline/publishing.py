@@ -61,7 +61,7 @@ class PublishingPipeline(DataHandler, MappedRegistrar):
             self.send_to_all("FW_PACKET_LOG", data)
         return super().data_callback(data, sender)
     
-    def publishChannel(self, name, value, time):
+    def publish_channel(self, name, value, time):
         """ Publish channel value using name, time, and value
 
         Looks up the channel template in the dictionary and constructs a new channel object given the time and value.
