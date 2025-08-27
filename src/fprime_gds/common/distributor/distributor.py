@@ -16,6 +16,7 @@ descriptor header will be passed on to the registered objects.
 
 import logging
 
+from fprime.common.models.serialize.type_exceptions import DeserializeException
 from fprime_gds.common.decoders.decoder import DecodingException
 from fprime_gds.common.handlers import DataHandler
 from fprime_gds.common.utils import config_manager, data_desc_type
@@ -147,7 +148,6 @@ class Distributor(DataHandler):
         # | ...                       |      |
         # | ..                        |      |
         #   .                                :
-
         offset = 0
 
         # Parse length
@@ -199,13 +199,16 @@ class Distributor(DataHandler):
         ), "Leftover data is not equivalent to the remaining data in buffer"
 
         for raw_msg in raw_msgs:
-            (length, data_desc, msg) = self.parse_raw_msg_api(raw_msg)
-
-            data_desc_key = data_desc_type.DataDescType(data_desc).name
-            decoders = self.__decoders[data_desc_key]
-
+            try:
+                (length, data_desc, msg) = self.parse_raw_msg_api(raw_msg)
+                data_desc_key = data_desc_type.DataDescType(data_desc).name
+            except DeserializeException as deserialize_exception:
+                LOGGER.warning(f"Invalid message: {deserialize_exception}")
+                return
+            decoders = self.__decoders.get(data_desc_key, None)
             if not decoders:
                 LOGGER.warning(f"No decoder registered for: {data_desc_key}")
+                return
 
             for d in decoders:
                 try:
