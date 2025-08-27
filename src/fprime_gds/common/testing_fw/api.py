@@ -71,7 +71,7 @@ class IntegrationTestAPI(DataHandler):
 
         # Copy dictionaries and binary file to output directory
         if logpath is not None:
-            base_dir = Path(self.pipeline.dictionary_path).parents[1]
+            base_dir = Path(self.dictionaries.dictionary_path).parents[1]
             for subdir in ["bin", "dict"]:
                 dir_path = base_dir / subdir
                 if dir_path.is_dir():
@@ -84,6 +84,13 @@ class IntegrationTestAPI(DataHandler):
 
         # Used by the data_callback method to detect if events have been received out of order.
         self.last_evr = None
+
+    @property
+    def dictionaries(self):
+        """ Return the dictionaries """
+        # Pipeline should not be exposed to the user, but it stores the dictionary
+        # thus delegate to it.
+        return self.pipeline.dictionaries
 
     def setup(self):
         """Set up the API, assumes pipeline is now setup"""
