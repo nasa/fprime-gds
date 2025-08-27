@@ -49,6 +49,9 @@ class Dictionaries:
         self._fw_type_name_dict = None
         self._versions = None
         self._metadata = None
+        self._dictionary_path = None
+        self._packet_spec_path = None
+        self._packet_set_name = None
 
     def load_dictionaries(self, dictionary, packet_spec, packet_set_name):
         """
@@ -59,6 +62,11 @@ class Dictionaries:
         :param packet_spec: specification for packets, or None, for packetized telemetry
         :param packet_set_name: name of packet set in case multiple are available
         """
+        # Update the "from" values
+        self._dictionary_path = dictionary
+        self._packet_spec_path = packet_spec
+        self._packet_set_name = packet_set_name
+
         if Path(dictionary).is_file() and ".json" in Path(dictionary).suffixes:
             # Events
             json_event_loader = (
@@ -203,6 +211,21 @@ class Dictionaries:
         Note: framework_version and project_version are also available as separate properties
         for legacy reasons. New code should use the metadata property."""
         return self._metadata
+
+    @property
+    def dictionary_path(self):
+        """ Dictionary Path """
+        return self._dictionary_path
+
+    @property
+    def packet_spec_path(self):
+        """ Dictionary Path """
+        return self._packet_spec_path
+    
+    @property
+    def packet_set_name(self):
+        """ Dictionary Path """
+        return self._packet_set_name
 
     @property
     def packet(self):

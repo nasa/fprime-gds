@@ -239,3 +239,8 @@ class StandardPipeline:
         :return: filing compositions
         """
         return self.__filing
+
+    @property
+    def dictionaries(self):
+        """ Dictionaries member """
+        return self.__dictionaries
