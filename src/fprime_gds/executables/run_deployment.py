@@ -11,6 +11,7 @@ import webbrowser
 from fprime_gds.executables.cli import (
     BinaryDeployment,
     ConfigDrivenParser,
+    CompositeParser,
     CommParser,
     GdsParser,
     ParserBase,
@@ -104,6 +105,7 @@ def launch_html(parsed_args):
     Return:
         launched process
     """
+    composite_parser = CompositeParser([StandardPipelineParser, ConfigDrivenParser])
     reproduced_arguments = StandardPipelineParser().reproduce_cli_args(parsed_args)
     if "--log-directly" not in reproduced_arguments:
         reproduced_arguments += ["--log-directly"]
