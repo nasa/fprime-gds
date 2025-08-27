@@ -203,7 +203,7 @@ def handle_unexpected_error(error):
 @app.route("/js/config.js")
 def config_serve():
     """
-    Serve the config.js file specifcally
+    Serve the config.js file
 
     :param path: path to the file (in terms of web browser)
     """
