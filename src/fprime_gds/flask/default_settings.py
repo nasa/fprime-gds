@@ -16,5 +16,6 @@ SERVE_LOGS = os.environ.get("SERVE_LOGS", "YES") == "YES"
 
 MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # Max length of request is 32MiB
 
+JS_CONFIGURATION_FILE = os.path.join(os.path.dirname(__file__), "static", "js", "config.js")
 
 # TODO: load real config

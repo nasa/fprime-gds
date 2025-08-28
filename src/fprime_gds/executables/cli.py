@@ -318,6 +318,7 @@ class ConfigDrivenParser(ParserBase):
 
     DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
 
+
     @classmethod
     def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
@@ -413,6 +414,14 @@ class ConfigDrivenParser(ParserBase):
             print(f"[INFO] Reading command-line configuration from: {args.config}")
             with open(args.config, "r") as file_handle:
                 try:
+                    relative_base = args.config.parent.absolute()
+
+                    def path_constructor(loader, node):
+                        """ Processes !PATH annotations as relative to current file """
+                        calculated_path = relative_base / loader.construct_scalar(node)
+                        return calculated_path
+
+                    yaml.SafeLoader.add_constructor("!PATH", path_constructor)
                     loaded = yaml.safe_load(file_handle)
                     args.config_values = loaded if loaded is not None else {}
                 except Exception as exc:

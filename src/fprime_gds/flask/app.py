@@ -29,7 +29,7 @@ import fprime_gds.flask.logs
 import fprime_gds.flask.sequence
 import fprime_gds.flask.stats
 import fprime_gds.flask.updown
-from fprime_gds.executables.cli import ParserBase, StandardPipelineParser
+from fprime_gds.executables.cli import ParserBase, StandardPipelineParser, ConfigDrivenParser
 
 from . import components
 
@@ -59,6 +59,7 @@ def construct_app():
         compress.init_app(app)
 
     app.config.from_object("fprime_gds.flask.default_settings")
+
     # Override defaults from python files specified in 'FP_FLASK_SETTINGS'
     if "FP_FLASK_SETTINGS" in os.environ:
         app.config.from_envvar("FP_FLASK_SETTINGS")
@@ -69,9 +70,14 @@ def construct_app():
     # Standard pipeline creation
     input_arguments = app.config["STANDARD_PIPELINE_ARGUMENTS"]
     args_ns, _ = ParserBase.parse_args(
-        [StandardPipelineParser], "n/a", input_arguments, client=True
+        [StandardPipelineParser, ConfigDrivenParser], "n/a", input_arguments, client=True
     )
+    # Load app configuration from file
+    for key, value in args_ns.config_values.get("flask", {}).items():
+        app.config[key] = value
+
     pipeline = components.setup_pipelined_components(app.debug, args_ns)
+
 
     # Restful API registration
     api = fprime_gds.flask.errors.setup_error_handling(app)
@@ -193,6 +199,15 @@ def handle_unexpected_error(error):
     response = {"errors": [fprime_gds.flask.errors.build_error_object(error)]}
     return flask.jsonify(response), status_code
 
+
+@app.route("/js/config.js")
+def config_serve():
+    """
+    Serve the config.js file
+
+    :param path: path to the file (in terms of web browser)
+    """
+    return flask.send_file(app.config["JS_CONFIGURATION_FILE"])
 
 @app.route("/js/<path:path>")
 def files_serve(path):
