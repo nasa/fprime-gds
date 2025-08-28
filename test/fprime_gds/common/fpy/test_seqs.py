@@ -24,12 +24,35 @@ var: U32 = 1
     assert_run_success(fprime_test_api, seq)
 
 
-def test_float_log_literal(fprime_test_api):
+def test_int_literal(fprime_test_api):
     seq = """
-var: F32 = 1.000e-5
+var: I64 = 123_456
+var = -123_456
+var = +123_456
+var = 000_00000_0
 """
 
-    assert_compile_success(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_bad_int_literal(fprime_test_api):
+    seq = """
+var: I64 = 0123_456
+
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+def test_float_literal(fprime_test_api):
+    seq = """
+var: F32 = 1.000e-5
+var = .1
+var = 1.
+var = 2.123
+var = 100.5e+10
+"""
+
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_exit_success(fprime_test_api):
@@ -1168,6 +1191,7 @@ def test_string_eq(fprime_test_api):
 exit("asdf" == "asdf")
 """
     assert_compile_failure(fprime_test_api, seq)
+
 
 def test_string_var_eq(fprime_test_api):
     seq = """

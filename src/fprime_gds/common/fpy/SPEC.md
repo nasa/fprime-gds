@@ -11,7 +11,7 @@ The following types are built into Fpy, and the developer can directly refer to 
 
 In addition, the developer can directly refer to any displayable type defined in FPP via its fully-qualified name. This includes user-defined structs, arrays and enums.
 
-There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These include the type of integer, string and float literals. See [literals](#literals).
+There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These are the internal *Int*, and *String* types. See [literals](#literals).
 
 ## Structs
 You can instantiate a new struct at runtime by calling its constructor. A struct's constructor is a function with the same name as the type, with arguments corresponding to the type and position of the struct's members. For example, a struct defined as:
@@ -43,26 +43,49 @@ DEC_NUMBER:   "-"? "1".."9" ("_"?  "0".."9" )*
           |   "-"? "0"      ("_"?  "0"      )* /(?![1-9])/
 ```
 
-The first rule of this syntax allows for integers without leading zeroes. They can be separated by underscores, and can have a negative sign in front. The second rule allows you to write any number of zeroes, separated by underscores, with an optional negative sign.
+The first rule of this syntax allows for integers without leading zeroes, separated by underscores, with an optional negative sign in front. So this is okay:
+```
+-123_456
+```
+but this is not:
+```
+-0123_456
+```
 
-They have a internal type *Int*, which is not directly referencable by the user. The *Int* type supports integers of arbitrary size.
+The second rule allows you to write any number of zeroes, separated by underscores, with an optional negative sign:
+```
+00_000_0
+```
+
+Integer literals have a internal type *Int*, which is not directly referencable by the user. The *Int* type supports integers of arbitrary size.
 
 ## Float literals
 Float literals are strings matching:
 ```
+FLOAT_NUMBER: _SPECIAL_DEC _EXP | DECIMAL _EXP?
+```
+where `_SPECIAL_DEC`, `_EXP` and `DECIMAL` are defined as:
+
+```
+_SPECIAL_DEC: "0".."9" ("_"?  "0".."9")*
+_EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
 DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
-FLOAT_NUMBER: "-"? _SPECIAL_DEC DECIMAL ["e" ["-"|"+"] _SPECIAL_DEC]
-```
-where `_SPECIAL_DEC` is defined as:
-```
-_SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
 ```
 
-`_SPECIAL_DEC` permits an underscore-separated integer with any number of leading zeroes. The `DECIMAL` rule allows for a decimal point `.` with an optional `_SPECIAL_DEC` on either side. Finally, `FLOAT_NUMBER` allows for a 
+A `FLOAT_NUMBER` can be any string of digits suffixed with an exponent, like these:
+```
+1e-5
+100_200e10
+```
 
-TODO work on phrasing, accessible is not technically true
-TODO could actually just use F64
-They have a internal type *Float*, which not accessible to the user.
+or it can be a `DECIMAL` optionally suffixed by an exponent, like these:
+```
+1.
+2.123
+100.5e+10
+```
+
+Float literals are of type `F64`.
 
 ## String literals
 String literals are strings matching:
@@ -70,16 +93,15 @@ String literals are strings matching:
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 ```
 
-They have a internal type *String*, which is not accessible to the user.
+They have a internal type *String*, which is not accessible to the user. The *String* type supports strings of arbitrary length.
 
 # Functions
+Functions have arguments and a return type. You can call a function like:
+```
+function_name(arg_1, arg_2, arg_3)
+```
 
-conversion
-* coercion (implicit)
-* casting (explicit)
-
-no more interpretation
-int has Integer type
+## Commands
 
 
 # Type conversion

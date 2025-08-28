@@ -113,9 +113,11 @@ COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 
-_SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
 DEC_NUMBER:   "-"? "1".."9"        ("_"?  "0".."9"                       )*
           |   "-"? "0"             ("_"?  "0"                            )* /(?![1-9])/
 
+_SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
+
 DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
-FLOAT_NUMBER.2: "-"? _SPECIAL_DEC DECIMAL ["e" ["-"|"+"] _SPECIAL_DEC]
+_EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
+FLOAT_NUMBER.2: _SPECIAL_DEC _EXP | DECIMAL _EXP?

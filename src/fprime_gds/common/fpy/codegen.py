@@ -30,7 +30,6 @@ from fprime_gds.common.fpy.types import (
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
-    InternalFloatType,
     InternalIntType,
     InternalStringType,
     NothingType,
@@ -498,7 +497,7 @@ class PickAndConvertTypes(Visitor):
         # give a best guess as to the final type of this node. we don't actually know
         # its bitwidth or signedness yet
         if isinstance(node.value, float):
-            result_type = InternalFloatType
+            result_type = F64Type
         else:
             result_type = InternalIntType
         state.expr_types[node] = result_type
