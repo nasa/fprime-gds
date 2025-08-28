@@ -961,7 +961,7 @@ class CalculateExprTypes(Visitor):
         return True
 
     def pick_intermediate_type(
-        self, arg_types: list[FppTypeClass], op: str
+        self, arg_types: list[FppTypeClass], op: BinaryStackOp | UnaryStackOp
     ) -> FppTypeClass:
 
         if op == BinaryStackOp.AND or op == BinaryStackOp.OR or op == UnaryStackOp.NOT:
