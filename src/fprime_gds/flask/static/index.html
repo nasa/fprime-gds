@@ -77,7 +77,9 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                     <li v-for="tab in tabs"
                                         :class="['nav-item', 'nav-link', 'click-able-item', { active: currentTab == tab[0] }]"
                                         :key="tab[0]"
-                                        v-on:click="route(tab[0])">
+                                        v-on:click="route(tab[0])"
+                                        v-if="config.enableDashboards || tab[0] != 'Dashboard'"
+                                    >
                                         <span class="d-none d-sm-none d-md-none d-lg-block" v-bind:id="tab[0]">{{ tab[0] }}</span>
                                         <span class="d-none d-sm-block d-md-block d-lg-none">{{ tab[1] }}</span>
                                     </li>
@@ -111,7 +113,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <dictionary    v-show="currentTab == 'Dictionaries'"></dictionary>
                         <logging       v-show="currentTab == 'Logs'"></logging>
                         <sequencer     v-show="currentTab == 'Sequences'"></sequencer>
-                        <dashboard     v-show="currentTab == 'Dashboard'"></dashboard>
+                        <dashboard v-if="config.enableDashboards"    v-show="currentTab == 'Dashboard'"></dashboard>
                         <advanced-settings v-show="currentTab == 'Advanced'"></advanced-settings>
                         <dictionary-version></dictionary-version>
                     </div>
