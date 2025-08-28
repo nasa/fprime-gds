@@ -12,7 +12,7 @@ The following types are built into Fpy:
 In addition, any displayable type defined in FPP is accessible in Fpy via its fully-qualified name. This includes user-defined structs, arrays and enums.
 
 ## Structs
-You can instantiate a new struct at runtime by calling its constructor. For example, a struct defined as
+You can instantiate a new struct at runtime by calling its constructor. A struct's constructor is a function with the same name as the type, with arguments corresponding to the type and position of the struct's members. For example, a struct defined as:
 ```
 module Fw {
     struct Example {
@@ -26,7 +26,6 @@ can be constructed in Fpy like:
 Fw.Example(0, True)
 ```
 
-You can then access members of the struct
 ## Struct constructors
 All 
 
