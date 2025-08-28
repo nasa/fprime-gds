@@ -116,6 +116,7 @@ Vue.component("event-list", {
          */
         clearEvents() {
             _datastore.events.splice(0, _datastore.events.length);
+            this.$refs.fptable.send([]);
         },
         /**
          * Returns if the given item should be hidden in the data table; by

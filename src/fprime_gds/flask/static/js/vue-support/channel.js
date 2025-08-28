@@ -123,6 +123,17 @@ Vue.component("channel-table", {
             return item.val == null
                 || item.time == null
                 || listExistsAndItemNameNotInList(this.itemsShown, item);
+        },
+        /**
+         * Function that clears all channels
+         */
+        clearChannels() {
+            let channels = {}
+            for (let key in _dictionaries.channels) {
+                channels[key] = {id: key, time: null, datetime: null, val: null};
+            }
+            Object.assign(_datastore.channels, channels);
+            this.$refs.fptable.send([]);
         }
     }
 });
