@@ -744,7 +744,11 @@ BOOLEAN_OPERATORS = {UnaryStackOp.NOT, BinaryStackOp.OR, BinaryStackOp.AND}
 
 UNARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
     UnaryStackOp.NOT: {BoolType: NotDirective},
-    UnaryStackOp.IDENTITY: {},
+    UnaryStackOp.IDENTITY: {
+        I64Type: NoOpDirective,
+        U64Type: NoOpDirective,
+        F64Type: NoOpDirective,
+    },
     UnaryStackOp.NEGATE: {},
 }
 

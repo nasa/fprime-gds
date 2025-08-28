@@ -59,6 +59,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ConstCmdDirective,
     FloatTruncateDirective,
     MemCompareDirective,
+    NoOpDirective,
     StackOpDirective,
     IntegerTruncate64To16Directive,
     IntegerTruncate64To32Directive,
@@ -456,7 +457,7 @@ class PickAndConvertTypes(Visitor):
         return False
 
     def pick_intermediate_type(
-        self, arg_types: list[FppTypeClass], op: str
+        self, arg_types: list[FppTypeClass], op: BinaryStackOp | UnaryStackOp
     ) -> FppTypeClass:
 
         if op in BOOLEAN_OPERATORS:
@@ -1010,6 +1011,9 @@ class GenerateExprMacrosAndCmds(Visitor):
             directives.append(dir(lhs_type.getMaxSize()))
             if node.op == BinaryStackOp.NOT_EQUAL:
                 directives.append(NotDirective())
+        elif dir == NoOpDirective:
+            # don't include no op
+            pass
         else:
             directives.append(dir())
 
