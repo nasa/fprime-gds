@@ -6,6 +6,7 @@ from typing import Any
 # creates a types.UnionType. In 3.9, only typing.Union exists.
 try:
     from types import UnionType
+
     UNION_TYPES = (typing.Union, UnionType)
 except ImportError:
     UNION_TYPES = (typing.Union,)
@@ -46,7 +47,7 @@ def get_union_members(type_hint: type) -> list[type]:
     if origin in UNION_TYPES:
         # get_args returns the type arguments (e.g., (int, str))
         return list(typing.get_args(type_hint))
-    
+
     # Not a Union, so return the type itself
     return [type_hint]
 
@@ -55,9 +56,6 @@ FwSizeType = U64Type
 FwChanIdType = U32Type
 FwPrmIdType = U32Type
 FwOpcodeType = U32Type
-
-
-
 
 
 class DirectiveId(Enum):
@@ -216,7 +214,11 @@ class Directive:
             return None
         args = data[offset : (offset + arg_size)]
         offset += arg_size
-        dir_type = [c for c in (Directive.__subclasses__() + StackOpDirective.__subclasses__()) if c.opcode.value == opcode]
+        dir_type = [
+            c
+            for c in (Directive.__subclasses__() + StackOpDirective.__subclasses__())
+            if c.opcode.value == opcode
+        ]
         if len(dir_type) != 1:
             return None
 
@@ -702,10 +704,12 @@ for cls in StackOpDirective.__subclasses__():
     cls.__old_repr__ = cls.__repr__
     cls.__repr__ = Directive.__repr__
 
+
 class UnaryStackOp(str, Enum):
     NOT = "not"
     IDENTITY = "+"
     NEGATE = "-"
+
 
 class BinaryStackOp(str, Enum):
     EXPONENT = "**"
@@ -724,7 +728,19 @@ class BinaryStackOp(str, Enum):
     OR = "or"
     AND = "and"
 
-NUMERIC_OPERATORS = {UnaryStackOp.IDENTITY, UnaryStackOp.NEGATE, BinaryStackOp.ADD, BinaryStackOp.SUBTRACT, BinaryStackOp.MULTIPLY, BinaryStackOp.DIVIDE, BinaryStackOp.MODULUS, BinaryStackOp.EXPONENT, BinaryStackOp.FLOOR_DIVIDE}
+
+NUMERIC_OPERATORS = {
+    UnaryStackOp.IDENTITY,
+    UnaryStackOp.NEGATE,
+    BinaryStackOp.ADD,
+    BinaryStackOp.SUBTRACT,
+    BinaryStackOp.MULTIPLY,
+    BinaryStackOp.DIVIDE,
+    BinaryStackOp.MODULUS,
+    BinaryStackOp.EXPONENT,
+    BinaryStackOp.FLOOR_DIVIDE,
+}
+BOOLEAN_OPERATORS = {UnaryStackOp.NOT, BinaryStackOp.OR, BinaryStackOp.AND}
 
 UNARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
     UnaryStackOp.NOT: {BoolType: NotDirective},

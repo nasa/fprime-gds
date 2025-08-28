@@ -1,11 +1,11 @@
 import math
 import pytest
 from fprime_gds.common.fpy.codegen import (
-    INTEGER_TYPES,
-    NUMERIC_TYPES,
+    SPECIFIC_INTEGER_TYPES,
+    SPECIFIC_NUMERIC_TYPES,
     UNSIGNED_INTEGER_TYPES,
     SIGNED_INTEGER_TYPES,
-    FLOAT_TYPES,
+    SPECIFIC_FLOAT_TYPES,
     FppTypeClass,
 )
 from fprime.common.models.serialize.numerical_types import I64Type, U64Type, F64Type
@@ -28,8 +28,8 @@ ARITHMETIC_OPERATORS = [
 
 
 def get_max(type: FppTypeClass) -> int | float:
-    assert type in NUMERIC_TYPES
-    if type in INTEGER_TYPES:
+    assert type in SPECIFIC_NUMERIC_TYPES
+    if type in SPECIFIC_INTEGER_TYPES:
         return type.range()[1] - 1
 
     # otherwise, return float or double max
@@ -42,8 +42,8 @@ def get_max(type: FppTypeClass) -> int | float:
 
 
 def get_min(type: FppTypeClass) -> int | float:
-    assert type in NUMERIC_TYPES
-    if type in INTEGER_TYPES:
+    assert type in SPECIFIC_NUMERIC_TYPES
+    if type in SPECIFIC_INTEGER_TYPES:
         return type.range()[0]
 
     # otherwise, return float or double min
@@ -56,18 +56,18 @@ def get_min(type: FppTypeClass) -> int | float:
 
 
 def get_fpy_str(type: FppTypeClass) -> str:
-    assert type in NUMERIC_TYPES
+    assert type in SPECIFIC_NUMERIC_TYPES
     return type.get_canonical_name()
 
 
 def get_val(type: FppTypeClass, val_str: str) -> int | float:
-    assert type in NUMERIC_TYPES
+    assert type in SPECIFIC_NUMERIC_TYPES
     if val_str == "max":
         return get_max(type)
     if val_str == "min":
         return get_min(type)
 
-    if type in INTEGER_TYPES:
+    if type in SPECIFIC_INTEGER_TYPES:
         return int(val_str)
     return float(val_str)
 

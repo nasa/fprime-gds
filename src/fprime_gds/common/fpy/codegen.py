@@ -9,6 +9,38 @@ import typing
 from typing import Union, get_origin, get_args
 import zlib
 
+from fprime_gds.common.fpy.types import (
+    GENERIC_NUMERIC_TYPES,
+    SPECIFIC_FLOAT_TYPES,
+    SPECIFIC_INTEGER_TYPES,
+    MACROS,
+    MAX_DIRECTIVE_SIZE,
+    MAX_DIRECTIVES_COUNT,
+    SPECIFIC_NUMERIC_TYPES,
+    SIGNED_INTEGER_TYPES,
+    UNSIGNED_INTEGER_TYPES,
+    CompileException,
+    CompileState,
+    FieldReference,
+    FppTypeClass,
+    FpyCallable,
+    FpyCmd,
+    FpyMacro,
+    FpyReference,
+    FpyScope,
+    FpyTypeCtor,
+    FpyVariable,
+    InternalFloatType,
+    InternalIntType,
+    InternalStringType,
+    NothingType,
+    TopDownVisitor,
+    Visitor,
+    create_scope,
+    get_ref_fpp_type_class,
+    is_instance_compat,
+)
+
 # In Python 3.10+, the `|` operator creates a `types.UnionType`.
 # We need to handle this for forward compatibility, but it won't exist in 3.9.
 try:
@@ -20,9 +52,11 @@ except ImportError:
 
 from fprime_gds.common.fpy.bytecode.directives import (
     BINARY_STACK_OPS,
+    BOOLEAN_OPERATORS,
     NUMERIC_OPERATORS,
     UNARY_STACK_OPS,
     AllocateDirective,
+    BinaryStackOp,
     ConstCmdDirective,
     FloatTruncateDirective,
     MemCompareDirective,
@@ -51,6 +85,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     PushValDirective,
     SignedIntToFloatDirective,
     StoreDirective,
+    UnaryStackOp,
     UnsignedIntToFloatDirective,
     WaitAbsDirective,
     WaitRelDirective,
@@ -107,518 +142,6 @@ from fprime_gds.common.fpy.parser import (
     AstVar,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
-
-
-def is_instance_compat(obj, cls):
-    """
-    A wrapper for isinstance() that correctly handles Union types in Python 3.9+.
-
-    Args:
-        obj: The object to check.
-        cls: The class, tuple of classes, or Union type to check against.
-
-    Returns:
-        True if the object is an instance of the class or any type in the Union.
-    """
-    origin = get_origin(cls)
-    if origin in UNION_TYPES:
-        # It's a Union type, so get its arguments.
-        # e.g., get_args(Union[int, str]) returns (int, str)
-        return isinstance(obj, get_args(cls))
-
-    # It's not a Union, so it's a regular type (like int) or a
-    # tuple of types ((int, str)), which isinstance handles natively.
-    return isinstance(obj, cls)
-
-
-MAX_DIRECTIVES_COUNT = 1024
-MAX_DIRECTIVE_SIZE = 2048
-MAX_STACK_SIZE = 65535
-
-COMPILER_MAX_STRING_SIZE = 128
-
-GENERIC_NUMERIC_TYPES = (NumericalType, FloatType, IntegerType)
-
-NUMERIC_TYPES = (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    I8Type,
-    F32Type,
-    F64Type,
-)
-INTEGER_TYPES = (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    I8Type,
-)
-SIGNED_INTEGER_TYPES = (
-    I16Type,
-    I32Type,
-    I64Type,
-    I8Type,
-)
-UNSIGNED_INTEGER_TYPES = (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
-)
-FLOAT_TYPES = (
-    F32Type,
-    F64Type,
-)
-
-
-# a value of type FppTypeClass is a Python `type` object representing
-# the type of an Fprime value
-FppTypeClass = type[FppType]
-
-
-class NothingType(ABC):
-    """a type which has no valid values in fprime. used to denote
-    a function which doesn't return a value"""
-
-    @classmethod
-    def __subclasscheck__(cls, subclass):
-        return False
-
-
-# the `type` object representing the NothingType class
-NothingTypeClass = type[NothingType]
-
-
-class CompileException(BaseException):
-    def __init__(self, msg, node: Ast):
-        self.msg = msg
-        self.node = node
-        self.stack_trace = "\n".join(traceback.format_stack(limit=8)[:-1])
-
-    def __str__(self):
-        if self.node is not None:
-            return f'{self.stack_trace}\nAt line {self.node.meta.line} "{self.node.node_text}": {self.msg}'
-        return f'{self.stack_trace}\n{self.msg}'
-
-
-@dataclass
-class FpyCallable:
-    return_type: FppTypeClass | NothingTypeClass
-    args: list[tuple[str, FppTypeClass]]
-
-
-@dataclass
-class FpyCmd(FpyCallable):
-    cmd: CmdTemplate
-
-
-@dataclass
-class FpyMacro(FpyCallable):
-    dir: type[Directive]
-    """a function which instantiates the macro given the argument exprs"""
-
-
-class PrintStrType(StringType.construct_type("print_str_type", COMPILER_MAX_STRING_SIZE)):
-    def serialize(self):
-        if self.val is None:
-            raise RuntimeError(type(self))
-        if self.MAX_LENGTH is not None and len(self.val) > self.MAX_LENGTH:
-            raise RuntimeError(len(self.val), self.MAX_LENGTH)
-        return self.val.encode("utf-8") + struct.pack(">H", len(self.val))
-
-    def deserialize(self, data, offset):
-        """
-        Deserializes a string from the given data buffer.
-        """
-        try:
-            val_size = struct.unpack_from(">H", data, len(data - 2))[0]
-            # Deal with not enough data left in the buffer
-            if len(data[offset + 2 :]) < val_size:
-                msg = f"Not enough data to deserialize string data. Needed: {val_size} Left: {len(data[offset + 2:])}"
-                raise RuntimeError(msg)
-            # Deal with a string that is larger than max string
-            if self.MAX_LENGTH is not None and val_size > self.MAX_LENGTH:
-                raise RuntimeError(val_size, self.MAX_LENGTH)
-            self.val = data[offset : offset + val_size].decode("utf-8")
-        except struct.error:
-            raise RuntimeError("Not enough bytes to deserialize string length.")
-
-
-MACROS: dict[str, FpyMacro] = {
-    "sleep": FpyMacro(
-        NothingType,
-        [
-            (
-                "seconds",
-                U32Type,
-            ),
-            ("microseconds", U32Type),
-        ],
-        WaitRelDirective,
-    ),
-    "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
-    "exit": FpyMacro(NothingType, [("success", BoolType)], ExitDirective),
-    "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
-    "print": FpyMacro(NothingType, [("msg", PrintStrType)], PrintDirective),
-}
-
-
-@dataclass
-class FpyTypeCtor(FpyCallable):
-    type: FppTypeClass
-
-
-@dataclass
-class FieldReference:
-    """a reference to a field/index of an fprime type"""
-
-    parent: "FpyReference"
-    """the qualifier"""
-    type: FppTypeClass
-    """the fprime type of this reference"""
-    offset: int
-    """the constant offset in the parent type at which to find this field"""
-    name: str = None
-    """the name of the field, if applicable"""
-    idx: int = None
-    """the index of the field, if applicable"""
-
-    def get_from(self, parent_val: FppType) -> FppType:
-        """gets the field value from the parent value"""
-        assert isinstance(parent_val, self.type)
-        assert self.name is not None or self.idx is not None
-        value = None
-        if self.name is not None:
-            if isinstance(parent_val, SerializableType):
-                value = parent_val.val[self.name]
-            elif isinstance(parent_val, TimeType):
-                if self.name == "seconds":
-                    value = parent_val.__secs
-                elif self.name == "useconds":
-                    value = parent_val.__usecs
-                elif self.name == "time_base":
-                    value = parent_val.__timeBase
-                elif self.name == "time_context":
-                    value = parent_val.__timeContext
-                else:
-                    assert False, self.name
-            else:
-                assert False, parent_val
-
-        else:
-
-            assert isinstance(parent_val, ArrayType), parent_val
-
-            value = parent_val._val[self.idx]
-
-        assert isinstance(value, self.type), (value, self.type)
-        return value
-
-
-# named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
-@dataclass
-class FpyVariable:
-    """a mutable, typed value referenced by an unqualified name"""
-
-    type_ref: AstExpr
-    """the expression denoting the var's type"""
-    declaration: AstAssign
-    """the node where this var is declared"""
-    type: FppTypeClass | None = None
-    """the resolved type of the variable. None if type unsure at the moment"""
-    lvar_offset: int | None = None
-    """the offset in the lvar array where this var is stored"""
-
-
-# a scope
-FpyScope = dict[str, "FpyReference"]
-
-
-def create_scope(
-    references: dict[str, "FpyReference"],
-) -> FpyScope:
-    """from a flat dict of strs to references, creates a hierarchical, scoped
-    dict. no two leaf nodes may have the same name"""
-
-    base = {}
-
-    for fqn, ref in references.items():
-        names_strs = fqn.split(".")
-
-        ns = base
-        while len(names_strs) > 1:
-            existing_child = ns.get(names_strs[0], None)
-            if existing_child is None:
-                # this scope is not defined atm
-                existing_child = {}
-                ns[names_strs[0]] = existing_child
-
-            if not isinstance(existing_child, dict):
-                # something else already has this name
-                print(
-                    f"WARNING: {fqn} is already defined as {existing_child}, tried to redefine it as {ref}"
-                )
-                break
-
-            ns = existing_child
-            names_strs = names_strs[1:]
-
-        if len(names_strs) != 1:
-            # broke early. skip this loop
-            continue
-
-        # okay, now ns is the complete scope of the attribute
-        # i.e. everything up until the last '.'
-        name = names_strs[0]
-
-        existing_child = ns.get(name, None)
-
-        if existing_child is not None:
-            # uh oh, something already had this name with a diff value
-            print(
-                f"WARNING: {fqn} is already defined as {existing_child}, tried to redefine it as {ref}"
-            )
-            continue
-
-        ns[name] = ref
-
-    return base
-
-
-def union_scope(lhs: FpyScope, rhs: FpyScope) -> FpyScope:
-    """returns the two scopes, joined into one. if there is a conflict, chooses lhs over rhs"""
-    lhs_keys = set(lhs.keys())
-    rhs_keys = set(rhs.keys())
-    common_keys = lhs_keys.intersection(rhs_keys)
-
-    only_lhs_keys = lhs_keys.difference(common_keys)
-    only_rhs_keys = rhs_keys.difference(common_keys)
-
-    new = FpyScope()
-
-    for key in common_keys:
-        if not isinstance(lhs[key], dict) or not isinstance(rhs[key], dict):
-            # cannot be merged cleanly. one of the two is not a scope
-            print(f"WARNING: {key} is defined as {lhs[key]}, ignoring {rhs[key]}")
-            new[key] = lhs[key]
-            continue
-
-        new[key] = union_scope(lhs[key], rhs[key])
-
-    for key in only_lhs_keys:
-        new[key] = lhs[key]
-    for key in only_rhs_keys:
-        new[key] = rhs[key]
-
-    return new
-
-
-FpyReference = typing.Union[
-    ChTemplate,
-    PrmTemplate,
-    FppType,
-    FpyCallable,
-    FppTypeClass,
-    FpyVariable,
-    FieldReference,
-    dict,  # dict of FpyReference
-]
-"""some named concept in fpy"""
-
-
-def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
-    """returns the fprime type of the ref, if it were to be evaluated as an expression"""
-    if isinstance(ref, ChTemplate):
-        result_type = ref.ch_type_obj
-    elif isinstance(ref, PrmTemplate):
-        result_type = ref.prm_type_obj
-    elif isinstance(ref, FppType):
-        # constant value
-        result_type = type(ref)
-    elif isinstance(ref, FpyCallable):
-        # a reference to a callable isn't a type in and of itself
-        # it has a return type but you have to call it (with an AstFuncCall)
-        # consider making a separate "reference" type
-        result_type = NothingType
-    elif isinstance(ref, FpyVariable):
-        result_type = ref.type
-    elif isinstance(ref, type):
-        # a reference to a type doesn't have a value, and so doesn't have a type,
-        # in and of itself. if this were a function call to the type's ctor then
-        # it would have a value and thus a type
-        result_type = NothingType
-    elif isinstance(ref, FieldReference):
-        result_type = ref.type
-    elif isinstance(ref, dict):
-        # reference to a scope. scopes don't have values
-        result_type = NothingType
-    else:
-        assert False, ref
-
-    return result_type
-
-
-@dataclass
-class CompileState:
-    """a collection of input, internal and output state variables and maps"""
-
-    types: FpyScope
-    """a scope whose leaf nodes are subclasses of BaseType"""
-    callables: FpyScope
-    """a scope whose leaf nodes are FpyCallable instances"""
-    tlms: FpyScope
-    """a scope whose leaf nodes are ChTemplates"""
-    prms: FpyScope
-    """a scope whose leaf nodes are PrmTemplates"""
-    consts: FpyScope
-    """a scope whose leaf nodes are instances of subclasses of BaseType"""
-    variables: FpyScope = field(default_factory=dict)
-    """a scope whose leaf nodes are FpyVariables"""
-    runtime_values: FpyScope = None
-    """a scope whose leaf nodes are tlms/prms/consts/variables, all of which
-    have some value at runtime."""
-
-    def __post_init__(self):
-        self.runtime_values = union_scope(
-            self.tlms,
-            union_scope(self.prms, union_scope(self.consts, self.variables)),
-        )
-
-    resolved_references: dict[AstReference, FpyReference] = field(
-        default_factory=dict, repr=False
-    )
-    """reference to its singular resolution"""
-
-    expr_types: dict[AstExpr, FppTypeClass | NothingTypeClass] = field(
-        default_factory=dict
-    )
-    """expr to its fprime type, or nothing type if none"""
-
-    stack_op_directives: dict[AstOp, type[StackOpDirective]] = field(
-        default_factory=dict
-    )
-    """some stack operation to which directive will be emitted for it"""
-
-    type_conversions: dict[AstExpr, FppTypeClass] = field(default_factory=dict)
-    """expr to fprime type it must be converted into at runtime"""
-
-    expr_values: dict[AstExpr, FppType | NothingType | None] = field(
-        default_factory=dict
-    )
-    """expr to its fprime value, or nothing if no value, or None if unsure at compile time"""
-
-    directives: dict[Ast, list[Directive] | None] = field(default_factory=dict)
-    """a list of code generated by each node, or None/empty list if no directives"""
-
-    node_dir_counts: dict[Ast, int] = field(default_factory=dict)
-    """node to the number of directives generated by it"""
-
-    lvar_array_size_bytes: int = 0
-    """the size in bytes of the lvar array"""
-
-    start_line_idx: dict[Ast, int] = field(default_factory=dict)
-    """the line index at which each node's directives will be included in the output"""
-
-    errors: list[CompileException] = field(default_factory=list)
-    """a list of all compile exceptions generated by passes"""
-
-    def err(self, msg, n):
-        """adds a compile exception to internal state"""
-        self.errors.append(CompileException(msg, n))
-
-
-class Visitor:
-    """visits each class, calling a custom visit function, if one is defined, for each
-    node type"""
-
-    def _find_custom_visit_func(self, node: Ast):
-        for name, func in inspect.getmembers(type(self), inspect.isfunction):
-            if not name.startswith("visit") or name == "visit_default":
-                # not a visitor, or the default visit func
-                continue
-            signature = inspect.signature(func)
-            params = list(signature.parameters.values())
-            assert len(params) == 3
-            assert params[1].annotation is not None
-            annotations = typing.get_type_hints(func)
-            param_type = annotations[params[1].name]
-            if is_instance_compat(node, param_type):
-                return func
-        else:
-            # call the default
-            return type(self).visit_default
-
-    def _visit(self, node: Ast, state: CompileState):
-        visit_func = self._find_custom_visit_func(node)
-        visit_func(self, node, state)
-
-    def visit_default(self, node: Ast, state: CompileState):
-        pass
-
-    def run(self, start: Ast, state: CompileState):
-        """runs the visitor, starting at the given node, descending depth-first"""
-
-        def _descend(node: Ast):
-            if not isinstance(node, Ast):
-                return
-            children = []
-            for field in fields(node):
-                field_val = getattr(node, field.name)
-                if isinstance(field_val, list):
-                    children.extend(field_val)
-                else:
-                    children.append(field_val)
-
-            for child in children:
-                if not isinstance(child, Ast):
-                    continue
-                _descend(child)
-                if len(state.errors) != 0:
-                    break
-                self._visit(child, state)
-                if len(state.errors) != 0:
-                    break
-
-        _descend(start)
-        self._visit(start, state)
-
-
-class TopDownVisitor(Visitor):
-
-    def run(self, start: Ast, state: CompileState):
-        """runs the visitor, starting at the given node, descending breadth-first"""
-
-        def _descend(node: Ast):
-            if not isinstance(node, Ast):
-                return
-            children = []
-            for field in fields(node):
-                field_val = getattr(node, field.name)
-                if isinstance(field_val, list):
-                    children.extend(field_val)
-                else:
-                    children.append(field_val)
-
-            for child in children:
-                if not isinstance(child, Ast):
-                    continue
-                self._visit(child, state)
-                if len(state.errors) != 0:
-                    break
-                _descend(child)
-                if len(state.errors) != 0:
-                    break
-
-        self._visit(start, state)
-        _descend(start)
 
 
 class AssignIds(TopDownVisitor):
@@ -905,68 +428,44 @@ class CheckUseBeforeDeclare(Visitor):
             return
 
 
-class CalculateExprTypes(Visitor):
+class PickAndConvertTypes(Visitor):
     """stores in state the fprime type of each expression, or NothingType if the expr had no type"""
 
     def coerce_expr_type(
         self, node: AstExpr, type: FppTypeClass, state: CompileState
     ) -> bool:
         node_type = state.expr_types[node]
-        if self.can_interpret_type(node_type, type):
-            state.expr_types[node] = type
-            return True
-        if self.can_convert_type(node_type, type):
-            state.type_conversions[node] = type
+        if self.can_coerce_type(node_type, type):
+            state.type_coercions[node] = type
             return True
         state.err(f"Expected {type.__name__}, found {node_type.__name__}", node)
         return False
 
-    def can_interpret_type(self, type: FppTypeClass, as_type: FppTypeClass) -> bool:
-        if type == as_type:
-            return True
-        if type in GENERIC_NUMERIC_TYPES and issubclass(as_type, type):
-            # if type is a generic number type, and it's a superclass of the dest type, we
-            # can interpret it as the dest type
-            return True
-
-        if type == IntegerType and issubclass(as_type, FloatType):
-            # also allow interpreting int literals as floats
-            return True
-
-        if type == StringType and issubclass(as_type, type):
-            # if type is a generic string type, we can convert it to any string type
-            return True
-
-        # otherwise, cannot interpret
-        return False
-
-    def can_convert_type(self, type: FppTypeClass, to_type: FppTypeClass) -> bool:
+    def can_coerce_type(self, type: FppTypeClass, to_type: FppTypeClass) -> bool:
         if type == to_type:
             return True
+        if issubclass(type, IntegerType) and issubclass(to_type, NumericalType):
+            # we can coerce any integer into any other number
+            return True
+        if issubclass(type, FloatType) and issubclass(to_type, FloatType):
+            # we can convert any float into any float
+            return True
+        if type == InternalStringType and issubclass(to_type, StringType):
+            # we can convert the internal String type to any string type
+            return True
 
-        if not issubclass(type, NumericalType) or not issubclass(
-            to_type, NumericalType
-        ):
-            # only allow conversions between numerical types
-            return False
-
-        if issubclass(type, FloatType) and issubclass(to_type, IntegerType):
-            # cannot convert float to int (i.e. don't allow it)
-            return False
-
-        # otherwise we're good
-        return True
+        return False
 
     def pick_intermediate_type(
         self, arg_types: list[FppTypeClass], op: str
     ) -> FppTypeClass:
 
-        if op == "and" or op == "or" or op == "not":
+        if op in BOOLEAN_OPERATORS:
             return BoolType
 
         non_numeric = any(not issubclass(t, NumericalType) for t in arg_types)
 
-        if op == "==" or op == "!=":
+        if op == BinaryStackOp.EQUAL or op == BinaryStackOp.NOT_EQUAL:
             if non_numeric:
                 if len(set(arg_types)) != 1:
                     # can only compare equality between the same types
@@ -978,7 +477,7 @@ class CalculateExprTypes(Visitor):
             # cannot find intermediate type
             return None
 
-        if op == "/" or op == "**":
+        if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
             # always do true division over floats, python style
             return F64Type
 
@@ -999,9 +498,9 @@ class CalculateExprTypes(Visitor):
         # give a best guess as to the final type of this node. we don't actually know
         # its bitwidth or signedness yet
         if isinstance(node.value, float):
-            result_type = FloatType
+            result_type = InternalFloatType
         else:
-            result_type = IntegerType
+            result_type = InternalIntType
         state.expr_types[node] = result_type
 
     def visit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
@@ -1026,8 +525,8 @@ class CalculateExprTypes(Visitor):
 
         dir = None
         if (
-            node.op == "==" or node.op == "!="
-        ) and intermediate_type not in NUMERIC_TYPES:
+            node.op == BinaryStackOp.EQUAL or node.op == BinaryStackOp.NOT_EQUAL
+        ) and intermediate_type not in SPECIFIC_NUMERIC_TYPES:
             dir = MemCompareDirective
         else:
             dir = BINARY_STACK_OPS[node.op][intermediate_type]
@@ -1067,7 +566,7 @@ class CalculateExprTypes(Visitor):
         state.expr_types[node] = result_type
 
     def visit_AstString(self, node: AstString, state: CompileState):
-        state.expr_types[node] = StringType
+        state.expr_types[node] = InternalStringType
 
     def visit_AstBoolean(self, node: AstBoolean, state: CompileState):
         state.expr_types[node] = BoolType
@@ -1143,30 +642,44 @@ class CalculateConstExprValues(Visitor):
     """for each expr, try to calculate its constant value and store it in a map. stores None if no value could be
     calculated at compile time, and NothingType if the expr had no value"""
 
+    def const_coerce_type(self, from_val: FppType, to_type: FppTypeClass) -> FppType:
+        if type(from_val) == to_type:
+            return from_val
+        if issubclass(to_type, StringType):
+            assert type(from_val) == InternalStringType, type(from_val)
+            return to_type(from_val.val)
+        if issubclass(to_type, FloatType):
+            assert issubclass(type(from_val), NumericalType), type(from_val)
+            return to_type(float(from_val.val))
+        if issubclass(to_type, IntegerType):
+            assert issubclass(type(from_val), IntegerType), type(from_val)
+            return to_type(int(from_val.val))
+        assert False, (from_val, type(from_val), to_type)
+
     def visit_AstLiteral(self, node: AstLiteral, state: CompileState):
         literal_type = state.expr_types[node]
-        if literal_type != NothingType:
-            # make sure it's not a generic type
-            assert (
-                literal_type in NUMERIC_TYPES
-                or (
-                    issubclass(literal_type, StringType)
-                    and not literal_type == StringType
-                )
-                or literal_type == BoolType
-            ), literal_type
-            try:
-                state.expr_values[node] = literal_type(node.value)
-            except TypeException as e:
-                state.err(f"For type {literal_type.__name__}: {e}", node)
+
+        if literal_type == NothingType:
+            value = NothingType()
         else:
             try:
-                state.expr_values[node] = literal_type()
+                value = literal_type(node.value)
             except TypeException as e:
                 state.err(f"For type {literal_type.__name__}: {e}", node)
+                return
+
+        coerced_type = state.type_coercions.get(node, None)
+        if coerced_type is not None:
+            try:
+                value = self.const_coerce_type(value, coerced_type)
+            except TypeException as e:
+                state.err(f"For type {literal_type.__name__}: {e}", node)
+                return
+        state.expr_values[node] = value
 
     def visit_AstReference(self, node: AstReference, state: CompileState):
         ref = state.resolved_references[node]
+        expr_type = state.expr_types[node]
 
         if isinstance(ref, (ChTemplate, PrmTemplate, FpyVariable)):
             # we do not try to calculate or predict these values at compile time
@@ -1197,10 +710,20 @@ class CalculateConstExprValues(Visitor):
         else:
             assert False, ref
 
-        assert expr_value is None or isinstance(expr_value, state.expr_types[node]), (
-            expr_value,
-            state.expr_types[node],
-        )
+        if expr_value is None:
+            # cannot calculate at compile time
+            state.expr_values[node] = None
+            return
+
+        assert isinstance(expr_value, expr_type), (expr_value, expr_type)
+
+        coerced_type = state.type_coercions.get(node, None)
+        if coerced_type is not None:
+            try:
+                expr_value = self.const_coerce_type(expr_value, coerced_type)
+            except TypeException as e:
+                state.err(f"For type {expr_type.__name__}: {e}", node)
+                return
         state.expr_values[node] = expr_value
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
@@ -1216,6 +739,8 @@ class CalculateConstExprValues(Visitor):
             state.expr_values[node] = None
             return
 
+        expr_value = None
+
         if isinstance(func, FpyTypeCtor):
             # actually construct the type
             if issubclass(func.type, SerializableType):
@@ -1224,15 +749,15 @@ class CalculateConstExprValues(Visitor):
                 # t[0] is the arg name
                 arg_dict = {t[0]: v for t, v in zip(func.type.MEMBER_LIST, arg_values)}
                 instance._val = arg_dict
-                state.expr_values[node] = instance
+                expr_value = instance
 
             elif issubclass(func.type, ArrayType):
                 instance = func.type()
                 instance._val = arg_values
-                state.expr_values[node] = instance
+                expr_value = instance
 
             elif func.type == TimeType:
-                state.expr_values[node] = TimeType(*arg_values)
+                expr_value = TimeType(*arg_values)
 
             else:
                 # no other FppTypeClasses have ctors
@@ -1241,6 +766,18 @@ class CalculateConstExprValues(Visitor):
             # don't try to calculate the value of this function call
             # it's something like a cmd or macro
             state.expr_values[node] = None
+            return
+
+        assert isinstance(expr_value, func.return_type), (expr_value, func.return_type)
+
+        coerced_type = state.type_coercions.get(node, None)
+        if coerced_type is not None:
+            try:
+                expr_value = self.const_coerce_type(expr_value, coerced_type)
+            except TypeException as e:
+                state.err(f"For type {func.return_type.__name__}: {e}", node)
+                return
+        state.expr_values[node] = expr_value
 
     def visit_AstOp(self, node: AstOp, state: CompileState):
         # we do not calculate compile time value of operators at the moment
@@ -1266,11 +803,7 @@ class GenerateConstExprDirectives(Visitor):
             # no const value
             return
 
-        assert node not in state.type_conversions, node
-
-        expr_type = state.expr_types[node]
-
-        if expr_type == NothingType:
+        if isinstance(expr_value, NothingType):
             # nothing type has no value
             state.directives[node] = []
             return
@@ -1288,7 +821,7 @@ class GenerateExprMacrosAndCmds(Visitor):
     or macro, generate directives for calling them with appropriate arg values"""
 
     def get_64_bit_type(self, type: FppTypeClass) -> FppTypeClass:
-        assert type in NUMERIC_TYPES, type
+        assert type in SPECIFIC_NUMERIC_TYPES, type
         return (
             I64Type
             if type in SIGNED_INTEGER_TYPES
@@ -1356,12 +889,16 @@ class GenerateExprMacrosAndCmds(Visitor):
             return []
 
         # only valid runtime type conversion is between two numeric types
-        assert from_type in NUMERIC_TYPES and to_type in NUMERIC_TYPES, (
+        assert (
+            from_type in SPECIFIC_NUMERIC_TYPES and to_type in SPECIFIC_NUMERIC_TYPES
+        ), (
             from_type,
             to_type,
         )
         # also invalid to convert from a float to an integer at runtime due to loss of precision
-        assert not (from_type in FLOAT_TYPES and to_type in INTEGER_TYPES), (
+        assert not (
+            from_type in SPECIFIC_FLOAT_TYPES and to_type in SPECIFIC_INTEGER_TYPES
+        ), (
             from_type,
             to_type,
         )
@@ -1444,7 +981,7 @@ class GenerateExprMacrosAndCmds(Visitor):
                 offset_in_lvar_array + offset_in_parent_val, expr_type.getMaxSize()
             )
         )
-        converted_type = state.type_conversions.get(node, None)
+        converted_type = state.type_coercions.get(node, None)
         if converted_type is not None:
             directives.extend(self.convert_type(expr_type, converted_type))
 
@@ -1472,13 +1009,13 @@ class GenerateExprMacrosAndCmds(Visitor):
             rhs_type = state.expr_types[node.rhs]
             assert lhs_type == rhs_type, (lhs_type, rhs_type)
             directives.append(dir(lhs_type.getMaxSize()))
-            if node.op == "!=":
+            if node.op == BinaryStackOp.NOT_EQUAL:
                 directives.append(NotDirective())
         else:
             directives.append(dir())
 
         # and convert the result of the op into the desired result of this expr
-        converted_type = state.type_conversions.get(node, None)
+        converted_type = state.type_coercions.get(node, None)
         if converted_type is not None:
             directives.extend(self.convert_type(expr_type, converted_type))
 
@@ -1501,7 +1038,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         directives: list[Directive] = val_dirs
         directives.append(dir())
         # and convert the result of the op into the desired result of this expr
-        converted_type = state.type_conversions.get(node, None)
+        converted_type = state.type_coercions.get(node, None)
         if converted_type is not None:
             directives.extend(self.convert_type(expr_type, converted_type))
 
@@ -1553,9 +1090,9 @@ class GenerateExprMacrosAndCmds(Visitor):
             dirs = None
 
         # perform type conversion if called for
-        converted_type = state.type_conversions.get(node, None)
-        if converted_type is not None:
-            dirs.extend(self.convert_type(func.return_type, converted_type))
+        coerced_type = state.type_coercions.get(node, None)
+        if coerced_type is not None:
+            dirs.extend(self.convert_type(func.return_type, coerced_type))
         state.directives[node] = dirs
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
@@ -1765,7 +1302,10 @@ def serialize_directives(dirs: list[Directive], output: Path):
     for dir in dirs:
         dir_bytes = dir.serialize()
         if len(dir_bytes) > MAX_DIRECTIVE_SIZE:
-            raise CompileException(f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})", None)
+            raise CompileException(
+                f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})",
+                None,
+            )
         output_bytes += dir_bytes
 
     header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
@@ -1817,7 +1357,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
     # insert the implicit types into the dict
     type_name_dict["Fw.Time"] = TimeType
-    for typ in NUMERIC_TYPES:
+    for typ in SPECIFIC_NUMERIC_TYPES:
         type_name_dict[typ.get_canonical_name()] = typ
     type_name_dict["bool"] = BoolType
     # note no string type at the moment
@@ -1881,7 +1421,7 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         CheckUseBeforeDeclare(),
         # now that we know what all refs point to, we should be able to figure out the type
         # of every expression
-        CalculateExprTypes(),
+        PickAndConvertTypes(),
         # now that expr types have been narrowed down, we can allocate lvar space for variables
         AllocateVariables(),
         # okay, now that we're sure we're passing in all the right args to each func,
@@ -1909,7 +1449,8 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
     dirs = state.directives[body]
     if len(dirs) > MAX_DIRECTIVES_COUNT:
         raise CompileException(
-            f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})", None
+            f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})",
+            None,
         )
 
     return dirs
