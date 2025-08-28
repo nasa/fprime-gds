@@ -4,12 +4,14 @@ BIG question: what if we made an arbitrary precision int type? and float type?
 
 # Types
 
-The following types are built into Fpy:
+The following types are built into Fpy, and the developer can directly refer to them by name:
 * Numeric types: `U8, U16, U32, U64, I8, I16, I32, I64, F32, F64`
 * Boolean type: `bool`
 * Time type: `Fw.Time`
 
-In addition, any displayable type defined in FPP is accessible in Fpy via its fully-qualified name. This includes user-defined structs, arrays and enums.
+In addition, the developer can directly refer to any displayable type defined in FPP via its fully-qualified name. This includes user-defined structs, arrays and enums.
+
+There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These include the type of integer, string and float literals. See [literals](#literals).
 
 ## Structs
 You can instantiate a new struct at runtime by calling its constructor. For example, a struct defined as
@@ -26,10 +28,49 @@ can be constructed in Fpy like:
 Fw.Example(0, True)
 ```
 
-You can then access members of the struct
-## Struct constructors
-All 
 
+# Literals
+The following literals are supported by Fpy:
+* Integer literals: `123`, `-456_879`
+* Float literals: `0.123`, `1e-5`
+* String literals: `"hello world"`, `'example string'`
+* Boolean literals: `True` and `False`
+
+## Integer literals
+Integer literals are strings matching:
+```
+DEC_NUMBER:   "-"? "1".."9" ("_"?  "0".."9" )*
+          |   "-"? "0"      ("_"?  "0"      )* /(?![1-9])/
+```
+
+The first rule of this syntax allows for integers without leading zeroes. They can be separated by underscores, and can have a negative sign in front. The second rule allows you to write any number of zeroes, separated by underscores, with an optional negative sign.
+
+They have a internal type *Int*, which is not directly referencable by the user. The *Int* type supports integers of arbitrary size.
+
+## Float literals
+Float literals are strings matching:
+```
+DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
+FLOAT_NUMBER: "-"? _SPECIAL_DEC DECIMAL ["e" ["-"|"+"] _SPECIAL_DEC]
+```
+where `_SPECIAL_DEC` is defined as:
+```
+_SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
+```
+
+`_SPECIAL_DEC` permits an underscore-separated integer with any number of leading zeroes. The `DECIMAL` rule allows for a decimal point `.` with an optional `_SPECIAL_DEC` on either side. Finally, `FLOAT_NUMBER` allows for a 
+
+TODO work on phrasing, accessible is not technically true
+TODO could actually just use F64
+They have a internal type *Float*, which not accessible to the user.
+
+## String literals
+String literals are strings matching:
+```
+STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+```
+
+They have a internal type *String*, which is not accessible to the user.
 
 # Functions
 
@@ -43,27 +84,25 @@ int has Integer type
 
 # Type conversion
 
-The compiler implicitly attempts type conversion when an expression's type isn't what it needs to be. Functions, operators and variable assignments all require their input values be of a specific type. 
+Type conversion is the process of converting an expression from one type to another. It can either be implicit, in which case it is called coercion, or explicit, in which case it is called casting.
 
-If the input expression's type doesn't match, the compiler will first attempt interpreting the expression differently, and then attempt to have the type converted at runtime. If neither are possible, a compiler error is raised.
+## Coercion
+Coercion happens when an expression of type *A* is used in a syntactic element which requires an expression of type *B*. For example, functions, operators and variable assignments all require specific input types, so type coercion happens in each of these.
 
-## Interpretation
-Some expressions do not have a well-defined type when considered in isolation. Numeric literals are a good example. The literal `1` is an integer of unspecified bitwidth and signedness. When it's on the right-hand side of an assignment to a `U32` variable, the compiler can safely interpret the literal as a `U32`.
+When type coercion happens, the following type conversion rules are applied:
 
-1. Integer literals can be interpreted as any signed or unsigned integer or float type.
-2. Float literals can be interpreted as any float type.
-3. String literals can be interpreted as any string type.
+1. Expressions of any integer type can be converted to any signed or unsigned integer or float type.
+2. Expressions of any float type can be converted to any float type.
+3. Expressions of internal type *String* can be converted to any string type.
 
-## Conversion
+TODO try out with forcing type casting--see what the FF's think
+TODO require explicit narrowing casts? or have a compiler warning?
+TODO consider float to int conversion?
+TODO consider adding constants
 
-Even if an expression cannot be interpreted as a different type, it can often be converted at runtime.
+If no rule matches, then the compiler raises an error.
 
-1. Integer expressions can be converted to any signed or unsigned integer or float type.
-2. Float expressions can be converted to any float type.
-
-There is currently no support for converting string expressions to other string expressions.
-
-if a rule no match, then no coerce
+There is currently no support for converting non-internal string expressions to other string expressions.
 
 # Operators
 
@@ -76,6 +115,20 @@ Fpy supports the following operators:
 * Comparison: `<, >, <=, >=, ==, !=`
 
 Each time an operator is used, an intermediate type must be picked and both args must be converted to that type.
+
+## Behavior of operators
+
+### Addition (`+`)
+### Subtraction (`-`)
+### Multiplication (`*`)
+### Division (`/`)
+### Modulo (`%`)
+### Exponentiation (`**`)
+### Floor division (`//`)
+### And (`and`)
+### Or (`or`)
+### Not (`not`)
+
 
 ## Intermediate types
 
