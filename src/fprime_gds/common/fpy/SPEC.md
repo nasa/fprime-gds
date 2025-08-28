@@ -14,7 +14,7 @@ In addition, the developer can directly refer to any displayable type defined in
 There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These include the type of integer, string and float literals. See [literals](#literals).
 
 ## Structs
-You can instantiate a new struct at runtime by calling its constructor. For example, a struct defined as
+You can instantiate a new struct at runtime by calling its constructor. A struct's constructor is a function with the same name as the type, with arguments corresponding to the type and position of the struct's members. For example, a struct defined as:
 ```
 module Fw {
     struct Example {
