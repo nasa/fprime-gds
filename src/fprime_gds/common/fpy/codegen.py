@@ -20,6 +20,7 @@ except ImportError:
 
 from fprime_gds.common.fpy.bytecode.directives import (
     BINARY_STACK_OPS,
+    NUMERIC_OPERATORS,
     UNARY_STACK_OPS,
     AllocateDirective,
     ConstCmdDirective,
@@ -176,8 +177,6 @@ FLOAT_TYPES = (
     F32Type,
     F64Type,
 )
-
-NUMERIC_OPERATORS = ["+", "-", "*", "/", "%", "**", "//"]
 
 
 # a value of type FppTypeClass is a Python `type` object representing
