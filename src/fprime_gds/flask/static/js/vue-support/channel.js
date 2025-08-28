@@ -120,6 +120,11 @@ Vue.component("channel-table", {
          * @return {boolean}
          */
         channelHider(item) {
+            // Never hide channels if all channels are null
+            let all_null = Object.values(_datastore.channels).reduce((accumulator, channel) => accumulator && channel.val == null);
+            if (all_null && this.itemsShown.length == 0) {
+                return false;
+            }
             return item.val == null
                 || item.time == null
                 || listExistsAndItemNameNotInList(this.itemsShown, item);
