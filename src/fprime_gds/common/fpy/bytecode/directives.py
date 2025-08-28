@@ -702,74 +702,96 @@ for cls in StackOpDirective.__subclasses__():
     cls.__old_repr__ = cls.__repr__
     cls.__repr__ = Directive.__repr__
 
+class UnaryStackOp(str, Enum):
+    NOT = "not"
+    IDENTITY = "+"
+    NEGATE = "-"
+
+class BinaryStackOp(str, Enum):
+    EXPONENT = "**"
+    MODULUS = "%"
+    ADD = "+"
+    SUBTRACT = "-"
+    MULTIPLY = "*"
+    DIVIDE = "/"
+    FLOOR_DIVIDE = "//"
+    GREATER_THAN = ">"
+    GREATER_THAN_OR_EQUAL = ">="
+    LESS_THAN_OR_EQUAL = "<="
+    LESS_THAN = "<"
+    EQUAL = "=="
+    NOT_EQUAL = "!="
+    OR = "or"
+    AND = "and"
+
 UNARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
-    "not": {BoolType: NotDirective},
-    "+": {},
-    "-": {},
+    UnaryStackOp.NOT: {BoolType: NotDirective},
+    UnaryStackOp.IDENTITY: {},
+    UnaryStackOp.NEGATE: {},
 }
 
 BINARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
-    "**": {F64Type: FloatExponentDirective},
-    "%": {
+    BinaryStackOp.EXPONENT: {F64Type: FloatExponentDirective},
+    BinaryStackOp.MODULUS: {
         I64Type: SignedModuloDirective,
         U64Type: UnsignedModuloDirective,
         F64Type: FloatModuloDirective,
     },
-    "+": {
+    BinaryStackOp.ADD: {
         I64Type: IntAddDirective,
         U64Type: IntAddDirective,
         F64Type: FloatAddDirective,
     },
-    "-": {
+    BinaryStackOp.SUBTRACT: {
         I64Type: IntSubtractDirective,
         U64Type: IntSubtractDirective,
         F64Type: FloatSubtractDirective,
     },
-    "*": {
+    BinaryStackOp.MULTIPLY: {
         I64Type: IntMultiplyDirective,
         U64Type: IntMultiplyDirective,
         F64Type: FloatMultiplyDirective,
     },
-    "/": {
+    BinaryStackOp.DIVIDE: {
         I64Type: SignedIntDivideDirective,
         U64Type: UnsignedIntDivideDirective,
         F64Type: FloatDivideDirective,
     },
-    "//": {
+    BinaryStackOp.FLOOR_DIVIDE: {
         I64Type: SignedIntDivideDirective,
         U64Type: UnsignedIntDivideDirective,
         F64Type: FloatFloorDivideDirective,
     },
-    ">": {
+    BinaryStackOp.GREATER_THAN: {
         I64Type: SignedGreaterThanDirective,
         U64Type: UnsignedGreaterThanDirective,
         F64Type: FloatGreaterThanDirective,
     },
-    ">=": {
+    BinaryStackOp.GREATER_THAN_OR_EQUAL: {
         I64Type: SignedGreaterThanOrEqualDirective,
         U64Type: UnsignedGreaterThanOrEqualDirective,
         F64Type: FloatGreaterThanOrEqualDirective,
     },
-    "<=": {
+    BinaryStackOp.LESS_THAN_OR_EQUAL: {
         I64Type: SignedLessThanOrEqualDirective,
         U64Type: UnsignedLessThanOrEqualDirective,
         F64Type: FloatLessThanOrEqualDirective,
     },
-    "<": {
+    BinaryStackOp.LESS_THAN: {
         I64Type: SignedLessThanDirective,
         U64Type: UnsignedLessThanDirective,
         F64Type: FloatLessThanDirective,
     },
-    "==": {
+    BinaryStackOp.EQUAL: {
         I64Type: IntEqualDirective,
         U64Type: IntEqualDirective,
         F64Type: FloatEqualDirective,
     },
-    "!=": {
+    BinaryStackOp.NOT_EQUAL: {
         I64Type: IntNotEqualDirective,
         U64Type: IntNotEqualDirective,
         F64Type: FloatNotEqualDirective,
     },
-    "or": {BoolType: OrDirective},
-    "and": {BoolType: AndDirective},
+    BinaryStackOp.OR: {BoolType: OrDirective},
+    BinaryStackOp.AND: {BoolType: AndDirective},
 }

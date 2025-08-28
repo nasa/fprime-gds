@@ -22,6 +22,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     BINARY_STACK_OPS,
     UNARY_STACK_OPS,
     AllocateDirective,
+    BinaryStackOp,
     ConstCmdDirective,
     FloatTruncateDirective,
     MemCompareDirective,
@@ -50,6 +51,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     PushValDirective,
     SignedIntToFloatDirective,
     StoreDirective,
+    UnaryStackOp,
     UnsignedIntToFloatDirective,
     WaitAbsDirective,
     WaitRelDirective,
@@ -962,12 +964,12 @@ class CalculateExprTypes(Visitor):
         self, arg_types: list[FppTypeClass], op: str
     ) -> FppTypeClass:
 
-        if op == "and" or op == "or" or op == "not":
+        if op == BinaryStackOp.AND or op == BinaryStackOp.OR or op == UnaryStackOp.NOT:
             return BoolType
 
         non_numeric = any(not issubclass(t, NumericalType) for t in arg_types)
 
-        if op == "==" or op == "!=":
+        if op == BinaryStackOp.EQUAL or op == BinaryStackOp.NOT_EQUAL:
             if non_numeric:
                 if len(set(arg_types)) != 1:
                     # can only compare equality between the same types
@@ -979,7 +981,7 @@ class CalculateExprTypes(Visitor):
             # cannot find intermediate type
             return None
 
-        if op == "/" or op == "**":
+        if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
             # always do true division over floats, python style
             return F64Type
 
@@ -1027,7 +1029,7 @@ class CalculateExprTypes(Visitor):
 
         dir = None
         if (
-            node.op == "==" or node.op == "!="
+            node.op == BinaryStackOp.EQUAL or node.op == BinaryStackOp.NOT_EQUAL
         ) and intermediate_type not in NUMERIC_TYPES:
             dir = MemCompareDirective
         else:
@@ -1473,7 +1475,7 @@ class GenerateExprMacrosAndCmds(Visitor):
             rhs_type = state.expr_types[node.rhs]
             assert lhs_type == rhs_type, (lhs_type, rhs_type)
             directives.append(dir(lhs_type.getMaxSize()))
-            if node.op == "!=":
+            if node.op == BinaryStackOp.NOT_EQUAL:
                 directives.append(NotDirective())
         else:
             directives.append(dir())
