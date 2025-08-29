@@ -19,7 +19,6 @@ except ImportError:
 from fprime_gds.common.fpy.bytecode.directives import (
     StackOpDirective,
     FloatLogDirective,
-    PrintDirective,
     Directive,
     ExitDirective,
     WaitAbsDirective,
@@ -84,26 +83,8 @@ class InternalIntType(IntegerType):
             raise CompileException(type(val))
 
 
-# this is the "internal" float type that float literals have by
-# default. it is arbitrary precision
-class InternalFloatType(FloatType):
-    @classmethod
-    def get_bits(cls):
-        raise NotImplementedError()
-
-    @staticmethod
-    def get_serialize_format():
-        raise NotImplementedError()
-
-    @classmethod
-    def validate(cls, val):
-        if not isinstance(val, float):
-            raise CompileException(type(val))
-
 InternalStringType = StringType.construct_type("InternalStringType", None)
 
-
-GENERIC_NUMERIC_TYPES = (InternalIntType, InternalFloatType)
 
 SPECIFIC_NUMERIC_TYPES = (
     U32Type,
@@ -214,34 +195,6 @@ class FpyMacro(FpyCallable):
     """a function which instantiates the macro given the argument exprs"""
 
 
-class PrintStrType(
-    StringType.construct_type("print_str_type", COMPILER_MAX_STRING_SIZE)
-):
-    def serialize(self):
-        if self.val is None:
-            raise RuntimeError(type(self))
-        if self.MAX_LENGTH is not None and len(self.val) > self.MAX_LENGTH:
-            raise RuntimeError(len(self.val), self.MAX_LENGTH)
-        return self.val.encode("utf-8") + struct.pack(">H", len(self.val))
-
-    def deserialize(self, data, offset):
-        """
-        Deserializes a string from the given data buffer.
-        """
-        try:
-            val_size = struct.unpack_from(">H", data, len(data - 2))[0]
-            # Deal with not enough data left in the buffer
-            if len(data[offset + 2 :]) < val_size:
-                msg = f"Not enough data to deserialize string data. Needed: {val_size} Left: {len(data[offset + 2:])}"
-                raise RuntimeError(msg)
-            # Deal with a string that is larger than max string
-            if self.MAX_LENGTH is not None and val_size > self.MAX_LENGTH:
-                raise RuntimeError(val_size, self.MAX_LENGTH)
-            self.val = data[offset : offset + val_size].decode("utf-8")
-        except struct.error:
-            raise RuntimeError("Not enough bytes to deserialize string length.")
-
-
 MACROS: dict[str, FpyMacro] = {
     "sleep": FpyMacro(
         NothingType,
@@ -257,7 +210,6 @@ MACROS: dict[str, FpyMacro] = {
     "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
     "exit": FpyMacro(NothingType, [("success", BoolType)], ExitDirective),
     "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
-    "print": FpyMacro(NothingType, [("msg", PrintStrType)], PrintDirective),
 }
 
 

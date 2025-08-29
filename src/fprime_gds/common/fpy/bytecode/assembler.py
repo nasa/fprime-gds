@@ -29,10 +29,13 @@ class Header:
 FOOTER_FORMAT = "!I"
 FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
 
+SCHEMA_VERSION = 2
+
 
 @dataclass
 class Footer:
     crc: int
+
 
 def serialize_directives(dirs: list[Directive], output: Path):
     output_bytes = bytes()
@@ -40,13 +43,14 @@ def serialize_directives(dirs: list[Directive], output: Path):
     for dir in dirs:
         output_bytes += dir.serialize()
 
-    header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
+    header = Header(0, 0, 0, SCHEMA_VERSION, 0, len(dirs), len(output_bytes))
     output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
 
     crc = zlib.crc32(output_bytes) % (1 << 32)
     footer = Footer(crc)
     output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
     output.write_bytes(output_bytes)
+
 
 def deserialize_directives(bytes: bytes) -> list[Directive]:
     header = Header(*struct.unpack_from(HEADER_FORMAT, bytes))
@@ -74,7 +78,7 @@ def assemble(body: AstBody) -> list[Directive]:
         else:
             assert isinstance(stmt, AstDirStmt), stmt
             directive_idx += 1
-    
+
     return []
 
 

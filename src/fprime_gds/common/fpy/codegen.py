@@ -10,7 +10,6 @@ from typing import Union, get_origin, get_args
 import zlib
 
 from fprime_gds.common.fpy.types import (
-    GENERIC_NUMERIC_TYPES,
     SPECIFIC_FLOAT_TYPES,
     SPECIFIC_INTEGER_TYPES,
     MACROS,

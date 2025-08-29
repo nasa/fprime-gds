@@ -145,8 +145,6 @@ class DirectiveId(Enum):
     MEMCMP = 65
     STACK_CMD = 66
 
-    PRINT = 67
-
 
 class Directive:
     opcode: ClassVar[DirectiveId] = DirectiveId.INVALID
@@ -271,11 +269,6 @@ class StackCmdDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STACK_CMD
 
     args_size: Union[int, U32Type]
-
-
-@dataclass
-class PrintDirective(Directive):
-    opcode: ClassVar[DirectiveId] = DirectiveId.PRINT
 
 
 @dataclass
