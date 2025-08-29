@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from pprint import pprint
+from typing import Union
 from lark.indenter import PythonIndenter
 from lark import Lark, Transformer, ast_utils, v_args
 from lark.tree import Meta
@@ -145,24 +146,24 @@ class AstExitCall(Ast):
     success: bool
 
 
-AstDirStmt = (
+AstDirStmt = Union[
     AstWaitRelCall
-    | AstWaitAbsCall
-    | AstGotoCall
-    | AstBinaryRegOpCall
-    | AstUnaryRegOpCall
-    | AstSetSerRegCall
-    | AstSetRegCall
-    | AstIfCall
-    | AstNoOpCall
-    | AstGetPrmCall
-    | AstGetTlmCall
-    | AstCmdCall
-    | AstDeserSerRegCall
-    | AstExitCall
-)
+    , AstWaitAbsCall
+    , AstGotoCall
+    , AstBinaryRegOpCall
+    , AstUnaryRegOpCall
+    , AstSetSerRegCall
+    , AstSetRegCall
+    , AstIfCall
+    , AstNoOpCall
+    , AstGetPrmCall
+    , AstGetTlmCall
+    , AstCmdCall
+    , AstDeserSerRegCall
+    , AstExitCall
+]
 
-AstStmt = AstGotoTagStmt | AstDirStmt
+AstStmt = Union[AstGotoTagStmt, AstDirStmt]
 
 
 @dataclass
