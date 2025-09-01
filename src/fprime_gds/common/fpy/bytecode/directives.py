@@ -742,7 +742,11 @@ UNARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
         U64Type: NoOpDirective,
         F64Type: NoOpDirective,
     },
-    UnaryStackOp.NEGATE: {},
+    UnaryStackOp.NEGATE: {
+        I64Type: IntMultiplyDirective,
+        U64Type: IntMultiplyDirective,
+        F64Type: FloatMultiplyDirective
+    },
 }
 
 BINARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {

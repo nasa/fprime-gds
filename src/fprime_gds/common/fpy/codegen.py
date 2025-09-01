@@ -56,7 +56,9 @@ from fprime_gds.common.fpy.bytecode.directives import (
     AllocateDirective,
     BinaryStackOp,
     ConstCmdDirective,
+    FloatMultiplyDirective,
     FloatTruncateDirective,
+    IntMultiplyDirective,
     MemCompareDirective,
     NoOpDirective,
     StackOpDirective,
@@ -64,7 +66,6 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerTruncate64To32Directive,
     IntegerTruncate64To8Directive,
     FloatLogDirective,
-    PrintDirective,
     IntegerSignedExtend16To64Directive,
     IntegerSignedExtend32To64Directive,
     IntegerSignedExtend8To64Directive,
@@ -669,7 +670,7 @@ class CalculateConstExprValues(Visitor):
             try:
                 value = self.const_coerce_type(value, coerced_type)
             except TypeException as e:
-                state.err(f"For type {literal_type.__name__}: {e}", node)
+                state.err(f"For type {coerced_type.__name__}: {e}", node)
                 return
         state.expr_values[node] = value
 
@@ -1035,6 +1036,14 @@ class GenerateExprMacrosAndCmds(Visitor):
         dir = state.stack_op_directives[node]
         # generate the actual op itself
         directives: list[Directive] = val_dirs
+
+        if node.op == UnaryStackOp.NEGATE:
+            # in this case, we also need to push -1
+            if dir == FloatMultiplyDirective:
+                directives.append(PushValDirective(F64Type(-1).serialize()))
+            elif dir == IntMultiplyDirective:
+                directives.append(PushValDirective(I64Type(-1).serialize()))
+
         directives.append(dir())
         # and convert the result of the op into the desired result of this expr
         converted_type = state.type_coercions.get(node, None)

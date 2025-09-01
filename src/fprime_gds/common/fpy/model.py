@@ -25,7 +25,6 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntMultiplyDirective,
     FloatLogDirective,
     DiscardDirective,
-    PrintDirective,
     StackCmdDirective,
     StorePrmDirective,
     StoreTlmValDirective,
@@ -777,15 +776,6 @@ class FpySequencerModel:
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs // rhs)
-
-    def handle_print(self, dir: PrintDirective):
-        if len(self.stack) < 2:
-            return DirectiveErrorCode.STACK_UNDERFLOW
-        str_len = self.pop(size=2, signed=False)
-        if len(self.stack) < str_len:
-            return DirectiveErrorCode.STACK_UNDERFLOW
-        str_bytes = self.pop(size=str_len, type=bytes)
-        print(str_bytes.decode())
 
     def handle_exit(self, dir: ExitDirective):
         if len(self.stack) < 1:
