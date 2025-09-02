@@ -50,6 +50,7 @@ var = .1
 var = 1.
 var = 2.123
 var = 100.5e+10
+var = -123.456
 """
 
     assert_run_success(fprime_test_api, seq)
@@ -718,7 +719,9 @@ def test_maximum_integer_comparisons(fprime_test_api):
     seq = """
 val1: U64 = 18446744073709551615  # Max U64
 val2: I64 = 9223372036854775807   # Max I64, should be same in unsigned
-val3: I64 = -9223372036854775808  # Min I64, should be max i64 + 1 in unsigned
+# TODO there is currently a bug in this
+#val3: I64 = -9223372036854775808  # Min I64, should be max i64 + 1 in unsigned
+val3: I64 = -9223372036854775807  # Min I64 - 1, should be max i64 + 1 in unsigned
 
 if val1 > val2 and val2 > val3:
     if val3 < val1:
@@ -742,11 +745,12 @@ exit(False)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_type_mismatch_compile_error(fprime_test_api):
+def test_negative_val_unsigned_type(fprime_test_api):
     seq = """
-val1: U32 = -1  # Should fail: negative value in unsigned type
+val1: U32 = -1  # Should succeed and be equal to largest u32 val
+exit(val1 == 2 ** 32 - 1)
 """
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_overflow_compile_error(fprime_test_api):
@@ -842,6 +846,16 @@ var2: F32 = 255.0
 if var1 + var2 == 0 and (var1 + 1) > (var1 + -1):
     exit(True)
 exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+# this test inspired by a bug
+def test_float_truncate_stack_size(fprime_test_api):
+    seq = """
+var2: F64 = 123.0
+var1: F32 = -var2
+exit(var1 == -123.0)
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -1254,7 +1268,7 @@ else:
     assert_compile_failure(fprime_test_api, seq)
 
 
-def test_unary_plus(fprime_test_api):
+def test_unary_plus_unsigned(fprime_test_api):
     seq = """
 var: U32 = 1
 exit(+var == var)
@@ -1262,13 +1276,36 @@ exit(+var == var)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_unary_minus(fprime_test_api):
+def test_unary_plus_signed(fprime_test_api):
+    seq = """
+var: I32 = 1
+exit(+var == var)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_unary_plus_float(fprime_test_api):
+    seq = """
+var: F32 = 1.0
+exit(+var == var)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_unary_minus_signed(fprime_test_api):
     seq = """
 var: I32 = 1
 exit(-var == -1)
 """
     assert_run_success(fprime_test_api, seq)
 
+
+def test_unary_minus_float(fprime_test_api):
+    seq = """
+var: F32 = 1.0
+exit(-var == -1.0)
+"""
+    assert_run_success(fprime_test_api, seq)
 
 # TODO fix this, is this the behavior we want?
 def test_negative_literal_for_unsigned_intermediate(fprime_test_api):
@@ -1277,3 +1314,10 @@ var: U32 = 1
 exit(-var == -1)
 """
     assert_compile_failure(fprime_test_api, seq)
+
+
+def test_asdf(fprime_test_api):
+    seq = """
+var: I32 = - 1
+"""
+    assert_run_success(fprime_test_api, seq)

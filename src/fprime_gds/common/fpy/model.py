@@ -473,7 +473,10 @@ class FpySequencerModel:
     def handle_feq(self, dir: FloatEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        self.push(self.pop(type=float) == self.pop(type=float))
+        rhs = self.pop(type=float)
+        lhs = self.pop(type=float)
+        print(rhs, lhs, rhs == lhs)
+        self.push(lhs == rhs)
 
     def handle_fne(self, dir: FloatNotEqualDirective):
         if len(self.stack) < 2 * WORD_SIZE:
@@ -597,8 +600,6 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_UNDERFLOW
         val_64 = self.pop(type=float)
         val_32_bytes = struct.pack(">f", val_64)
-        # pad with zeroes
-        val_32_bytes += bytes((0, 0, 0, 0))
         self.push(val_32_bytes)
 
     def handle_itrunc_64_8(self, dir: IntegerTruncate64To8Directive):
@@ -608,6 +609,7 @@ class FpySequencerModel:
         val = self.pop(type=bytes, size=8)
         val = val[-1 :]
         self.push(val)
+
     def handle_itrunc_64_16(self, dir: IntegerTruncate64To16Directive):
         if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_UNDERFLOW
@@ -615,6 +617,7 @@ class FpySequencerModel:
         val = self.pop(type=bytes, size=8)
         val = val[-2 :]
         self.push(val)
+
     def handle_itrunc_64_32(self, dir: IntegerTruncate64To32Directive):
         if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_UNDERFLOW
