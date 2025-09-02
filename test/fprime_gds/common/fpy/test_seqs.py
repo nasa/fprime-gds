@@ -9,11 +9,11 @@ from fprime_gds.common.fpy.test_helpers import (
 )
 
 
-# # define this function if you want to just use the Python fpy model
-# @pytest.fixture(name="fprime_test_api", scope="module")
-# def fprime_test_api_override():
-#     """A file-specific override that simply returns None."""
-#     return None
+# define this function if you want to just use the Python fpy model
+@pytest.fixture(name="fprime_test_api", scope="module")
+def fprime_test_api_override():
+    """A file-specific override that simply returns None."""
+    return None
 
 
 def test_simple_var(fprime_test_api):
