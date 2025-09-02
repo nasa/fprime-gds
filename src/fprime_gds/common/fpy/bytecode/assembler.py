@@ -2,13 +2,6 @@ from dataclasses import astuple, dataclass
 import struct
 import zlib
 from fprime_gds.common.fpy.bytecode.directives import Directive
-from fprime_gds.common.fpy.bytecode.parser import (
-    AstBody,
-    AstDirStmt,
-    AstGotoTagStmt,
-    parse,
-)
-import argparse
 from pathlib import Path
 
 HEADER_FORMAT = "!BBBBBHI"
@@ -67,42 +60,3 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
         idx += 1
 
     return dirs
-
-
-def assemble(body: AstBody) -> list[Directive]:
-    directive_idx = 0
-    gotos: dict[str, int] = {}
-    for stmt in body:
-        if isinstance(stmt, AstGotoTagStmt):
-            gotos[stmt.tag] = directive_idx + 1
-        else:
-            assert isinstance(stmt, AstDirStmt), stmt
-            directive_idx += 1
-
-    return []
-
-
-def main():
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("input", type=Path, help="The input .fpybc file")
-    arg_parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        required=False,
-        default=None,
-        help="The output .bin path",
-    )
-
-    args = arg_parser.parse_args()
-
-    if not args.input.exists():
-        print(f"Input file {args.input} does not exist")
-        exit(-1)
-
-    body = parse(args.input.read_text())
-    directives = assemble(body)
-    output = args.output
-    if output is None:
-        output = args.input.with_suffix(".bin")
-    serialize_directives(directives, output)

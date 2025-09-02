@@ -1264,7 +1264,16 @@ exit(+var == var)
 
 def test_unary_minus(fprime_test_api):
     seq = """
-var: U32 = 1
+var: I32 = 1
 exit(-var == -1)
 """
     assert_run_success(fprime_test_api, seq)
+
+
+# TODO fix this, is this the behavior we want?
+def test_negative_literal_for_unsigned_intermediate(fprime_test_api):
+    seq = """
+var: U32 = 1
+exit(-var == -1)
+"""
+    assert_compile_failure(fprime_test_api, seq)
