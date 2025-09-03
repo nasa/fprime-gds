@@ -39,20 +39,20 @@ The following literals are supported by Fpy:
 ## Integer literals
 Integer literals are strings matching:
 ```
-DEC_NUMBER:   "-"? "1".."9" ("_"?  "0".."9" )*
-          |   "-"? "0"      ("_"?  "0"      )* /(?![1-9])/
+DEC_NUMBER:   "1".."9" ("_"?  "0".."9" )*
+          |   "0"      ("_"?  "0"      )* /(?![1-9])/
 ```
 
-The first rule of this syntax allows for integers without leading zeroes, separated by underscores, with an optional negative sign in front. So this is okay:
+The first rule of this syntax allows for integers without leading zeroes, separated by underscores. So this is okay:
 ```
--123_456
+123_456
 ```
 but this is not:
 ```
--0123_456
+0123_456
 ```
 
-The second rule allows you to write any number of zeroes, separated by underscores, with an optional negative sign:
+The second rule allows you to write any number of zeroes, separated by underscores:
 ```
 00_000_0
 ```
