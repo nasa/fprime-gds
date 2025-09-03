@@ -80,7 +80,7 @@ class InternalIntType(IntegerType):
     @classmethod
     def validate(cls, val):
         if not isinstance(val, int):
-            raise CompileException(type(val))
+            raise RuntimeError()
 
 
 InternalStringType = StringType.construct_type("InternalStringType", None)

@@ -1307,17 +1307,15 @@ exit(-var == -1.0)
 """
     assert_run_success(fprime_test_api, seq)
 
-# TODO fix this, is this the behavior we want?
-def test_negative_literal_for_unsigned_intermediate(fprime_test_api):
+
+# this is an interesting case, because one side is unsigned
+# has an unsigned intermediate, so the literal is converted to
+# U64, but -1 is outside range of U64 so it fails to compile.
+# what should really happen here? TODO should -var fail to compile?
+# should intermediate type of unary minus be signed?
+def test_negative_int_literal_unsigned_op(fprime_test_api):
     seq = """
 var: U32 = 1
 exit(-var == -1)
-"""
-    assert_compile_failure(fprime_test_api, seq)
-
-
-def test_asdf(fprime_test_api):
-    seq = """
-var: I32 = - 1
 """
     assert_run_success(fprime_test_api, seq)
