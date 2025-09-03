@@ -10,6 +10,28 @@
  *
  * Note: fp-row is broken up such that other row implementations can inherit the base properties.
  */
+
+let headerRegex = new RegExp("&lt;h([1-6])&gt;([^&]*)&lt;/h[1-6]&gt;", "g");
+let spanRegex = new RegExp("&lt;span( title=\"[^\"]*\")?&gt;([^&]*)&lt;/span&gt;", "g");
+
+/**
+ * Replace strings keeping <h1> - <h6> and <span...> tags.
+ * @param {*} item: display item 
+ * @returns: sanitized display item
+ */
+function sanitize(item) {
+    if (typeof(item) !== "string") {
+        return item;
+    }
+    // Remove all HTML tags
+    item = item.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    // Put back in h[1-6] and span tags
+    item = item.replaceAll(headerRegex, "<h$1>$2</h$1>")
+               .replaceAll(spanRegex, "<span $1>$2</span>");
+    return item;
+}
+
+
 export let fp_row_base_component = {
     template: "#fp-row-template",
     props: {
@@ -85,7 +107,9 @@ export let fp_row_base_component = {
             if (typeof (this.itemToColumns) !== "function") {
                 throw Error("Failed to define required 'itemToColumns' function on fp-table")
             }
-            return this.itemToColumns(this.item).filter((item, index) => this.visible == null || this.visible.indexOf(index) !== -1);
+            return this.itemToColumns(this.item)
+                .map(sanitize)
+                .filter((item, index) => this.visible == null || this.visible.indexOf(index) !== -1);
         },
         /**
          * Calculates the style of the row based on a given item. This is optional and will not raise an error if the

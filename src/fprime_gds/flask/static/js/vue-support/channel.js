@@ -120,9 +120,25 @@ Vue.component("channel-table", {
          * @return {boolean}
          */
         channelHider(item) {
+            // Never hide channels if all channels are null
+            let all_null = Object.values(_datastore.channels).reduce((accumulator, channel) => accumulator && channel.val == null);
+            if (all_null && this.itemsShown.length == 0) {
+                return false;
+            }
             return item.val == null
                 || item.time == null
                 || listExistsAndItemNameNotInList(this.itemsShown, item);
+        },
+        /**
+         * Function that clears all channels
+         */
+        clearChannels() {
+            let channels = {}
+            for (let key in _dictionaries.channels) {
+                channels[key] = {id: key, time: null, datetime: null, val: null};
+            }
+            Object.assign(_datastore.channels, channels);
+            this.$refs.fptable.send([]);
         }
     }
 });

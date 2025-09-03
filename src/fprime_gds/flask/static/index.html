@@ -181,7 +181,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div class="fp-flex-header">
                         <h2>Events</h2>
                     </div>
-                    <fp-table :header-columns="['Event Time', 'Event Id', 'Event Name', 'Event Severity', 'Event Description']"
+                    <fp-table ref="fptable" :header-columns="['Event Time', 'Event Id', 'Event Name', 'Event Severity', 'Event Description']"
                         :items-key="'events'"
                         :item-to-columns="columnify"
                         :row-style="style"
@@ -206,7 +206,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div class="fp-flex-header">
                         <h2>Channels</h2>
                     </div>
-                    <fp-table :display-template="'channel-row'"
+                    <fp-table ref="fptable" :display-template="'channel-row'"
                          :header-columns="['Last Sample Time', 'Channel Id', 'Channel Name', 'Channel Value']"
                          :items-key="'channels'"
                          :item-to-columns="columnify"
@@ -214,6 +214,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                          :support-views="true"
                          :item-to-view-name="itemToName"
                          :item-hide="channelHider"
+                         :clear-rows="clearChannels"
                          :initial-fields="fields"
                          :filter-text="filterText"
                          :initial-views="itemsShown"
