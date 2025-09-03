@@ -71,7 +71,7 @@ class AstBoolean(Ast):
     value: TypingLiteral[True] | TypingLiteral[False]
 
 
-AstLiteral = AstString | AstNumber | AstBoolean
+AstLiteral = Union[AstString, AstNumber, AstBoolean]
 
 
 @dataclass
@@ -92,43 +92,29 @@ class AstFuncCall(Ast):
     args: list["AstExpr"] | None
 
 
-@dataclass
-class AstInfixOp(Ast):
-    value: str
-
-
 @dataclass()
 class AstPass(Ast):
     pass
 
-
 @dataclass
-class AstComparison(Ast):
-    lhs: "AstExpr"
-    op: AstInfixOp
-    rhs: "AstExpr"
-
-
-@dataclass
-class AstNot(Ast):
-    value: "AstExpr"
+class AstBinaryOp(Ast):
+    lhs: AstExpr
+    op: str
+    rhs: AstExpr
 
 
 @dataclass
-class AstAnd(Ast):
-    values: list["AstExpr"]
+class AstUnaryOp(Ast):
+    op: str
+    val: AstExpr
 
 
-@dataclass
-class AstOr(Ast):
-    values: list["AstExpr"]
+AstOp = Union[AstBinaryOp, AstUnaryOp]
 
-
-AstTest = AstOr | AstAnd | AstNot | AstComparison
-
-
-AstReference = AstGetAttr | AstGetItem | AstVar
-AstExpr = Union[AstFuncCall, AstTest, AstLiteral, AstReference]
+AstReference = Union[AstGetAttr, AstGetItem, AstVar]
+AstExpr = Union[
+    AstFuncCall, AstLiteral, AstReference, AstOp
+]
 
 
 @dataclass
@@ -165,9 +151,14 @@ class AstBody(Ast):
     stmts: list[AstStmt]
 
 
+@dataclass
+class AstScopedBody(Ast):
+    stmts: list[AstStmt]
+
+
 for cls in Ast.__subclasses__():
     cls.__hash__ = Ast.__hash__
-    # cls.__repr__ = Ast.__repr__
+    cls.__repr__ = Ast.__repr__
 
 
 @v_args(meta=False, inline=False)
@@ -204,7 +195,7 @@ def handle_str(meta, s: str):
 
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
-    input = no_inline(AstBody)
+    input = no_inline(AstScopedBody)
     pass_stmt = AstPass
 
     assign = AstAssign
@@ -213,11 +204,8 @@ class FpyTransformer(Transformer):
     elifs = no_inline(AstElifs)
     elif_ = AstElif
     body = no_inline(AstBody)
-    or_test = no_inline(AstOr)
-    and_test = no_inline(AstAnd)
-    not_test = AstNot
-    comparison = AstComparison
-    comp_op = AstInfixOp
+    binary_op = AstBinaryOp
+    unary_op = AstUnaryOp
 
     func_call = AstFuncCall
     arguments = no_inline_or_meta(list)
@@ -237,3 +225,10 @@ class FpyTransformer(Transformer):
     STRING = handle_str
     CONST_TRUE = lambda a, b: True
     CONST_FALSE = lambda a, b: False
+    ADD_OP: str
+    SUB_OP: str
+    DIV_OP: str
+    MUL_OP: str
+    FLOOR_DIV_OP: str
+    MOD_OP: str
+    POW_OP: str

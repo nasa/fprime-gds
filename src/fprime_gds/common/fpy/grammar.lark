@@ -31,13 +31,36 @@ _expr: _test
 
 # logical tests
 _test: or_test
-?or_test: and_test ("or" and_test)*
-?and_test: not_test_ ("and" not_test_)*
-?not_test_: "not" not_test_ -> not_test
+
+?or_test: or_test OR_OP and_test -> binary_op
+        | and_test
+
+?and_test: and_test AND_OP not_test -> binary_op
+         | not_test
+
+?not_test: NOT_OP not_test -> unary_op
           | comparison
-          | atom
-comparison: atom comp_op atom
-comp_op: COMPARISON_OP
+
+# all comparisons have same precedence
+?comparison: comparison COMPARISON_OP sum -> binary_op
+           | sum
+
+?sum: sum ADD_OP term -> binary_op
+    | sum SUB_OP term -> binary_op
+    | term
+
+?term: term MUL_OP factor -> binary_op
+     | term DIV_OP factor -> binary_op
+     | term FLOOR_DIV_OP factor -> binary_op
+     | term MOD_OP factor -> binary_op
+     | factor
+
+?factor: ADD_OP factor -> unary_op # unary plus (identity)
+       | SUB_OP factor -> unary_op # unary minus (negation)
+       | power
+
+?power: atom POW_OP factor -> binary_op
+      | atom
 
 arguments: _expr ("," _expr)*
 
@@ -76,13 +99,25 @@ NAME: /[^\W\d]\w*/
 COMMENT: /#[^\n]*/
 CONST_TRUE: "True"
 CONST_FALSE: "False"
+ADD_OP: "+"
+SUB_OP: "-"
+DIV_OP: "/"
+MUL_OP: "*"
+FLOOR_DIV_OP: "//"
+MOD_OP: "%"
+POW_OP: "**"
+OR_OP: "or"
+AND_OP: "and"
+NOT_OP: "not"
 COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 
+DEC_NUMBER:   "1".."9"        ("_"?  "0".."9"                       )*
+          |   "0"             ("_"?  "0"                            )* /(?![1-9])/
+
 _SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
-DEC_NUMBER:   "-"? "1".."9"        ("_"?  "0".."9"                       )*
-          |   "-"? "0"             ("_"?  "0"                            )* /(?![1-9])/
 
 DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
-FLOAT_NUMBER.2: "-"? _SPECIAL_DEC DECIMAL ["e" ["-"] _SPECIAL_DEC]
+_EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
+FLOAT_NUMBER.2: _SPECIAL_DEC _EXP | DECIMAL _EXP?

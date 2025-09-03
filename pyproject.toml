@@ -66,7 +66,8 @@ fprime-seqgen = "fprime_gds.common.tools.seqgen:main"
 fprime-dp-write = "fprime_gds.executables.data_product_writer:main"
 fprime-gds = "fprime_gds.executables.run_deployment:main"
 fprime-prm-write = "fprime_gds.common.tools.params:main"
-fprime-fpyc = "fprime_gds.common.fpy.main:main"
+fprime-fpyc = "fprime_gds.common.fpy.main:compile_main"
+fprime-fpy-model = "fprime_gds.common.fpy.main:model_main"
 fprime-merge-dictionary = "fprime_gds.executables.dictionary_merge:main"
 
 # For Pytest fixtures
