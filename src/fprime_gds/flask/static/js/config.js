@@ -22,5 +22,13 @@ export let config = {
         default: 1000
     },
     // Summary counter fields containing object of field: bootstrap class
-    summaryFields: {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"}
+    summaryFields: {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"},
+
+    // Dashboards are a security vulnerability in that users are uploading artifacts that trigger
+    // arbitrary rendering and code execution. This is explained in more detail here:
+    //     https://v2.vuejs.org/v2/guide/security#Rule-No-1-Never-Use-Non-trusted-Templates
+    //
+    // Thus dashboards are disabled by default and projects must opt-in thus taking the responsibility
+    // to validate and review the safety of the dashboards they use.
+    enableDashboards: false
 };
