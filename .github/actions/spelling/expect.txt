@@ -85,7 +85,7 @@ deframed
 deframer
 deframing
 DEPRECATEDLIST
-deser
+DESER
 Deserial
 deserializes
 dests
@@ -281,6 +281,7 @@ paramdb
 passthrough
 pb
 pdflatex
+pemdas
 PERLMOD
 pkts
 plainnat
@@ -319,6 +320,7 @@ recuring
 recvd
 recvs
 reder
+referenceable
 removeit
 reqparse
 riverbankcomputing

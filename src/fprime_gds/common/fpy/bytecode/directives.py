@@ -238,7 +238,7 @@ class Directive:
 
             # if one of the members of the union was a sub of basetype
             if base_type is not None:
-                # deserialize using that basetype and add to argvalue list
+                # deserialize using that basetype and add to arg value list
                 instance = base_type()
                 instance.deserialize(args, arg_offset)
                 arg_values.append(instance.val)

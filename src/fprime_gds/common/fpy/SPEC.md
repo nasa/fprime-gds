@@ -57,7 +57,7 @@ The second rule allows you to write any number of zeroes, separated by underscor
 00_000_0
 ```
 
-Integer literals have a internal type *Int*, which is not directly referencable by the user. The *Int* type supports integers of arbitrary size.
+Integer literals have a internal type *Int*, which is not directly referenceable by the user. The *Int* type supports integers of arbitrary size.
 
 ## Float literals
 Float literals are strings matching:
@@ -93,7 +93,7 @@ String literals are strings matching:
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 ```
 
-They have a internal type *String*, which is not accessible to the user. The *String* type supports strings of arbitrary length.
+They have a internal type *String*, which is not directly referenceable by the user. The *String* type supports strings of arbitrary length.
 
 # Functions
 Functions have arguments and a return type. You can call a function like:
