@@ -55,6 +55,7 @@ def main():
             fprime_gds.executables.cli.MiddleWareParser,
             fprime_gds.executables.cli.CommParser,
             fprime_gds.executables.cli.PluginArgumentParser,
+            fprime_gds.executables.cli.DictionaryParser,
         ],
         description="F prime communications layer.",
         client=True,

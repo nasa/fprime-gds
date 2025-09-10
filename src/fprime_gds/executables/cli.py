@@ -318,7 +318,6 @@ class ConfigDrivenParser(ParserBase):
 
     DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
 
-
     @classmethod
     def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
@@ -417,7 +416,7 @@ class ConfigDrivenParser(ParserBase):
                     relative_base = args.config.parent.absolute()
 
                     def path_constructor(loader, node):
-                        """ Processes !PATH annotations as relative to current file """
+                        """Processes !PATH annotations as relative to current file"""
                         calculated_path = relative_base / loader.construct_scalar(node)
                         return calculated_path
 

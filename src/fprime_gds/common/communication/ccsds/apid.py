@@ -1,6 +1,5 @@
 """ccsds.apid: APID mapping functions for F´ data"""
 
-from typing import Type
 from fprime_gds.common.utils.data_desc_type import DataDescType
 from fprime.common.models.serialize.numerical_types import NumericalType
 
@@ -16,9 +15,9 @@ class APID(object):
         return data_type.value
 
     @classmethod
-    def from_data(cls, data, packet_descriptor_type: Type[NumericalType]):
+    def from_data(cls, data, packet_descriptor_type: NumericalType):
         """Map from data bytes to APID"""
         print(f"Packet Descriptor Type: {packet_descriptor_type}")
-        desc_type = packet_descriptor_type()
+        desc_type = packet_descriptor_type
         desc_type.deserialize(data, offset=0)
         return cls.from_type(DataDescType(desc_type.val))

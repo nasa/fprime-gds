@@ -37,10 +37,6 @@ class SpacePacketFramerDeframer(FramerDeframer):
         self.packet_descriptor_type = ConfigManager.get_instance().get_type(
             "FwPacketDescriptorType"
         )
-        import traceback
-
-        traceback.print_stack()
-        print(f"Framer: Packet Descriptor Type: {self.packet_descriptor_type}")
 
     def frame(self, data):
         """Frame the supplied data in Space Packet"""

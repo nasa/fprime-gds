@@ -47,7 +47,7 @@ class FramerDeframer(abc.ABC):
         self, data: bytes, no_copy=False
     ) -> tuple[(bytes | None), bytes, bytes]:
         """
-        Deframes the incoming data from the specified format. 
+        Deframes the incoming data from the specified format.
         Produces:
         - One packet, or None if no packet found
         - leftover bytes (not consumed yet)
@@ -80,7 +80,7 @@ class FramerDeframer(abc.ABC):
             # Deframe and return only on None
             (deframed, data, discarded) = self.deframe(data, no_copy=True)
             discarded_aggregate += discarded
-            if deframed is None: # No more packets available, return aggregate
+            if deframed is None:  # No more packets available, return aggregate
                 return packets, data, discarded_aggregate
             packets.append(deframed)
 
