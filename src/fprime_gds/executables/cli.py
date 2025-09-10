@@ -318,6 +318,7 @@ class ConfigDrivenParser(ParserBase):
 
     DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
 
+
     @classmethod
     def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
