@@ -56,7 +56,8 @@ def pytest_addoption(parser):
     parser.addoption(
         "--deployment-config",
         action="store",
-        help="Path to JSON configuration file for mapping deployment components"
+        type=Path,
+        help="Path to JSON configuration file for mapping deployment components",
     )
 
 def pytest_configure(config):
