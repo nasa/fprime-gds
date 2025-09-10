@@ -17,7 +17,5 @@ class APID(object):
     @classmethod
     def from_data(cls, data, packet_descriptor_type: NumericalType):
         """Map from data bytes to APID"""
-        print(f"Packet Descriptor Type: {packet_descriptor_type}")
-        desc_type = packet_descriptor_type
-        desc_type.deserialize(data, offset=0)
-        return cls.from_type(DataDescType(desc_type.val))
+        packet_descriptor_type.deserialize(data, offset=0)
+        return cls.from_type(DataDescType(packet_descriptor_type.val))
