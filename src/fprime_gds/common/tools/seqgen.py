@@ -24,6 +24,8 @@ from fprime_gds.common.data_types.cmd_data import CmdData, CommandArgumentsExcep
 from fprime_gds.common.encoders.seq_writer import SeqBinaryWriter
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.parsers.seq_file_parser import SeqFileParser
+from fprime_gds.executables.cli import DictionaryParser, ParserBase
+from typing import Any, Dict, Tuple
 
 __author__ = "Tim Canham"
 __version__ = "1.0"
@@ -77,9 +79,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
             try:
                 if mnemonic not in cmd_name_dict:
                     msg = f"Line {i + 1}: '{mnemonic}' does not match any command in the command dictionary."
-                    raise SeqGenException(
-                        msg
-                    )
+                    raise SeqGenException(msg)
                 # Set the command arguments:
                 try:
                     cmd_time = TimeType(
@@ -95,9 +95,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
                     )
                 except CommandArgumentsException as e:
                     msg = f"Line {i + 1}: {mnemonic} errored: {','.join(e.errors)}"
-                    raise SeqGenException(
-                        msg
-                    )
+                    raise SeqGenException(msg)
                 command_list.append(cmd_data)
             except SeqGenException as exc:
                 if not cont:
@@ -116,9 +114,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
         writer.open(outputFile)
     except:
         msg = f"Encountered problem opening output file '{outputFile}'."
-        raise SeqGenException(
-            msg
-        )
+        raise SeqGenException(msg)
 
     writer.write(command_list)
     writer.close()
@@ -127,59 +123,58 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
 help_text = "seqgen.py -d"
 
 
+class SeqGenParser(ParserBase):
+    """Parser for deployments"""
+
+    DESCRIPTION = "Seqgen options"
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """Arguments to handle deployments"""
+        return {
+            ("sequence",): {"help": "Path to input sequence file"},
+            ("output",): {
+                "nargs": "?",
+                "help": "Path to output binary file",
+                "default": None,
+            },
+            ("-t", "--timebase"): {
+                "dest": "timebase",
+                "help": "Set base path to generated command/telemetry definition files [default: any]",
+                "default": None,
+            },
+        }
+
+    def handle_arguments(self, args, **kwargs):
+        """Handle arguments as parsed"""
+        return args
+
+
 def main():
     """
     The main program if run from the command line. Note that this file can also be used
     as a module by calling the generateSequence() function
     """
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "sequence", action="store", type=str, help="Path to input sequence file"
-    )
-    parser.add_argument(
-        "output",
-        action="store",
-        nargs="?",
-        type=str,
-        help="Path to output binary file",
-        default=None,
+    # Parse and handle arguments, including SeqGen options and loading the dictionary into config
+    args, _ = ParserBase.parse_args(
+        [SeqGenParser, DictionaryParser],
+        description="F prime SeqGen layer.",
+        client=True,
     )
 
-    parser.add_argument(
-        "-d",
-        "--dictionary",
-        dest="dictionary",
-        action="store",
-        type=str,
-        required=True,
-        help="JSON Dictionary file name",
-    )
-    parser.add_argument(
-        "-t",
-        "--timebase",
-        dest="timebase",
-        action="store",
-        type=str,
-        default=None,
-        help="Set base path to generated command/telemetry definition files [default: any]",
-    )
-
-    opts = parser.parse_args()
-
-    if opts.timebase is None:
+    if args.timebase is None:
         timebase = 0xFFFF
     else:
         try:
-            timebase = int(opts.timebase, 0)
+            timebase = int(args.timebase, 0)
         except ValueError:
-            print(f"Could not parse time base {opts.timebase}")
+            print(f"Could not parse time base {args.timebase}")
             return 1
 
-    inputfile = opts.sequence
-    outputfile = opts.output
+    inputfile = args.sequence
+    outputfile = args.output
     try:
-        generateSequence(inputfile, outputfile, opts.dictionary, timebase)
+        generateSequence(inputfile, outputfile, args.dictionary, timebase)
     except SeqGenException as e:
         print(e.getMsg())
         return 1
