@@ -318,7 +318,6 @@ class ConfigDrivenParser(ParserBase):
 
     DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
 
-
     @classmethod
     def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
@@ -1131,6 +1130,7 @@ class CommParser(CompositeParser):
         CommExtraParser,
         MiddleWareParser,
         LogDeployParser,
+        DictionaryParser,  # needed to get types from dictionary for framing
     ]
 
     def __init__(self):
