@@ -76,11 +76,15 @@ def run_seq(
 
     deserialized_dirs = deserialize_directives(Path(file.name).read_bytes())
 
-    model = FpySequencerModel()
     ch_json_dict_loader = ChJsonLoader(dictionary)
     (ch_id_dict, ch_name_dict, versions) = ch_json_dict_loader.construct_dicts(
         dictionary
     )
+    cmd_json_dict_loader = CmdJsonLoader(dictionary)
+    (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
+        dictionary
+    )
+    model = FpySequencerModel(cmd_dict=cmd_id_dict)
     tlm_db = {}
     for chan_name, val in tlm.items():
         ch_template = ch_name_dict[chan_name]

@@ -70,8 +70,10 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerSignedExtend8To64Directive,
     IntegerTruncate64To16Directive,
     IntegerTruncate64To32Directive,
-    IntegerTruncate64To8Directive
+    IntegerTruncate64To8Directive,
 )
+from fprime_gds.common.templates.cmd_template import CmdTemplate
+from fprime.common.models.serialize.type_base import BaseType
 
 debug = True
 
@@ -109,10 +111,13 @@ class DirectiveErrorCode(Enum):
 
 class FpySequencerModel:
 
-    def __init__(self, stack_size=4096) -> None:
+    def __init__(
+        self, stack_size=4096, cmd_dict: dict[int, CmdTemplate] = None
+    ) -> None:
         self.stack = bytearray()
         self.max_stack_size = stack_size
         self.stack_frame_start = 0
+        self.cmd_dict = cmd_dict
 
         self.dirs: list[Directive] = None
         self.next_dir_idx = 0
@@ -253,6 +258,26 @@ class FpySequencerModel:
         else:
             assert False, type
 
+    def validate_cmd(self, opcode: int, args: bytes) -> bool:
+        if self.cmd_dict is None:
+            # the user didn't load a command dictionary, just ignore verifying cmds
+            return True
+
+        if opcode not in self.cmd_dict:
+            print("invalid opcode", opcode)
+            return False
+
+        cmd = self.cmd_dict[opcode]
+        offset = 0
+        for arg in cmd.arguments:
+            arg_name, arg_desc, arg_type = arg
+            arg_type: type[BaseType]
+            arg_value = arg_type()
+            arg_value.deserialize(args, offset)
+            offset += arg_value.getSize()
+
+        return offset == len(args)
+
     def handle_allocate_stack(self, dir: AllocateDirective):
         if len(self.stack) + dir.size > self.max_stack_size:
             return DirectiveErrorCode.STACK_OVERFLOW
@@ -322,6 +347,8 @@ class FpySequencerModel:
     def handle_const_cmd(self, dir: ConstCmdDirective):
         print("cmd opcode", dir.cmd_opcode, "args", dir.args)
         # always push CmdResponse.OK
+        if not self.validate_cmd(dir.cmd_opcode, dir.args):
+            raise RuntimeError("Invalid cmd")
         self.push(0, size=4)
 
     def handle_stack_cmd(self, dir: StackCmdDirective):
@@ -330,13 +357,16 @@ class FpySequencerModel:
 
         cmd = self.stack[-(dir.args_size + 4) :]
         self.stack = self.stack[: -(dir.args_size + 4)]
+        opcode = int.from_bytes(cmd[-4:], signed=False, byteorder="big")
 
         print(
             "cmd opcode",
-            int.from_bytes(cmd[-4:], signed=False, byteorder="big"),
+            opcode,
             "args",
             cmd[:-4],
         )
+        if not self.validate_cmd(opcode, cmd[:-4]):
+            raise RuntimeError("Invalid cmd")
         # always push CmdResponse.OK
         self.push(0, size=4)
 
@@ -607,7 +637,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
         val = self.pop(type=bytes, size=8)
-        val = val[-1 :]
+        val = val[-1:]
         self.push(val)
 
     def handle_itrunc_64_16(self, dir: IntegerTruncate64To16Directive):
@@ -615,7 +645,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
         val = self.pop(type=bytes, size=8)
-        val = val[-2 :]
+        val = val[-2:]
         self.push(val)
 
     def handle_itrunc_64_32(self, dir: IntegerTruncate64To32Directive):
@@ -623,7 +653,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
         val = self.pop(type=bytes, size=8)
-        val = val[-4 :]
+        val = val[-4:]
         self.push(val)
 
     def handle_fptosi(self, dir: FloatToSignedIntDirective):
@@ -792,7 +822,7 @@ class FpySequencerModel:
     def handle_memcmp(self, dir: MemCompareDirective):
         if len(self.stack) < dir.size * 2:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        
+
         rhs = self.pop(type=bytes, size=dir.size)
         lhs = self.pop(type=bytes, size=dir.size)
         print(rhs, lhs)
