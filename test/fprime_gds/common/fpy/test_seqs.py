@@ -1319,3 +1319,13 @@ var: U32 = 1
 exit(-var == -1)
 """
     assert_run_success(fprime_test_api, seq)
+
+
+def test_multi_arg_vararg_cmd(fprime_test_api):
+    seq = """
+var1: I32 = 1
+var2: F32 = 1.0
+var3: U8 = 8
+CdhCore.cmdDisp.CMD_TEST_CMD_1(var1, var2, var3)
+"""
+    assert_run_success(fprime_test_api, seq)
