@@ -1002,8 +1002,12 @@ class GenerateExprMacrosAndCmds(Visitor):
         # generate the actual op itself
         directives: list[Directive] = lhs_dirs + rhs_dirs
         if dir == MemCompareDirective:
-            lhs_type = state.expr_types[node.lhs]
-            rhs_type = state.expr_types[node.rhs]
+            lhs_type = state.type_coercions.get(node.lhs, None)
+            if lhs_type is None:
+                lhs_type = state.expr_types[node.lhs]
+            rhs_type = state.type_coercions.get(node.rhs, None)
+            if rhs_type is None:
+                rhs_type = state.expr_types[node.rhs]
             assert lhs_type == rhs_type, (lhs_type, rhs_type)
             directives.append(dir(lhs_type.getMaxSize()))
             if node.op == BinaryStackOp.NOT_EQUAL:
@@ -1078,7 +1082,10 @@ class GenerateExprMacrosAndCmds(Visitor):
                     node_dirs = state.directives[arg_node]
                     assert len(node_dirs) >= 1
                     dirs.extend(node_dirs)
-                    arg_byte_count = state.expr_types[arg_node].getMaxSize()
+                    converted_type = state.type_coercions.get(arg_node, None)
+                    if converted_type is None:
+                        converted_type = state.expr_types[arg_node]
+                    arg_byte_count += converted_type.getMaxSize()
                 # then push cmd opcode to stack as u32
                 dirs.append(
                     PushValDirective(U32Type(func.cmd.get_op_code()).serialize())
