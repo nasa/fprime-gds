@@ -1321,7 +1321,7 @@ exit(-var == -1)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_multi_arg_vararg_cmd(fprime_test_api):
+def test_multi_arg_variable_arg_cmd(fprime_test_api):
     seq = """
 var1: I32 = 1
 var2: F32 = 1.0
