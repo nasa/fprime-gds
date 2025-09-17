@@ -1286,53 +1286,6 @@ class GenerateBodyDirectives(Visitor):
 
         state.directives[node] = dirs
 
-
-HEADER_FORMAT = "!BBBBBHI"
-HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
-
-
-@dataclass
-class Header:
-    majorVersion: int
-    minorVersion: int
-    patchVersion: int
-    schemaVersion: int
-    argumentCount: int
-    statementCount: int
-    bodySize: int
-
-
-FOOTER_FORMAT = "!I"
-FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
-
-
-@dataclass
-class Footer:
-    crc: int
-
-
-def serialize_directives(dirs: list[Directive], output: Path):
-    output_bytes = bytes()
-
-    for dir in dirs:
-        dir_bytes = dir.serialize()
-        if len(dir_bytes) > MAX_DIRECTIVE_SIZE:
-            raise CompileException(
-                f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})",
-                None,
-            )
-        output_bytes += dir_bytes
-
-    header = Header(0, 0, 0, 1, 0, len(dirs), len(output_bytes))
-    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
-
-    crc = zlib.crc32(output_bytes) % (1 << 32)
-    footer = Footer(crc)
-    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
-
-    output.write_bytes(output_bytes)
-
-
 def get_base_compile_state(dictionary: str) -> CompileState:
     """return the initial state of the compiler, based on the given dict path"""
     cmd_json_dict_loader = CmdJsonLoader(dictionary)

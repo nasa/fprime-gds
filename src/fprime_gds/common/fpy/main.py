@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from fprime_gds.common.fpy.bytecode.assembler import deserialize_directives
+from fprime_gds.common.fpy.types import deserialize_directives
 import fprime_gds.common.fpy.model 
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse
