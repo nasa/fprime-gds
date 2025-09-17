@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC
 import inspect
 from dataclasses import astuple, dataclass, field, fields
+from pathlib import Path
 import struct
 import traceback
 import typing
