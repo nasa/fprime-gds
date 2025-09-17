@@ -27,7 +27,10 @@ def compile_main(args: list[str]=None):
         help="The FPrime dictionary .json file",
     )
 
-    args = arg_parser.parse_args(args if args is not None else sys.argv)
+    if args is not None:
+        args = arg_parser.parse_args(args)
+    else:
+        args = arg_parser.parse_args()
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
@@ -47,7 +50,10 @@ def model_main(args: list[str]=None):
     arg_parser.add_argument("input", type=Path, help="The input .bin file")
     arg_parser.add_argument("--verbose", "-v", action="store_true", help="Whether or not to print stack during sequence execution")
 
-    args = arg_parser.parse_args(args if args is not None else sys.argv)
+    if args is not None:
+        args = arg_parser.parse_args(args)
+    else:
+        args = arg_parser.parse_args()
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
