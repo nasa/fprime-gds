@@ -594,6 +594,9 @@ class Footer:
 def deserialize_directives(bytes: bytes) -> list[Directive]:
     header = Header(*struct.unpack_from(HEADER_FORMAT, bytes))
 
+    if header.schemaVersion != SCHEMA_VERSION:
+        raise RuntimeError(f"Schema version wrong (expected {SCHEMA_VERSION} found {header.schemaVersion})")
+
     dirs = []
     idx = 0
     offset = HEADER_SIZE
@@ -604,6 +607,9 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
         offset, dir = offset_and_dir
         dirs.append(dir)
         idx += 1
+
+    if offset != len(bytes) - FOOTER_SIZE:
+        raise RuntimeError(f"{len(bytes) - FOOTER_SIZE - offset} extra bytes at end of sequence")
 
     return dirs
 
