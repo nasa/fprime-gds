@@ -141,6 +141,10 @@ from fprime_gds.common.fpy.parser import (
 from fprime.common.models.serialize.type_base import BaseType as FppType
 
 
+# compiler debug flag
+debug = False
+
+
 class AssignIds(TopDownVisitor):
     """assigns a unique id to each node to allow it to be indexed in a dict"""
 
@@ -1459,13 +1463,20 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
     for compile_pass in passes:
         compile_pass.run(body, state)
         for error in state.errors:
-            raise error
+            if debug:
+                raise error
+            print(error)
+            exit(1)
 
     dirs = state.directives[body]
     if len(dirs) > MAX_DIRECTIVES_COUNT:
-        raise CompileException(
-            f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})",
-            None,
-        )
+        msg = f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"
+        if debug:
+            raise CompileException(
+                msg,
+                None,
+            )
+        print(msg)
+        exit(1)
 
     return dirs

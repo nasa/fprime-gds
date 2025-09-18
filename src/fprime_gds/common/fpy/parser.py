@@ -6,12 +6,18 @@ from lark.indenter import PythonIndenter
 from lark import Lark, Transformer, v_args
 from lark.tree import Meta
 
+
+# the number of lines to show around a compiler error
+COMPILER_ERROR_CONTEXT_LINE_COUNT = 1
+
 fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
 
 input_text = None
+input_lines = None
+file_name = None
 
 
-def parse(text: str):
+def parse(text: str, input_file_name: str=None):
     parser = Lark(
         fpy_grammar_str,
         start="input",
@@ -21,8 +27,10 @@ def parse(text: str):
         maybe_placeholders=True,
     )
 
-    global input_text
+    global input_text, input_lines, file_name
+    file_name = input_file_name
     input_text = text
+    input_lines = text.splitlines()
     tree = parser.parse(text, on_error=lambda x: print("Error"))
     transformed = FpyTransformer().transform(tree)
     return transformed
@@ -38,11 +46,17 @@ class Ast:
         if not hasattr(self.meta, "start_pos"):
             self.node_text = ""
             return
-        self.node_text = (
-            input_text[self.meta.start_pos : self.meta.end_pos]
-            .replace("\n", " ")
-            .strip()
+        self.node_text = input_text[self.meta.start_pos : self.meta.end_pos]
+        # save some context around this node so we can print it out as an error later
+        self.context_start_line = self.meta.line - 1 - COMPILER_ERROR_CONTEXT_LINE_COUNT
+        self.context_start_line = max(0, self.context_start_line)
+        self.context_end_line = (
+            self.meta.end_line - 1 + COMPILER_ERROR_CONTEXT_LINE_COUNT
         )
+        self.context_end_line = min(len(input_lines), self.context_end_line)
+        self.node_context = input_lines[
+            self.context_start_line : self.context_end_line + 1
+        ]
 
     def __hash__(self):
         return hash(self.id)
@@ -96,6 +110,7 @@ class AstFuncCall(Ast):
 class AstPass(Ast):
     pass
 
+
 @dataclass
 class AstBinaryOp(Ast):
     lhs: AstExpr
@@ -112,9 +127,7 @@ class AstUnaryOp(Ast):
 AstOp = Union[AstBinaryOp, AstUnaryOp]
 
 AstReference = Union[AstGetAttr, AstGetItem, AstVar]
-AstExpr = Union[
-    AstFuncCall, AstLiteral, AstReference, AstOp
-]
+AstExpr = Union[AstFuncCall, AstLiteral, AstReference, AstOp]
 
 
 @dataclass
@@ -188,6 +201,7 @@ def no_meta(type):
         return type(tree)
 
     return wrapper
+
 
 def handle_str(meta, s: str):
     return s.strip("'").strip('"')

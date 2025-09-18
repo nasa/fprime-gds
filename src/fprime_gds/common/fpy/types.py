@@ -16,6 +16,7 @@ try:
 except ImportError:
     UNION_TYPES = (Union,)
 
+import fprime_gds.common.fpy.codegen
 from fprime_gds.common.fpy.bytecode.directives import (
     StackOpDirective,
     FloatLogDirective,
@@ -53,6 +54,7 @@ from fprime_gds.common.fpy.parser import (
     Ast,
     AstAssign,
 )
+import fprime_gds.common.fpy.parser
 from fprime.common.models.serialize.type_base import BaseType as FppType
 
 MAX_DIRECTIVES_COUNT = 1024
@@ -166,6 +168,9 @@ class NothingType(ABC):
 NothingTypeClass = type[NothingType]
 
 
+COMPILER_ERROR_CODE_CONTEXT_PREFIX = "|" + " " * 4
+
+
 class CompileException(BaseException):
     def __init__(self, msg, node: Ast):
         self.msg = msg
@@ -173,9 +178,31 @@ class CompileException(BaseException):
         self.stack_trace = "\n".join(traceback.format_stack(limit=8)[:-1])
 
     def __str__(self):
+        stack_trace_optional = (
+            f"{self.stack_trace}\n" if fprime_gds.common.fpy.codegen.debug else ""
+        )
+        file_name = fprime_gds.common.fpy.parser.file_name
+        file_name_optional = f"{file_name}" if file_name is not None else ""
+
+        # indent in the node text to differentiate from compiler output msg
+        node_lines = [line for idx, line in enumerate(self.node.node_text.splitlines())]
+
+        if len(node_lines) > 1:
+            # it's a multiline node. don't try to highlight the whole thing
+            # just print the err and the offending text
+            return f"{stack_trace_optional}At lines {self.node.meta.line}-{self.node.meta.end_line}:\n{self.node.node_text}"
+
+        context = self.node.node_context
+        node_start_line_in_ctx = self.node.meta.line - 1 - self.node.context_start_line
+        error_highlight = " " * (self.node.meta.column - 1) + "^" * (
+            self.node.meta.end_column - self.node.meta.column
+        )
+        context.insert(node_start_line_in_ctx + 1, error_highlight)
+        result = "\n".join(context)
+
         if self.node is not None:
-            return f'{self.stack_trace}\nAt line {self.node.meta.line} "{self.node.node_text}": {self.msg}'
-        return f"{self.stack_trace}\n{self.msg}"
+            return f"{stack_trace_optional}{result}"
+        return f"{stack_trace_optional}\n{self.msg}"
 
 
 @dataclass

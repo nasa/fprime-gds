@@ -2,10 +2,11 @@ import argparse
 from pathlib import Path
 
 from fprime_gds.common.fpy.bytecode.assembler import deserialize_directives
-import fprime_gds.common.fpy.model 
+import fprime_gds.common.fpy.model
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.fpy.codegen import compile, serialize_directives
+import fprime_gds.common.fpy.codegen
 
 
 def compile_main():
@@ -26,8 +27,17 @@ def compile_main():
         required=True,
         help="The FPrime dictionary .json file",
     )
+    arg_parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Pass this to print out compiler debugging information",
+    )
 
     args = arg_parser.parse_args()
+
+    if args.debug:
+        fprime_gds.common.fpy.codegen.debug = True
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
@@ -45,7 +55,11 @@ def compile_main():
 def model_main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .bin file")
-    arg_parser.add_argument("--verbose", "-v", action="store_true", help="Whether or not to print stack during sequence execution")
+    arg_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Whether or not to print debug info during sequence execution",
+    )
 
     args = arg_parser.parse_args()
 
@@ -53,7 +67,7 @@ def model_main():
         print(f"Input file {args.input} does not exist")
         exit(-1)
 
-    if args.verbose:
+    if args.debug:
         fprime_gds.common.fpy.model.debug = True
 
     directives = deserialize_directives(args.input.read_bytes())
