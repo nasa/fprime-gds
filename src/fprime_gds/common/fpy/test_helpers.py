@@ -2,12 +2,10 @@ import ast
 from pathlib import Path
 import tempfile
 import traceback
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.numerical_types import U32Type, U8Type
-from fprime_gds.common.fpy.bytecode.assembler import deserialize_directives
+from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.bytecode.directives import Directive
-from fprime_gds.common.fpy.codegen import compile, serialize_directives
+from fprime_gds.common.fpy.main import compile_main
 from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -26,11 +24,15 @@ default_dictionary = str(
 
 
 def compile_seq(fprime_test_api, seq: str) -> list[Directive]:
-    return compile(parse(seq), default_dictionary) #fprime_test_api.pipeline.dictionary_path)
+    input_file = tempfile.NamedTemporaryFile(suffix=".fpy", delete=False)
+    output_file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
+    Path(input_file.name).write_text(seq)
+    compile_main(["-d", default_dictionary, "-o", output_file.name, input_file.name])
+    return output_file.name
 
 
 def lookup_type(fprime_test_api, type_name: str):
-    dictionary = default_dictionary #fprime_test_api.pipeline.dictionary_path
+    dictionary = default_dictionary  # fprime_test_api.pipeline.dictionary_path
     cmd_json_dict_loader = CmdJsonLoader(dictionary)
     (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
         dictionary
@@ -58,23 +60,18 @@ def lookup_type(fprime_test_api, type_name: str):
 
 def run_seq(
     fprime_test_api: IntegrationTestAPI,
-    dirs: list[Directive],
+    file_name: str,
     tlm: dict[str, bytes] = None,
 ):
-    for idx, d in enumerate(dirs):
-        print(idx, d)
     if tlm is None:
         tlm = {}
-    file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
-
-    serialize_directives(dirs)
 
     # fprime_test_api.send_and_assert_command("Ref.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
     # return
 
-    dictionary = default_dictionary # fprime_test_api.pipeline.dictionary_path
+    dictionary = default_dictionary  # fprime_test_api.pipeline.dictionary_path
 
-    deserialized_dirs = deserialize_directives(Path(file.name).read_bytes())
+    deserialized_dirs = deserialize_directives(Path(file_name).read_bytes())
 
     ch_json_dict_loader = ChJsonLoader(dictionary)
     (ch_id_dict, ch_name_dict, versions) = ch_json_dict_loader.construct_dicts(
@@ -99,9 +96,9 @@ def assert_compile_success(fprime_test_api, seq: str):
 
 
 def assert_run_success(fprime_test_api, seq: str, tlm: dict[str, bytes] = None):
-    seq = compile_seq(fprime_test_api, seq)
+    compiled_file = compile_seq(fprime_test_api, seq)
 
-    run_seq(fprime_test_api, seq, tlm)
+    run_seq(fprime_test_api, compiled_file, tlm)
 
 
 def assert_compile_failure(fprime_test_api, seq: str):
@@ -114,9 +111,9 @@ def assert_compile_failure(fprime_test_api, seq: str):
 
 
 def assert_run_failure(fprime_test_api, seq: str):
-    directives = compile_seq(fprime_test_api, seq)
+    compiled_file = compile_seq(fprime_test_api, seq)
     try:
-        run_seq(fprime_test_api, directives)
+        run_seq(fprime_test_api, compiled_file)
     except BaseException as e:
         print(e)
         return

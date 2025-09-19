@@ -255,7 +255,6 @@ class Directive:
         dir = dir_type(*arg_values)
         return offset, dir
 
-
 @dataclass
 class StackOpDirective(Directive):
     """the argument types this dir pops off the stack"""

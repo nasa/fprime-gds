@@ -1,11 +1,13 @@
 from __future__ import annotations
 from abc import ABC
 import inspect
-from dataclasses import dataclass, field, fields
+from dataclasses import astuple, dataclass, field, fields
+from pathlib import Path
 import struct
 import traceback
 import typing
 from typing import Union, get_args, get_origin
+import zlib
 
 from fprime_gds.common.fpy.error import CompileError
 
@@ -549,3 +551,74 @@ class TopDownVisitor(Visitor):
 
         self._visit(start, state)
         _descend(start)
+
+
+SCHEMA_VERSION = 2
+
+HEADER_FORMAT = "!BBBBBHI"
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+
+
+@dataclass
+class Header:
+    majorVersion: int
+    minorVersion: int
+    patchVersion: int
+    schemaVersion: int
+    argumentCount: int
+    statementCount: int
+    bodySize: int
+
+
+FOOTER_FORMAT = "!I"
+FOOTER_SIZE = struct.calcsize(FOOTER_FORMAT)
+
+
+@dataclass
+class Footer:
+    crc: int
+
+
+def deserialize_directives(bytes: bytes) -> list[Directive]:
+    header = Header(*struct.unpack_from(HEADER_FORMAT, bytes))
+
+    if header.schemaVersion != SCHEMA_VERSION:
+        raise RuntimeError(f"Schema version wrong (expected {SCHEMA_VERSION} found {header.schemaVersion})")
+
+    dirs = []
+    idx = 0
+    offset = HEADER_SIZE
+    while idx < header.statementCount:
+        offset_and_dir = Directive.deserialize(bytes, offset)
+        if offset_and_dir is None:
+            raise RuntimeError("Unable to deserialize sequence")
+        offset, dir = offset_and_dir
+        dirs.append(dir)
+        idx += 1
+
+    if offset != len(bytes) - FOOTER_SIZE:
+        raise RuntimeError(f"{len(bytes) - FOOTER_SIZE - offset} extra bytes at end of sequence")
+
+    return dirs
+
+
+def serialize_directives(dirs: list[Directive]) -> tuple[bytes, int]:
+    output_bytes = bytes()
+
+    for dir in dirs:
+        dir_bytes = dir.serialize()
+        if len(dir_bytes) > MAX_DIRECTIVE_SIZE:
+            print(CompileError(
+                f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})"
+            ))
+            exit(1)
+        output_bytes += dir_bytes
+
+    header = Header(0, 0, 0, SCHEMA_VERSION, 0, len(dirs), len(output_bytes))
+    output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
+
+    crc = zlib.crc32(output_bytes) % (1 << 32)
+    footer = Footer(crc)
+    output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
+
+    return output_bytes, crc

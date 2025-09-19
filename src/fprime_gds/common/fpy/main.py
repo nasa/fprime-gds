@@ -1,12 +1,12 @@
 import argparse
 from pathlib import Path
 
-from fprime_gds.common.fpy.bytecode.assembler import deserialize_directives
-import fprime_gds.common.fpy.model
+import fprime_gds.common.fpy.error
+from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
+import fprime_gds.common.fpy.model 
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse
-from fprime_gds.common.fpy.codegen import compile, serialize_directives
-import fprime_gds.common.fpy.error
+from fprime_gds.common.fpy.codegen import compile
 
 def human_readable_size(size_bytes, decimal_places=2):
     for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
@@ -16,7 +16,7 @@ def human_readable_size(size_bytes, decimal_places=2):
     size_bytes = int(size_bytes)
     return f"{size_bytes} {unit}"
 
-def compile_main():
+def compile_main(args: list[str]=None):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .fpy file")
     arg_parser.add_argument(
@@ -41,7 +41,10 @@ def compile_main():
         help="Pass this to print out compiler debugging information",
     )
 
-    args = arg_parser.parse_args()
+    if args is not None:
+        args = arg_parser.parse_args(args)
+    else:
+        args = arg_parser.parse_args()
 
     if args.debug:
         fprime_gds.common.fpy.error.debug = True
@@ -62,7 +65,7 @@ def compile_main():
 
 
 
-def model_main():
+def model_main(args: list[str]=None):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .bin file")
     arg_parser.add_argument(
@@ -71,7 +74,10 @@ def model_main():
         help="Whether or not to print debug info during sequence execution",
     )
 
-    args = arg_parser.parse_args()
+    if args is not None:
+        args = arg_parser.parse_args(args)
+    else:
+        args = arg_parser.parse_args()
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
