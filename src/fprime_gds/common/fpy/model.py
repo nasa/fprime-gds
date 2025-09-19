@@ -330,9 +330,10 @@ class FpySequencerModel:
         if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
-        seconds = self.pop(type=float)
+        useconds = self.pop(size=4)
+        seconds = self.pop(size=4)
 
-        print("wait rel", seconds)
+        print("wait rel", seconds, useconds)
 
     def handle_wait_abs(self, dir: WaitAbsDirective):
         if len(self.stack) < 11:

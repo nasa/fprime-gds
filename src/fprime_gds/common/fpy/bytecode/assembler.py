@@ -192,7 +192,6 @@ def assemble(body: NodeBody) -> tuple[bytes, int]:
 
             dirs.append(dir_type(*args))
 
-    print(dirs)
     return dirs
 
 
