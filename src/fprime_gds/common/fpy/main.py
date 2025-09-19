@@ -4,13 +4,13 @@ import sys
 from fprime_gds.common.fpy.bytecode.assembler import assemble, directives_to_fpybc
 from fprime_gds.common.fpy.bytecode.assembler import parse as fpybc_parse
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
-import fprime_gds.common.fpy.model 
+import fprime_gds.common.fpy.model
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse as fpy_parse
 from fprime_gds.common.fpy.codegen import compile
 
 
-def compile_main(args: list[str]=None):
+def compile_main(args: list[str] = None):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .fpy file")
     arg_parser.add_argument(
@@ -28,6 +28,13 @@ def compile_main(args: list[str]=None):
         required=True,
         help="The FPrime dictionary .json file",
     )
+    arg_parser.add_argument(
+        "-b",
+        "--bytecode",
+        action="store_true",
+        default=False,
+        help="Whether to output human-readable bytecode instead of binary",
+    )
 
     if args is not None:
         args = arg_parser.parse_args(args)
@@ -42,15 +49,27 @@ def compile_main(args: list[str]=None):
     directives = compile(body, args.dictionary)
     output = args.output
     if output is None:
-        output = args.input.with_suffix(".bin")
-    serialize_directives(directives, output)
+        if args.bytecode:
+            output = args.input.with_suffix(".fpybc")
+        else:
+            output = args.input.with_suffix(".bin")
+    if args.bytecode:
+        fpybc = directives_to_fpybc(directives)
+        output.write_text(fpybc)
+    else:
+        serialize_directives(directives, output)
     print("Done")
 
 
-def model_main(args: list[str]=None):
+def model_main(args: list[str] = None):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .bin file")
-    arg_parser.add_argument("--verbose", "-v", action="store_true", help="Whether or not to print stack during sequence execution")
+    arg_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Whether or not to print stack during sequence execution",
+    )
 
     if args is not None:
         args = arg_parser.parse_args(args)
@@ -72,7 +91,7 @@ def model_main(args: list[str]=None):
         exit(1)
 
 
-def assemble_main(args: list[str]=None):
+def assemble_main(args: list[str] = None):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .fpybc file")
     arg_parser.add_argument(
@@ -99,4 +118,34 @@ def assemble_main(args: list[str]=None):
     if output is None:
         output = args.input.with_suffix(".bin")
     serialize_directives(directives, output)
+    print("Done")
+
+
+def disassemble_main(args: list[str] = None):
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("input", type=Path, help="The input .bin file")
+    arg_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=False,
+        default=None,
+        help="The output .fpybc path",
+    )
+
+    if args is not None:
+        args = arg_parser.parse_args(args)
+    else:
+        args = arg_parser.parse_args()
+
+    if not args.input.exists():
+        print(f"Input file {args.input} does not exist")
+        exit(-1)
+
+    dirs = deserialize_directives(args.input.read_bytes())
+    fpybc = directives_to_fpybc(dirs)
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix(".fpybc")
+    output.write_text(fpybc)
     print("Done")
