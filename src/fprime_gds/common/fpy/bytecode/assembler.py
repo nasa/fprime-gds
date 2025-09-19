@@ -3,11 +3,10 @@ from dataclasses import dataclass, field, fields
 from numbers import Number
 from pathlib import Path
 from typing import Union
-import typing
 from lark import Lark, Token, Transformer, v_args
 from lark.tree import Meta
 
-from fprime_gds.common.fpy.bytecode.directives import Directive, StackOpDirective, get_union_members
+from fprime_gds.common.fpy.bytecode.directives import Directive, StackOpDirective
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
