@@ -9,13 +9,13 @@ from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.fpy.codegen import compile
 
 def human_readable_size(size_bytes):
-    unit = None
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
-        if size_bytes < 1024.0:
-            break
+    units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+    unit_idx = 0
+    while size_bytes >= 1024.0 and unit_idx < len(units) - 1:
         size_bytes /= 1024.0
+        unit_idx += 1
     size_bytes = int(size_bytes)
-    return f"{size_bytes} {unit}"
+    return f"{size_bytes} {units[unit_idx]}"
 
 def compile_main(args: list[str]=None):
     arg_parser = argparse.ArgumentParser()
