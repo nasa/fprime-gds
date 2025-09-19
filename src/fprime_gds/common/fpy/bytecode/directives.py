@@ -688,11 +688,7 @@ class ExitDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.EXIT
 
 
-for cls in Directive.__subclasses__():
-    cls.__old_repr__ = cls.__repr__
-    cls.__repr__ = Directive.__repr__
-
-for cls in StackOpDirective.__subclasses__():
+for cls in Directive.__subclasses__() + StackOpDirective.__subclasses__():
     cls.__old_repr__ = cls.__repr__
     cls.__repr__ = Directive.__repr__
 

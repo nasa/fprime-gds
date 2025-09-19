@@ -1,10 +1,12 @@
 import argparse
 from pathlib import Path
 import sys
+from fprime_gds.common.fpy.bytecode.assembler import assemble
+from fprime_gds.common.fpy.bytecode.assembler import parse as fpybc_parse
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
 import fprime_gds.common.fpy.model 
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
-from fprime_gds.common.fpy.parser import parse
+from fprime_gds.common.fpy.parser import parse as fpy_parse
 from fprime_gds.common.fpy.codegen import compile
 
 
@@ -36,7 +38,7 @@ def compile_main(args: list[str]=None):
         print(f"Input file {args.input} does not exist")
         exit(-1)
 
-    body = parse(args.input.read_text())
+    body = fpy_parse(args.input.read_text())
     directives = compile(body, args.dictionary)
     output = args.output
     if output is None:
@@ -67,3 +69,34 @@ def model_main(args: list[str]=None):
     ret = model.run(directives)
     if ret != DirectiveErrorCode.NO_ERROR:
         print("Sequence failed with " + str(ret))
+        exit(1)
+
+
+def assemble_main(args: list[str]=None):
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("input", type=Path, help="The input .fpybc file")
+    arg_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=False,
+        default=None,
+        help="The output .bin path",
+    )
+
+    if args is not None:
+        args = arg_parser.parse_args(args)
+    else:
+        args = arg_parser.parse_args()
+
+    if not args.input.exists():
+        print(f"Input file {args.input} does not exist")
+        exit(-1)
+
+    body = fpybc_parse(args.input.read_text())
+    directives = assemble(body)
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix(".bin")
+    serialize_directives(directives, output)
+    print("Done")

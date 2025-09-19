@@ -1,0 +1,107 @@
+input: (_NEWLINE | _stmt)*
+
+_stmt: op_with_args | op_with_no_args | goto_tag
+
+goto_tag: NAME ":"
+
+!op_with_args: "stack_cmd" _uint
+  | "memcmp" _uint
+  | "load" _uint _uint
+  | "allocate" _uint
+  | "store" _uint _uint
+  | "discard" _uint
+  | "push_val" bytes
+  | "const_cmd" _int bytes
+  | "goto" (_uint|NAME)
+  | "if" (_uint|NAME)
+  | "store_tlm_val" _int _uint
+  | "store_prm" _int _uint
+
+!op_with_no_args: "no_op"
+  | "siext_8_64"
+  | "siext_16_64"
+  | "siext_32_64"
+  | "ziext_8_64"
+  | "ziext_16_64"
+  | "ziext_32_64"
+  | "itrunc_64_8"
+  | "itrunc_64_16"
+  | "itrunc_64_32"
+  | "fmod"
+  | "smod"
+  | "umod"
+  | "iadd"
+  | "isub"
+  | "imul"
+  | "udiv"
+  | "sdiv"
+  | "fadd"
+  | "fsub"
+  | "fmul"
+  | "fpow"
+  | "fdiv"
+  | "float_floor_div"
+  | "flog"
+  | "wait_rel"
+  | "wait_abs"
+  | "or"
+  | "and"
+  | "ieq"
+  | "ine"
+  | "ult"
+  | "ule"
+  | "ugt"
+  | "uge"
+  | "slt"
+  | "sle"
+  | "sgt"
+  | "sge"
+  | "fge"
+  | "fle"
+  | "flt"
+  | "fgt"
+  | "feq"
+  | "fne"
+  | "not"
+  | "fptrunc"
+  | "fpext"
+  | "fptosi"
+  | "sitofp"
+  | "fptoui"
+  | "uitofp"
+  | "exit"
+
+_uint: [UNARY_IDENTITY] DEC_NUMBER
+_int: [UNARY_IDENTITY | UNARY_NEGATION] DEC_NUMBER
+_float: FLOAT_NUMBER
+_string: STRING
+_boolean: CONST_FALSE | CONST_TRUE
+bytes: (DEC_NUMBER|HEX_NUMBER|STRING)*
+
+# Other terminals
+
+_NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
+
+%ignore /[\t \f]+/  // WS
+%ignore /\\[\t \f]*\r?\n/   // LINE_CONT
+%ignore COMMENT
+%declare _INDENT _DEDENT
+
+NAME: /[^\W\d]\w*/
+COMMENT: /#[^\n]*/
+CONST_TRUE: "True"
+CONST_FALSE: "False"
+STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+UNARY_IDENTITY: "+"
+UNARY_NEGATION: "-"
+
+DEC_NUMBER:   "1".."9"        ("_"?  "0".."9"                       )*
+          |   "0"             ("_"?  "0"                            )* /(?![1-9])/
+
+HEX_NUMBER.2: "0" ("x" | "X") ("_"? ("0".."9" | "a".."f" | "A".."F"))+
+
+_SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
+
+DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
+_EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
+FLOAT_NUMBER: _SPECIAL_DEC _EXP | DECIMAL _EXP?
