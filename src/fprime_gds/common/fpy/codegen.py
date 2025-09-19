@@ -18,7 +18,6 @@ from fprime_gds.common.fpy.types import (
     SPECIFIC_NUMERIC_TYPES,
     SIGNED_INTEGER_TYPES,
     UNSIGNED_INTEGER_TYPES,
-    CompileException,
     CompileState,
     FieldReference,
     FppTypeClass,
@@ -39,6 +38,7 @@ from fprime_gds.common.fpy.types import (
     is_instance_compat,
 )
 
+from fprime_gds.common.fpy.error import CompileError
 # In Python 3.10+, the `|` operator creates a `types.UnionType`.
 # We need to handle this for forward compatibility, but it won't exist in 3.9.
 try:
@@ -139,10 +139,6 @@ from fprime_gds.common.fpy.parser import (
     AstVar,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
-
-
-# compiler debug flag
-debug = False
 
 
 class AssignIds(TopDownVisitor):
@@ -588,7 +584,7 @@ class PickAndConvertTypes(Visitor):
 
         if len(node_args) < len(func_args):
             state.errors.append(
-                CompileException(
+                CompileError(
                     f"Missing arguments (expected {len(func_args)} found {len(node_args)})",
                     node,
                 )
@@ -596,7 +592,7 @@ class PickAndConvertTypes(Visitor):
             return
         if len(node_args) > len(func_args):
             state.errors.append(
-                CompileException(
+                CompileError(
                     f"Too many arguments (expected {len(func_args)} found {len(node_args)})",
                     node,
                 )
@@ -1315,13 +1311,13 @@ class Footer:
     crc: int
 
 
-def serialize_directives(dirs: list[Directive], output: Path):
+def serialize_directives(dirs: list[Directive]) -> tuple[bytes, int]:
     output_bytes = bytes()
 
     for dir in dirs:
         dir_bytes = dir.serialize()
         if len(dir_bytes) > MAX_DIRECTIVE_SIZE:
-            raise CompileException(
+            raise CompileError(
                 f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})",
                 None,
             )
@@ -1334,7 +1330,7 @@ def serialize_directives(dirs: list[Directive], output: Path):
     footer = Footer(crc)
     output_bytes += struct.pack(FOOTER_FORMAT, *astuple(footer))
 
-    output.write_bytes(output_bytes)
+    return output_bytes, crc
 
 
 def get_base_compile_state(dictionary: str) -> CompileState:
@@ -1463,20 +1459,12 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
     for compile_pass in passes:
         compile_pass.run(body, state)
         for error in state.errors:
-            if debug:
-                raise error
             print(error)
             exit(1)
 
     dirs = state.directives[body]
     if len(dirs) > MAX_DIRECTIVES_COUNT:
-        msg = f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"
-        if debug:
-            raise CompileException(
-                msg,
-                None,
-            )
-        print(msg)
+        print(CompileError(f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"))
         exit(1)
 
     return dirs

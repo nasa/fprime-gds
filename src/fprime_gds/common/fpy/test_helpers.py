@@ -67,7 +67,7 @@ def run_seq(
         tlm = {}
     file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
 
-    serialize_directives(dirs, Path(file.name))
+    serialize_directives(dirs)
 
     # fprime_test_api.send_and_assert_command("Ref.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
     # return

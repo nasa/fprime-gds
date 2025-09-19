@@ -2,22 +2,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal as TypingLiteral, Union
+from lark import Lark, LarkError, Transformer, v_args
 from lark.indenter import PythonIndenter
-from lark import Lark, Transformer, v_args
 from lark.tree import Meta
 
+from fprime_gds.common.fpy.error import handle_lark_error
+import fprime_gds.common.fpy.error
 
-# the number of lines to show around a compiler error
-COMPILER_ERROR_CONTEXT_LINE_COUNT = 1
 
 fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
 
-input_text = None
-input_lines = None
-file_name = None
 
-
-def parse(text: str, input_file_name: str=None):
+def parse(text: str):
     parser = Lark(
         fpy_grammar_str,
         start="input",
@@ -27,11 +23,12 @@ def parse(text: str, input_file_name: str=None):
         maybe_placeholders=True,
     )
 
-    global input_text, input_lines, file_name
-    file_name = input_file_name
-    input_text = text
-    input_lines = text.splitlines()
-    tree = parser.parse(text, on_error=lambda x: print("Error"))
+    fprime_gds.common.fpy.error.input_text = text
+    fprime_gds.common.fpy.error.input_lines = text.splitlines()
+    try:
+        tree = parser.parse(text, on_error=handle_lark_error)
+    except LarkError as e:
+        handle_lark_error(e)
     transformed = FpyTransformer().transform(tree)
     return transformed
 
@@ -40,23 +37,6 @@ def parse(text: str, input_file_name: str=None):
 class Ast:
     meta: Meta = field(repr=False)
     id: int = field(init=False, repr=False, default=None)
-    node_text: str = field(init=False, repr=False, default=None)
-
-    def __post_init__(self):
-        if not hasattr(self.meta, "start_pos"):
-            self.node_text = ""
-            return
-        self.node_text = input_text[self.meta.start_pos : self.meta.end_pos]
-        # save some context around this node so we can print it out as an error later
-        self.context_start_line = self.meta.line - 1 - COMPILER_ERROR_CONTEXT_LINE_COUNT
-        self.context_start_line = max(0, self.context_start_line)
-        self.context_end_line = (
-            self.meta.end_line - 1 + COMPILER_ERROR_CONTEXT_LINE_COUNT
-        )
-        self.context_end_line = min(len(input_lines), self.context_end_line)
-        self.node_context = input_lines[
-            self.context_start_line : self.context_end_line + 1
-        ]
 
     def __hash__(self):
         return hash(self.id)
