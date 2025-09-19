@@ -8,7 +8,7 @@ from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.fpy.codegen import compile
 
-def human_readable_size(size_bytes, decimal_places=2):
+def human_readable_size(size_bytes):
     unit = None
     for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
         if size_bytes < 1024.0:
