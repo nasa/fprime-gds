@@ -1,11 +1,12 @@
-import ast
+import filecmp
 from pathlib import Path
 import tempfile
 import traceback
+from fprime_gds.common.fpy.bytecode.assembler import directives_to_fpybc
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.bytecode.directives import Directive
-from fprime_gds.common.fpy.main import compile_main
+from fprime_gds.common.fpy.main import assemble_main, compile_main
 from fprime_gds.common.fpy.parser import parse
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -28,6 +29,20 @@ def compile_seq(fprime_test_api, seq: str) -> list[Directive]:
     output_file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
     Path(input_file.name).write_text(seq)
     compile_main(["-d", default_dictionary, "-o", output_file.name, input_file.name])
+
+    # also, run some additional tests: try reading the bin file, turning it into assembly,
+    # parsing the assembly, writing it to disk and making sure it's the same as the bin file
+
+    dirs = deserialize_directives(Path(output_file.name).read_bytes())
+    fpybc = directives_to_fpybc(dirs)
+    # okay write the fpybc to file
+    bytecode_file = tempfile.NamedTemporaryFile(suffix=".fpybc", delete=False)
+    Path(bytecode_file.name).write_text(fpybc)
+    assembled_file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
+    assemble_main([bytecode_file.name, "-o", assembled_file.name])
+    # okay now check that the assembled file is the same as the compiled file
+    assert Path(assembled_file.name).read_bytes() == Path(output_file.name).read_bytes()
+
     return output_file.name
 
 

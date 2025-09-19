@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 import sys
-from fprime_gds.common.fpy.bytecode.assembler import assemble
+from fprime_gds.common.fpy.bytecode.assembler import assemble, directives_to_fpybc
 from fprime_gds.common.fpy.bytecode.assembler import parse as fpybc_parse
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
 import fprime_gds.common.fpy.model 
