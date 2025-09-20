@@ -984,6 +984,92 @@ class GenerateExprMacrosAndCmds(Visitor):
 
         state.directives[node] = directives
 
+    def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
+        if node in state.directives:
+            # already know how to put it on stack, or it is impossible
+            return
+
+        expr_type = state.expr_types[node]
+        parent_type = state.expr_types[node.parent]
+        parent_dirs = state.directives[node.parent]
+        # these are the dirs to put the parent on the stack
+        # we want to put it on the stack and then grab a certain
+        # size at a certain offset
+
+
+        # stack:
+        # 0 parent value (array)
+        # 1 index value (U64)
+        # 2 member type size U64
+        # >
+        # 0 parent value (array)
+        # 1 parent offset U64
+
+        # assert ->
+
+        # TODO directive for assertions somehow
+        # TODO exit takes an error code
+
+        # optimization: leave it in the lvar array
+
+        directives = parent_dirs.copy()
+
+        # push the index (must be U64) to the stack
+        index_dirs = state.directives[node.item]
+        directives.extend(index_dirs)
+        # multiply the index by the member type size
+        directives.append(PushValDirective(U64Type(expr_type.getMaxSize())))
+        directives.append(IntMultiplyDirective())
+        # cut it down to 16 bits
+        directives.append(IntegerTruncate64To16Directive())
+
+        # okay now we have the offset on the stack
+
+        # get the member from the stack at this offset, discard the rest of
+        # the parent
+        directives.append(
+            GetMemberDirective(parent_type.getMaxSize(), expr_type.getMaxSize())
+        )
+
+        # now convert the type if necessary
+        converted_type = state.type_coercions.get(node, None)
+        if converted_type is not None:
+            directives.extend(self.convert_type(expr_type, converted_type))
+
+        state.directives[node] = directives
+
+    def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
+        if node in state.directives:
+            # already know how to put it on stack, or it is impossible
+            return
+
+        expr_type = state.expr_types[node]
+        parent_type = state.expr_types[node.parent]
+        parent_dirs = state.directives[node.parent]
+        # these are the dirs to put the parent on the stack
+        # we want to put it on the stack and then grab a certain
+        # size at a certain offset
+
+        directives = parent_dirs.copy()
+
+        # find out the offset of this attribute in the parent
+        offset = state.attribute_offsets[node]
+
+        # push the offset to the stack
+        directives.append(PushValDirective(U16Type(offset).serialize()))
+
+        # get the member from the stack at this offset, discard the rest of
+        # the parent
+        directives.append(
+            GetMemberDirective(parent_type.getMaxSize(), expr_type.getMaxSize())
+        )
+
+        # now convert the type if necessary
+        converted_type = state.type_coercions.get(node, None)
+        if converted_type is not None:
+            directives.extend(self.convert_type(expr_type, converted_type))
+
+        state.directives[node] = directives
     def visit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
         if node in state.directives:
             # already know how to put it on stack
