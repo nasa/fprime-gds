@@ -197,7 +197,7 @@ class ResolveReferences(TopDownVisitor):
 
         return True
 
-    def get_attr_of_ref(
+    def get_attr_of_expr(
         self, parent: FpyReference, node: AstGetAttr, state: CompileState
     ) -> FpyReference | None:
         """resolve a GetAttr node relative to a given FpyReference. return the
@@ -335,7 +335,7 @@ class ResolveReferences(TopDownVisitor):
             return ref
 
         assert isinstance(node, AstGetAttr)
-        ref = self.get_attr_of_ref(parent, node, state)
+        ref = self.get_attr_of_expr(parent, node, state)
         state.resolved_references[node] = ref
         return ref
 

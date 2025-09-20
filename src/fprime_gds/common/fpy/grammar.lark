@@ -14,10 +14,7 @@ _expr_stmt: _expr
 
 # assignment
 
-# can currently only assign constant values to vars
-# for some reason if i use _reference here i don't get a None in the optional spot
-assign: var [":" (get_attr | get_item | var)] "=" _expr
-
+assign: var [":" _expr] "=" _expr
 
 
 # branching
@@ -59,21 +56,22 @@ _test: or_test
        | SUB_OP factor -> unary_op # unary minus (negation)
        | power
 
-?power: atom POW_OP factor -> binary_op
-      | atom
+?power: atom_expr POW_OP factor -> binary_op
+      | atom_expr
 
 arguments: _expr ("," _expr)*
 
-?atom: _reference "(" [arguments] ")" -> func_call
-     | _reference
-     | _literal
+?atom_expr: atom_expr "(" [arguments] ")" -> func_call
+          | atom_expr "[" _expr "]" -> get_item
+          | atom_expr "." name -> get_attr
+          | atom
+
+?atom: _literal
      | "(" _expr ")"
+     | var
+     | "..." -> ellipsis
 
-get_item: _reference "[" number "]"
-get_attr: _reference "." name
 var: name
-
-_reference: get_item | get_attr | var
 
 # not used in grammar, but may appear in "node" passed from Parser to Compiler
 encoding_decl: name

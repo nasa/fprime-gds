@@ -76,25 +76,29 @@ AstLiteral = Union[AstString, AstNumber, AstBoolean]
 
 @dataclass
 class AstGetAttr(Ast):
-    parent: "AstReference"
+    parent: "AstExpr"
     attr: str
 
 
 @dataclass
 class AstGetItem(Ast):
-    parent: "AstReference"
-    item: AstNumber
+    parent: "AstExpr"
+    item: AstExpr
 
 
 @dataclass
 class AstFuncCall(Ast):
-    func: "AstReference"
+    func: "AstExpr"
     args: list["AstExpr"] | None
 
 
-@dataclass()
+@dataclass
 class AstPass(Ast):
     pass
+
+@dataclass
+class AstEllipsis(Ast):
+    ...
 
 @dataclass
 class AstBinaryOp(Ast):
@@ -120,7 +124,7 @@ AstExpr = Union[
 @dataclass
 class AstAssign(Ast):
     variable: AstVar
-    var_type: AstReference | None
+    var_type: AstExpr | None
     value: AstExpr
 
 
@@ -192,13 +196,24 @@ def no_meta(type):
 def handle_str(meta, s: str):
     return s.strip("'").strip('"')
 
+def handle_assign(meta, args):
+    # for some stupid reason i cannot get this to work without 
+    # this hacky function
+    value = args[-1]
+    var = args[0]
+    if len(args) > 2:
+        type = args[1]
+    else:
+        type = None
+    return AstAssign(meta, var, type, value)
+
 
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
     input = no_inline(AstScopedBody)
     pass_stmt = AstPass
 
-    assign = AstAssign
+    assign = no_inline(handle_assign)
 
     if_stmt = AstIf
     elifs = no_inline(AstElifs)
@@ -217,6 +232,7 @@ class FpyTransformer(Transformer):
     get_attr = AstGetAttr
     get_item = AstGetItem
     var = AstVar
+    ellipsis = AstEllipsis
 
     NAME = str
     DEC_NUMBER = int
