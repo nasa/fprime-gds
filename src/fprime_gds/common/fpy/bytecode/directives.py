@@ -144,6 +144,9 @@ class DirectiveId(Enum):
     DISCARD = 64
     MEMCMP = 65
     STACK_CMD = 66
+    GET_MEMBER = 67
+    DUPLICATE = 68
+    ASSERT = 69
 
 
 class Directive:
@@ -254,6 +257,7 @@ class Directive:
 
         dir = dir_type(*arg_values)
         return offset, dir
+
 
 @dataclass
 class StackOpDirective(Directive):
@@ -688,6 +692,25 @@ class ExitDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.EXIT
 
 
+@dataclass
+class GetMemberDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.GET_MEMBER
+    # pops an offset off the stack
+    parent_size: U32Type
+    member_size: U32Type
+
+
+@dataclass
+class DuplicateDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.DUPLICATE
+    size: U32Type
+
+
+@dataclass
+class AssertDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.ASSERT
+
+
 for cls in Directive.__subclasses__():
     cls.__old_repr__ = cls.__repr__
     cls.__repr__ = Directive.__repr__
@@ -744,7 +767,7 @@ UNARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
     UnaryStackOp.NEGATE: {
         I64Type: IntMultiplyDirective,
         U64Type: IntMultiplyDirective,
-        F64Type: FloatMultiplyDirective
+        F64Type: FloatMultiplyDirective,
     },
 }
 

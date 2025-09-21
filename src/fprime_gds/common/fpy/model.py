@@ -7,8 +7,10 @@ import typing
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateDirective,
     AndDirective,
+    AssertDirective,
     ConstCmdDirective,
     Directive,
+    DuplicateDirective,
     ExitDirective,
     FloatAddDirective,
     FloatDivideDirective,
@@ -17,6 +19,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatModuloDirective,
     FloatMultiplyDirective,
     FloatSubtractDirective,
+    GetMemberDirective,
     GotoDirective,
     MemCompareDirective,
     SignedIntDivideDirective,
@@ -107,6 +110,7 @@ class DirectiveErrorCode(Enum):
     STACK_UNDERFLOW = 11
     INVALID_ARGUMENT = 12
     DIVIDE_BY_ZERO = 13
+    ASSERTION_FAILURE = 14
 
 
 class FpySequencerModel:
@@ -813,8 +817,8 @@ class FpySequencerModel:
     def handle_exit(self, dir: ExitDirective):
         if len(self.stack) < 1:
             return DirectiveErrorCode.STACK_UNDERFLOW
-        success = self.pop(type=bool, size=1)
-        if success:
+        exit_code = self.pop(type=int, size=1)
+        if exit_code == 0:
             self.next_dir_idx = len(self.dirs)
         else:
             return DirectiveErrorCode.DELIBERATE_FAILURE
@@ -825,5 +829,35 @@ class FpySequencerModel:
 
         rhs = self.pop(type=bytes, size=dir.size)
         lhs = self.pop(type=bytes, size=dir.size)
-        print(rhs, lhs)
         self.push(rhs == lhs)
+
+    def handle_get_member(self, dir: GetMemberDirective):
+        if len(self.stack) < dir.parent_size:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        if dir.member_size > dir.parent_size:
+            return DirectiveErrorCode.INVALID_ARGUMENT
+
+        offset = self.pop(type=int, signed=False, size=8)
+        if offset + dir.member_size > dir.parent_size:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        parent = self.pop(type=bytes, size=dir.parent_size)
+        member = parent[offset : (offset + dir.member_size)]
+
+        self.push(member)
+
+    def handle_duplicate(self, dir: DuplicateDirective):
+        if len(self.stack) < dir.size:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+        if len(self.stack) + dir.size > self.max_stack_size:
+            return DirectiveErrorCode.STACK_OVERFLOW
+
+        self.push(self.stack[-dir.size])
+
+    def handle_assert(self, dir: AssertDirective):
+        if len(self.stack) < 1:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        if not self.pop(type=bool):
+            return DirectiveErrorCode.ASSERTION_FAILURE

@@ -193,11 +193,11 @@ Make sure that the `Svc.FpySequencer.checkTimers` port is connected to a rate gr
 ## 12. Exit Macro
 You can end the execution of the sequence early by calling the `exit` macro:
 ```py
-# exit takes a boolean argument
-# True means "end the sequence without an error"
-exit(True)
-# False means "end the sequence and raise an error"
-exit(False)
+# exit takes a U8 argument
+# 0 is the error code meaning "no error"
+exit(0)
+# anything else means an error occurred, and will show up in telemetry
+exit(123)
 ```
 
 ## 13. Strings

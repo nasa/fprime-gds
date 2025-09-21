@@ -43,6 +43,7 @@ var: I64 = 0123_456
 
     assert_compile_failure(fprime_test_api, seq)
 
+
 def test_float_literal(fprime_test_api):
     seq = """
 var: F32 = 1.000e-5
@@ -1329,3 +1330,19 @@ var3: U8 = 8
 CdhCore.cmdDisp.CMD_TEST_CMD_1(var1, var2, var3)
 """
     assert_run_success(fprime_test_api, seq)
+
+
+def test_weird_arg_type(fprime_test_api):
+    seq = """
+CdhCore.cmdDisp.CMD_NO_OP_STRING(CdhCore.cmdDisp.CMD_NO_OP_STRING)
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_func_bad_type(fprime_test_api):
+    seq = """
+var: U32 = 1
+(var + 1)(3)
+"""
+    assert_compile_failure(fprime_test_api, seq)
+

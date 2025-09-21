@@ -47,6 +47,12 @@ class Ast:
     def __hash__(self):
         return hash(self.id)
 
+    def __eq__(self, value):
+        if not isinstance(value, Ast):
+            return False
+        assert self.id is not None
+        return self.id == value.id
+
     def __repr__(self):
         return f"{self.__class__.__name__}({self.node_text})"
 
@@ -205,6 +211,7 @@ def handle_assign(meta, args):
         type = args[1]
     else:
         type = None
+    print(var, type, value)
     return AstAssign(meta, var, type, value)
 
 

@@ -210,7 +210,7 @@ MACROS: dict[str, FpyMacro] = {
         WaitRelDirective,
     ),
     "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
-    "exit": FpyMacro(NothingType, [("success", BoolType)], ExitDirective),
+    "exit": FpyMacro(NothingType, [("exit_code", U8Type)], ExitDirective),
     "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
 }
 
@@ -224,47 +224,17 @@ class FpyTypeCtor(FpyCallable):
 class FieldReference:
     """a reference to a field/index of an fprime type"""
 
-    parent: "FpyReference"
+    parent_expr: AstExpr
     """the qualifier"""
     type: FppTypeClass
     """the fprime type of this reference"""
-    offset: int
-    """the constant offset in the parent type at which to find this field"""
+    offset: int = None
+    """the constant offset in the parent type at which to find this field
+    or None if unknown at compile time"""
     name: str = None
     """the name of the field, if applicable"""
-    idx: int = None
-    """the index of the field, if applicable"""
-
-    def get_from(self, parent_val: FppType) -> FppType:
-        """gets the field value from the parent value"""
-        assert isinstance(parent_val, self.type)
-        assert self.name is not None or self.idx is not None
-        value = None
-        if self.name is not None:
-            if isinstance(parent_val, SerializableType):
-                value = parent_val.val[self.name]
-            elif isinstance(parent_val, TimeType):
-                if self.name == "seconds":
-                    value = parent_val.__secs
-                elif self.name == "useconds":
-                    value = parent_val.__usecs
-                elif self.name == "time_base":
-                    value = parent_val.__timeBase
-                elif self.name == "time_context":
-                    value = parent_val.__timeContext
-                else:
-                    assert False, self.name
-            else:
-                assert False, parent_val
-
-        else:
-
-            assert isinstance(parent_val, ArrayType), parent_val
-
-            value = parent_val._val[self.idx]
-
-        assert isinstance(value, self.type), (value, self.type)
-        return value
+    idx_expr: AstExpr = None
+    """the expression that evaluates to the index in the parent array of the field, if applicable"""
 
 
 # named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
