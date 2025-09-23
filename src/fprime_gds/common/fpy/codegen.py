@@ -83,8 +83,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     PushValDirective,
     SignedIntToFloatDirective,
     StoreDirective,
-    StorePrmDirective,
-    StoreTlmValDirective,
+    PushPrmDirective,
+    PushTlmValDirective,
     UnaryStackOp,
     UnsignedGreaterThanOrEqualDirective,
     UnsignedIntToFloatDirective,
@@ -257,11 +257,11 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def coerce_expr_type(
         self, node: AstExpr, type: FppTypeClass, state: CompileState
     ) -> bool:
-        node_type = state.expr_types[node]
-        if self.can_coerce_type(node_type, type):
-            state.type_coercions[node] = type
+        unconverted_type = state.expr_unconverted_types[node]
+        if self.can_coerce_type(unconverted_type, type):
+            state.expr_converted_types[node] = type
             return True
-        state.err(f"Expected {type.__name__}, found {node_type.__name__}", node)
+        state.err(f"Expected {type.__name__}, found {unconverted_type.__name__}", node)
         return False
 
     def can_coerce_type(self, type: FppTypeClass, to_type: FppTypeClass) -> bool:
@@ -378,7 +378,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # ref may be None (if parent is some complex expr), or it may be
             # a tlm chan or var or etc...
             # it may or may not have a compile time value, but it definitely has a type
-            parent_type = state.expr_types[node.parent]
+            parent_type = state.expr_unconverted_types[node.parent]
 
             member_list = self.get_members(node, parent_type, state)
             if member_list is None:
@@ -398,8 +398,11 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             )
             return
 
+        ref_type = get_ref_fpp_type_class(ref)
+
         state.resolved_references[node] = ref
-        state.expr_types[node] = get_ref_fpp_type_class(ref)
+        state.expr_unconverted_types[node] = ref_type
+        state.expr_converted_types[node] = ref_type
 
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
         parent_ref = state.resolved_references.get(node.parent, None)
@@ -410,7 +413,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         # otherwise, we should definitely have a well-defined type for our parent expr
 
-        parent_type = state.expr_types[node.parent]
+        parent_type = state.expr_unconverted_types[node.parent]
 
         if not self.is_type_constant_size(parent_type):
             state.err(
@@ -428,12 +431,18 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             return
 
         ref = FieldReference(node.parent, parent_type.MEMBER_TYPE, idx_expr=node.item)
+
         state.resolved_references[node] = ref
-        state.expr_types[node] = parent_type.MEMBER_TYPE
+        state.expr_unconverted_types[node] = parent_type.MEMBER_TYPE
+        state.expr_converted_types[node] = parent_type.MEMBER_TYPE
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
+        # already been resolved by SetScopes pass
         ref = state.resolved_references[node]
-        state.expr_types[node] = get_ref_fpp_type_class(ref)
+        ref_type = get_ref_fpp_type_class(ref)
+
+        state.expr_unconverted_types[node] = ref_type
+        state.expr_converted_types[node] = ref_type
 
     def visit_AstNumber(self, node: AstNumber, state: CompileState):
         # give a best guess as to the final type of this node. we don't actually know
@@ -442,11 +451,13 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             result_type = F64Type
         else:
             result_type = InternalIntType
-        state.expr_types[node] = result_type
+
+        state.expr_unconverted_types[node] = result_type
+        state.expr_converted_types[node] = result_type
 
     def visit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
-        lhs_type = state.expr_types[node.lhs]
-        rhs_type = state.expr_types[node.rhs]
+        lhs_type = state.expr_unconverted_types[node.lhs]
+        rhs_type = state.expr_unconverted_types[node.rhs]
 
         intermediate_type = self.pick_intermediate_type([lhs_type, rhs_type], node.op)
         if intermediate_type is None:
@@ -472,17 +483,18 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         else:
             dir = BINARY_STACK_OPS[node.op][intermediate_type]
 
-        state.stack_op_directives[node] = dir
-
         result_type = None
         if node.op in NUMERIC_OPERATORS:
             result_type = intermediate_type
         else:
             result_type = BoolType
-        state.expr_types[node] = result_type
+
+        state.stack_op_directives[node] = dir
+        state.expr_unconverted_types[node] = result_type
+        state.expr_converted_types[node] = result_type
 
     def visit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
-        val_type = state.expr_types[node.val]
+        val_type = state.expr_unconverted_types[node.val]
 
         intermediate_type = self.pick_intermediate_type([val_type], node.op)
         if intermediate_type is None:
@@ -504,13 +516,16 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             result_type = BoolType
 
         state.stack_op_directives[node] = chosen_dir
-        state.expr_types[node] = result_type
+        state.expr_unconverted_types[node] = result_type
+        state.expr_converted_types[node] = result_type
 
     def visit_AstString(self, node: AstString, state: CompileState):
-        state.expr_types[node] = InternalStringType
+        state.expr_unconverted_types[node] = InternalStringType
+        state.expr_converted_types[node] = InternalStringType
 
     def visit_AstBoolean(self, node: AstBoolean, state: CompileState):
-        state.expr_types[node] = BoolType
+        state.expr_unconverted_types[node] = BoolType
+        state.expr_converted_types[node] = BoolType
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
@@ -544,13 +559,14 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
                 return
 
         # got thru all args successfully
-        state.expr_types[node] = func.return_type
+        state.expr_unconverted_types[node] = func.return_type
+        state.expr_converted_types[node] = func.return_type
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         var = state.resolved_references[node.variable]
         if node.var_type is not None:
             var_type = state.resolved_references[node.var_type]
-            assert issubclass(var_type, type)
+            assert isinstance(var_type, type), (var_type, type)
             var.type = var_type
         else:
             var_type = var.type
@@ -583,123 +599,176 @@ class CalculateConstExprValues(Visitor):
     """for each expr, try to calculate its constant value and store it in a map. stores None if no value could be
     calculated at compile time, and NothingType if the expr had no value"""
 
-    def const_coerce_type(self, from_val: FppType, to_type: FppTypeClass) -> FppType:
-        if type(from_val) == to_type:
-            return from_val
-        if issubclass(to_type, StringType):
-            assert type(from_val) == InternalStringType, type(from_val)
-            return to_type(from_val.val)
-        if issubclass(to_type, FloatType):
-            assert issubclass(type(from_val), NumericalType), type(from_val)
-            return to_type(float(from_val.val))
-        if issubclass(to_type, IntegerType):
-            assert issubclass(type(from_val), IntegerType), type(from_val)
-            return to_type(int(from_val.val))
-        assert False, (from_val, type(from_val), to_type)
+    def const_coerce_type(
+        self, from_val: FppType, to_type: FppTypeClass, node: Ast, state: CompileState
+    ) -> FppType | None:
+        try:
+            if type(from_val) == to_type:
+                return from_val
+            if issubclass(to_type, StringType):
+                assert type(from_val) == InternalStringType, type(from_val)
+                return to_type(from_val.val)
+            if issubclass(to_type, FloatType):
+                assert issubclass(type(from_val), NumericalType), type(from_val)
+                return to_type(float(from_val.val))
+            if issubclass(to_type, IntegerType):
+                assert issubclass(type(from_val), IntegerType), type(from_val)
+                return to_type(int(from_val.val))
+            assert False, (from_val, type(from_val), to_type)
+        except TypeException as e:
+            state.err(f"For type {type(from_val).__name__}: {e}", node)
+            return None
 
     def visit_AstLiteral(self, node: AstLiteral, state: CompileState):
-        literal_type = state.expr_types[node]
+        uncoerced_type = state.expr_unconverted_types[node]
 
         try:
-            value = literal_type(node.value)
+            expr_value = uncoerced_type(node.value)
         except TypeException as e:
-            state.err(f"For type {literal_type.__name__}: {e}", node)
+            state.err(f"For type {uncoerced_type.__name__}: {e}", node)
             return
 
-        coerced_type = state.type_coercions.get(node, None)
-        if coerced_type is not None:
-            try:
-                value = self.const_coerce_type(value, coerced_type)
-            except TypeException as e:
-                state.err(f"For type {coerced_type.__name__}: {e}", node)
+        coerced_type = state.expr_converted_types[node]
+        if coerced_type != uncoerced_type:
+            expr_value = self.const_coerce_type(expr_value, coerced_type, node, state)
+            if expr_value is None:
                 return
-        state.expr_values[node] = value
+
+        state.expr_converted_values[node] = expr_value
 
     def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
-        ref = state.resolved_references.get(node, None)
 
-        if isinstance(ref, dict):
-            # attribute of a scope
+        unconverted_type = state.expr_unconverted_types[node]
+        converted_type = state.expr_converted_types[node]
+        ref = state.resolved_references[node]
+        expr_value = None
+        if isinstance(ref, (type, dict, FpyCallable)):
+            # these types have no value
+            state.expr_converted_values[node] = NothingType()
+            assert unconverted_type == converted_type, (
+                unconverted_type,
+                converted_type,
+            )
             return
-
-        parent_value = state.expr_values[node.parent]
-        if parent_value is None:
-            # no compile time constant value for our parent here
-            state.expr_values[node] = None
+        elif isinstance(ref, (ChTemplate, PrmTemplate, FpyVariable)):
+            # has a value but won't try to calc at compile time
+            state.expr_converted_values[node] = None
             return
-
-        # we are accessing an attribute of something with an fprime value
-        # we must be getting a member
-        # okay so we do actually
-        if isinstance(parent_value, StructType):
-            expr_value = parent_value.val[node.attr]
-        elif isinstance(parent_value, TimeType):
-            if node.attr == "seconds":
-                expr_value = parent_value.__secs
-            elif node.attr == "useconds":
-                expr_value = parent_value.__usecs
-            elif node.attr == "time_base":
-                expr_value = parent_value.__timeBase
-            elif node.attr == "time_context":
-                expr_value = parent_value.__timeContext
-            else:
-                assert False, node.attr
-        else:
-            assert False, parent_value
-        
-        assert isinstance(expr_value, state.expr_types[node]), (expr_value, state.expr_types[node])
-
-        coerced_type = state.type_coercions.get(node, None)
-        if coerced_type is not None:
-            try:
-                expr_value = self.const_coerce_type(expr_value, coerced_type)
-            except TypeException as e:
-                state.err(f"For type {type(expr_value).__name__}: {e}", node)
+        elif isinstance(ref, FppType):
+            expr_value = ref
+        elif isinstance(ref, FieldReference):
+            parent_value = state.expr_converted_values[node.parent]
+            if parent_value is None:
+                # no compile time constant value for our parent here
+                state.expr_converted_values[node] = None
                 return
-        state.expr_values[node] = expr_value
+
+            # we are accessing an attribute of something with an fprime value at compile time
+            # we must be getting a member
+            if isinstance(parent_value, StructType):
+                expr_value = parent_value.val[node.attr]
+            elif isinstance(parent_value, TimeType):
+                if node.attr == "seconds":
+                    expr_value = parent_value.__secs
+                elif node.attr == "useconds":
+                    expr_value = parent_value.__usecs
+                elif node.attr == "time_base":
+                    expr_value = parent_value.__timeBase
+                elif node.attr == "time_context":
+                    expr_value = parent_value.__timeContext
+                else:
+                    assert False, node.attr
+            else:
+                assert False, parent_value
+
+        assert expr_value is not None
+
+        assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
+
+        if converted_type != unconverted_type:
+            expr_value = self.const_coerce_type(expr_value, converted_type, node, state)
+            if expr_value is None:
+                return
+        state.expr_converted_values[node] = expr_value
 
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
-        parent_value = state.expr_values[node.parent]
+        ref = state.resolved_references[node]
+        # get item can only be a field reference
+        assert isinstance(ref, FieldReference), ref
+
+        parent_value = state.expr_converted_values[node.parent]
+
         if parent_value is None:
             # no compile time constant value for our parent here
-            state.expr_values[node] = None
+            state.expr_converted_values[node] = None
             return
 
         assert isinstance(parent_value, ArrayType), parent_value
 
-        idx = state.expr_values.get(node.item, None)
+        idx = state.expr_converted_values.get(node.item, None)
         if idx is None:
             # no compile time constant value for our index
-            state.expr_values[node] = None
+            state.expr_converted_values[node] = None
             return
 
         assert isinstance(idx, U64Type)
 
         expr_value = parent_value._val[idx._val]
 
-        assert isinstance(expr_value, state.expr_types[node]), (expr_value, state.expr_types[node])
+        uncoerced_type = state.expr_unconverted_types[node]
+        assert isinstance(expr_value, uncoerced_type), (expr_value, uncoerced_type)
 
-        coerced_type = state.type_coercions.get(node, None)
-        if coerced_type is not None:
-            try:
-                expr_value = self.const_coerce_type(expr_value, coerced_type)
-            except TypeException as e:
-                state.err(f"For type {type(expr_value).__name__}: {e}", node)
+        coerced_type = state.expr_converted_types[node]
+        if coerced_type != uncoerced_type:
+            expr_value = self.const_coerce_type(expr_value, coerced_type, node, state)
+            if expr_value is None:
                 return
-        state.expr_values[node] = expr_value
+        state.expr_converted_values[node] = expr_value
 
+    def visit_AstVar(self, node: AstVar, state: CompileState):
+        unconverted_type = state.expr_unconverted_types[node]
+        converted_type = state.expr_converted_types[node]
+        ref = state.resolved_references[node]
+        expr_value = None
+        if isinstance(ref, (type, dict, FpyCallable)):
+            # these types have no value
+            state.expr_converted_values[node] = NothingType()
+            assert unconverted_type == converted_type, (
+                unconverted_type,
+                converted_type,
+            )
+            return
+        elif isinstance(ref, (ChTemplate, PrmTemplate, FpyVariable)):
+            # has a value but won't try to calc at compile time
+            state.expr_converted_values[node] = None
+            return
+        elif isinstance(ref, FppType):
+            expr_value = ref
+        elif isinstance(ref, FieldReference):
+            assert False, ref
+
+        assert expr_value is not None
+
+        assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
+
+        if converted_type != unconverted_type:
+            expr_value = self.const_coerce_type(expr_value, converted_type, node, state)
+            if expr_value is None:
+                return
+        state.expr_converted_values[node] = expr_value
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
         assert isinstance(func, FpyCallable)
         # gather arg values
         arg_values = [
-            state.expr_values[e] for e in (node.args if node.args is not None else [])
+            state.expr_converted_values[e]
+            for e in (node.args if node.args is not None else [])
         ]
         unknown_value = any(v for v in arg_values if v is None)
         if unknown_value:
             # we will have to calculate this at runtime
-            state.expr_values[node] = None
+            state.expr_converted_values[node] = None
             return
 
         expr_value = None
@@ -728,23 +797,23 @@ class CalculateConstExprValues(Visitor):
         else:
             # don't try to calculate the value of this function call
             # it's something like a cmd or macro
-            state.expr_values[node] = None
+            state.expr_converted_values[node] = None
             return
 
-        assert isinstance(expr_value, func.return_type), (expr_value, func.return_type)
+        uncoerced_type = state.expr_unconverted_types[node]
+        assert isinstance(expr_value, uncoerced_type), (expr_value, uncoerced_type)
 
-        coerced_type = state.type_coercions.get(node, None)
-        if coerced_type is not None:
-            try:
-                expr_value = self.const_coerce_type(expr_value, coerced_type)
-            except TypeException as e:
-                state.err(f"For type {func.return_type.__name__}: {e}", node)
+        coerced_type = state.expr_converted_types[node]
+        if coerced_type != uncoerced_type:
+            expr_value = self.const_coerce_type(expr_value, coerced_type, node, state)
+            if expr_value is None:
                 return
-        state.expr_values[node] = expr_value
+
+        state.expr_converted_values[node] = expr_value
 
     def visit_AstOp(self, node: AstOp, state: CompileState):
         # we do not calculate compile time value of operators at the moment
-        state.expr_values[node] = None
+        state.expr_converted_values[node] = None
 
     def visit_default(self, node, state):
         # coding error, missed an expr
@@ -760,11 +829,19 @@ class GenerateConstExprDirectives(Visitor):
             # already have directives associated with this node
             return
 
-        expr_value = state.expr_values[node]
+        expr_value = state.expr_converted_values[node]
 
         if expr_value is None:
             # no const value
             return
+
+        expr_type = state.expr_converted_types[node]
+
+        assert isinstance(expr_value, expr_type), (
+            expr_value,
+            type(expr_value),
+            expr_type,
+        )
 
         if isinstance(expr_value, NothingType):
             # nothing type has no value
@@ -894,10 +971,20 @@ class GenerateExprMacrosAndCmds(Visitor):
         if node in state.directives:
             # already know how to put it on stack, or it is impossible
             return
+        ref = state.resolved_references[node]
 
-        expr_type = state.expr_types[node]
-        parent_type = state.expr_types[node.parent]
+        assert isinstance(ref, FieldReference), ref
+
+        # use the unconverted for this expr for now, because we haven't run conversion
+        unconverted_type = state.expr_unconverted_types[node]
+        # however, for parent, use converted because conversion has been run
+        parent_type = state.expr_converted_types[node.parent]
+
         assert issubclass(parent_type, ArrayType)
+        assert unconverted_type == parent_type.MEMBER_TYPE, (
+            parent_type.MEMBER_TYPE,
+            unconverted_type,
+        )
         parent_dirs = state.directives[node.parent]
         # these are the dirs to put the parent on the stack
         # we want to put it on the stack and then grab a certain
@@ -925,7 +1012,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         # okay we're good. should still have the idx on the stack
 
         # multiply the index by the member type size
-        directives.append(PushValDirective(U64Type(expr_type.getMaxSize())))
+        directives.append(PushValDirective(U64Type(unconverted_type.getMaxSize())))
         directives.append(IntMultiplyDirective())
 
         # okay now we have the offset on the stack
@@ -933,13 +1020,32 @@ class GenerateExprMacrosAndCmds(Visitor):
         # get the member from the stack at this offset, discard the rest of
         # the parent
         directives.append(
-            GetMemberDirective(parent_type.getMaxSize(), expr_type.getMaxSize())
+            GetMemberDirective(parent_type.getMaxSize(), unconverted_type.getMaxSize())
         )
 
         # now convert the type if necessary
-        converted_type = state.type_coercions.get(node, None)
-        if converted_type is not None:
-            directives.extend(self.convert_type(expr_type, converted_type))
+        converted_type = state.expr_converted_types[node]
+        if unconverted_type != converted_type:
+            directives.extend(self.convert_type(unconverted_type, converted_type))
+
+        state.directives[node] = directives
+
+    def visit_AstVar(self, node: AstVar, state: CompileState):
+        if node in state.directives:
+            # already know how to put it on stack, or it is impossible
+            return
+
+        ref = state.resolved_references.get(node, None)
+
+        assert isinstance(ref, FpyVariable), ref
+
+        # already should be in an lvar
+        directives = [LoadDirective(ref.lvar_offset, ref.type.getMaxSize())]
+
+        unconverted_type = state.expr_unconverted_types[node]
+        converted_type = state.expr_converted_types[node]
+        if unconverted_type != converted_type:
+            directives.extend(self.convert_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
@@ -948,61 +1054,48 @@ class GenerateExprMacrosAndCmds(Visitor):
             # already know how to put it on stack, or it is impossible
             return
 
-        expr_type = state.expr_types[node]
-        ref = state.resolved_references[node]
+        ref = state.resolved_references.get(node, None)
+
+        if isinstance(ref, dict):
+            # don't generate code for it, it's a ref to a scope and
+            # doesn't have a value
+            state.directives[node] = []
+            return
+
+        # start with the unconverted type, because we haven't applied runtime type conversion yet
+        unconverted_type = state.expr_unconverted_types[node]
 
         directives = []
 
-        # does not have a constant compile time value
-
-        # first, put it in an lvar. then load it from the lvar onto stack
-
-        # the offset of the field in the parent type
-        offset_in_parent_val = 0
-        # the offset of the lvar the parent type is stored in
-        offset_in_lvar_array = 0
-
-        base_ref = ref
-
-        # if it's a field ref, find the parent and the offset in the parent
-        while isinstance(base_ref, FieldReference):
-            offset_in_parent_val += base_ref.offset
-            # okay but we can have a field ref to a non-reference type
-            parent_ref = state.resolved_references.get(base_ref.parent_expr, None)
-            if parent_ref is None:
-                # okay, we're getting a field of a
-
-        if isinstance(base_ref, ChTemplate):
-            # put it in an lvar
-            offset_in_lvar_array = state.lvar_array_size_bytes
-            state.lvar_array_size_bytes += base_ref.get_type_obj().getMaxSize()
-            directives.append(
-                StoreTlmValDirective(base_ref.get_id(), offset_in_lvar_array)
-            )
-        elif isinstance(base_ref, PrmTemplate):
-            # put it in an lvar
-            offset_in_lvar_array = state.lvar_array_size_bytes
-            state.lvar_array_size_bytes += base_ref.get_type_obj().getMaxSize()
-            directives.append(
-                StorePrmDirective(base_ref.get_id(), offset_in_lvar_array)
-            )
-        elif isinstance(base_ref, FpyVariable):
+        if isinstance(ref, ChTemplate):
+            directives.append(PushTlmValDirective(ref.get_id()))
+        elif isinstance(ref, PrmTemplate):
+            directives.append(PushPrmDirective(ref.get_id()))
+        elif isinstance(ref, FpyVariable):
             # already should be in an lvar
-            offset_in_lvar_array = base_ref.lvar_offset
+            directives.append(LoadDirective(ref.lvar_offset, ref.type.getMaxSize()))
+        elif isinstance(ref, FieldReference):
+            # okay, put parent dirs in first
+            parent_dirs = state.directives[ref.parent_expr]
+            # use the converted type of parent
+            parent_type = state.expr_converted_types[ref.parent_expr]
+            directives.extend(parent_dirs)
+            assert ref.offset is not None
+            # push the offset to the stack
+            directives.append(PushValDirective(U64Type(ref.offset).serialize()))
+            directives.append(
+                GetMemberDirective(
+                    parent_type.getMaxSize(), unconverted_type.getMaxSize()
+                )
+            )
         else:
             assert (
                 False
-            ), base_ref  # ref should either be impossible to put on stack or should have a compile time val
+            ), ref  # ref should either be impossible to put on stack or should have a compile time val
 
-        # load from the lvar
-        directives.append(
-            LoadDirective(
-                offset_in_lvar_array + offset_in_parent_val, expr_type.getMaxSize()
-            )
-        )
-        converted_type = state.type_coercions.get(node, None)
-        if converted_type is not None:
-            directives.extend(self.convert_type(expr_type, converted_type))
+        converted_type = state.expr_converted_types[node]
+        if converted_type != unconverted_type:
+            directives.extend(self.convert_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
@@ -1013,8 +1106,6 @@ class GenerateExprMacrosAndCmds(Visitor):
 
         directives = []
 
-        expr_type = state.expr_types[node]
-
         lhs_dirs = state.directives[node.lhs]
         rhs_dirs = state.directives[node.rhs]
 
@@ -1024,12 +1115,8 @@ class GenerateExprMacrosAndCmds(Visitor):
         # generate the actual op itself
         directives: list[Directive] = lhs_dirs + rhs_dirs
         if dir == MemCompareDirective:
-            lhs_type = state.type_coercions.get(node.lhs, None)
-            if lhs_type is None:
-                lhs_type = state.expr_types[node.lhs]
-            rhs_type = state.type_coercions.get(node.rhs, None)
-            if rhs_type is None:
-                rhs_type = state.expr_types[node.rhs]
+            lhs_type = state.expr_converted_types[node.lhs]
+            rhs_type = state.expr_converted_types[node.rhs]
             assert lhs_type == rhs_type, (lhs_type, rhs_type)
             directives.append(dir(lhs_type.getMaxSize()))
             if node.op == BinaryStackOp.NOT_EQUAL:
@@ -1041,9 +1128,10 @@ class GenerateExprMacrosAndCmds(Visitor):
             directives.append(dir())
 
         # and convert the result of the op into the desired result of this expr
-        converted_type = state.type_coercions.get(node, None)
-        if converted_type is not None:
-            directives.extend(self.convert_type(expr_type, converted_type))
+        unconverted_type = state.expr_unconverted_types[node]
+        converted_type = state.expr_converted_types[node]
+        if unconverted_type != converted_type:
+            directives.extend(self.convert_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
@@ -1053,8 +1141,6 @@ class GenerateExprMacrosAndCmds(Visitor):
             return
 
         directives = []
-
-        expr_type = state.expr_types[node]
 
         val_dirs = state.directives[node.val]
 
@@ -1072,30 +1158,32 @@ class GenerateExprMacrosAndCmds(Visitor):
 
         directives.append(dir())
         # and convert the result of the op into the desired result of this expr
-        converted_type = state.type_coercions.get(node, None)
-        if converted_type is not None:
-            directives.extend(self.convert_type(expr_type, converted_type))
+        unconverted_type = state.expr_unconverted_types[node]
+        converted_type = state.expr_converted_types[node]
+        if unconverted_type != converted_type:
+            directives.extend(self.convert_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
+        if node in state.directives:
+            # already know how to put it on stack
+            return
+
         node_args = node.args if node.args is not None else []
         func = state.resolved_references[node.func]
-        dirs = state.directives.get(node, [])
-        if len(dirs) > 0:
-            # already know how to put this on the stack
-            return
+        directives = []
         if isinstance(func, FpyCmd):
             const_args = not any(
-                state.expr_values[arg_node] is None for arg_node in node_args
+                state.expr_converted_values[arg_node] is None for arg_node in node_args
             )
             if const_args:
                 # can just hardcode this cmd
                 arg_bytes = bytes()
                 for arg_node in node_args:
-                    arg_value = state.expr_values[arg_node]
+                    arg_value = state.expr_converted_values[arg_node]
                     arg_bytes += arg_value.serialize()
-                dirs = [ConstCmdDirective(func.cmd.get_op_code(), arg_bytes)]
+                directives.append(ConstCmdDirective(func.cmd.get_op_code(), arg_bytes))
             else:
                 arg_byte_count = 0
                 # push all args to the stack
@@ -1103,36 +1191,39 @@ class GenerateExprMacrosAndCmds(Visitor):
                 for arg_node in node_args:
                     node_dirs = state.directives[arg_node]
                     assert len(node_dirs) >= 1
-                    dirs.extend(node_dirs)
-                    converted_type = state.type_coercions.get(arg_node, None)
-                    if converted_type is None:
-                        converted_type = state.expr_types[arg_node]
-                    arg_byte_count += converted_type.getMaxSize()
+                    directives.extend(node_dirs)
+                    arg_converted_type = state.expr_converted_types[arg_node]
+                    arg_byte_count += arg_converted_type.getMaxSize()
                 # then push cmd opcode to stack as u32
-                dirs.append(
+                directives.append(
                     PushValDirective(U32Type(func.cmd.get_op_code()).serialize())
                 )
                 # now that all args are pushed to the stack, pop them and opcode off the stack
                 # as a command
-                dirs.append(StackCmdDirective(arg_byte_count))
+                directives.append(StackCmdDirective(arg_byte_count))
         elif isinstance(func, FpyMacro):
             # put all arg values on stack
             for arg_node in node_args:
                 node_dirs = state.directives[arg_node]
                 assert len(node_dirs) >= 1
-                dirs.extend(node_dirs)
+                directives.extend(node_dirs)
 
-            dirs.append(func.dir())
+            directives.append(func.dir())
         else:
-            dirs = None
+            assert False, (node, func)
 
         # perform type conversion if called for
-        coerced_type = state.type_coercions.get(node, None)
-        if coerced_type is not None:
-            dirs.extend(self.convert_type(func.return_type, coerced_type))
-        state.directives[node] = dirs
+        unconverted_type = state.expr_unconverted_types[node]
+        converted_type = state.expr_converted_types[node]
+        if unconverted_type != converted_type:
+            directives.extend(self.convert_type(unconverted_type, converted_type))
+        state.directives[node] = directives
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
+        if node in state.directives:
+            # already know how to do this assign
+            return
+
         var = state.variables[node.variable.var]
         state.directives[node] = state.directives[node.value] + [
             StoreDirective(var.lvar_offset, var.type.getMaxSize())
@@ -1410,34 +1501,32 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
         # now that variables have been defined, all names/attributes/indices (references)
         # should be defined
         PickScopes(),
-        # # now that we know what all refs point to, we should be able to figure out the type
-        # # of every expression
-        # PickAndConvertTypes(),
-        # # now that expr types have been narrowed down, we can allocate lvar space for variables
-        # AllocateVariables(),
-        # # okay, now that we're sure we're passing in all the right args to each func,
-        # # we can calculate values of type ctors etc etc
-        # CalculateConstExprValues(),
-        # # for expressions which have constant values, generate corresponding directives
-        # # to put the expr on the stack
-        # GenerateConstExprDirectives(),
-        # # generate directives to calculate exprs, macros and cmds at runtime and put them
-        # # on the stack
-        # GenerateExprMacrosAndCmds(),
-        # # count the number of directives generated by each node
-        # CountNodeDirectives(),
-        # # calculate the index that the node will correspond to in the output file
-        # CalculateStartLineIdx(),
-        # # generate directives for each body node, including the root
-        # GenerateBodyDirectives(),
+        # now that we know what all refs point to, we should be able to figure out the type
+        # of every expression
+        PickTypesAndResolveAttrsAndItems(),
+        # now that expr types have been narrowed down, we can allocate lvar space for variables
+        AllocateVariables(),
+        # okay, now that we're sure we're passing in all the right args to each func,
+        # we can calculate values of type ctors etc etc
+        CalculateConstExprValues(),
+        # for expressions which have constant values, generate corresponding directives
+        # to put the expr on the stack
+        GenerateConstExprDirectives(),
+        # generate directives to calculate exprs, macros and cmds at runtime and put them
+        # on the stack
+        GenerateExprMacrosAndCmds(),
+        # count the number of directives generated by each node
+        CountNodeDirectives(),
+        # calculate the index that the node will correspond to in the output file
+        CalculateStartLineIdx(),
+        # generate directives for each body node, including the root
+        GenerateBodyDirectives(),
     ]
 
     for compile_pass in passes:
         compile_pass.run(body, state)
         for error in state.errors:
             raise error
-
-    return []
 
     dirs = state.directives[body]
     if len(dirs) > MAX_DIRECTIVES_COUNT:

@@ -65,8 +65,8 @@ class DirectiveId(Enum):
     GOTO = 4
     IF = 5
     NO_OP = 6
-    STORE_TLM_VAL = 7
-    STORE_PRM = 8
+    PUSH_TLM_VAL = 7
+    PUSH_PRM = 8
     CONST_CMD = 9
     # stack op directives
     # all of these are handled at the CPP level by one StackOpDirective
@@ -500,19 +500,17 @@ class NoOpDirective(Directive):
 
 
 @dataclass
-class StoreTlmValDirective(Directive):
-    opcode: ClassVar[DirectiveId] = DirectiveId.STORE_TLM_VAL
+class PushTlmValDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.PUSH_TLM_VAL
     chan_id: Union[int, FwChanIdType]
     """FwChanIdType: The telemetry channel ID to get."""
-    lvar_offset: Union[int, U32Type]
 
 
 @dataclass
-class StorePrmDirective(Directive):
-    opcode: ClassVar[DirectiveId] = DirectiveId.STORE_PRM
+class PushPrmDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.PUSH_PRM
     prm_id: Union[int, FwPrmIdType]
     """FwPrmIdType: The parameter ID to get the value of."""
-    lvar_offset: Union[int, U32Type]
 
 
 @dataclass
