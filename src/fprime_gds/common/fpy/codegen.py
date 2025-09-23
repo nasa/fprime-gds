@@ -18,7 +18,6 @@ from fprime_gds.common.fpy.types import (
     SPECIFIC_NUMERIC_TYPES,
     SIGNED_INTEGER_TYPES,
     UNSIGNED_INTEGER_TYPES,
-    CompileException,
     CompileState,
     FieldReference,
     FppTypeClass,
@@ -39,6 +38,7 @@ from fprime_gds.common.fpy.types import (
     is_instance_compat,
 )
 
+from fprime_gds.common.fpy.error import CompileError
 # In Python 3.10+, the `|` operator creates a `types.UnionType`.
 # We need to handle this for forward compatibility, but it won't exist in 3.9.
 try:
@@ -584,7 +584,7 @@ class PickAndConvertTypes(Visitor):
 
         if len(node_args) < len(func_args):
             state.errors.append(
-                CompileException(
+                CompileError(
                     f"Missing arguments (expected {len(func_args)} found {len(node_args)})",
                     node,
                 )
@@ -592,7 +592,7 @@ class PickAndConvertTypes(Visitor):
             return
         if len(node_args) > len(func_args):
             state.errors.append(
-                CompileException(
+                CompileError(
                     f"Too many arguments (expected {len(func_args)} found {len(node_args)})",
                     node,
                 )
@@ -1412,13 +1412,12 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
     for compile_pass in passes:
         compile_pass.run(body, state)
         for error in state.errors:
-            raise error
+            print(error)
+            exit(1)
 
     dirs = state.directives[body]
     if len(dirs) > MAX_DIRECTIVES_COUNT:
-        raise CompileException(
-            f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})",
-            None,
-        )
+        print(CompileError(f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"))
+        exit(1)
 
     return dirs

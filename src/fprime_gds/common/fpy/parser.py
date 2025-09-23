@@ -2,13 +2,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal as TypingLiteral, Union
+from lark import Lark, LarkError, Transformer, v_args
 from lark.indenter import PythonIndenter
-from lark import Lark, Transformer, v_args
 from lark.tree import Meta
 
-fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
+from fprime_gds.common.fpy.error import handle_lark_error
+import fprime_gds.common.fpy.error
 
-input_text = None
+
+fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
 
 
 def parse(text: str):
@@ -21,9 +23,12 @@ def parse(text: str):
         maybe_placeholders=True,
     )
 
-    global input_text
-    input_text = text
-    tree = parser.parse(text, on_error=lambda x: print("Error"))
+    fprime_gds.common.fpy.error.input_text = text
+    fprime_gds.common.fpy.error.input_lines = text.splitlines()
+    try:
+        tree = parser.parse(text, on_error=handle_lark_error)
+    except LarkError as e:
+        handle_lark_error(e)
     transformed = FpyTransformer().transform(tree)
     return transformed
 
@@ -32,17 +37,6 @@ def parse(text: str):
 class Ast:
     meta: Meta = field(repr=False)
     id: int = field(init=False, repr=False, default=None)
-    node_text: str = field(init=False, repr=False, default=None)
-
-    def __post_init__(self):
-        if not hasattr(self.meta, "start_pos"):
-            self.node_text = ""
-            return
-        self.node_text = (
-            input_text[self.meta.start_pos : self.meta.end_pos]
-            .replace("\n", " ")
-            .strip()
-        )
 
     def __hash__(self):
         return hash(self.id)
@@ -96,6 +90,7 @@ class AstFuncCall(Ast):
 class AstPass(Ast):
     pass
 
+
 @dataclass
 class AstBinaryOp(Ast):
     lhs: AstExpr
@@ -112,9 +107,7 @@ class AstUnaryOp(Ast):
 AstOp = Union[AstBinaryOp, AstUnaryOp]
 
 AstReference = Union[AstGetAttr, AstGetItem, AstVar]
-AstExpr = Union[
-    AstFuncCall, AstLiteral, AstReference, AstOp
-]
+AstExpr = Union[AstFuncCall, AstLiteral, AstReference, AstOp]
 
 
 @dataclass
@@ -188,6 +181,7 @@ def no_meta(type):
         return type(tree)
 
     return wrapper
+
 
 def handle_str(meta, s: str):
     return s.strip("'").strip('"')

@@ -1,14 +1,21 @@
 import argparse
 from pathlib import Path
-import sys
-from fprime_gds.common.fpy.bytecode.assembler import assemble, directives_to_fpybc
-from fprime_gds.common.fpy.bytecode.assembler import parse as fpybc_parse
+from fprime_gds.common.fpy.bytecode.assembler import assemble, directives_to_fpybc, parse as fpybc_parse
+import fprime_gds.common.fpy.error
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
 import fprime_gds.common.fpy.model
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.parser import parse as fpy_parse
 from fprime_gds.common.fpy.codegen import compile
 
+def human_readable_size(size_bytes):
+    units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+    unit_idx = 0
+    while size_bytes >= 1024.0 and unit_idx < len(units) - 1:
+        size_bytes /= 1024.0
+        unit_idx += 1
+    size_bytes = int(size_bytes)
+    return f"{size_bytes} {units[unit_idx]}"
 
 def compile_main(args: list[str] = None):
     arg_parser = argparse.ArgumentParser()
@@ -35,15 +42,26 @@ def compile_main(args: list[str] = None):
         default=False,
         help="Whether to output human-readable bytecode instead of binary",
     )
+    arg_parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Pass this to print out compiler debugging information",
+    )
 
     if args is not None:
         args = arg_parser.parse_args(args)
     else:
         args = arg_parser.parse_args()
 
+    if args.debug:
+        fprime_gds.common.fpy.error.debug = True
+
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
         exit(-1)
+
+    fprime_gds.common.fpy.error.file_name = str(args.input)
 
     body = fpy_parse(args.input.read_text())
     directives = compile(body, args.dictionary)
@@ -56,19 +74,23 @@ def compile_main(args: list[str] = None):
     if args.bytecode:
         fpybc = directives_to_fpybc(directives)
         output.write_text(fpybc)
+        print(f"{output}")
     else:
-        serialize_directives(directives, output)
-    print("Done")
+        output_bytes, crc = serialize_directives(directives)
+        output.write_bytes(output_bytes)
+        print(f"{output}\nCRC {hex(crc)} size {human_readable_size(len(output_bytes))}")
+
+
+
 
 
 def model_main(args: list[str] = None):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .bin file")
     arg_parser.add_argument(
-        "--verbose",
-        "-v",
+        "--debug",
         action="store_true",
-        help="Whether or not to print stack during sequence execution",
+        help="Whether or not to print debug info during sequence execution",
     )
 
     if args is not None:
@@ -80,7 +102,7 @@ def model_main(args: list[str] = None):
         print(f"Input file {args.input} does not exist")
         exit(-1)
 
-    if args.verbose:
+    if args.debug:
         fprime_gds.common.fpy.model.debug = True
 
     directives = deserialize_directives(args.input.read_bytes())
@@ -117,8 +139,9 @@ def assemble_main(args: list[str] = None):
     output = args.output
     if output is None:
         output = args.input.with_suffix(".bin")
-    serialize_directives(directives, output)
-    print("Done")
+    output_bytes, crc = serialize_directives(directives)
+    output.write_bytes(output_bytes)
+    print(f"{output}\nCRC {hex(crc)} size {human_readable_size(len(output_bytes))}")
 
 
 def disassemble_main(args: list[str] = None):
