@@ -341,16 +341,25 @@ exit(1)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_get_const_member_of_ctor(fprime_test_api):
+def test_get_member_of_anon_expr(fprime_test_api):
     seq = """
-# currently this is not supported, but it should be in the future
 var: U32 = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED).priority
 if var == 3:
     exit(0)
 exit(1)
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_get_time_member(fprime_test_api):
+    seq = """
+if Fw.Time(0, 1, 2, 3).useconds == 3:
+    exit(0)
+exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_float_cmp(fprime_test_api):
@@ -390,10 +399,20 @@ val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_get_item_of_var(fprime_test_api):
+def test_get_item_of_anon_expr(fprime_test_api):
     seq = """
 val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
 if val[0] == 0:
+    exit(0)
+exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_get_item_of_anon_expr(fprime_test_api):
+    seq = """
+if Svc.ComQueueDepth(123, 456)[1] == 456:
     exit(0)
 exit(1)
 """

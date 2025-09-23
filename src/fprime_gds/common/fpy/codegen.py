@@ -666,16 +666,16 @@ class CalculateConstExprValues(Visitor):
             # we are accessing an attribute of something with an fprime value at compile time
             # we must be getting a member
             if isinstance(parent_value, StructType):
-                expr_value = parent_value.val[node.attr]
+                expr_value = parent_value._val[node.attr]
             elif isinstance(parent_value, TimeType):
                 if node.attr == "seconds":
-                    expr_value = parent_value.__secs
+                    expr_value = U32Type(parent_value.seconds)
                 elif node.attr == "useconds":
-                    expr_value = parent_value.__usecs
+                    expr_value = U32Type(parent_value.useconds)
                 elif node.attr == "time_base":
-                    expr_value = parent_value.__timeBase
+                    expr_value = U16Type(parent_value.timeBase)
                 elif node.attr == "time_context":
-                    expr_value = parent_value.__timeContext
+                    expr_value = U8Type(parent_value.timeContext)
                 else:
                     assert False, node.attr
             else:
@@ -789,7 +789,7 @@ class CalculateConstExprValues(Visitor):
                 expr_value = instance
 
             elif func.type == TimeType:
-                expr_value = TimeType(*arg_values)
+                expr_value = TimeType(*[val.val for val in arg_values])
 
             else:
                 # no other FppTypeClasses have ctors
