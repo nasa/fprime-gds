@@ -129,9 +129,9 @@ AstExpr = Union[
 
 @dataclass
 class AstAssign(Ast):
-    variable: AstVar
-    var_type: AstExpr | None
-    value: AstExpr
+    lhs: AstExpr
+    type_ann: AstExpr | None
+    rhs: AstExpr
 
 
 @dataclass

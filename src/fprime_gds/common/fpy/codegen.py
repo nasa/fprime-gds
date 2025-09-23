@@ -18,6 +18,7 @@ from fprime_gds.common.fpy.types import (
     SPECIFIC_NUMERIC_TYPES,
     SIGNED_INTEGER_TYPES,
     UNSIGNED_INTEGER_TYPES,
+    ArrayIndexType,
     CompileException,
     CompileState,
     FieldReference,
@@ -61,6 +62,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatMultiplyDirective,
     FloatTruncateDirective,
     GetMemberDirective,
+    IntAddDirective,
     IntMultiplyDirective,
     LoadDirective,
     MemCompareDirective,
@@ -158,25 +160,39 @@ class CreateVariables(Visitor):
     """finds all variable declarations and adds them to the variable scope"""
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        existing = state.variables.get(node.variable.var, None)
-        if not existing:
-            # idk what this var is. make sure it's a valid declaration
-            if node.var_type is None:
-                # error because this isn't an annotated assignment. right now all declarations must be annotated
-                state.err(
-                    "Must provide a type annotation for new variables", node.variable
-                )
-                return
-
-            var = FpyVariable(node.var_type, node)
-            # new var. put it in the table under this scope
-            state.variables[node.variable.var] = var
-            state.runtime_values[node.variable.var] = var
-
-        if existing and node.var_type is not None:
-            # redeclaring an existing variable
-            state.err(f"{node.variable.var} already declared", node)
+        if not isinstance(node.lhs, AstReference):
+            state.err("Invalid assignment", node.lhs)
             return
+        # okay, what are we assigning to?
+        if isinstance(node.lhs, AstVar):
+            # assigning to an FpyVariable
+            existing = state.variables.get(node.lhs.var, None)
+            if not existing:
+                # idk what this var is. make sure it's a valid declaration
+                if node.type_ann is None:
+                    # error because this isn't an annotated assignment. right now all declarations must be annotated
+                    state.err(
+                        "Must provide a type annotation for new variables",
+                        node.lhs,
+                    )
+                    return
+
+                var = FpyVariable(node.type_ann, node)
+                # new var. put it in the table under this scope
+                state.variables[node.lhs.var] = var
+                state.runtime_values[node.lhs.var] = var
+
+            if existing and node.type_ann is not None:
+                # redeclaring an existing variable
+                state.err(f"{node.lhs.var} already declared", node)
+                return
+        else:
+            # assigning to a member or array element. don't need to make a new variable,
+            # space already exists
+            if node.type_ann is not None:
+                # type annotation on a field assignment... it already has a type!
+                state.err("Cannot specify a type annotation for a field", node.type_ann)
+                return
 
 
 class CheckUseBeforeDeclare(Visitor):
@@ -185,7 +201,11 @@ class CheckUseBeforeDeclare(Visitor):
         self.currently_declared_vars: list[FpyVariable] = []
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        var = state.variables[node.variable.var]
+        if not isinstance(node.lhs, AstVar):
+            # definitely not a declaration, it's a field assignment
+            return
+
+        var = state.variables[node.lhs.var]
 
         if var.declaration != node:
             # this is not the node that declares this variable
@@ -200,12 +220,12 @@ class CheckUseBeforeDeclare(Visitor):
         if ref is None:
             return
 
-        if ref.declaration.variable == node:
+        if ref.declaration.lhs == node:
             # this is the initial name of the variable. don't crash
             return
 
         if ref not in self.currently_declared_vars:
-            state.err("Variable used before declared", node)
+            state.err(f"{node.var} used before declared", node)
             return
 
 
@@ -240,12 +260,12 @@ class PickScopes(TopDownVisitor):
         SetScope(state.runtime_values).run(node.val, state)
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        SetScope(state.variables).run(node.variable, state)
+        SetScope(state.runtime_values).run(node.lhs, state)
 
-        if node.var_type is not None:
-            SetScope(state.types).run(node.var_type, state)
+        if node.type_ann is not None:
+            SetScope(state.types).run(node.type_ann, state)
 
-        SetScope(state.runtime_values).run(node.value, state)
+        SetScope(state.runtime_values).run(node.rhs, state)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         # make sure that all refs are resolved when we get to them
@@ -380,6 +400,22 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # it may or may not have a compile time value, but it definitely has a type
             parent_type = state.expr_unconverted_types[node.parent]
 
+            # field references store their "base reference", which is the first non-field-ref parent of
+            # the field ref. this lets you easily check what actual underlying thing (tlm chan, variable, prm)
+            # you're talking about a field of
+            base_ref = (
+                parent_ref
+                if not isinstance(parent_ref, FieldReference)
+                else parent_ref.base_ref
+            )
+            # we also calculate a "base offset" wrt. the start of the base_ref type, so you
+            # can easily pick out this field from a value of the base ref type
+            base_offset = (
+                0
+                if not isinstance(parent_ref, FieldReference)
+                else parent_ref.base_offset
+            )
+
             member_list = self.get_members(node, parent_type, state)
             if member_list is None:
                 return
@@ -387,9 +423,18 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             offset = 0
             for arg_name, arg_type in member_list:
                 if arg_name == node.attr:
-                    ref = FieldReference(node.parent, arg_type, offset, name=arg_name)
+                    ref = FieldReference(
+                        is_struct_member=True,
+                        parent_expr=node.parent,
+                        type=arg_type,
+                        base_ref=base_ref,
+                        local_offset=offset,
+                        base_offset=base_offset,
+                        name=arg_name,
+                    )
                     break
                 offset += arg_type.getMaxSize()
+                base_offset += arg_type.getMaxSize()
 
         if ref is None:
             state.err(
@@ -426,11 +471,23 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             state.err(f"{parent_type.__name__} is not an array", node)
             return
 
-        # coerce the index expression to a u64
-        if not self.coerce_expr_type(node.item, U64Type, state):
+        # coerce the index expression to array index type
+        if not self.coerce_expr_type(node.item, ArrayIndexType, state):
             return
 
-        ref = FieldReference(node.parent, parent_type.MEMBER_TYPE, idx_expr=node.item)
+        base_ref = (
+            parent_ref
+            if not isinstance(parent_ref, FieldReference)
+            else parent_ref.base_ref
+        )
+
+        ref = FieldReference(
+            is_array_element=True,
+            parent_expr=node.parent,
+            type=parent_type.MEMBER_TYPE,
+            base_ref=base_ref,
+            idx_expr=node.item,
+        )
 
         state.resolved_references[node] = ref
         state.expr_unconverted_types[node] = parent_type.MEMBER_TYPE
@@ -563,15 +620,40 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_converted_types[node] = func.return_type
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        var = state.resolved_references[node.variable]
-        if node.var_type is not None:
-            var_type = state.resolved_references[node.var_type]
-            assert isinstance(var_type, type), (var_type, type)
-            var.type = var_type
-        else:
-            var_type = var.type
+        # should be present in resolved refs because we only let it through if
+        # variable is attr, item or var
+        lhs_ref = state.resolved_references[node.lhs]
+        if not isinstance(lhs_ref, (FpyVariable, FieldReference)):
+            state.err("Invalid assignment", node.lhs)
+            return
 
-        if not self.coerce_expr_type(node.value, var_type, state):
+        lhs_type = None
+        if isinstance(lhs_ref, FpyVariable):
+            if node.type_ann is not None:
+                # update the type
+                var_type = state.resolved_references[node.type_ann]
+                assert isinstance(var_type, type), (var_type, type)
+                lhs_ref.type = var_type
+            else:
+                var_type = lhs_ref.type
+
+            lhs_type = var_type
+            if not self.coerce_expr_type(node.rhs, var_type, state):
+                return
+        else:
+            # briefly check that we're only trying
+            # to modify an fpy var
+            if not isinstance(lhs_ref.base_ref, FpyVariable):
+                state.err("Can only assign variables", node.lhs)
+                return
+            assert (
+                state.expr_converted_types[node.lhs]
+                == state.expr_unconverted_types[node.lhs]
+            )
+            lhs_type = state.expr_converted_types[node.lhs]
+
+        # coerce the rhs into the lhs type
+        if not self.coerce_expr_type(node.rhs, lhs_type, state):
             return
 
     def visit_default(self, node, state):
@@ -581,18 +663,21 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
 class AllocateVariables(Visitor):
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        existing_var = state.resolved_references[node.variable]
+        lhs_ref = state.resolved_references[node.lhs]
+        if not isinstance(lhs_ref, FpyVariable):
+            # it's a field ref, ignore it. don't need any more space for it
+            return
 
-        assert existing_var is not None
-        assert existing_var.type is not None
+        assert lhs_ref is not None
+        assert lhs_ref.type is not None
 
-        value_size = existing_var.type.getMaxSize()
+        value_size = lhs_ref.type.getMaxSize()
 
-        if existing_var.lvar_offset is None:
+        if lhs_ref.lvar_offset is None:
             # doesn't have an lvar idx, allocate one
             lvar_offset = state.lvar_array_size_bytes
             state.lvar_array_size_bytes += value_size
-            existing_var.lvar_offset = lvar_offset
+            lhs_ref.lvar_offset = lvar_offset
 
 
 class CalculateConstExprValues(Visitor):
@@ -990,9 +1075,6 @@ class GenerateExprMacrosAndCmds(Visitor):
         # we want to put it on the stack and then grab a certain
         # size at a certain offset
 
-        # TODO directive for assertions somehow
-        # TODO exit takes an error code
-
         # optimization: leave it in the lvar array
 
         directives = parent_dirs.copy()
@@ -1001,10 +1083,16 @@ class GenerateExprMacrosAndCmds(Visitor):
         index_dirs = state.directives[node.item]
         directives.extend(index_dirs)
         # okay now let's do an array oob check
-        directives.append(DuplicateDirective(8))  # duplicate the index
         directives.append(
-            PushValDirective(U64Type(parent_type.LENGTH))
+            DuplicateDirective(ArrayIndexType.getMaxSize())
+        )  # duplicate the index
+        # convert idx to u64
+        directives.extend(self.convert_type(ArrayIndexType, U64Type))
+        directives.append(
+            PushValDirective(ArrayIndexType(parent_type.LENGTH))
         )  # push the length
+        # convert len to u64
+        directives.extend(self.convert_type(ArrayIndexType, U64Type))
         # check if idx < length
         directives.append(UnsignedLessThanDirective())
         # assert it's true
@@ -1012,7 +1100,9 @@ class GenerateExprMacrosAndCmds(Visitor):
         # okay we're good. should still have the idx on the stack
 
         # multiply the index by the member type size
-        directives.append(PushValDirective(U64Type(unconverted_type.getMaxSize())))
+        directives.append(
+            PushValDirective(U64Type(parent_type.MEMBER_TYPE.getMaxSize()))
+        )
         directives.append(IntMultiplyDirective())
 
         # okay now we have the offset on the stack
@@ -1020,7 +1110,9 @@ class GenerateExprMacrosAndCmds(Visitor):
         # get the member from the stack at this offset, discard the rest of
         # the parent
         directives.append(
-            GetMemberDirective(parent_type.getMaxSize(), unconverted_type.getMaxSize())
+            GetMemberDirective(
+                parent_type.getMaxSize(), parent_type.MEMBER_TYPE.getMaxSize()
+            )
         )
 
         # now convert the type if necessary
@@ -1080,9 +1172,9 @@ class GenerateExprMacrosAndCmds(Visitor):
             # use the converted type of parent
             parent_type = state.expr_converted_types[ref.parent_expr]
             directives.extend(parent_dirs)
-            assert ref.offset is not None
+            assert ref.local_offset is not None
             # push the offset to the stack
-            directives.append(PushValDirective(U64Type(ref.offset).serialize()))
+            directives.append(PushValDirective(U64Type(ref.local_offset).serialize()))
             directives.append(
                 GetMemberDirective(
                     parent_type.getMaxSize(), unconverted_type.getMaxSize()
@@ -1224,10 +1316,90 @@ class GenerateExprMacrosAndCmds(Visitor):
             # already know how to do this assign
             return
 
-        var = state.variables[node.variable.var]
-        state.directives[node] = state.directives[node.value] + [
-            StoreDirective(var.lvar_offset, var.type.getMaxSize())
-        ]
+        lhs = state.resolved_references[node.lhs]
+        lvar_offset_dirs = []
+        if isinstance(lhs, FpyVariable):
+            lvar_offset_dirs.append(
+                PushValDirective(U32Type(lhs.lvar_offset).serialize())
+            )
+        else:
+            assert isinstance(lhs, FieldReference), lhs
+            assert isinstance(lhs.base_ref, FpyVariable), lhs.base_ref
+
+            # okay, are we assigning to a member or an element?
+
+            if lhs.is_struct_member:
+                # the offset in the base type, plus the offset of the base lvar
+                # in the lvar array
+                lvar_offset = lhs.base_offset + lhs.base_ref.lvar_offset
+                lvar_offset_dirs.append(
+                    PushValDirective(U32Type(lvar_offset).serialize())
+                )
+            else:
+                assert lhs.is_array_element
+                # again, offset is the offset in base type + offset of base lvar
+
+                # however, because array idx can be variable, we don't know at compile time
+                # the offset in base type. let's push the offset of base lvar first, then
+                # calculate the offset in base type, then add
+
+                # push as u64 because we're going to do math
+                lvar_offset_dirs.append(
+                    PushValDirective(U64Type(lhs.base_ref.lvar_offset).serialize())
+                )
+
+                # okay, so we have an index which might be variable
+                lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
+                assert issubclass(lhs_parent_type, ArrayType), (
+                    lhs_parent_type,
+                    type(lhs_parent_type),
+                )
+
+                # push the index to the stack, do a bounds check,
+                index_dirs = state.directives[lhs.idx_expr]
+                lvar_offset_dirs.extend(index_dirs)
+                # okay now let's do an array oob check
+                lvar_offset_dirs.append(
+                    DuplicateDirective(ArrayIndexType.getMaxSize())
+                )  # duplicate the index
+                # convert idx to u64
+                lvar_offset_dirs.extend(self.convert_type(ArrayIndexType, U64Type))
+                lvar_offset_dirs.append(
+                    PushValDirective(ArrayIndexType(lhs_parent_type.LENGTH).serialize())
+                )  # push the length
+                # convert len to u64
+                lvar_offset_dirs.extend(self.convert_type(ArrayIndexType, U64Type))
+                # check if idx < length
+                lvar_offset_dirs.append(UnsignedLessThanDirective())
+                # assert it's true
+                lvar_offset_dirs.append(AssertDirective())
+                # okay we're good. should still have the idx on the stack
+
+                # multiply the index by the member type size
+                lvar_offset_dirs.append(
+                    PushValDirective(U64Type(lhs_parent_type.MEMBER_TYPE.getMaxSize()))
+                )
+                lvar_offset_dirs.append(IntMultiplyDirective())
+                # okay, now we should have the offset wrt base of the parent type on the stack
+                # right below it is the offset in the lvar array
+                # add them
+                lvar_offset_dirs.append(IntAddDirective())
+                
+                # and now convert the u64 back into the U32 that store expects
+                lvar_offset_dirs.append(IntegerTruncate64To32Directive())
+
+        # use the converted type, the node value has already had
+        # conversion handled, so its stack value is converted
+        converted_type = state.expr_converted_types[node.rhs]
+
+        # start with the rhs on the stack
+        directives = state.directives[node.rhs]
+        # push the lvar offset
+        directives.extend(lvar_offset_dirs)
+        # then store in lvar array
+        directives.append(StoreDirective(converted_type.getMaxSize()))
+
+        state.directives[node] = directives
 
 
 class CountNodeDirectives(Visitor):

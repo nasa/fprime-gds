@@ -127,6 +127,8 @@ SPECIFIC_FLOAT_TYPES = (
     F64Type,
 )
 
+ArrayIndexType = U64Type
+
 
 def is_instance_compat(obj, cls):
     """
@@ -222,13 +224,21 @@ class FpyTypeCtor(FpyCallable):
 
 @dataclass
 class FieldReference:
-    """a reference to a field/index of an fprime type"""
+    """a reference to a member/element of an fprime struct/array type"""
 
     parent_expr: AstExpr
-    """the qualifier"""
+    """the complete qualifier"""
+    base_ref: FpyReference
+    """the base ref, up through all the layers of field refs"""
     type: FppTypeClass
     """the fprime type of this reference"""
-    offset: int = None
+    is_struct_member: bool = False
+    """True if this is a struct member reference"""
+    is_array_element: bool = False
+    """True if this is an array element reference"""
+    base_offset: int = None
+    """the constant offset in the base ref type, or None if unknown at compile time"""
+    local_offset: int = None
     """the constant offset in the parent type at which to find this field
     or None if unknown at compile time"""
     name: str = None

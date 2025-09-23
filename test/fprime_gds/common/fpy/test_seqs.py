@@ -399,10 +399,10 @@ val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_get_item_of_anon_expr(fprime_test_api):
+def test_get_item_of_array(fprime_test_api):
     seq = """
-val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
-if val[0] == 0:
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(222, 111)
+if val[0] == 222:
     exit(0)
 exit(1)
 """
@@ -1393,3 +1393,151 @@ var: U32 = 1
 """
     assert_compile_failure(fprime_test_api, seq)
 
+
+def test_assign_field_with_type_ann_bad(fprime_test_api):
+    seq = """
+var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+var.priority = 123
+if var.priority == 123:
+    exit(0)
+exit(1)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_assign_field_with_type_ann_bad(fprime_test_api):
+    seq = """
+var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+var.priority: U8 = 123
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_assign_field_before_declare(fprime_test_api):
+    seq = """
+var.priority = 123
+var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_assign_array_element(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
+val[0] = 55
+if val[0] == 55:
+    exit(0)
+exit(1)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_assign_array_element_with_type_ann_bad(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
+val[0]: U8 = 55
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_assign_bad_lhs_1(fprime_test_api):
+    seq = """
+Svc.ComQueueDepth = 55
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_assign_bad_lhs_2(fprime_test_api):
+    seq = """
+CdhCore.cmdDisp.CMD_NO_OP = 55
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+# TODO test deep field access/assignments (2+ levels)
+
+def test_assign_tlm_struct_member_bad(fprime_test_api):
+    seq = """
+Ref.cmdSeq.Debug.nextStatementOpcode = 0
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_set_item_of_anon_expr(fprime_test_api):
+    seq = """
+Svc.ComQueueDepth(123, 456)[1] = 456
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_set_member_of_anon_expr(fprime_test_api):
+    seq = """
+Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED).priority = 5
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+def test_array_oob_1(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
+val[2] = 3
+"""
+    assert_run_failure(fprime_test_api, seq)
+
+
+def test_array_oob_2(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(123, 456)
+if val[-1] == 456:
+    exit(0)
+exit(1)
+"""
+# TODO in the future this should work, should be the last element
+    assert_run_failure(fprime_test_api, seq)
+
+
+def test_get_variable_array_idx(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(456, 123)
+idx: U8 = 1
+if val[idx] == 123:
+    exit(0)
+exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+def test_get_variable_array_idx_oob(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(456, 123)
+idx: U8 = 2
+if val[idx] == 123:
+    exit(0)
+exit(1)
+"""
+
+    assert_run_failure(fprime_test_api, seq)
+
+
+def test_set_variable_array_idx_oob(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(456, 123)
+idx: U8 = 2
+val[idx] = 111
+"""
+
+    assert_run_failure(fprime_test_api, seq)
+
+
+def test_set_variable_array_idx(fprime_test_api):
+    seq = """
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(456, 123)
+idx: U8 = 1
+val[idx] = 111
+if val[1] == 111:
+    exit(0)
+exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)

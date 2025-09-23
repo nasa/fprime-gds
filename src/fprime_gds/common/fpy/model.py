@@ -311,10 +311,13 @@ class FpySequencerModel:
         self.push(value)
 
     def handle_store(self, dir: StoreDirective):
-        if len(self.stack) < dir.size:
+
+        if len(self.stack) < dir.size + 4:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
-        if dir.lvar_offset + self.stack_frame_start + dir.size > len(self.stack):
+        lvar_offset = self.pop(size=4, signed=False)
+
+        if lvar_offset + self.stack_frame_start + dir.size > len(self.stack):
             return DirectiveErrorCode.STACK_OVERFLOW
 
         # get the last `dir.size` bytes of the stack
@@ -323,7 +326,7 @@ class FpySequencerModel:
         self.stack = self.stack[: -dir.size]
         # put into lvar array at the given offset
         for i in range(0, len(value)):
-            self.stack[dir.lvar_offset + self.stack_frame_start + i] = value[i]
+            self.stack[lvar_offset + self.stack_frame_start + i] = value[i]
 
     def handle_push_val(self, dir: PushValDirective):
         if len(self.stack) + WORD_SIZE > self.max_stack_size:

@@ -14,7 +14,7 @@ _expr_stmt: _expr
 
 # assignment
 
-assign: var [":" _expr] "=" _expr
+assign: _expr [":" _expr] "=" _expr
 
 
 # branching

@@ -353,7 +353,6 @@ class AllocateDirective(Directive):
 class StoreDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE
 
-    lvar_offset: Union[int, U32Type]
     size: Union[int, U32Type]
 
 
