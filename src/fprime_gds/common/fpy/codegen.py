@@ -40,6 +40,7 @@ from fprime_gds.common.fpy.types import (
 )
 
 from fprime_gds.common.fpy.error import CompileError
+
 # In Python 3.10+, the `|` operator creates a `types.UnionType`.
 # We need to handle this for forward compatibility, but it won't exist in 3.9.
 try:
@@ -156,6 +157,24 @@ class AssignIds(TopDownVisitor):
         self.next_id += 1
 
 
+class SetNodeScope(Visitor):
+    def __init__(self, scope: FpyScope):
+        self.scope = scope
+
+
+    def visit_default(self, node: Ast, state: CompileState):
+        state.node_scopes[node] = self.scope
+
+
+class AssignScopes(TopDownVisitor):
+    def visit_AstScopedBody(self, node: AstScopedBody, state: CompileState):
+        parent_scope = state.node_scopes.get(node, None)
+        # make a new scope
+        scope = FpyScope()
+        state.scope_parents[scope] = parent_scope
+        SetNodeScope(scope).run(node, state)
+
+
 class CreateVariables(Visitor):
     """finds all variable declarations and adds them to the variable scope"""
 
@@ -166,7 +185,7 @@ class CreateVariables(Visitor):
         # okay, what are we assigning to?
         if isinstance(node.lhs, AstVar):
             # assigning to an FpyVariable
-            existing = state.variables.get(node.lhs.var, None)
+            existing = state.node_scopes[node].get(node.lhs.var, None)
             if not existing:
                 # idk what this var is. make sure it's a valid declaration
                 if node.type_ann is None:
@@ -179,7 +198,7 @@ class CreateVariables(Visitor):
 
                 var = FpyVariable(node.type_ann, node)
                 # new var. put it in the table under this scope
-                state.variables[node.lhs.var] = var
+                state.node_scopes[node][node.lhs.var] = var
                 state.runtime_values[node.lhs.var] = var
 
             if existing and node.type_ann is not None:
@@ -205,7 +224,7 @@ class CheckUseBeforeDeclare(Visitor):
             # definitely not a declaration, it's a field assignment
             return
 
-        var = state.variables[node.lhs.var]
+        var = state.node_scopes[node][node.lhs.var]
 
         if var.declaration != node:
             # this is not the node that declares this variable
@@ -216,7 +235,7 @@ class CheckUseBeforeDeclare(Visitor):
         self.currently_declared_vars.append(var)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
-        ref = state.variables.get(node.var)
+        ref = state.node_scopes[node].get(node.var)
         if ref is None:
             return
 
@@ -229,46 +248,55 @@ class CheckUseBeforeDeclare(Visitor):
             return
 
 
-class SetScope(TopDownVisitor):
+class ResolveVarsInScope(TopDownVisitor):
 
-    def __init__(self, scope: FpyScope):
-        self.scope = scope
+    def __init__(self, global_scope: FpyScope):
+        self.global_scope = global_scope
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
-        state.resolved_references[node] = self.scope.get(node.var, None)
+        # look up in local scope first
+        local_scope = state.node_scopes[node]
+        resolved = None
+        while local_scope is not None and resolved is None:
+            resolved = local_scope.get(node.var, None)
+            local_scope = state.scope_parents[local_scope]
+        if resolved is None:
+            state.resolved_references[node] = self.global_scope.get(node.var, None)
+        else:
+            state.resolved_references[node] = resolved
 
 
 class PickScopes(TopDownVisitor):
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        SetScope(state.callables).run(node.func, state)
+        ResolveVarsInScope(state.callables).run(node.func, state)
 
         for arg in node.args if node.args is not None else []:
             # arg value refs must have values at runtime
-            SetScope(state.runtime_values).run(arg, state)
+            ResolveVarsInScope(state.runtime_values).run(arg, state)
 
     def visit_AstIf_AstElif(self, node: Union[AstIf, AstElif], state: CompileState):
         # if condition expr refs must be "runtime values" (tlm/prm/const/etc)
-        SetScope(state.runtime_values).run(node.condition, state)
+        ResolveVarsInScope(state.runtime_values).run(node.condition, state)
 
     def visit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
         # lhs/rhs side of stack op, if they are refs, must be refs to "runtime vals"
-        SetScope(state.runtime_values).run(node.lhs, state)
-        SetScope(state.runtime_values).run(node.rhs, state)
+        ResolveVarsInScope(state.runtime_values).run(node.lhs, state)
+        ResolveVarsInScope(state.runtime_values).run(node.rhs, state)
 
     def visit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
-        SetScope(state.runtime_values).run(node.val, state)
+        ResolveVarsInScope(state.runtime_values).run(node.val, state)
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        SetScope(state.runtime_values).run(node.lhs, state)
+        ResolveVarsInScope(state.runtime_values).run(node.lhs, state)
 
         if node.type_ann is not None:
-            SetScope(state.types).run(node.type_ann, state)
+            ResolveVarsInScope(state.types).run(node.type_ann, state)
 
-        SetScope(state.runtime_values).run(node.rhs, state)
+        ResolveVarsInScope(state.runtime_values).run(node.rhs, state)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
-        # make sure that all refs are resolved when we get to them
+        # make sure that all vars are resolved when we get to them
         assert node in state.resolved_references
 
 
@@ -1384,7 +1412,7 @@ class GenerateExprMacrosAndCmds(Visitor):
                 # right below it is the offset in the lvar array
                 # add them
                 lvar_offset_dirs.append(IntAddDirective())
-                
+
                 # and now convert the u64 back into the U32 that store expects
                 lvar_offset_dirs.append(IntegerTruncate64To32Directive())
 
@@ -1663,10 +1691,11 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     return state
 
 
-def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
+def compile(body: AstScopedBody, dictionary: str) -> list[Directive]|CompileError:
     state = get_base_compile_state(dictionary)
     passes: list[Visitor] = [
         AssignIds(),
+        AssignScopes(),
         # based on assignment syntax nodes, we know which variables exist where
         CreateVariables(),
         CheckUseBeforeDeclare(),
@@ -1697,13 +1726,14 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
 
     for compile_pass in passes:
         compile_pass.run(body, state)
-        for error in state.errors:
-            print(error)
-            exit(1)
+        if len(state.errors) != 0:
+            return state.errors[0]
 
     dirs = state.directives[body]
     if len(dirs) > MAX_DIRECTIVES_COUNT:
-        print(CompileError(f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"))
-        exit(1)
+        err = CompileError(
+                f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"
+            )
+        return err
 
     return dirs

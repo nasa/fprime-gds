@@ -143,6 +143,19 @@ class AstIf(Ast):
     els: Union["AstBody", None]
 
 
+@dataclass
+class AstFor(Ast):
+    loop_var: str
+    loop_var_type: AstExpr
+    lower_bound: AstExpr
+    upper_bound: AstExpr
+    body: AstScopedBody
+
+@dataclass
+class AstWhile(Ast):
+    condition: AstExpr
+    body: AstScopedBody
+
 AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf]
 
 
@@ -213,6 +226,10 @@ class FpyTransformer(Transformer):
     pass_stmt = AstPass
 
     assign = no_inline(handle_assign)
+
+    for_stmt = AstFor
+    while_stmt = AstWhile
+    scoped_body = AstScopedBody
 
     if_stmt = AstIf
     elifs = no_inline(AstElifs)

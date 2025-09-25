@@ -55,6 +55,7 @@ from fprime_gds.common.fpy.parser import (
     AstReference,
     Ast,
     AstAssign,
+    AstScopedBody,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
 
@@ -251,7 +252,22 @@ class FpyVariable:
 
 
 # a scope
-FpyScope = dict[str, "FpyReference"]
+next_scope_id = 0
+
+class FpyScope(dict):
+    def __init__(self):
+        global next_scope_id
+        self.id = next_scope_id
+        next_scope_id += 1
+
+    def __getitem__(self, key: str) -> FpyReference:
+        return super().__getitem__(key)
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, value):
+        return isinstance(value, FpyScope) and value.id == self.id
 
 
 def create_scope(
@@ -391,18 +407,20 @@ class CompileState:
     prms: FpyScope
     """a scope whose leaf nodes are PrmTemplates"""
     consts: FpyScope
-    """a scope whose leaf nodes are instances of subclasses of BaseType"""
-    variables: FpyScope = field(default_factory=dict)
     """a scope whose leaf nodes are FpyVariables"""
     runtime_values: FpyScope = None
-    """a scope whose leaf nodes are tlms/prms/consts/variables, all of which
+    """a scope whose leaf nodes are tlms/prms/consts, all of which
     have some value at runtime."""
 
     def __post_init__(self):
         self.runtime_values = union_scope(
             self.tlms,
-            union_scope(self.prms, union_scope(self.consts, self.variables)),
+            union_scope(self.prms, self.consts),
         )
+
+    scope_parents: dict[AstScopedBody, AstScopedBody|None] = field(default_factory=dict, repr=False)
+    body_scopes: dict[AstScopedBody, FpyScope] = field(default_factory=dict, repr=False)
+    node_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
 
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
@@ -464,14 +482,14 @@ class Visitor:
             annotations = typing.get_type_hints(func)
             param_type = annotations[params[1].name]
             if is_instance_compat(node, param_type):
-                return func
+                return getattr(self, name)
         else:
             # call the default
-            return type(self).visit_default
+            return self.visit_default
 
     def _visit(self, node: Ast, state: CompileState):
         visit_func = self._find_custom_visit_func(node)
-        visit_func(self, node, state)
+        visit_func(node, state)
 
     def visit_default(self, node: Ast, state: CompileState):
         pass

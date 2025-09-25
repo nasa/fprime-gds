@@ -5,9 +5,11 @@ input: (_NEWLINE | _stmt)*
 _literal: number | string | boolean
 
 _stmt: _small_stmt [_NEWLINE] | _compound_stmt
-_small_stmt: (_expr_stmt | assign | pass_stmt )
-_compound_stmt: if_stmt
+_small_stmt: _expr_stmt | assign | pass_stmt | break_stmt | continue_stmt
+_compound_stmt: if_stmt | for_stmt | while_stmt
 pass_stmt: "pass"
+break_stmt: "break"
+continue_stmt: "continue"
 
 _expr_stmt: _expr
 
@@ -17,12 +19,18 @@ _expr_stmt: _expr
 assign: _expr [":" _expr] "=" _expr
 
 
+# loops
+for_stmt.1: "for" name ":" _expr "in" _expr ".." _expr ":" scoped_body
+while_stmt: "while" _expr ":" scoped_body
+
 # branching
 
 if_stmt: "if" _expr ":" body elifs ["else" ":" body]
 elifs: elif_*
 elif_: "elif" _expr ":" body
+
 body: _NEWLINE _INDENT _stmt+ _DEDENT
+scoped_body: _NEWLINE _INDENT _stmt+ _DEDENT
 
 _expr: _test
 
@@ -111,11 +119,13 @@ COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 
-DEC_NUMBER:   "1".."9"        ("_"?  "0".."9"                       )*
-          |   "0"             ("_"?  "0"                            )* /(?![1-9])/
+# -2 prio so we resolve after floats
+DEC_NUMBER.-2:   "1".."9"        ("_"?  "0".."9"                       )*
+             |   "0"             ("_"?  "0"                            )* /(?![1-9])/
 
 _SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
 
 DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
 _EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
-FLOAT_NUMBER.2: _SPECIAL_DEC _EXP | DECIMAL _EXP?
+# -1 prio so we resolve the .. syntax in for loop range first
+FLOAT_NUMBER.-1: _SPECIAL_DEC _EXP | DECIMAL _EXP?

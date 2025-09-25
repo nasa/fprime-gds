@@ -1541,3 +1541,64 @@ exit(1)
 """
 
     assert_run_success(fprime_test_api, seq)
+
+def test_break_outside_loop(fprime_test_api):
+    seq = """
+break
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+def test_continue_outside_loop(fprime_test_api):
+    seq = """
+continue
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+# TODO opinions on this
+def test_loop_var_outside_loop_after(fprime_test_api):
+    seq = """
+for i: U8 in 0..7:
+    pass
+i = 123
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+def test_loop_var_outside_loop_before(fprime_test_api):
+    seq = """
+i = 123
+for i: U8 in 0..7:
+    pass
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_loop_var_redeclare(fprime_test_api):
+    seq = """
+i: U16 = 123
+for i: U8 in 0..7:
+    pass
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_loop_var_bad_type(fprime_test_api):
+    seq = """
+for i: bool in 0..7:
+    pass
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_scope_override_name(fprime_test_api):
+    seq = """
+while
+    pass
+"""
+
+    assert_compile_failure(fprime_test_api, seq)

@@ -57,6 +57,9 @@ def compile_main(args: list[str]=None):
     fprime_gds.common.fpy.error.file_name = str(args.input)
     body = parse(args.input.read_text())
     directives = compile(body, args.dictionary)
+    if isinstance(directives, fprime_gds.common.fpy.error.CompileError):
+        print(directives)
+        exit(1)
     output = args.output
     if output is None:
         output = args.input.with_suffix(".bin")
