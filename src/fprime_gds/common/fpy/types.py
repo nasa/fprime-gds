@@ -21,10 +21,23 @@ except ImportError:
     UNION_TYPES = (Union,)
 
 from fprime_gds.common.fpy.bytecode.directives import (
+    FloatExtendDirective,
+    FloatTruncateDirective,
+    IntegerSignedExtend16To64Directive,
+    IntegerSignedExtend32To64Directive,
+    IntegerSignedExtend8To64Directive,
+    IntegerTruncate64To16Directive,
+    IntegerTruncate64To32Directive,
+    IntegerTruncate64To8Directive,
+    IntegerZeroExtend16To64Directive,
+    IntegerZeroExtend32To64Directive,
+    IntegerZeroExtend8To64Directive,
+    SignedIntToFloatDirective,
     StackOpDirective,
     FloatLogDirective,
     Directive,
     ExitDirective,
+    UnsignedIntToFloatDirective,
     WaitAbsDirective,
     WaitRelDirective,
 )
@@ -51,6 +64,7 @@ from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
     AstExpr,
+    AstFor,
     AstOp,
     AstReference,
     Ast,
@@ -172,6 +186,7 @@ class NothingType(ABC):
 # the `type` object representing the NothingType class
 NothingTypeClass = type[NothingType]
 
+
 @dataclass
 class FpyCallable:
     return_type: FppTypeClass | NothingTypeClass
@@ -255,6 +270,7 @@ class FpyVariable:
 # a scope
 next_scope_id = 0
 
+
 class FpyScope(dict):
     def __init__(self):
         global next_scope_id
@@ -263,6 +279,9 @@ class FpyScope(dict):
 
     def __getitem__(self, key: str) -> FpyReference:
         return super().__getitem__(key)
+
+    def get(self, key) -> FpyReference | None:
+        return super().get(key, None)
 
     def __hash__(self):
         return hash(self.id)
@@ -277,14 +296,14 @@ def create_scope(
     """from a flat dict of strs to references, creates a hierarchical, scoped
     dict. no two leaf nodes may have the same name"""
 
-    base = {}
+    base = FpyScope()
 
     for fqn, ref in references.items():
         names_strs = fqn.split(".")
 
         ns = base
         while len(names_strs) > 1:
-            existing_child = ns.get(names_strs[0], None)
+            existing_child = ns.get(names_strs[0])
             if existing_child is None:
                 # this scope is not defined atm
                 existing_child = {}
@@ -308,7 +327,7 @@ def create_scope(
         # i.e. everything up until the last '.'
         name = names_strs[0]
 
-        existing_child = ns.get(name, None)
+        existing_child = ns.get(name)
 
         if existing_child is not None:
             # uh oh, something already had this name with a diff value
@@ -395,6 +414,115 @@ def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
     return result_type
 
 
+def get_64_bit_numeric_type(type: FppTypeClass) -> FppTypeClass:
+    assert type in SPECIFIC_NUMERIC_TYPES, type
+    return (
+        I64Type
+        if type in SIGNED_INTEGER_TYPES
+        else U64Type if type in UNSIGNED_INTEGER_TYPES else F64Type
+    )
+
+
+def convert_numeric_type(
+    from_type: FppTypeClass, to_type: FppTypeClass
+) -> list[Directive]:
+    if from_type == to_type:
+        return []
+
+    # only valid runtime type conversion is between two numeric types
+    assert from_type in SPECIFIC_NUMERIC_TYPES and to_type in SPECIFIC_NUMERIC_TYPES, (
+        from_type,
+        to_type,
+    )
+    # also invalid to convert from a float to an integer at runtime due to loss of precision
+    assert not (
+        from_type in SPECIFIC_FLOAT_TYPES and to_type in SPECIFIC_INTEGER_TYPES
+    ), (
+        from_type,
+        to_type,
+    )
+
+    dirs = []
+    # first go to 64 bit width
+    dirs.extend(extend_numeric_type_to_64_bits(from_type))
+    from_64_bit = get_64_bit_numeric_type(from_type)
+    to_64_bit = get_64_bit_numeric_type(to_type)
+
+    # now convert from int to float if necessary
+    if from_64_bit == U64Type and to_64_bit == F64Type:
+        dirs.append(UnsignedIntToFloatDirective())
+        from_64_bit = F64Type
+    elif from_64_bit == I64Type and to_64_bit == F64Type:
+        dirs.append(SignedIntToFloatDirective())
+        from_64_bit = F64Type
+    elif from_64_bit == U64Type or from_64_bit == I64Type:
+        assert to_64_bit == U64Type or to_64_bit == I64Type
+        # conversion from signed to unsigned int is implicit, doesn't need code gen
+        from_64_bit = to_64_bit
+
+    assert from_64_bit == to_64_bit, (from_64_bit, to_64_bit)
+
+    # now truncate back down to desired size
+    dirs.extend(truncate_numeric_type_from_64_bits(to_64_bit, to_type.getMaxSize()))
+    return dirs
+
+
+def truncate_numeric_type_from_64_bits(
+    from_type: FppTypeClass, new_size: int
+) -> list[Directive]:
+
+    assert new_size in (1, 2, 4, 8), new_size
+    assert from_type.getMaxSize() == 8, from_type.getMaxSize()
+
+    if new_size == 8:
+        # already correct size
+        return []
+
+    if from_type == F64Type:
+        # only one option for float trunc
+        assert new_size == 4, new_size
+        return [FloatTruncateDirective()]
+
+    # must be an int
+    assert issubclass(from_type, IntegerType), from_type
+
+    if new_size == 1:
+        return [IntegerTruncate64To8Directive()]
+    elif new_size == 2:
+        return [IntegerTruncate64To16Directive()]
+
+    return [IntegerTruncate64To32Directive()]
+
+
+def extend_numeric_type_to_64_bits(type: FppTypeClass) -> list[Directive]:
+    if type.getMaxSize() == 8:
+        # already 8 bytes
+        return []
+    if type == F32Type:
+        return [FloatExtendDirective()]
+
+    # must be an int
+    assert issubclass(type, IntegerType), type
+
+    from_size = type.getMaxSize()
+    assert from_size in (1, 2, 4, 8), from_size
+
+    if type in SIGNED_INTEGER_TYPES:
+        if from_size == 1:
+            return [IntegerSignedExtend8To64Directive()]
+        elif from_size == 2:
+            return [IntegerSignedExtend16To64Directive()]
+        else:
+            return [IntegerSignedExtend32To64Directive()]
+    else:
+        if from_size == 1:
+            return [IntegerZeroExtend8To64Directive()]
+        elif from_size == 2:
+            return [IntegerZeroExtend16To64Directive()]
+        else:
+            return [IntegerZeroExtend32To64Directive()]
+
+
 @dataclass
 class CompileState:
     """a collection of input, internal and output state variables and maps"""
@@ -419,10 +547,24 @@ class CompileState:
             union_scope(self.prms, self.consts),
         )
 
-    scope_parents: dict[AstScopedBody, AstScopedBody|None] = field(default_factory=dict, repr=False)
+    scope_parents: dict[AstScopedBody, AstScopedBody | None] = field(
+        default_factory=dict, repr=False
+    )
     body_scopes: dict[AstScopedBody, FpyScope] = field(default_factory=dict, repr=False)
     node_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
     var_global_scope_name: dict[AstVar, str] = field(default_factory=dict, repr=False)
+    for_loop_variables: dict[AstFor, FpyVariable] = field(
+        default_factory=dict, repr=False
+    )
+    for_loop_upper_bound_variables: dict[AstFor, FpyVariable] = field(
+        default_factory=dict, repr=False
+    )
+    for_loop_comparison_directives: dict[AstFor, type[StackOpDirective]] = field(
+        default_factory=dict, repr=False
+    )
+    for_loop_increment_directives: dict[AstFor, type[StackOpDirective]] = field(
+        default_factory=dict, repr=False
+    )
 
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
@@ -584,7 +726,9 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
     header = Header(*struct.unpack_from(HEADER_FORMAT, bytes))
 
     if header.schemaVersion != SCHEMA_VERSION:
-        raise RuntimeError(f"Schema version wrong (expected {SCHEMA_VERSION} found {header.schemaVersion})")
+        raise RuntimeError(
+            f"Schema version wrong (expected {SCHEMA_VERSION} found {header.schemaVersion})"
+        )
 
     dirs = []
     idx = 0
@@ -598,7 +742,9 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
         idx += 1
 
     if offset != len(bytes) - FOOTER_SIZE:
-        raise RuntimeError(f"{len(bytes) - FOOTER_SIZE - offset} extra bytes at end of sequence")
+        raise RuntimeError(
+            f"{len(bytes) - FOOTER_SIZE - offset} extra bytes at end of sequence"
+        )
 
     return dirs
 
@@ -609,9 +755,11 @@ def serialize_directives(dirs: list[Directive]) -> tuple[bytes, int]:
     for dir in dirs:
         dir_bytes = dir.serialize()
         if len(dir_bytes) > MAX_DIRECTIVE_SIZE:
-            print(CompileError(
-                f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})"
-            ))
+            print(
+                CompileError(
+                    f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})"
+                )
+            )
             exit(1)
         output_bytes += dir_bytes
 

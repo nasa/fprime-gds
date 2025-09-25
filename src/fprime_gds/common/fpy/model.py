@@ -392,7 +392,7 @@ class FpySequencerModel:
             self.next_dir_idx = dir.false_goto_dir_index
 
     def handle_push_tlm_val(self, dir: PushTlmValDirective):
-        whole_value: bytearray = self.tlm_db.get(dir.chan_id, None)
+        whole_value: bytearray = self.tlm_db.get(dir.chan_id)
         if whole_value is None:
             return DirectiveErrorCode.TLM_NOT_FOUND
 
@@ -402,7 +402,7 @@ class FpySequencerModel:
         self.push(whole_value)
 
     def handle_push_prm(self, dir: PushPrmDirective):
-        whole_value: bytearray = self.prm_db.get(dir.prm_id, None)
+        whole_value: bytearray = self.prm_db.get(dir.prm_id)
         if whole_value is None:
             return DirectiveErrorCode.PRM_NOT_FOUND
 

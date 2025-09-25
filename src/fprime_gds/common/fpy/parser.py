@@ -145,7 +145,7 @@ class AstIf(Ast):
 
 @dataclass
 class AstFor(Ast):
-    loop_var: str
+    loop_var: AstVar
     loop_var_type: AstExpr
     lower_bound: AstExpr
     upper_bound: AstExpr

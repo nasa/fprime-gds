@@ -34,6 +34,7 @@ from fprime_gds.common.fpy.types import (
     NothingType,
     TopDownVisitor,
     Visitor,
+    convert_numeric_type,
     create_scope,
     get_ref_fpp_type_class,
     is_instance_compat,
@@ -127,6 +128,7 @@ from fprime_gds.common.fpy.parser import (
     AstElif,
     AstElifs,
     AstExpr,
+    AstFor,
     AstGetAttr,
     AstGetItem,
     AstNumber,
@@ -161,21 +163,21 @@ class SetNodeScope(Visitor):
     def __init__(self, scope: FpyScope):
         self.scope = scope
 
-
     def visit_default(self, node: Ast, state: CompileState):
         state.node_scopes[node] = self.scope
 
 
 class AssignScopes(TopDownVisitor):
     def visit_AstScopedBody(self, node: AstScopedBody, state: CompileState):
-        parent_scope = state.node_scopes.get(node, None)
+        parent_scope = state.node_scopes.get(node)
         # make a new scope
         scope = FpyScope()
         state.scope_parents[scope] = parent_scope
+        # TODO ask rob there must be a better way to do this, that isn't as slow
         SetNodeScope(scope).run(node, state)
 
 
-class CreateVariables(Visitor):
+class CreateVariables(TopDownVisitor):
     """finds all variable declarations and adds them to the variable scope"""
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
@@ -185,7 +187,7 @@ class CreateVariables(Visitor):
         # okay, what are we assigning to?
         if isinstance(node.lhs, AstVar):
             # assigning to an FpyVariable
-            existing = state.node_scopes[node].get(node.lhs.var, None)
+            existing = state.node_scopes[node].get(node.lhs.var)
             if not existing:
                 # idk what this var is. make sure it's a valid declaration
                 if node.type_ann is None:
@@ -199,7 +201,6 @@ class CreateVariables(Visitor):
                 var = FpyVariable(node.type_ann, node)
                 # new var. put it in the table under this scope
                 state.node_scopes[node][node.lhs.var] = var
-                state.runtime_values[node.lhs.var] = var
 
             if existing and node.type_ann is not None:
                 # redeclaring an existing variable
@@ -212,6 +213,19 @@ class CreateVariables(Visitor):
                 # type annotation on a field assignment... it already has a type!
                 state.err("Cannot specify a type annotation for a field", node.type_ann)
                 return
+
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        # for loops have an implicit loop variable that they declare inside of their scoped body
+        existing = state.node_scopes[node.body].get(node.loop_var.var)
+
+        if existing:
+            # redeclaring an existing variable
+            # i don't think this should be possible. this var should be "declared" before
+            # anything else inside of its scope gets visited
+            assert False, (node, state.node_scopes[node.body])
+        
+        var = FpyVariable(node.loop_var_type, node)
+        state.node_scopes[node][node.loop_var.var] = var
 
 
 class CheckUseBeforeDeclare(Visitor):
@@ -234,9 +248,15 @@ class CheckUseBeforeDeclare(Visitor):
 
         self.currently_declared_vars.append(var)
 
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        var = state.node_scopes[node.body][node.loop_var.var]
+
+        self.currently_declared_vars.append(var)
+
     def visit_AstVar(self, node: AstVar, state: CompileState):
         ref = state.node_scopes[node].get(node.var)
         if ref is None:
+            # not a variable, otherwise it would be in scope
             return
 
         if ref.declaration.lhs == node:
@@ -260,10 +280,11 @@ class ResolveVarsInScope(TopDownVisitor):
         local_scope = state.node_scopes[node]
         resolved = None
         while local_scope is not None and resolved is None:
-            resolved = local_scope.get(node.var, None)
+            resolved = local_scope.get(node.var)
             local_scope = state.scope_parents[local_scope]
+
         if resolved is None:
-            state.resolved_references[node] = self.global_scope.get(node.var, None)
+            state.resolved_references[node] = self.global_scope.get(node.var)
         else:
             state.resolved_references[node] = resolved
         state.var_global_scope_name[node] = self.global_scope_name
@@ -410,7 +431,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         return member_list
 
     def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
-        parent_ref = state.resolved_references.get(node.parent, None)
+        parent_ref = state.resolved_references.get(node.parent)
 
         if isinstance(parent_ref, (type, FpyCallable)):
             state.err("Unknown attribute", node)
@@ -420,7 +441,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if isinstance(parent_ref, dict):
             # getattr of a namespace
             # parent won't actually have a type
-            ref = parent_ref.get(node.attr, None)
+            ref = parent_ref.get(node.attr)
             if ref is None:
                 state.err("Unknown attribute", node)
                 return
@@ -481,7 +502,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_converted_types[node] = ref_type
 
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
-        parent_ref = state.resolved_references.get(node.parent, None)
+        parent_ref = state.resolved_references.get(node.parent)
 
         if isinstance(parent_ref, (type, FpyCallable, dict)):
             state.err("Unknown item", node)
@@ -713,6 +734,13 @@ class AllocateVariables(Visitor):
             state.lvar_array_size_bytes += value_size
             lhs_ref.lvar_offset = lvar_offset
 
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        loop_var_ref = state.resolved_references[node.loop_var]
+        assert isinstance(loop_var_ref, FpyVariable)
+        lvar_offset = state.lvar_array_size_bytes
+        state.lvar_array_size_bytes += loop_var_ref.type.getMaxSize()
+        loop_var_ref.lvar_offset = lvar_offset
+
 
 class CalculateConstExprValues(Visitor):
     """for each expr, try to calculate its constant value and store it in a map. stores None if no value could be
@@ -824,7 +852,7 @@ class CalculateConstExprValues(Visitor):
 
         assert isinstance(parent_value, ArrayType), parent_value
 
-        idx = state.expr_converted_values.get(node.item, None)
+        idx = state.expr_converted_values.get(node.item)
         if idx is None:
             # no compile time constant value for our index
             state.expr_converted_values[node] = None
@@ -979,113 +1007,6 @@ class GenerateExprMacrosAndCmds(Visitor):
     generate directives to calculate the value and put it in its register. for each command
     or macro, generate directives for calling them with appropriate arg values"""
 
-    def get_64_bit_type(self, type: FppTypeClass) -> FppTypeClass:
-        assert type in SPECIFIC_NUMERIC_TYPES, type
-        return (
-            I64Type
-            if type in SIGNED_INTEGER_TYPES
-            else U64Type if type in UNSIGNED_INTEGER_TYPES else F64Type
-        )
-
-    def truncate_from_64_bits(
-        self, from_type: FppTypeClass, new_size: int
-    ) -> list[Directive]:
-
-        assert new_size in (1, 2, 4, 8), new_size
-        assert from_type.getMaxSize() == 8, from_type.getMaxSize()
-
-        if new_size == 8:
-            # already correct size
-            return []
-
-        if from_type == F64Type:
-            # only one option for float trunc
-            assert new_size == 4, new_size
-            return [FloatTruncateDirective()]
-
-        # must be an int
-        assert issubclass(from_type, IntegerType), from_type
-
-        if new_size == 1:
-            return [IntegerTruncate64To8Directive()]
-        elif new_size == 2:
-            return [IntegerTruncate64To16Directive()]
-
-        return [IntegerTruncate64To32Directive()]
-
-    def extend_to_64_bits(self, type: FppTypeClass) -> list[Directive]:
-        if type.getMaxSize() == 8:
-            # already 8 bytes
-            return []
-        if type == F32Type:
-            return [FloatExtendDirective()]
-
-        # must be an int
-        assert issubclass(type, IntegerType), type
-
-        from_size = type.getMaxSize()
-        assert from_size in (1, 2, 4, 8), from_size
-
-        if type in SIGNED_INTEGER_TYPES:
-            if from_size == 1:
-                return [IntegerSignedExtend8To64Directive()]
-            elif from_size == 2:
-                return [IntegerSignedExtend16To64Directive()]
-            else:
-                return [IntegerSignedExtend32To64Directive()]
-        else:
-            if from_size == 1:
-                return [IntegerZeroExtend8To64Directive()]
-            elif from_size == 2:
-                return [IntegerZeroExtend16To64Directive()]
-            else:
-                return [IntegerZeroExtend32To64Directive()]
-
-    def convert_type(
-        self, from_type: FppTypeClass, to_type: FppTypeClass
-    ) -> list[Directive]:
-        if from_type == to_type:
-            return []
-
-        # only valid runtime type conversion is between two numeric types
-        assert (
-            from_type in SPECIFIC_NUMERIC_TYPES and to_type in SPECIFIC_NUMERIC_TYPES
-        ), (
-            from_type,
-            to_type,
-        )
-        # also invalid to convert from a float to an integer at runtime due to loss of precision
-        assert not (
-            from_type in SPECIFIC_FLOAT_TYPES and to_type in SPECIFIC_INTEGER_TYPES
-        ), (
-            from_type,
-            to_type,
-        )
-
-        dirs = []
-        # first go to 64 bit width
-        dirs.extend(self.extend_to_64_bits(from_type))
-        from_64_bit = self.get_64_bit_type(from_type)
-        to_64_bit = self.get_64_bit_type(to_type)
-
-        # now convert from int to float if necessary
-        if from_64_bit == U64Type and to_64_bit == F64Type:
-            dirs.append(UnsignedIntToFloatDirective())
-            from_64_bit = F64Type
-        elif from_64_bit == I64Type and to_64_bit == F64Type:
-            dirs.append(SignedIntToFloatDirective())
-            from_64_bit = F64Type
-        elif from_64_bit == U64Type or from_64_bit == I64Type:
-            assert to_64_bit == U64Type or to_64_bit == I64Type
-            # conversion from signed to unsigned int is implicit, doesn't need code gen
-            from_64_bit = to_64_bit
-
-        assert from_64_bit == to_64_bit, (from_64_bit, to_64_bit)
-
-        # now truncate back down to desired size
-        dirs.extend(self.truncate_from_64_bits(to_64_bit, to_type.getMaxSize()))
-        return dirs
-
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
         if node in state.directives:
             # already know how to put it on stack, or it is impossible
@@ -1121,12 +1042,12 @@ class GenerateExprMacrosAndCmds(Visitor):
             DuplicateDirective(ArrayIndexType.getMaxSize())
         )  # duplicate the index
         # convert idx to u64
-        directives.extend(self.convert_type(ArrayIndexType, U64Type))
+        directives.extend(convert_numeric_type(ArrayIndexType, U64Type))
         directives.append(
             PushValDirective(ArrayIndexType(parent_type.LENGTH))
         )  # push the length
         # convert len to u64
-        directives.extend(self.convert_type(ArrayIndexType, U64Type))
+        directives.extend(convert_numeric_type(ArrayIndexType, U64Type))
         # check if idx < length
         directives.append(UnsignedLessThanDirective())
         # assert it's true
@@ -1152,7 +1073,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         # now convert the type if necessary
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            directives.extend(self.convert_type(unconverted_type, converted_type))
+            directives.extend(convert_numeric_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
@@ -1161,7 +1082,7 @@ class GenerateExprMacrosAndCmds(Visitor):
             # already know how to put it on stack, or it is impossible
             return
 
-        ref = state.resolved_references.get(node, None)
+        ref = state.resolved_references.get(node)
 
         assert isinstance(ref, FpyVariable), ref
 
@@ -1171,7 +1092,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            directives.extend(self.convert_type(unconverted_type, converted_type))
+            directives.extend(convert_numeric_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
@@ -1180,7 +1101,7 @@ class GenerateExprMacrosAndCmds(Visitor):
             # already know how to put it on stack, or it is impossible
             return
 
-        ref = state.resolved_references.get(node, None)
+        ref = state.resolved_references.get(node)
 
         if isinstance(ref, dict):
             # don't generate code for it, it's a ref to a scope and
@@ -1221,7 +1142,7 @@ class GenerateExprMacrosAndCmds(Visitor):
 
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
-            directives.extend(self.convert_type(unconverted_type, converted_type))
+            directives.extend(convert_numeric_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
@@ -1257,7 +1178,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            directives.extend(self.convert_type(unconverted_type, converted_type))
+            directives.extend(convert_numeric_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
@@ -1287,7 +1208,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            directives.extend(self.convert_type(unconverted_type, converted_type))
+            directives.extend(convert_numeric_type(unconverted_type, converted_type))
 
         state.directives[node] = directives
 
@@ -1342,7 +1263,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            directives.extend(self.convert_type(unconverted_type, converted_type))
+            directives.extend(convert_numeric_type(unconverted_type, converted_type))
         state.directives[node] = directives
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
@@ -1397,12 +1318,12 @@ class GenerateExprMacrosAndCmds(Visitor):
                     DuplicateDirective(ArrayIndexType.getMaxSize())
                 )  # duplicate the index
                 # convert idx to u64
-                lvar_offset_dirs.extend(self.convert_type(ArrayIndexType, U64Type))
+                lvar_offset_dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
                 lvar_offset_dirs.append(
                     PushValDirective(ArrayIndexType(lhs_parent_type.LENGTH).serialize())
                 )  # push the length
                 # convert len to u64
-                lvar_offset_dirs.extend(self.convert_type(ArrayIndexType, U64Type))
+                lvar_offset_dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
                 # check if idx < length
                 lvar_offset_dirs.append(UnsignedLessThanDirective())
                 # assert it's true
@@ -1477,9 +1398,33 @@ class CountNodeDirectives(Visitor):
 
         state.node_dir_counts[node] = count
 
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        count = 0
+        # include upper bound push
+        count += state.node_dir_counts[node.upper_bound]
+        # include push val and store ub
+        count += 2
+
+        # include lb push
+        count += state.node_dir_counts[node.lower_bound]
+        # include push val and store lb
+        count += 2
+        # include end of loop check: load lv, load ub, cmp, if
+        count += 4
+        # include body
+        count += state.node_dir_counts[node.body]
+        # include increment lv: load lv, push 1, add, push lvar offset, store
+        count += 5
+        # include goto loop check
+        count += 1
+
+        state.node_dir_counts[node] = count
+
+
     def visit_AstBody(self, node: Union[AstBody, AstScopedBody], state: CompileState):
         count = 0
-        if isinstance(node, AstScopedBody):
+        if isinstance(node, AstScopedBody) and state.scope_parents[state.node_scopes[node]] is None:
+            # only for the first scoped body:
             # add one for lvar array alloc
             count += 1
         for stmt in node.stmts:
@@ -1594,12 +1539,84 @@ class GenerateBodyDirectives(Visitor):
 
         state.directives[node] = all_dirs
 
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        start_line_idx = state.start_line_idx[node]
+        # okay, start by calcing upper bound and storing it in upper bound var
+
+        # push upper bound to stack
+        dirs = state.directives[node.upper_bound]
+        # now store in lvar
+        upper_bound_var = state.for_loop_upper_bound_variables[node]
+        assert state.expr_converted_types[node.upper_bound] == upper_bound_var.type
+        # TODO figure out if we need conversions here
+        # push lvar offset to stack
+        dirs.append(PushValDirective(U32Type(upper_bound_var.lvar_offset).serialize()))
+        # store in upper bound var
+        dirs.append(StoreDirective(upper_bound_var.type.getMaxSize()))
+
+        # set loop var to lower bound
+        # push lower bound to stack
+        dirs.extend(state.directives[node.lower_bound])
+        # now store in lvar
+        loop_var = state.for_loop_variables[node]
+        assert state.expr_converted_types[node.lower_bound] == loop_var.type
+        # push lvar offset to stack
+        dirs.append(PushValDirective(U32Type(loop_var.lvar_offset).serialize()))
+        # store in loop var
+        dirs.append(StoreDirective(loop_var.type.getMaxSize()))
+
+        # okay, loop and UB vars have the right initial value
+
+        # TODO should we store the loop vars as 64 bit? or should we do the conversion every time
+        # for now going to assume they are stored as 64 bit
+
+        end_of_loop_check_start_idx = start_line_idx + len(dirs)
+
+        # now add the "end-of-loop" check
+        # get the loop variable on the stack
+        dirs.append(LoadDirective(loop_var.lvar_offset, loop_var.type.getMaxSize()))
+        # get the UB on the stack
+        dirs.append(
+            LoadDirective(
+                upper_bound_var.lvar_offset, upper_bound_var.type.getMaxSize()
+            )
+        )
+        # check lhs < rhs else goto end
+        # use a directive determined above
+        cmp_dir = state.for_loop_comparison_directives[node]
+        dirs.append(cmp_dir())
+
+        if_dir = IfDirective(-1)
+        dirs.append(if_dir)
+        # okay now include body
+        dirs.extend(state.directives[node.body])
+        # okay increment loop var
+        # push loop var to stack
+        dirs.append(LoadDirective(loop_var.lvar_offset, loop_var.type.getMaxSize()))
+        # push 1 to stack
+        dirs.append(PushValDirective(U64Type(1).serialize()))
+        # add them
+        dirs.append(IntAddDirective())
+        # store in lvar array
+        dirs.append(PushValDirective(U32Type(loop_var.lvar_offset).serialize()))
+        dirs.append(StoreDirective(loop_var.type.getMaxSize()))
+        # okay, done with this iteration of the loop. go back up to the end-of-loop check
+        dirs.append(GotoDirective(end_of_loop_check_start_idx))
+
+        # and now update the if directive to go to just past the end of the body
+        if_dir.false_goto_dir_index = start_line_idx + len(dirs)
+
+        # okay! all done
+
+        state.directives[node] = dirs
+
     def visit_AstBody(self, node: Union[AstBody, AstScopedBody], state: CompileState):
         dirs = []
-        if isinstance(node, AstScopedBody):
+        if isinstance(node, AstScopedBody) and state.scope_parents[state.node_scopes[node]] is None:
+            # only for the first scoped body
             dirs.append(AllocateDirective(state.lvar_array_size_bytes))
         for stmt in node.stmts:
-            stmt_dirs = state.directives.get(stmt, None)
+            stmt_dirs = state.directives.get(stmt)
             if stmt_dirs is not None:
                 dirs.extend(stmt_dirs)
 
@@ -1697,7 +1714,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
     return state
 
 
-def compile(body: AstScopedBody, dictionary: str) -> list[Directive]|CompileError:
+def compile(body: AstScopedBody, dictionary: str) -> list[Directive] | CompileError:
     state = get_base_compile_state(dictionary)
     passes: list[Visitor] = [
         AssignIds(),
@@ -1738,8 +1755,10 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]|CompileErro
     dirs = state.directives[body]
     if len(dirs) > MAX_DIRECTIVES_COUNT:
         err = CompileError(
-                f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"
-            )
+            f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"
+        )
         return err
+
+    # TODO check lvar array not > max stack size (AND TEST THIS!)
 
     return dirs
