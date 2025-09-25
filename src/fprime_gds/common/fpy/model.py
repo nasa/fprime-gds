@@ -841,7 +841,7 @@ class FpySequencerModel:
         if len(self.stack) + dir.size > self.max_stack_size:
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        self.push(self.stack[-dir.size])
+        self.push(self.stack[-dir.size:])
 
     def handle_assert(self, dir: AssertDirective):
         if len(self.stack) < 1:
