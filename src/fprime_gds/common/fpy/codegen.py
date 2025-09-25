@@ -250,8 +250,10 @@ class CheckUseBeforeDeclare(Visitor):
 
 class ResolveVarsInScope(TopDownVisitor):
 
-    def __init__(self, global_scope: FpyScope):
+    def __init__(self, global_scope: FpyScope, global_scope_name: str):
         self.global_scope = global_scope
+        # for error messages
+        self.global_scope_name = global_scope_name
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         # look up in local scope first
@@ -264,36 +266,37 @@ class ResolveVarsInScope(TopDownVisitor):
             state.resolved_references[node] = self.global_scope.get(node.var, None)
         else:
             state.resolved_references[node] = resolved
+        state.var_global_scope_name[node] = self.global_scope_name
 
 
 class PickScopes(TopDownVisitor):
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        ResolveVarsInScope(state.callables).run(node.func, state)
+        ResolveVarsInScope(state.callables, "callable").run(node.func, state)
 
         for arg in node.args if node.args is not None else []:
             # arg value refs must have values at runtime
-            ResolveVarsInScope(state.runtime_values).run(arg, state)
+            ResolveVarsInScope(state.runtime_values, "value").run(arg, state)
 
     def visit_AstIf_AstElif(self, node: Union[AstIf, AstElif], state: CompileState):
         # if condition expr refs must be "runtime values" (tlm/prm/const/etc)
-        ResolveVarsInScope(state.runtime_values).run(node.condition, state)
+        ResolveVarsInScope(state.runtime_values, "value").run(node.condition, state)
 
     def visit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
         # lhs/rhs side of stack op, if they are refs, must be refs to "runtime vals"
-        ResolveVarsInScope(state.runtime_values).run(node.lhs, state)
-        ResolveVarsInScope(state.runtime_values).run(node.rhs, state)
+        ResolveVarsInScope(state.runtime_values, "value").run(node.lhs, state)
+        ResolveVarsInScope(state.runtime_values, "value").run(node.rhs, state)
 
     def visit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
-        ResolveVarsInScope(state.runtime_values).run(node.val, state)
+        ResolveVarsInScope(state.runtime_values, "value").run(node.val, state)
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        ResolveVarsInScope(state.runtime_values).run(node.lhs, state)
+        ResolveVarsInScope(state.runtime_values, "value").run(node.lhs, state)
 
         if node.type_ann is not None:
-            ResolveVarsInScope(state.types).run(node.type_ann, state)
+            ResolveVarsInScope(state.types, "type").run(node.type_ann, state)
 
-        ResolveVarsInScope(state.runtime_values).run(node.rhs, state)
+        ResolveVarsInScope(state.runtime_values, "value").run(node.rhs, state)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         # make sure that all vars are resolved when we get to them
@@ -524,6 +527,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def visit_AstVar(self, node: AstVar, state: CompileState):
         # already been resolved by SetScopes pass
         ref = state.resolved_references[node]
+        if ref is None:
+            state.err(f"Unknown {state.var_global_scope_name[node]}", node)
+            return
         ref_type = get_ref_fpp_type_class(ref)
 
         state.expr_unconverted_types[node] = ref_type

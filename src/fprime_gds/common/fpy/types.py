@@ -56,6 +56,7 @@ from fprime_gds.common.fpy.parser import (
     Ast,
     AstAssign,
     AstScopedBody,
+    AstVar,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
 
@@ -421,6 +422,7 @@ class CompileState:
     scope_parents: dict[AstScopedBody, AstScopedBody|None] = field(default_factory=dict, repr=False)
     body_scopes: dict[AstScopedBody, FpyScope] = field(default_factory=dict, repr=False)
     node_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
+    var_global_scope_name: dict[AstVar, str] = field(default_factory=dict, repr=False)
 
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
