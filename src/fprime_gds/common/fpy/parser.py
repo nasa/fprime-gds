@@ -156,7 +156,21 @@ class AstWhile(Ast):
     condition: AstExpr
     body: AstScopedBody
 
-AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf]
+@dataclass
+class AstAssert(Ast):
+    condition: AstExpr
+    exit_code: AstNumber|None
+
+@dataclass
+class AstBreak:
+    pass
+
+@dataclass
+class AstContinue:
+    pass
+
+AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf, AstElif, AstFor, AstBreak, AstContinue, AstWhile, AstAssert, AstEllipsis]
+AstStmtWithExpr = Union[AstExpr, AstAssign, AstPass, AstIf, AstElif, AstFor, AstWhile, AstAssert]
 
 
 @dataclass
@@ -230,6 +244,10 @@ class FpyTransformer(Transformer):
     for_stmt = AstFor
     while_stmt = AstWhile
     scoped_body = AstScopedBody
+    break_stmt = AstBreak
+    continue_stmt = AstContinue
+
+    assert_stmt = AstAssert
 
     if_stmt = AstIf
     elifs = no_inline(AstElifs)

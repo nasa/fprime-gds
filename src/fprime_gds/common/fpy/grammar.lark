@@ -5,7 +5,7 @@ input: (_NEWLINE | _stmt)*
 _literal: number | string | boolean
 
 _stmt: _small_stmt [_NEWLINE] | _compound_stmt
-_small_stmt: _expr_stmt | assign | pass_stmt | break_stmt | continue_stmt
+_small_stmt: _expr_stmt | assign | pass_stmt | break_stmt | continue_stmt | assert_stmt
 _compound_stmt: if_stmt | for_stmt | while_stmt
 pass_stmt: "pass"
 break_stmt: "break"
@@ -13,6 +13,8 @@ continue_stmt: "continue"
 
 _expr_stmt: _expr
 
+
+assert_stmt: "assert" _expr ["," DEC_NUMBER]
 
 # assignment
 

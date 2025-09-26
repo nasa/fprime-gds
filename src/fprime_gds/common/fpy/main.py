@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import sys
 
 import fprime_gds.common.fpy.error
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
@@ -52,14 +53,14 @@ def compile_main(args: list[str]=None):
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
-        exit(-1)
+        sys.exit(-1)
 
     fprime_gds.common.fpy.error.file_name = str(args.input)
     body = parse(args.input.read_text())
     directives = compile(body, args.dictionary)
     if isinstance(directives, fprime_gds.common.fpy.error.CompileError):
-        print(directives)
-        exit(1)
+        print(directives) # directives is an error
+        sys.exit(1)
     output = args.output
     if output is None:
         output = args.input.with_suffix(".bin")
@@ -85,7 +86,7 @@ def model_main(args: list[str]=None):
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
-        exit(-1)
+        sys.exit(-1)
 
     if args.debug:
         fprime_gds.common.fpy.model.debug = True

@@ -9,6 +9,7 @@ import typing
 from typing import Union, get_origin, get_args
 import zlib
 
+from fprime_gds.common.fpy.model import DirectiveErrorCode
 from fprime_gds.common.fpy.types import (
     SPECIFIC_FLOAT_TYPES,
     SPECIFIC_INTEGER_TYPES,
@@ -86,6 +87,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     NotDirective,
     PushValDirective,
     SignedIntToFloatDirective,
+    StoreConstOffsetDirective,
     StoreDirective,
     PushPrmDirective,
     PushTlmValDirective,
@@ -123,6 +125,7 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
+    AstAssert,
     AstBinaryOp,
     AstBoolean,
     AstElif,
@@ -135,6 +138,7 @@ from fprime_gds.common.fpy.parser import (
     AstOp,
     AstReference,
     AstScopedBody,
+    AstStmtWithExpr,
     AstString,
     Ast,
     AstBody,
@@ -144,6 +148,7 @@ from fprime_gds.common.fpy.parser import (
     AstFuncCall,
     AstUnaryOp,
     AstVar,
+    AstWhile,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppType
 
@@ -159,22 +164,23 @@ class AssignIds(TopDownVisitor):
         self.next_id += 1
 
 
-class SetNodeScope(Visitor):
+class SetLocalScope(Visitor):
     def __init__(self, scope: FpyScope):
         self.scope = scope
 
     def visit_default(self, node: Ast, state: CompileState):
-        state.node_scopes[node] = self.scope
+        state.local_scopes[node] = self.scope
 
 
-class AssignScopes(TopDownVisitor):
+class AssignLocalScopes(TopDownVisitor):
+
     def visit_AstScopedBody(self, node: AstScopedBody, state: CompileState):
-        parent_scope = state.node_scopes.get(node)
+        parent_scope = state.local_scopes.get(node)
         # make a new scope
         scope = FpyScope()
         state.scope_parents[scope] = parent_scope
         # TODO ask rob there must be a better way to do this, that isn't as slow
-        SetNodeScope(scope).run(node, state)
+        SetLocalScope(scope).run(node, state)
 
 
 class CreateVariables(TopDownVisitor):
@@ -187,7 +193,7 @@ class CreateVariables(TopDownVisitor):
         # okay, what are we assigning to?
         if isinstance(node.lhs, AstVar):
             # assigning to an FpyVariable
-            existing = state.node_scopes[node].get(node.lhs.var)
+            existing = state.local_scopes[node].get(node.lhs.var)
             if not existing:
                 # idk what this var is. make sure it's a valid declaration
                 if node.type_ann is None:
@@ -200,7 +206,7 @@ class CreateVariables(TopDownVisitor):
 
                 var = FpyVariable(node.type_ann, node)
                 # new var. put it in the table under this scope
-                state.node_scopes[node][node.lhs.var] = var
+                state.local_scopes[node][node.lhs.var] = var
 
             if existing and node.type_ann is not None:
                 # redeclaring an existing variable
@@ -216,16 +222,16 @@ class CreateVariables(TopDownVisitor):
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
         # for loops have an implicit loop variable that they declare inside of their scoped body
-        existing = state.node_scopes[node.body].get(node.loop_var.var)
+        existing = state.local_scopes[node.body].get(node.loop_var.var)
 
         if existing:
             # redeclaring an existing variable
             # i don't think this should be possible. this var should be "declared" before
             # anything else inside of its scope gets visited
-            assert False, (node, state.node_scopes[node.body])
-        
+            assert False, (node, state.local_scopes[node.body])
+
         var = FpyVariable(node.loop_var_type, node)
-        state.node_scopes[node][node.loop_var.var] = var
+        state.local_scopes[node][node.loop_var.var] = var
 
 
 class CheckUseBeforeDeclare(Visitor):
@@ -238,7 +244,7 @@ class CheckUseBeforeDeclare(Visitor):
             # definitely not a declaration, it's a field assignment
             return
 
-        var = state.node_scopes[node][node.lhs.var]
+        var = state.local_scopes[node][node.lhs.var]
 
         if var.declaration != node:
             # this is not the node that declares this variable
@@ -249,14 +255,14 @@ class CheckUseBeforeDeclare(Visitor):
         self.currently_declared_vars.append(var)
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
-        var = state.node_scopes[node.body][node.loop_var.var]
+        var = state.local_scopes[node.body][node.loop_var.var]
 
         self.currently_declared_vars.append(var)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
-        ref = state.node_scopes[node].get(node.var)
+        ref = state.local_scopes[node].get(node.var)
         if ref is None:
-            # not a variable, otherwise it would be in scope
+            # not a variable, otherwise it would be in scope. might be a type name or smth
             return
 
         if ref.declaration.lhs == node:
@@ -268,60 +274,145 @@ class CheckUseBeforeDeclare(Visitor):
             return
 
 
-class ResolveVarsInScope(TopDownVisitor):
+class ResolveVars(TopDownVisitor):
+    def resolve_var_in_global_scope(
+        self,
+        node: Ast,
+        global_scope: FpyScope,
+        global_scope_name: str,
+        state: CompileState,
+    ) -> bool:
+        if not isinstance(node, AstReference):
+            return True
 
-    def __init__(self, global_scope: FpyScope, global_scope_name: str):
-        self.global_scope = global_scope
-        # for error messages
-        self.global_scope_name = global_scope_name
+        if not isinstance(node, AstVar):
+            return self.resolve_var_in_global_scope(node.parent, global_scope, global_scope_name, state)
 
-    def visit_AstVar(self, node: AstVar, state: CompileState):
-        # look up in local scope first
-        local_scope = state.node_scopes[node]
+        local_scope = state.local_scopes[node]
         resolved = None
         while local_scope is not None and resolved is None:
             resolved = local_scope.get(node.var)
             local_scope = state.scope_parents[local_scope]
 
         if resolved is None:
-            state.resolved_references[node] = self.global_scope.get(node.var)
-        else:
-            state.resolved_references[node] = resolved
-        state.var_global_scope_name[node] = self.global_scope_name
+            # unable to find this symbol in the hierarchy of local scopes
+            # look it up in the global scope
+            resolved = global_scope.get(node.var)
 
+        if resolved is None:
+            state.err(f"Unknown {global_scope_name}", node)
+            return False
 
-class PickScopes(TopDownVisitor):
+        state.resolved_references[node] = resolved
+        return True
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        ResolveVarsInScope(state.callables, "callable").run(node.func, state)
+        if not self.resolve_var_in_global_scope(
+            node.func, state.callables, "callable", state
+        ):
+            return
 
         for arg in node.args if node.args is not None else []:
             # arg value refs must have values at runtime
-            ResolveVarsInScope(state.runtime_values, "value").run(arg, state)
+            if not self.resolve_var_in_global_scope(
+                arg, state.runtime_values, "value", state
+            ):
+                return
 
     def visit_AstIf_AstElif(self, node: Union[AstIf, AstElif], state: CompileState):
         # if condition expr refs must be "runtime values" (tlm/prm/const/etc)
-        ResolveVarsInScope(state.runtime_values, "value").run(node.condition, state)
+        if not self.resolve_var_in_global_scope(
+            node.condition, state.runtime_values, "value", state
+        ):
+            return
 
     def visit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
         # lhs/rhs side of stack op, if they are refs, must be refs to "runtime vals"
-        ResolveVarsInScope(state.runtime_values, "value").run(node.lhs, state)
-        ResolveVarsInScope(state.runtime_values, "value").run(node.rhs, state)
+        if not self.resolve_var_in_global_scope(
+            node.lhs, state.runtime_values, "value", state
+        ):
+            return
+        if not self.resolve_var_in_global_scope(
+            node.rhs, state.runtime_values, "value", state
+        ):
+            return
 
     def visit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
-        ResolveVarsInScope(state.runtime_values, "value").run(node.val, state)
+        if not self.resolve_var_in_global_scope(
+            node.val, state.runtime_values, "value", state
+        ):
+            return
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        ResolveVarsInScope(state.runtime_values, "value").run(node.lhs, state)
+        if not self.resolve_var_in_global_scope(
+            node.lhs, state.runtime_values, "value", state
+        ):
+            return
 
         if node.type_ann is not None:
-            ResolveVarsInScope(state.types, "type").run(node.type_ann, state)
+            if not self.resolve_var_in_global_scope(
+                node.type_ann, state.types, "value", state
+            ):
+                return
 
-        ResolveVarsInScope(state.runtime_values, "value").run(node.rhs, state)
+        if not self.resolve_var_in_global_scope(
+            node.rhs, state.runtime_values, "value", state
+        ):
+            return
+
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        if not self.resolve_var_in_global_scope(
+            node.loop_var, state.runtime_values, "value", state
+        ):
+            return
+        if not self.resolve_var_in_global_scope(
+            node.loop_var_type, state.types, "type", state
+        ):
+            return
+        if not self.resolve_var_in_global_scope(
+            node.lower_bound, state.runtime_values, "value", state
+        ):
+            return
+        if not self.resolve_var_in_global_scope(
+            node.upper_bound, state.runtime_values, "value", state
+        ):
+            return
+
+    def visit_AstWhile(self, node: AstWhile, state: CompileState):
+        if not self.resolve_var_in_global_scope(
+            node.condition, state.runtime_values, "value", state
+        ):
+            return
+
+    def visit_AstAssert(self, node: AstAssert, state: CompileState):
+        if not self.resolve_var_in_global_scope(
+            node.condition, state.runtime_values, "value", state
+        ):
+            return
+        if node.exit_code is not None:
+            if not self.resolve_var_in_global_scope(
+                node.exit_code, state.runtime_values, "value", state
+            ):
+                return
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         # make sure that all vars are resolved when we get to them
-        assert node in state.resolved_references
+        # if not resolved, then the var is "outside" of a context which could resolve it
+        if node not in state.resolved_references:
+            state.err("Expression is invalid when used here", node)
+            return
+
+    def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
+        if not self.resolve_var_in_global_scope(node.item, state.runtime_values, "value", state):
+            return
+
+    def visit_AstLiteral_AstGetAttr(self, node: Union[AstLiteral, AstGetAttr], state: CompileState):
+        # don't need to do anything for literals, but just have this here for completion's sake
+        pass
+
+    def visit_default(self, node, state):
+        # coding error, missed an expr
+        assert not is_instance_compat(node, AstStmtWithExpr), node
 
 
 class PickTypesAndResolveAttrsAndItems(Visitor):
@@ -549,7 +640,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # already been resolved by SetScopes pass
         ref = state.resolved_references[node]
         if ref is None:
-            state.err(f"Unknown {state.var_global_scope_name[node]}", node)
             return
         ref_type = get_ref_fpp_type_class(ref)
 
@@ -640,7 +730,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_converted_types[node] = BoolType
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        func = state.resolved_references[node.func]
+        func = state.resolved_references.get(node.func)
         if not isinstance(func, FpyCallable):
             state.err("Unknown function", node.func)
             return
@@ -711,9 +801,32 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if not self.coerce_expr_type(node.rhs, lhs_type, state):
             return
 
+    def visit_AstAssert(self, node: AstAssert, state: CompileState):
+        if not self.coerce_expr_type(node.condition, BoolType, state):
+            return
+        if node.exit_code is not None:
+            if not self.coerce_expr_type(node.exit_code, U8Type, state):
+                return
+
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        loop_var = state.resolved_references[node.loop_var]
+        assert isinstance(loop_var, FpyVariable)
+        if not self.coerce_expr_type(node.lower_bound, loop_var.type, state):
+            return
+        if not self.coerce_expr_type(node.upper_bound, loop_var.type, state):
+            return
+
+    def visit_AstWhile(self, node: AstWhile, state: CompileState):
+        if not self.coerce_expr_type(node.condition, BoolType, state):
+            return
+
+    def visit_AstIf_AstElif(self, node: Union[AstIf, AstElif], state: CompileState):
+        if not self.coerce_expr_type(node.condition, BoolType, state):
+            return
+
     def visit_default(self, node, state):
         # coding error, missed an expr
-        assert not is_instance_compat(node, AstExpr), node
+        assert not is_instance_compat(node, AstStmtWithExpr), node
 
 
 class AllocateVariables(Visitor):
@@ -995,6 +1108,10 @@ class GenerateConstExprDirectives(Visitor):
             state.directives[node] = []
             return
 
+        if isinstance(expr_value, (InternalIntType, InternalStringType)):
+            state.err("Expression is invalid when used here", node)
+            return
+
         # it has a constant value at compile time
         serialized_expr_value = expr_value.serialize()
 
@@ -1051,6 +1168,12 @@ class GenerateExprMacrosAndCmds(Visitor):
         # check if idx < length
         directives.append(UnsignedLessThanDirective())
         # assert it's true
+        # push the assert error code we should fail with if false
+        directives.append(
+            PushValDirective(
+                U8Type(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
+            )
+        )
         directives.append(AssertDirective())
         # okay we're good. should still have the idx on the stack
 
@@ -1274,9 +1397,8 @@ class GenerateExprMacrosAndCmds(Visitor):
         lhs = state.resolved_references[node.lhs]
         lvar_offset_dirs = []
         if isinstance(lhs, FpyVariable):
-            lvar_offset_dirs.append(
-                PushValDirective(U32Type(lhs.lvar_offset).serialize())
-            )
+            state.directives[node] = state.directives[node.rhs] + [StoreConstOffsetDirective(lhs.lvar_offset, lhs.type.getMaxSize())]
+            return
         else:
             assert isinstance(lhs, FieldReference), lhs
             assert isinstance(lhs.base_ref, FpyVariable), lhs.base_ref
@@ -1327,6 +1449,12 @@ class GenerateExprMacrosAndCmds(Visitor):
                 # check if idx < length
                 lvar_offset_dirs.append(UnsignedLessThanDirective())
                 # assert it's true
+                # push the assert error code we should fail with if false
+                lvar_offset_dirs.append(
+                    PushValDirective(
+                        U8Type(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
+                    )
+                )
                 lvar_offset_dirs.append(AssertDirective())
                 # okay we're good. should still have the idx on the stack
 
@@ -1353,6 +1481,22 @@ class GenerateExprMacrosAndCmds(Visitor):
         directives.extend(lvar_offset_dirs)
         # then store in lvar array
         directives.append(StoreDirective(converted_type.getMaxSize()))
+
+        state.directives[node] = directives
+
+    def visit_AstAssert(self, node: AstAssert, state: CompileState):
+        directives = state.directives[node.condition]
+        # push the error code we should use if false, if one was given
+        if node.exit_code is not None:
+            directives.extend(state.directives[node.exit_code])
+        else:
+            # otherwise just use the default "ASSERTION_FAILURE error code"
+            directives.append(
+                PushValDirective(
+                    U8Type(DirectiveErrorCode.ASSERTION_FAILURE.value).serialize()
+                )
+            )
+        directives.append(AssertDirective())
 
         state.directives[node] = directives
 
@@ -1420,10 +1564,12 @@ class CountNodeDirectives(Visitor):
 
         state.node_dir_counts[node] = count
 
-
     def visit_AstBody(self, node: Union[AstBody, AstScopedBody], state: CompileState):
         count = 0
-        if isinstance(node, AstScopedBody) and state.scope_parents[state.node_scopes[node]] is None:
+        if (
+            isinstance(node, AstScopedBody)
+            and state.scope_parents[state.local_scopes[node]] is None
+        ):
             # only for the first scoped body:
             # add one for lvar array alloc
             count += 1
@@ -1552,7 +1698,7 @@ class GenerateBodyDirectives(Visitor):
         # push lvar offset to stack
         dirs.append(PushValDirective(U32Type(upper_bound_var.lvar_offset).serialize()))
         # store in upper bound var
-        dirs.append(StoreDirective(upper_bound_var.type.getMaxSize()))
+        dirs.append(StoreConstOffsetDirective(upper_bound_var.lvar_offset, upper_bound_var.type.getMaxSize()))
 
         # set loop var to lower bound
         # push lower bound to stack
@@ -1560,10 +1706,8 @@ class GenerateBodyDirectives(Visitor):
         # now store in lvar
         loop_var = state.for_loop_variables[node]
         assert state.expr_converted_types[node.lower_bound] == loop_var.type
-        # push lvar offset to stack
-        dirs.append(PushValDirective(U32Type(loop_var.lvar_offset).serialize()))
         # store in loop var
-        dirs.append(StoreDirective(loop_var.type.getMaxSize()))
+        dirs.append(StoreConstOffsetDirective(loop_var.lvar_offset, loop_var.type.getMaxSize()))
 
         # okay, loop and UB vars have the right initial value
 
@@ -1598,8 +1742,7 @@ class GenerateBodyDirectives(Visitor):
         # add them
         dirs.append(IntAddDirective())
         # store in lvar array
-        dirs.append(PushValDirective(U32Type(loop_var.lvar_offset).serialize()))
-        dirs.append(StoreDirective(loop_var.type.getMaxSize()))
+        dirs.append(StoreConstOffsetDirective(loop_var.lvar_offset, loop_var.type.getMaxSize()))
         # okay, done with this iteration of the loop. go back up to the end-of-loop check
         dirs.append(GotoDirective(end_of_loop_check_start_idx))
 
@@ -1612,7 +1755,10 @@ class GenerateBodyDirectives(Visitor):
 
     def visit_AstBody(self, node: Union[AstBody, AstScopedBody], state: CompileState):
         dirs = []
-        if isinstance(node, AstScopedBody) and state.scope_parents[state.node_scopes[node]] is None:
+        if (
+            isinstance(node, AstScopedBody)
+            and state.scope_parents[state.local_scopes[node]] is None
+        ):
             # only for the first scoped body
             dirs.append(AllocateDirective(state.lvar_array_size_bytes))
         for stmt in node.stmts:
@@ -1718,13 +1864,13 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive] | CompileEr
     state = get_base_compile_state(dictionary)
     passes: list[Visitor] = [
         AssignIds(),
-        AssignScopes(),
+        AssignLocalScopes(),
         # based on assignment syntax nodes, we know which variables exist where
         CreateVariables(),
         CheckUseBeforeDeclare(),
         # now that variables have been defined, all names/attributes/indices (references)
         # should be defined
-        PickScopes(),
+        ResolveVars(),
         # now that we know what all refs point to, we should be able to figure out the type
         # of every expression
         PickTypesAndResolveAttrsAndItems(),

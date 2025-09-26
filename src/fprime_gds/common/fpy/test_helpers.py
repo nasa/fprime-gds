@@ -104,9 +104,15 @@ def assert_run_success(fprime_test_api, seq: str, tlm: dict[str, bytes] = None):
 def assert_compile_failure(fprime_test_api, seq: str):
     try:
         compile_seq(fprime_test_api, seq)
-    except BaseException as e:
+    except AssertionError as e:
+        # under any circumstances we should not assert
+        raise e
+    except SystemExit:
+        # okay, compile "gracefully" failed
         traceback.print_exc()
         return
+
+    # no error was generated
     raise RuntimeError("compile_seq succeeded")
 
 
@@ -114,7 +120,9 @@ def assert_run_failure(fprime_test_api, seq: str):
     compiled_file = compile_seq(fprime_test_api, seq)
     try:
         run_seq(fprime_test_api, compiled_file)
-    except BaseException as e:
+    except RuntimeError as e:
         print(e)
         return
+
+    # other exceptions we will let through, such as assertions
     raise RuntimeError("run_seq succeeded")

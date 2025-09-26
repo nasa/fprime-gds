@@ -295,6 +295,12 @@ def test_int_as_stmt(fprime_test_api):
 
     assert_compile_failure(fprime_test_api, seq)
 
+def test_str_as_stmt(fprime_test_api):
+    seq = """
+"test"
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
 
 def test_complex_as_stmt(fprime_test_api):
     seq = """
@@ -1453,7 +1459,9 @@ CdhCore.cmdDisp.CMD_NO_OP = 55
 """
     assert_compile_failure(fprime_test_api, seq)
 
+
 # TODO test deep field access/assignments (2+ levels)
+
 
 def test_assign_tlm_struct_member_bad(fprime_test_api):
     seq = """
@@ -1478,6 +1486,7 @@ Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED).priority = 5
 
     assert_compile_failure(fprime_test_api, seq)
 
+
 def test_array_oob_1(fprime_test_api):
     seq = """
 val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
@@ -1493,7 +1502,7 @@ if val[-1] == 456:
     exit(0)
 exit(1)
 """
-# TODO in the future this should work, should be the last element
+    # TODO in the future this should work, should be the last element
     assert_run_failure(fprime_test_api, seq)
 
 
@@ -1507,6 +1516,7 @@ exit(1)
 """
 
     assert_run_success(fprime_test_api, seq)
+
 
 def test_get_variable_array_idx_oob(fprime_test_api):
     seq = """
@@ -1542,6 +1552,7 @@ exit(1)
 
     assert_run_success(fprime_test_api, seq)
 
+
 def test_break_outside_loop(fprime_test_api):
     seq = """
 break
@@ -1549,12 +1560,23 @@ break
 
     assert_compile_failure(fprime_test_api, seq)
 
+
 def test_continue_outside_loop(fprime_test_api):
     seq = """
 continue
 """
 
     assert_compile_failure(fprime_test_api, seq)
+
+def test_simple_for(fprime_test_api):
+    seq = """
+for i: U8 in 0..2:
+    if i > 2:
+        exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
 
 # TODO opinions on this
 def test_loop_var_outside_loop_after(fprime_test_api):
@@ -1565,6 +1587,7 @@ i = 123
 """
 
     assert_run_success(fprime_test_api, seq)
+
 
 def test_loop_var_outside_loop_before(fprime_test_api):
     seq = """
@@ -1597,7 +1620,107 @@ for i: bool in 0..7:
 
 def test_scope_override_name(fprime_test_api):
     seq = """
-while
+i: U8 = 0
+while True:
+    i: U8 = 1
+    if i == 1:
+        exit(0)
+    exit(1)
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_override_global_name(fprime_test_api):
+    seq = """
+CdhCore: U8 = 1
+if CdhCore == 1:
+    exit(0)
+exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_assert(fprime_test_api):
+    seq = """
+assert True
+assert not False
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_assert_failure(fprime_test_api):
+    seq = """
+assert False
+"""
+
+    assert_run_failure(fprime_test_api, seq)
+
+
+def test_assert_failure_with_exit_code(fprime_test_api):
+    seq = """
+assert False, 123
+"""
+
+    assert_run_failure(fprime_test_api, seq)
+
+
+def test_assert_wrong_bool_type(fprime_test_api):
+    seq = """
+assert 123
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_assert_wrong_exit_code_type(fprime_test_api):
+    seq = """
+assert True, True
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_redeclare_after_scope(fprime_test_api):
+    seq = """
+for i: U8 in 0..7:
+    pass
+i: U16 = 0
+assert i == 0
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_nested_scopes(fprime_test_api):
+    seq = """
+z: U8 = 123
+for i: U8 in 0..7:
+    for y: U8 in 0..7:
+        assert i < 8
+        assert y < 8
+        assert z == 123
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_redeclare_in_nested_scopes(fprime_test_api):
+    seq = """
+z: U8 = 123
+for i: U8 in 0..7:
+    for z: U8 in 0..7:
+        assert z < 8
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_for_loop_declare_var_bad(fprime_test_api):
+    seq = """
+for x.y: U8 in 0..7:
     pass
 """
 

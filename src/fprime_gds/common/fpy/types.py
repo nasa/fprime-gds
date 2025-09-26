@@ -547,12 +547,12 @@ class CompileState:
             union_scope(self.prms, self.consts),
         )
 
+    root: AstScopedBody = None
     scope_parents: dict[AstScopedBody, AstScopedBody | None] = field(
         default_factory=dict, repr=False
     )
     body_scopes: dict[AstScopedBody, FpyScope] = field(default_factory=dict, repr=False)
-    node_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
-    var_global_scope_name: dict[AstVar, str] = field(default_factory=dict, repr=False)
+    local_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
     for_loop_variables: dict[AstFor, FpyVariable] = field(
         default_factory=dict, repr=False
     )

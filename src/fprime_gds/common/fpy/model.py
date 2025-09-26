@@ -24,6 +24,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     MemCompareDirective,
     SignedIntDivideDirective,
     SignedModuloDirective,
+    StoreConstOffsetDirective,
     UnsignedIntDivideDirective,
     IntMultiplyDirective,
     FloatLogDirective,
@@ -111,6 +112,7 @@ class DirectiveErrorCode(Enum):
     INVALID_ARGUMENT = 12
     DIVIDE_BY_ZERO = 13
     ASSERTION_FAILURE = 14
+    ARRAY_OUT_OF_BOUNDS = 15
 
 
 class FpySequencerModel:
@@ -327,6 +329,21 @@ class FpySequencerModel:
         # put into lvar array at the given offset
         for i in range(0, len(value)):
             self.stack[lvar_offset + self.stack_frame_start + i] = value[i]
+
+    def handle_store_const_offset(self, dir: StoreConstOffsetDirective):
+        if len(self.stack) < dir.size:
+            return DirectiveErrorCode.STACK_UNDERFLOW
+
+        if dir.lvar_offset + self.stack_frame_start + dir.size > len(self.stack):
+            return DirectiveErrorCode.STACK_OVERFLOW
+
+        # get the last `dir.size` bytes of the stack
+        value = self.stack[-dir.size :]
+        # remove them from top of stack
+        self.stack = self.stack[: -dir.size]
+        # put into lvar array at the given offset
+        for i in range(0, len(value)):
+            self.stack[dir.lvar_offset + self.stack_frame_start + i] = value[i]
 
     def handle_push_val(self, dir: PushValDirective):
         if len(self.stack) + WORD_SIZE > self.max_stack_size:
@@ -844,8 +861,14 @@ class FpySequencerModel:
         self.push(self.stack[-dir.size:])
 
     def handle_assert(self, dir: AssertDirective):
-        if len(self.stack) < 1:
+        if len(self.stack) < 2:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
-        if not self.pop(type=bool, size=1):
-            return DirectiveErrorCode.ASSERTION_FAILURE
+        error_code = self.pop(size=1, signed=False)
+        condition = self.pop(type=bool, size=1)
+
+        if not condition:
+            error_code_enum = [c for c in DirectiveErrorCode if c.value == error_code]
+            if len(error_code_enum) == 0:
+                return DirectiveErrorCode.ASSERTION_FAILURE
+            return error_code_enum[0]

@@ -147,6 +147,7 @@ class DirectiveId(Enum):
     GET_MEMBER = 67
     DUPLICATE = 68
     ASSERT = 69
+    STORE_CONST_OFFSET = 70
 
 
 class Directive:
@@ -353,6 +354,14 @@ class AllocateDirective(Directive):
 class StoreDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE
 
+    size: Union[int, U32Type]
+
+
+@dataclass
+class StoreConstOffsetDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.STORE_CONST_OFFSET
+
+    lvar_offset: Union[int, U32Type]
     size: Union[int, U32Type]
 
 
