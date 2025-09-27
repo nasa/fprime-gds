@@ -231,10 +231,12 @@ class CreateVariables(TopDownVisitor):
             assert False, (node, state.local_scopes[node.body])
 
         var = FpyVariable(node.loop_var_type, node)
-        state.local_scopes[node][node.loop_var.var] = var
+        state.local_scopes[node.body][node.loop_var.var] = var
+        # the loop var should get resolved in the body
+        state.local_scopes[node.loop_var] = state.local_scopes[node.body]
 
 
-class CheckUseBeforeDeclare(Visitor):
+class CheckUseBeforeDeclare(TopDownVisitor):
 
     def __init__(self):
         self.currently_declared_vars: list[FpyVariable] = []
@@ -265,12 +267,14 @@ class CheckUseBeforeDeclare(Visitor):
             # not a variable, otherwise it would be in scope. might be a type name or smth
             return
 
-        if ref.declaration.lhs == node:
+        if (isinstance(ref.declaration, AstAssign) and ref.declaration.lhs == node) or (
+            isinstance(ref.declaration, AstFor) and ref.declaration.loop_var == node
+        ):
             # this is the initial name of the variable. don't crash
             return
 
         if ref not in self.currently_declared_vars:
-            state.err(f"{node.var} used before declared", node)
+            state.err(f"'{node.var}' used before declared", node)
             return
 
 
@@ -286,7 +290,9 @@ class ResolveVars(TopDownVisitor):
             return True
 
         if not isinstance(node, AstVar):
-            return self.resolve_var_in_global_scope(node.parent, global_scope, global_scope_name, state)
+            return self.resolve_var_in_global_scope(
+                node.parent, global_scope, global_scope_name, state
+            )
 
         local_scope = state.local_scopes[node]
         resolved = None
@@ -354,6 +360,13 @@ class ResolveVars(TopDownVisitor):
                 node.type_ann, state.types, "value", state
             ):
                 return
+            # okay, we know the var, we know the type, let's update the var type
+            # in the struct
+            var = state.resolved_references[node.lhs]
+            var_type = state.resolved_references[node.type_ann]
+            assert isinstance(var, FpyVariable), var
+            assert isinstance(var_type, type), var_type
+            var.type = var_type
 
         if not self.resolve_var_in_global_scope(
             node.rhs, state.runtime_values, "value", state
@@ -369,6 +382,13 @@ class ResolveVars(TopDownVisitor):
             node.loop_var_type, state.types, "type", state
         ):
             return
+        # okay, we know the var, we know the type, let's update the var type
+        # in the struct
+        loop_var = state.resolved_references[node.loop_var]
+        loop_var_type = state.resolved_references[node.loop_var_type]
+        assert isinstance(loop_var, FpyVariable), loop_var
+        assert isinstance(loop_var_type, type), loop_var_type
+        loop_var.type = loop_var_type
         if not self.resolve_var_in_global_scope(
             node.lower_bound, state.runtime_values, "value", state
         ):
@@ -403,11 +423,15 @@ class ResolveVars(TopDownVisitor):
             return
 
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
-        if not self.resolve_var_in_global_scope(node.item, state.runtime_values, "value", state):
+        if not self.resolve_var_in_global_scope(
+            node.item, state.runtime_values, "value", state
+        ):
             return
 
-    def visit_AstLiteral_AstGetAttr(self, node: Union[AstLiteral, AstGetAttr], state: CompileState):
-        # don't need to do anything for literals, but just have this here for completion's sake
+    def visit_AstLiteral_AstGetAttr(
+        self, node: Union[AstLiteral, AstGetAttr], state: CompileState
+    ):
+        # don't need to do anything for literals or getattr, but just have this here for completion's sake
         pass
 
     def visit_default(self, node, state):
@@ -774,16 +798,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         lhs_type = None
         if isinstance(lhs_ref, FpyVariable):
-            if node.type_ann is not None:
-                # update the type
-                var_type = state.resolved_references[node.type_ann]
-                assert isinstance(var_type, type), (var_type, type)
-                lhs_ref.type = var_type
-            else:
-                var_type = lhs_ref.type
-
-            lhs_type = var_type
-            if not self.coerce_expr_type(node.rhs, var_type, state):
+            lhs_type = lhs_ref.type
+            if not self.coerce_expr_type(node.rhs, lhs_type, state):
                 return
         else:
             # briefly check that we're only trying
@@ -1397,7 +1413,9 @@ class GenerateExprMacrosAndCmds(Visitor):
         lhs = state.resolved_references[node.lhs]
         lvar_offset_dirs = []
         if isinstance(lhs, FpyVariable):
-            state.directives[node] = state.directives[node.rhs] + [StoreConstOffsetDirective(lhs.lvar_offset, lhs.type.getMaxSize())]
+            state.directives[node] = state.directives[node.rhs] + [
+                StoreConstOffsetDirective(lhs.lvar_offset, lhs.type.getMaxSize())
+            ]
             return
         else:
             assert isinstance(lhs, FieldReference), lhs
@@ -1698,7 +1716,11 @@ class GenerateBodyDirectives(Visitor):
         # push lvar offset to stack
         dirs.append(PushValDirective(U32Type(upper_bound_var.lvar_offset).serialize()))
         # store in upper bound var
-        dirs.append(StoreConstOffsetDirective(upper_bound_var.lvar_offset, upper_bound_var.type.getMaxSize()))
+        dirs.append(
+            StoreConstOffsetDirective(
+                upper_bound_var.lvar_offset, upper_bound_var.type.getMaxSize()
+            )
+        )
 
         # set loop var to lower bound
         # push lower bound to stack
@@ -1707,7 +1729,9 @@ class GenerateBodyDirectives(Visitor):
         loop_var = state.for_loop_variables[node]
         assert state.expr_converted_types[node.lower_bound] == loop_var.type
         # store in loop var
-        dirs.append(StoreConstOffsetDirective(loop_var.lvar_offset, loop_var.type.getMaxSize()))
+        dirs.append(
+            StoreConstOffsetDirective(loop_var.lvar_offset, loop_var.type.getMaxSize())
+        )
 
         # okay, loop and UB vars have the right initial value
 
@@ -1742,7 +1766,9 @@ class GenerateBodyDirectives(Visitor):
         # add them
         dirs.append(IntAddDirective())
         # store in lvar array
-        dirs.append(StoreConstOffsetDirective(loop_var.lvar_offset, loop_var.type.getMaxSize()))
+        dirs.append(
+            StoreConstOffsetDirective(loop_var.lvar_offset, loop_var.type.getMaxSize())
+        )
         # okay, done with this iteration of the loop. go back up to the end-of-loop check
         dirs.append(GotoDirective(end_of_loop_check_start_idx))
 

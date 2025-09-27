@@ -295,6 +295,14 @@ def test_int_as_stmt(fprime_test_api):
 
     assert_compile_failure(fprime_test_api, seq)
 
+
+def test_expr_as_stmt(fprime_test_api):
+    seq = """
+2 + 2
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
 def test_str_as_stmt(fprime_test_api):
     seq = """
 "test"
@@ -1570,7 +1578,7 @@ continue
 
 def test_simple_for(fprime_test_api):
     seq = """
-for i: U8 in 0..2:
+for i: U8 in 0 .. 2:
     if i > 2:
         exit(1)
 """
