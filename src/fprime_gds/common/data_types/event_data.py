@@ -147,6 +147,7 @@ class EventData(sys_data.SysData):
             "name": self.template.get_full_name(),
             "id": self.id,
             "severity": str(self.template.get_severity()),
+            "args": self.args,
             "display_text": self.display_text,
         }
 
