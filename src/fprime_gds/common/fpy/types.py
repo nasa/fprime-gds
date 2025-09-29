@@ -523,6 +523,17 @@ def extend_numeric_type_to_64_bits(type: FppTypeClass) -> list[Directive]:
             return [IntegerZeroExtend32To64Directive()]
 
 
+def resolve_var(node: Ast, name: str, state: CompileState) -> FpyVariable:
+    # check this scope and all parent scopes
+    local_scope = state.local_scopes[node]
+    resolved = None
+    while local_scope is not None and resolved is None:
+        resolved = local_scope.get(name)
+        local_scope = state.scope_parents[local_scope]
+    
+    return resolved
+
+
 @dataclass
 class CompileState:
     """a collection of input, internal and output state variables and maps"""
@@ -563,6 +574,9 @@ class CompileState:
         default_factory=dict, repr=False
     )
     for_loop_increment_directives: dict[AstFor, type[StackOpDirective]] = field(
+        default_factory=dict, repr=False
+    )
+    for_loop_intermediate_type: dict[AstFor, FppTypeClass] = field(
         default_factory=dict, repr=False
     )
 

@@ -1578,9 +1578,12 @@ continue
 
 def test_simple_for(fprime_test_api):
     seq = """
-for i: U8 in 0 .. 2:
+counter: U8 = 0
+for i: U8 in 0 to 2:
     if i > 2:
         exit(1)
+    counter = counter + 1
+assert counter == 2
 """
 
     assert_run_success(fprime_test_api, seq)
@@ -1589,18 +1592,18 @@ for i: U8 in 0 .. 2:
 # TODO opinions on this
 def test_loop_var_outside_loop_after(fprime_test_api):
     seq = """
-for i: U8 in 0..7:
+for i: U8 in 0 to 7:
     pass
 i = 123
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_loop_var_outside_loop_before(fprime_test_api):
     seq = """
 i = 123
-for i: U8 in 0..7:
+for i: U8 in 0 to 7:
     pass
 """
 
@@ -1610,16 +1613,17 @@ for i: U8 in 0..7:
 def test_loop_var_redeclare(fprime_test_api):
     seq = """
 i: U16 = 123
-for i: U8 in 0..7:
-    pass
+for i: U8 in 0 to 7:
+    assert i >= 0 and i < 7
+assert i == 123
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_loop_var_bad_type(fprime_test_api):
     seq = """
-for i: bool in 0..7:
+for i: bool in 0 to 7:
     pass
 """
 
@@ -1693,7 +1697,7 @@ assert True, True
 
 def test_redeclare_after_scope(fprime_test_api):
     seq = """
-for i: U8 in 0..7:
+for i: U8 in 0 to 7:
     pass
 i: U16 = 0
 assert i == 0
@@ -1705,8 +1709,8 @@ assert i == 0
 def test_nested_scopes(fprime_test_api):
     seq = """
 z: U8 = 123
-for i: U8 in 0..7:
-    for y: U8 in 0..7:
+for i: U8 in 0 to 7:
+    for y: U8 in 0 to 7:
         assert i < 8
         assert y < 8
         assert z == 123
@@ -1718,8 +1722,8 @@ for i: U8 in 0..7:
 def test_redeclare_in_nested_scopes(fprime_test_api):
     seq = """
 z: U8 = 123
-for i: U8 in 0..7:
-    for z: U8 in 0..7:
+for i: U8 in 0 to 7:
+    for z: U8 in 0 to 7:
         assert z < 8
 """
 
@@ -1728,8 +1732,16 @@ for i: U8 in 0..7:
 
 def test_for_loop_declare_var_bad(fprime_test_api):
     seq = """
-for x.y: U8 in 0..7:
+for x.y: U8 in 0 to 7:
     pass
 """
 
     assert_compile_failure(fprime_test_api, seq)
+    
+def test_loop_var_overflow(fprime_test_api):
+    seq = """
+for x: U8 in 0 to 255:
+    pass
+"""
+
+    assert_run_success(fprime_test_api, seq)

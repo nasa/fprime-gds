@@ -170,7 +170,7 @@ class AstContinue:
     pass
 
 AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf, AstElif, AstFor, AstBreak, AstContinue, AstWhile, AstAssert, AstEllipsis]
-AstStmtWithExpr = Union[AstExpr, AstAssign, AstPass, AstIf, AstElif, AstFor, AstWhile, AstAssert]
+AstStmtWithExpr = Union[AstExpr, AstAssign, AstIf, AstElif, AstFor, AstWhile, AstAssert]
 
 
 @dataclass
@@ -243,7 +243,7 @@ class FpyTransformer(Transformer):
 
     for_stmt = AstFor
     while_stmt = AstWhile
-    scoped_body = AstScopedBody
+    scoped_body = no_inline(AstScopedBody)
     break_stmt = AstBreak
     continue_stmt = AstContinue
 

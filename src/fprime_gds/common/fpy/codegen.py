@@ -39,6 +39,7 @@ from fprime_gds.common.fpy.types import (
     create_scope,
     get_ref_fpp_type_class,
     is_instance_compat,
+    resolve_var,
 )
 
 from fprime_gds.common.fpy.error import CompileError
@@ -192,26 +193,30 @@ class CreateVariables(TopDownVisitor):
             return
         # okay, what are we assigning to?
         if isinstance(node.lhs, AstVar):
-            # assigning to an FpyVariable
-            existing = state.local_scopes[node].get(node.lhs.var)
-            if not existing:
-                # idk what this var is. make sure it's a valid declaration
-                if node.type_ann is None:
-                    # error because this isn't an annotated assignment. right now all declarations must be annotated
-                    state.err(
-                        "Must provide a type annotation for new variables",
-                        node.lhs,
-                    )
+            if node.type_ann is not None:
+                # new variable declaraion
+                # make sure it isn't defined in this scope
+                existing_local = state.local_scopes[node].get(node.lhs.var)
+                if existing_local is not None:
+                    # redeclaring an existing variable
+                    state.err(f"{node.lhs.var} already declared", node)
                     return
-
+                # okay, declare the var
                 var = FpyVariable(node.type_ann, node)
                 # new var. put it in the table under this scope
                 state.local_scopes[node][node.lhs.var] = var
+            else:
+                # otherwise, it's a reference to an existing var
+                resolved = resolve_var(node, node.lhs.var, state)
+                if resolved is None:
+                    # unable to find this symbol
+                    state.err(
+                        f"{node.lhs.var} has not been declared",
+                        node.lhs,
+                    )
+                    return
+                # okay, we were able to resolve it
 
-            if existing and node.type_ann is not None:
-                # redeclaring an existing variable
-                state.err(f"{node.lhs.var} already declared", node)
-                return
         else:
             # assigning to a member or array element. don't need to make a new variable,
             # space already exists
@@ -236,7 +241,7 @@ class CreateVariables(TopDownVisitor):
         state.local_scopes[node.loop_var] = state.local_scopes[node.body]
 
 
-class CheckUseBeforeDeclare(TopDownVisitor):
+class CheckUseBeforeDeclare(Visitor):
 
     def __init__(self):
         self.currently_declared_vars: list[FpyVariable] = []
@@ -246,7 +251,7 @@ class CheckUseBeforeDeclare(TopDownVisitor):
             # definitely not a declaration, it's a field assignment
             return
 
-        var = state.local_scopes[node][node.lhs.var]
+        var = resolve_var(node, node.lhs.var, state)
 
         if var.declaration != node:
             # this is not the node that declares this variable
@@ -255,6 +260,29 @@ class CheckUseBeforeDeclare(TopDownVisitor):
         # this node declares this variable
 
         self.currently_declared_vars.append(var)
+
+    def visit_AstVar(self, node: AstVar, state: CompileState):
+        ref = state.local_scopes[node].get(node.var)
+        if ref is None:
+            # not a variable, otherwise it would be in scope. might be a type name or smth
+            return
+
+        if isinstance(ref.declaration, AstFor):
+            # declared in a for loop, will be handled as a separate pass
+            return
+        if ref.declaration.lhs == node:
+            # this is the initial name of the variable. don't crash
+            return
+
+        if ref not in self.currently_declared_vars:
+            state.err(f"'{node.var}' used before declared", node)
+            return
+
+
+class CheckUseBeforeDeclareLoopVar(TopDownVisitor):
+
+    def __init__(self):
+        self.currently_declared_vars: list[FpyVariable] = []
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
         var = state.local_scopes[node.body][node.loop_var.var]
@@ -267,9 +295,10 @@ class CheckUseBeforeDeclare(TopDownVisitor):
             # not a variable, otherwise it would be in scope. might be a type name or smth
             return
 
-        if (isinstance(ref.declaration, AstAssign) and ref.declaration.lhs == node) or (
-            isinstance(ref.declaration, AstFor) and ref.declaration.loop_var == node
-        ):
+        if isinstance(ref.declaration, AstAssign):
+            # declared in an assignment, already checked
+            return
+        if ref.declaration.loop_var == node:
             # this is the initial name of the variable. don't crash
             return
 
@@ -278,7 +307,43 @@ class CheckUseBeforeDeclare(TopDownVisitor):
             return
 
 
-class ResolveVars(TopDownVisitor):
+class ResolveVarsAndTypes(TopDownVisitor):
+
+    def resolve_type_reference(self, node: Ast, state: CompileState) -> bool:
+
+        # we have some special logic for types because we want them resolved early,
+        # and they are easy to resolve
+
+        def resolve(n: Ast):
+
+            if not isinstance(n, (AstVar, AstGetAttr)):
+                state.err("Unknown type", node)
+                return None
+
+            if isinstance(n, AstVar):
+                parent_scope = state.types
+                name = n.var
+            else:
+                parent_scope = resolve(n.parent)
+                name = n.attr
+
+            if parent_scope is None:
+                # error already raised
+                return None
+
+            assert isinstance(parent_scope, dict), parent_scope
+
+            node_type = parent_scope.get(name)
+            if node_type is None:
+                state.err("Unknown type", node)
+                return None
+
+            state.resolved_references[n] = node_type
+            return node_type
+
+        ret_type = resolve(node)
+        return ret_type is not None
+
     def resolve_var_in_global_scope(
         self,
         node: Ast,
@@ -356,9 +421,8 @@ class ResolveVars(TopDownVisitor):
             return
 
         if node.type_ann is not None:
-            if not self.resolve_var_in_global_scope(
-                node.type_ann, state.types, "value", state
-            ):
+            # in this pass, we also go ahead and finish up the types because they're easy
+            if not self.resolve_type_reference(node.type_ann, state):
                 return
             # okay, we know the var, we know the type, let's update the var type
             # in the struct
@@ -381,6 +445,9 @@ class ResolveVars(TopDownVisitor):
         if not self.resolve_var_in_global_scope(
             node.loop_var_type, state.types, "type", state
         ):
+            return
+        # in this pass, we also go ahead and finish up the types because they're easy
+        if not self.resolve_type_reference(node.loop_var_type, state):
             return
         # okay, we know the var, we know the type, let's update the var type
         # in the struct
@@ -825,12 +892,44 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
                 return
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
-        loop_var = state.resolved_references[node.loop_var]
-        assert isinstance(loop_var, FpyVariable)
-        if not self.coerce_expr_type(node.lower_bound, loop_var.type, state):
+        # okay we have three types, but lb gets converted to lv, so we just have lv and ub
+        # so we're going to be comparing lv to ub type, so find an intermediate
+    
+        loop_var_ref = state.resolved_references[node.loop_var]
+        loop_var_type = loop_var_ref.type
+
+        upper_bound_type = state.expr_unconverted_types[node.upper_bound]
+
+        intermediate_type = self.pick_intermediate_type([loop_var_type, upper_bound_type], BinaryStackOp.LESS_THAN)
+
+        if intermediate_type is None or intermediate_type is F64Type:
+            state.err(
+                f"Loop variable and bounds must be signed or unsigned integers",
+                node,
+            )
             return
-        if not self.coerce_expr_type(node.upper_bound, loop_var.type, state):
+
+        state.for_loop_intermediate_type[node] = intermediate_type
+
+        # okay, and based on this intermediate type, pick a directive we're going to use to compare
+        comparison_dir = BINARY_STACK_OPS[BinaryStackOp.LESS_THAN][intermediate_type]
+
+        # store it for later
+        state.for_loop_comparison_directives[node] = comparison_dir
+
+        # handle set loop var to lower bound
+        # lower bound must be of type loop var
+        if not self.coerce_expr_type(node.lower_bound, loop_var_type, state):
             return
+
+        # handle set ub var to upper bound
+        # note, we store ub var as intermediate type because we only ever use it for comparison
+        # so it would always just get converted to intermediate type
+        if not self.coerce_expr_type(node.upper_bound, intermediate_type, state):
+            return
+
+        # handle increment loop var
+        # don't have to handle it i think actually. TODO show why
 
     def visit_AstWhile(self, node: AstWhile, state: CompileState):
         if not self.coerce_expr_type(node.condition, BoolType, state):
@@ -864,11 +963,22 @@ class AllocateVariables(Visitor):
             lhs_ref.lvar_offset = lvar_offset
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
+        # allocate space for the loop var
         loop_var_ref = state.resolved_references[node.loop_var]
         assert isinstance(loop_var_ref, FpyVariable)
         lvar_offset = state.lvar_array_size_bytes
         state.lvar_array_size_bytes += loop_var_ref.type.getMaxSize()
         loop_var_ref.lvar_offset = lvar_offset
+
+        # allocate space for the upper bound var
+        # type of ub var is intermediate type
+        upper_bound_type = state.for_loop_intermediate_type[node]
+        lvar_offset = state.lvar_array_size_bytes
+        upper_bound_var = FpyVariable(None, node, upper_bound_type, lvar_offset)
+        state.lvar_array_size_bytes += upper_bound_var.type.getMaxSize()
+        upper_bound_var.lvar_offset = lvar_offset
+        # store ub var in a dict for later
+        state.for_loop_upper_bound_variables[node] = upper_bound_var
 
 
 class CalculateConstExprValues(Visitor):
@@ -1413,6 +1523,7 @@ class GenerateExprMacrosAndCmds(Visitor):
         lhs = state.resolved_references[node.lhs]
         lvar_offset_dirs = []
         if isinstance(lhs, FpyVariable):
+            # TODO how can i be sure that i'm using the right combination of converted/unconverted?
             state.directives[node] = state.directives[node.rhs] + [
                 StoreConstOffsetDirective(lhs.lvar_offset, lhs.type.getMaxSize())
             ]
@@ -1517,6 +1628,10 @@ class GenerateExprMacrosAndCmds(Visitor):
         directives.append(AssertDirective())
 
         state.directives[node] = directives
+
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        # convert the lower bound into the intermediate type
+        pass
 
 
 class CountNodeDirectives(Visitor):
@@ -1705,53 +1820,67 @@ class GenerateBodyDirectives(Visitor):
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
         start_line_idx = state.start_line_idx[node]
-        # okay, start by calcing upper bound and storing it in upper bound var
+        # we need to do a few things:
+        # 1. initialize the loop var, and store the lower bound in it
+        # 2. calculate the upper bound and store it in the upper bound var
+        
+        # then, on each loop:
+        # 3. check loop condition
+        # 4. execute body
+        # 5. increment loop var
+        # 6. go back to start
 
-        # push upper bound to stack
-        dirs = state.directives[node.upper_bound]
-        # now store in lvar
-        upper_bound_var = state.for_loop_upper_bound_variables[node]
-        assert state.expr_converted_types[node.upper_bound] == upper_bound_var.type
-        # TODO figure out if we need conversions here
-        # push lvar offset to stack
-        dirs.append(PushValDirective(U32Type(upper_bound_var.lvar_offset).serialize()))
-        # store in upper bound var
-        dirs.append(
-            StoreConstOffsetDirective(
-                upper_bound_var.lvar_offset, upper_bound_var.type.getMaxSize()
-            )
-        )
-
-        # set loop var to lower bound
+        # 1. set loop var to lower bound
         # push lower bound to stack
-        dirs.extend(state.directives[node.lower_bound])
+        # the converted type of these dirs should be the loop_var type
+        dirs = state.directives[node.lower_bound].copy()
         # now store in lvar
-        loop_var = state.for_loop_variables[node]
+        loop_var = state.resolved_references[node.loop_var]
         assert state.expr_converted_types[node.lower_bound] == loop_var.type
         # store in loop var
         dirs.append(
             StoreConstOffsetDirective(loop_var.lvar_offset, loop_var.type.getMaxSize())
         )
 
-        # okay, loop and UB vars have the right initial value
+        # 2. calc upper bound and store it in upper bound var
 
-        # TODO should we store the loop vars as 64 bit? or should we do the conversion every time
-        # for now going to assume they are stored as 64 bit
+        # push upper bound to stack
+        # the converted type of the ub expr should be intermediate_type
+        dirs.extend(state.directives[node.upper_bound])
+        intermediate_type = state.for_loop_intermediate_type[node]
+        upper_bound_var = state.for_loop_upper_bound_variables[node]
+        # store in upper bound var
+        dirs.append(
+            StoreConstOffsetDirective(
+                upper_bound_var.lvar_offset, intermediate_type.getMaxSize()
+            )
+        )
+
+
+        # okay, loop and UB vars have the right initial value
+        # begin the loop!
+
+        # 3. now add the "end-of-loop" check
 
         end_of_loop_check_start_idx = start_line_idx + len(dirs)
 
-        # now add the "end-of-loop" check
-        # get the loop variable on the stack
-        dirs.append(LoadDirective(loop_var.lvar_offset, loop_var.type.getMaxSize()))
-        # get the UB on the stack
-        dirs.append(
-            LoadDirective(
-                upper_bound_var.lvar_offset, upper_bound_var.type.getMaxSize()
-            )
-        )
-        # check lhs < rhs else goto end
-        # use a directive determined above
+        upper_bound_var = state.for_loop_upper_bound_variables[node]
+
+        # loop var should be "loop var" type
+        lhs_cmp_dirs = state.directives[node.loop_var]
+        # ub should be intermediate type
+        rhs_cmp_dirs = [LoadDirective(upper_bound_var.lvar_offset, upper_bound_var.type.getMaxSize())]
+
+        # convert lv to intermediate type
+        lhs_cmp_dirs.extend(convert_numeric_type(loop_var.type, intermediate_type))
+
+        # which variant of the op did we pick?
         cmp_dir = state.for_loop_comparison_directives[node]
+
+        # push lhs and rhs to stack
+        dirs.extend(lhs_cmp_dirs)
+        dirs.extend(rhs_cmp_dirs)
+        # generate the actual cmp op itself
         dirs.append(cmp_dir())
 
         if_dir = IfDirective(-1)
@@ -1761,10 +1890,14 @@ class GenerateBodyDirectives(Visitor):
         # okay increment loop var
         # push loop var to stack
         dirs.append(LoadDirective(loop_var.lvar_offset, loop_var.type.getMaxSize()))
+        # convert loop var to intermediate type
+        dirs.extend(convert_numeric_type(loop_var.type, intermediate_type))
         # push 1 to stack
         dirs.append(PushValDirective(U64Type(1).serialize()))
         # add them
         dirs.append(IntAddDirective())
+        # convert back into loop var type
+        dirs.extend(convert_numeric_type(intermediate_type, loop_var.type))
         # store in lvar array
         dirs.append(
             StoreConstOffsetDirective(loop_var.lvar_offset, loop_var.type.getMaxSize())
@@ -1894,9 +2027,10 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive] | CompileEr
         # based on assignment syntax nodes, we know which variables exist where
         CreateVariables(),
         CheckUseBeforeDeclare(),
+        CheckUseBeforeDeclareLoopVar(),
         # now that variables have been defined, all names/attributes/indices (references)
         # should be defined
-        ResolveVars(),
+        ResolveVarsAndTypes(),
         # now that we know what all refs point to, we should be able to figure out the type
         # of every expression
         PickTypesAndResolveAttrsAndItems(),
