@@ -53,7 +53,7 @@ def preprocess_fpp_format_str(format_str: str) -> str:
 
 
 def preprocess_c_style_format_str(format_str: str) -> str:
-    """
+    r"""
     Function to convert C-string style to python format
     without using python interpolation
     Considered the following format for C-string:
