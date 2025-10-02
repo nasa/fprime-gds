@@ -1745,3 +1745,12 @@ for x: U8 in 0 to 255:
 """
 
     assert_run_success(fprime_test_api, seq)
+
+def test_loop_var_ub_too_big(fprime_test_api):
+    seq = """
+var: U32 = 123123
+for i: U8 in 0 to var:
+    pass
+"""
+
+    assert_compile_failure(fprime_test_api, seq)

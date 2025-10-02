@@ -76,7 +76,7 @@ from fprime.common.models.serialize.type_base import BaseType as FppType
 
 MAX_DIRECTIVES_COUNT = 1024
 MAX_DIRECTIVE_SIZE = 2048
-MAX_STACK_SIZE = 65535
+MAX_STACK_SIZE = 1024
 
 COMPILER_MAX_STRING_SIZE = 128
 
