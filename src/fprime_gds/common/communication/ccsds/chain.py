@@ -76,7 +76,7 @@ class ChainedFramerDeframer(FramerDeframer, ABC):
         in order to allow for these composite packets
         """
         # Packet the incoming data as an array of 1 packet. This will set up the standard algorithm where each packet
-        # is processed in seeries
+        # is processed in series
         packets = [data if no_copy else data[:]]
         # Remaining data (left over from first packet) is unset, but will be set after the processing of the first
         # packet as the first represents the outer frame
@@ -89,10 +89,10 @@ class ChainedFramerDeframer(FramerDeframer, ABC):
             # Loop over the list of packets from the previous deframer
             for packet_data in packets:
                 # Deframe all packets available in this current packet. The packet list is updated from the return
-                # value as we use the chanined deframers to continually break into it
+                # value as we use the chained deframers to continually break into it
                 new_packets, new_remaining, new_discarded = deframer.deframe_all(packet_data, True)
-                # If the first packet reamining hasn't be updated, then we set reamining. Otherwise we retain the old
-                # value because reamining is defined as the outer-most packet.
+                # If the first packet remaining hasn't be updated, then we set remaining. Otherwise we retain the old
+                # value because remaining is defined as the outer-most packet.
                 remaining =  new_remaining if remaining is None else remaining
                 # Discarded data is aggregated regardless of where it comes from
                 discarded_aggregate += new_discarded
@@ -108,7 +108,7 @@ class ChainedFramerDeframer(FramerDeframer, ABC):
 
     def frame(self, data):
         """ Frame via a chain of children framers """
-        return reduce(lambda framed_data, framer: framer.frame(framed_data), self.framers, data)
+        return reduce(lambda framed_data, framer: framer.fragit push --set-upstream origin fix/aggregated-ccsdsme(framed_data), self.framers, data)
 
 
 @gds_plugin(FramerDeframer)
