@@ -108,7 +108,7 @@ class ChainedFramerDeframer(FramerDeframer, ABC):
 
     def frame(self, data):
         """ Frame via a chain of children framers """
-        return reduce(lambda framed_data, framer: framer.fragit push --set-upstream origin fix/aggregated-ccsdsme(framed_data), self.framers, data)
+        return reduce(lambda framed_data, framer: framer.frame(framed_data), self.framers, data)
 
 
 @gds_plugin(FramerDeframer)
