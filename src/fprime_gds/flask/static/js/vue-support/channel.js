@@ -92,7 +92,7 @@ Vue.component("channel-table", {
             let template = _dictionaries.channels[item.id];
             // Check if any bounds are actually set
             if ((template.low_red == null) && (template.low_orange == null) && (template.low_yellow == null) &&
-                (template.high_red == null) && (template.high_orange == null) && (template.high_red == null)) {
+                (template.high_red == null) && (template.high_orange == null) && (template.high_yellow == null)) {
                 return "";
             }
             let bounds = [
