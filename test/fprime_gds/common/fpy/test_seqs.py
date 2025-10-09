@@ -1579,10 +1579,16 @@ continue
 def test_simple_for(fprime_test_api):
     seq = """
 counter: U8 = 0
+
+for x: U8 in 0..1:
+    pass
+
 for i: U8 in 0 to 2:
     if i > 2:
         exit(1)
     counter = counter + 1
+
+
 assert counter == 2
 """
 

@@ -174,6 +174,12 @@ The result type is the type of the value produced by the operator.
 
 Normal type coercion rules apply to the result, of course. Once the operator has produced a value, it may be coerced into some other type depending on context.
 
+# Loops
+
+## For loops
+
+* The lower and upper bounds must be coercible to the type of the loop variable
+* 
 
 # Macros
 

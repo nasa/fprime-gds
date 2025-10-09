@@ -6,7 +6,7 @@ from pathlib import Path
 import struct
 import traceback
 import typing
-from typing import Union, get_args, get_origin
+from typing import Iterable, Union, get_args, get_origin
 import zlib
 
 from fprime_gds.common.fpy.error import CompileError
@@ -266,6 +266,24 @@ class FpyVariable:
     lvar_offset: int | None = None
     """the offset in the lvar array where this var is stored"""
 
+@dataclass
+class ForLoopAnalysis:
+    loop_var: FpyVariable
+    loop_condition_lt_dir: type[StackOpDirective]
+    
+
+    for_loop_upper_bound_variables: dict[AstFor, FpyVariable] = field(
+        default_factory=dict, repr=False
+    )
+    for_loop_comparison_directives: dict[AstFor, type[StackOpDirective]] = field(
+        default_factory=dict, repr=False
+    )
+    for_loop_increment_directives: dict[AstFor, type[StackOpDirective]] = field(
+        default_factory=dict, repr=False
+    )
+    for_loop_intermediate_type: dict[AstFor, FppTypeClass] = field(
+        default_factory=dict, repr=False
+    )
 
 # a scope
 next_scope_id = 0
@@ -530,7 +548,7 @@ def resolve_var(node: Ast, name: str, state: CompileState) -> FpyVariable:
     while local_scope is not None and resolved is None:
         resolved = local_scope.get(name)
         local_scope = state.scope_parents[local_scope]
-    
+
     return resolved
 
 
@@ -675,6 +693,66 @@ class Visitor:
                 self._visit(child, state)
                 if len(state.errors) != 0:
                     break
+
+        _descend(start)
+        self._visit(start, state)
+
+
+class Transformer(Visitor):
+
+    class Delete:
+        pass
+
+    def run(self, start: Ast, state: CompileState):
+
+        def _descend(node):
+            if not isinstance(node, Ast):
+                return
+            for field in fields(node):
+                field_val = getattr(node, field.name)
+                if isinstance(field_val, list):
+                    # child is a list, iterate over each member of the list
+                    # use a copy so we can remove as we traverse, also so
+                    # we don't visit things that we added
+                    for idx, child in enumerate(field_val[:]):
+                        if not isinstance(child, Ast):
+                            continue
+                        _descend(child)
+                        if len(state.errors) != 0:
+                            break
+                        transformed = self._visit(child, state)
+                        if len(state.errors) != 0:
+                            break
+                        if isinstance(transformed, Iterable):
+                            assert all(
+                                isinstance(n, Ast) for n in transformed
+                            ), transformed
+                            # func split one node into many
+                            # remove the original child and add the new ones
+                            # insert them in the place where the child used to be, in the right order
+                            field_val.remove(child)
+                            for new_child_idx, new_child in enumerate(transformed):
+                                field_val.insert(idx + new_child_idx, new_child)
+                        elif isinstance(transformed, Ast):
+                            field_val.remove(child)
+                            field_val.insert(idx, transformed)
+                        elif transformed is Transformer.Delete:
+                            # just delete it
+                            field_val.remove(child)
+                        else:
+                            assert transformed is None, transformed
+                            # don't do anything, didn't return anything
+                        # update the field
+                    setattr(node, field.name, field_val)
+                else:
+                    if isinstance(transformed, Ast):
+                        setattr(node, field.name, transformed)
+                    elif transformed is Transformer.Delete:
+                        # just delete it
+                        setattr(node, field.name, None)
+                    else:
+                        assert transformed is None, transformed
+                        # don't do anything, didn't return anything
 
         _descend(start)
         self._visit(start, state)
