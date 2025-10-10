@@ -211,6 +211,10 @@ def main():
         output_path = args.json_file.with_suffix("." + output_format)
     else:
         output_path = args.output
+
+    # when using dat need a save attribute
+    if not hasattr(args, "save"):
+        args.save = False
     
     convert_json(args.json_file, args.dictionary, output_path, output_format, args.defaults, args.save)
 
