@@ -295,9 +295,6 @@ def create_scope(
 
             if not isinstance(existing_child, dict):
                 # something else already has this name
-                print(
-                    f"WARNING: {fqn} is already defined as {existing_child}, tried to redefine it as {ref}"
-                )
                 break
 
             ns = existing_child
@@ -315,9 +312,6 @@ def create_scope(
 
         if existing_child is not None:
             # uh oh, something already had this name with a diff value
-            print(
-                f"WARNING: {fqn} is already defined as {existing_child}, tried to redefine it as {ref}"
-            )
             continue
 
         ns[name] = ref
@@ -339,7 +333,6 @@ def union_scope(lhs: FpyScope, rhs: FpyScope) -> FpyScope:
     for key in common_keys:
         if not isinstance(lhs[key], dict) or not isinstance(rhs[key], dict):
             # cannot be merged cleanly. one of the two is not a scope
-            print(f"WARNING: {key} is defined as {lhs[key]}, ignoring {rhs[key]}")
             new[key] = lhs[key]
             continue
 
