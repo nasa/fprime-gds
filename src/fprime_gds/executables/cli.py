@@ -390,7 +390,7 @@ class ConfigDrivenParser(ParserBase):
                 "required": False,
                 "default": self.DEFAULT_CONFIGURATION_PATH,
                 "type": Path,
-                "help": f"Argument configuration file path.",
+                "help": "Argument configuration file path. [default: %(default)s]",
             }
         }
 

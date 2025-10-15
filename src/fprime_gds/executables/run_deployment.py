@@ -6,6 +6,7 @@
 import os
 import sys
 import copy
+import pathlib
 import webbrowser
 
 from fprime_gds.executables.cli import (
@@ -39,6 +40,12 @@ def parse_args():
         CommParser,
         PluginArgumentParser,
     ]
+    # If the FPRIME_GDS_CONFIG_PATH environment variable is set, set its value to be the default
+    # config path
+    if "FPRIME_GDS_CONFIG_PATH" in os.environ:
+        ConfigDrivenParser.set_default_configuration(
+            pathlib.Path(os.environ["FPRIME_GDS_CONFIG_PATH"])
+        )
     # Parse the arguments, and refine through all handlers
     args, parser = ConfigDrivenParser.parse_args(
         arg_handlers, "Run F prime deployment and GDS"
