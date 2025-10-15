@@ -375,6 +375,21 @@ sleep_until(Fw.Time(0, 0, 123, 123))
 """
     assert_run_success(fprime_test_api, seq)
 
+def test_wait_abs_bad_arg(fprime_test_api):
+    seq = """
+sleep_until(0, 1, 2, 3)
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+def test_time_type_ctor(fprime_test_api):
+    seq = """
+var: Fw.Time = Fw.Time(0, 1, 2, 3)
+if var.time_base == 0 and var.time_context == 1 and var.seconds == 2 and var.useconds == 3:
+    exit(True)
+exit(False)
+"""
+    assert_run_success(fprime_test_api, seq)
+
 
 def test_f32_f64_cmp(fprime_test_api):
     seq = """
