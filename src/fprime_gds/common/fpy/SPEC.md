@@ -1,6 +1,4 @@
-Nothing type is a type whose set of values is an empty set
-Unit type is a type whose set of values is a set with one element
-BIG question: what if we made an arbitrary precision int type? and float type?
+# The SPEC is currently work-in-progress
 
 # Types
 
