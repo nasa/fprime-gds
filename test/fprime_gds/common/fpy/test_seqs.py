@@ -369,6 +369,13 @@ sleep(1, 1000)
     assert_run_success(fprime_test_api, seq)
 
 
+def test_wait_abs(fprime_test_api):
+    seq = """
+sleep_until(Fw.Time(0, 0, 123, 123))
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
 def test_f32_f64_cmp(fprime_test_api):
     seq = """
 val: F32 = 0.0

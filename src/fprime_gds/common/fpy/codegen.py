@@ -754,7 +754,7 @@ class CalculateConstExprValues(Visitor):
                 expr_value = instance
 
             elif func.type == TimeType:
-                expr_value = TimeType(*arg_values)
+                expr_value = TimeType(*[v._val for v in arg_values])
 
             else:
                 # no other FppTypeClasses have ctors
