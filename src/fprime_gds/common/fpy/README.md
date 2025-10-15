@@ -75,7 +75,7 @@ Fpy supports the following math operations:
 
 The behavior of these operators is designed to mimic Python. Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
 
-## 5. Variable Arguments to Commands
+## 5. Variable Arguments to Commands, Macros and Constructors
 
 Where this really gets interesting is when you pass variables or expressions into commands:
 ```py
@@ -86,7 +86,7 @@ param4: F32 = 15.0
 Ref.recvBuffComp.PARAMETER4_PRM_SET(param4)
 ```
 
-The same syntax works with the [`sleep`](#11-relative-and-absolute-sleep), [`exit`](#12-exit-macro), and `log` macros.
+You can also pass variable arguments to the [`sleep`](#11-relative-and-absolute-sleep), [`exit`](#12-exit-macro), and `log` macros, as well as to constructors.
 
 There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#13-strings).
 
