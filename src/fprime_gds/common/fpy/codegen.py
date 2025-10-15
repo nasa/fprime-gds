@@ -730,7 +730,7 @@ class CalculateConstExprValues(Visitor):
         arg_values = [
             state.expr_values[e] for e in (node.args if node.args is not None else [])
         ]
-        unknown_value = any(v for v in arg_values if v is None)
+        unknown_value = any(v is None for v in arg_values)
         if unknown_value:
             # we will have to calculate this at runtime
             state.expr_values[node] = None
@@ -739,6 +739,7 @@ class CalculateConstExprValues(Visitor):
         expr_value = None
 
         if isinstance(func, FpyTypeCtor):
+            print(func.return_type, arg_values)
             # actually construct the type
             if issubclass(func.type, SerializableType):
                 instance = func.type()
@@ -1101,8 +1102,14 @@ class GenerateExprMacrosAndCmds(Visitor):
                 dirs.extend(node_dirs)
 
             dirs.append(func.dir())
+        elif isinstance(func, FpyTypeCtor):
+            # put arg values onto stack in correct order for serialization
+            for arg_node in node_args:
+                node_dirs = state.directives[arg_node]
+                assert len(node_dirs) >= 1
+                dirs.extend(node_dirs)
         else:
-            dirs = None
+            assert False, func
 
         # perform type conversion if called for
         coerced_type = state.type_coercions.get(node, None)
