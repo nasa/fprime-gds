@@ -184,7 +184,8 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("second 1")
 
 CdhCore.cmdDisp.CMD_NO_OP_STRING("today")
 # sleep until 12345678900 seconds and 0 microseconds after the epoch
-sleep_until(0, 0, 12345678900, 0)
+# time base of 0, time context of 1
+sleep_until(Fw.Time(0, 1, 12345678900, 0))
 CdhCore.cmdDisp.CMD_NO_OP_STRING("much later")
 ```
 
