@@ -739,7 +739,6 @@ class CalculateConstExprValues(Visitor):
         expr_value = None
 
         if isinstance(func, FpyTypeCtor):
-            print(func.return_type, arg_values)
             # actually construct the type
             if issubclass(func.type, SerializableType):
                 instance = func.type()
