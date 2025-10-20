@@ -1,4 +1,4 @@
-""" Uplink and Downlink handling for communications layer
+"""Uplink and Downlink handling for communications layer
 
 Downlink needs to happen in several stages. First, raw data is read from the adapter. This data is collected in a pool
 and the pool is passed to a deframer that extracts frames from this pool. Frames are queued and sent to the ground
@@ -9,12 +9,12 @@ Uplink is the reverse, it pulls data in from the ground handler, frames it, and 
 is represented by a single thread, as it is not dealing with multiple streams of data that need to be multiplexed.
 
 """
+
 import logging
 import threading
 from queue import Empty, Full, Queue
 
-from fprime.common.models.serialize.numerical_types import U32Type
-
+from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.communication.adapters.base import BaseAdapter
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.common.communication.ground import GroundHandler
@@ -246,4 +246,6 @@ class Uplinker:
         Returns:
             handshake packet
         """
-        return U32Type(DataDescType["FW_PACKET_HAND"].value).serialize() + packet
+        descriptor_obj = ConfigManager.get_instance().get_type("FwPacketDescriptorType")
+        descriptor_obj.val = DataDescType["FW_PACKET_HAND"].value
+        return descriptor_obj.serialize() + packet
