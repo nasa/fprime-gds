@@ -3,34 +3,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal as TypingLiteral, Union
 from lark import Lark, LarkError, Transformer, v_args
-from lark.indenter import PythonIndenter
 from lark.tree import Meta
 
 from fprime_gds.common.fpy.error import handle_lark_error
-import fprime_gds.common.fpy.error
 
-
-fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
-
-
-def parse(text: str):
-    parser = Lark(
-        fpy_grammar_str,
-        start="input",
-        parser="lalr",
-        postlex=PythonIndenter(),
-        propagate_positions=True,
-        maybe_placeholders=True,
-    )
-
-    fprime_gds.common.fpy.error.input_text = text
-    fprime_gds.common.fpy.error.input_lines = text.splitlines()
-    try:
-        tree = parser.parse(text, on_error=handle_lark_error)
-    except LarkError as e:
-        handle_lark_error(e)
-    transformed = FpyTransformer().transform(tree)
-    return transformed
 
 
 @dataclass
@@ -91,11 +67,11 @@ class AstFuncCall(Ast):
 
 @dataclass
 class AstPass(Ast):
-    pass
+    pass # ha ha
 
 
 @dataclass
-class AstEllipsis(Ast): ...
+class AstEllipsis(Ast): ... # this is my way of being funny
 
 
 @dataclass
@@ -149,12 +125,12 @@ class AstFor(Ast):
     loop_var_type: AstExpr
     lower_bound: AstExpr
     upper_bound: AstExpr
-    body: AstScopedBody
+    body: AstBody
 
 @dataclass
 class AstWhile(Ast):
     condition: AstExpr
-    body: AstScopedBody
+    body: AstBody
 
 @dataclass
 class AstAssert(Ast):
@@ -185,7 +161,7 @@ class AstScopedBody(Ast):
 
 for cls in Ast.__subclasses__():
     cls.__hash__ = Ast.__hash__
-    cls.__repr__ = Ast.__repr__
+    # cls.__repr__ = Ast.__repr__
 
 
 @v_args(meta=False, inline=False)
@@ -230,7 +206,6 @@ def handle_assign(meta, args):
         type = args[1]
     else:
         type = None
-    print(var, type, value)
     return AstAssign(meta, var, type, value)
 
 

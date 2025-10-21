@@ -62,7 +62,7 @@ from fprime.common.models.serialize.numerical_types import (
 )
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
-from fprime_gds.common.fpy.parser import (
+from fprime_gds.common.fpy.syntax import (
     AstExpr,
     AstFor,
     AstOp,
@@ -72,7 +72,7 @@ from fprime_gds.common.fpy.parser import (
     AstScopedBody,
     AstVar,
 )
-from fprime.common.models.serialize.type_base import BaseType as FppType
+from fprime.common.models.serialize.type_base import BaseType as FppValue
 
 MAX_DIRECTIVES_COUNT = 1024
 MAX_DIRECTIVE_SIZE = 2048
@@ -169,9 +169,9 @@ def is_instance_compat(obj, cls):
     return isinstance(obj, cls)
 
 
-# a value of type FppTypeClass is a Python `type` object representing
+# a value of type FppType is a Python `type` object representing
 # the type of an Fprime value
-FppTypeClass = type[FppType]
+FppType = type[FppValue]
 
 
 class NothingType(ABC):
@@ -189,8 +189,8 @@ NothingTypeClass = type[NothingType]
 
 @dataclass
 class FpyCallable:
-    return_type: FppTypeClass | NothingTypeClass
-    args: list[tuple[str, FppTypeClass]]
+    return_type: FppType | NothingTypeClass
+    args: list[tuple[str, FppType]]
 
 
 @dataclass
@@ -224,7 +224,7 @@ MACROS: dict[str, FpyMacro] = {
 
 @dataclass
 class FpyTypeCtor(FpyCallable):
-    type: FppTypeClass
+    type: FppType
 
 
 @dataclass
@@ -235,7 +235,7 @@ class FieldReference:
     """the complete qualifier"""
     base_ref: FpyReference
     """the base ref, up through all the layers of field refs"""
-    type: FppTypeClass
+    type: FppType
     """the fprime type of this reference"""
     is_struct_member: bool = False
     """True if this is a struct member reference"""
@@ -257,11 +257,12 @@ class FieldReference:
 class FpyVariable:
     """a mutable, typed value referenced by an unqualified name"""
 
+    name: str
     type_ref: AstExpr
     """the expression denoting the var's type"""
     declaration: AstAssign
     """the node where this var is declared"""
-    type: FppTypeClass | None = None
+    type: FppType | None = None
     """the resolved type of the variable. None if type unsure at the moment"""
     lvar_offset: int | None = None
     """the offset in the lvar array where this var is stored"""
@@ -269,21 +270,13 @@ class FpyVariable:
 @dataclass
 class ForLoopAnalysis:
     loop_var: FpyVariable
-    loop_condition_lt_dir: type[StackOpDirective]
+    cmp_intermediate_type: FppType = None
+    cmp_dir: type[Directive] = None
+    inc_intermediate_type: FppType = None
+    inc_dir: type[Directive] = None
+    upper_bound_var: FpyVariable = None
     
 
-    for_loop_upper_bound_variables: dict[AstFor, FpyVariable] = field(
-        default_factory=dict, repr=False
-    )
-    for_loop_comparison_directives: dict[AstFor, type[StackOpDirective]] = field(
-        default_factory=dict, repr=False
-    )
-    for_loop_increment_directives: dict[AstFor, type[StackOpDirective]] = field(
-        default_factory=dict, repr=False
-    )
-    for_loop_intermediate_type: dict[AstFor, FppTypeClass] = field(
-        default_factory=dict, repr=False
-    )
 
 # a scope
 next_scope_id = 0
@@ -390,9 +383,9 @@ def union_scope(lhs: FpyScope, rhs: FpyScope) -> FpyScope:
 FpyReference = typing.Union[
     ChTemplate,
     PrmTemplate,
-    FppType,
+    FppValue,
     FpyCallable,
-    FppTypeClass,
+    FppType,
     FpyVariable,
     FieldReference,
     dict,  # dict of FpyReference
@@ -400,13 +393,13 @@ FpyReference = typing.Union[
 """some named concept in fpy"""
 
 
-def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
+def get_ref_fpp_type_class(ref: FpyReference) -> FppType:
     """returns the fprime type of the ref, if it were to be evaluated as an expression"""
     if isinstance(ref, ChTemplate):
         result_type = ref.ch_type_obj
     elif isinstance(ref, PrmTemplate):
         result_type = ref.prm_type_obj
-    elif isinstance(ref, FppType):
+    elif isinstance(ref, FppValue):
         # constant value
         result_type = type(ref)
     elif isinstance(ref, FpyCallable):
@@ -432,7 +425,7 @@ def get_ref_fpp_type_class(ref: FpyReference) -> FppTypeClass:
     return result_type
 
 
-def get_64_bit_numeric_type(type: FppTypeClass) -> FppTypeClass:
+def get_64_bit_numeric_type(type: FppType) -> FppType:
     assert type in SPECIFIC_NUMERIC_TYPES, type
     return (
         I64Type
@@ -442,7 +435,7 @@ def get_64_bit_numeric_type(type: FppTypeClass) -> FppTypeClass:
 
 
 def convert_numeric_type(
-    from_type: FppTypeClass, to_type: FppTypeClass
+    from_type: FppType, to_type: FppType
 ) -> list[Directive]:
     if from_type == to_type:
         return []
@@ -486,7 +479,7 @@ def convert_numeric_type(
 
 
 def truncate_numeric_type_from_64_bits(
-    from_type: FppTypeClass, new_size: int
+    from_type: FppType, new_size: int
 ) -> list[Directive]:
 
     assert new_size in (1, 2, 4, 8), new_size
@@ -512,7 +505,7 @@ def truncate_numeric_type_from_64_bits(
     return [IntegerTruncate64To32Directive()]
 
 
-def extend_numeric_type_to_64_bits(type: FppTypeClass) -> list[Directive]:
+def extend_numeric_type_to_64_bits(type: FppType) -> list[Directive]:
     if type.getMaxSize() == 8:
         # already 8 bytes
         return []
@@ -576,34 +569,21 @@ class CompileState:
             union_scope(self.prms, self.consts),
         )
 
+    next_node_id: int = 0
     root: AstScopedBody = None
     scope_parents: dict[AstScopedBody, AstScopedBody | None] = field(
         default_factory=dict, repr=False
     )
     body_scopes: dict[AstScopedBody, FpyScope] = field(default_factory=dict, repr=False)
     local_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
-    for_loop_variables: dict[AstFor, FpyVariable] = field(
-        default_factory=dict, repr=False
-    )
-    for_loop_upper_bound_variables: dict[AstFor, FpyVariable] = field(
-        default_factory=dict, repr=False
-    )
-    for_loop_comparison_directives: dict[AstFor, type[StackOpDirective]] = field(
-        default_factory=dict, repr=False
-    )
-    for_loop_increment_directives: dict[AstFor, type[StackOpDirective]] = field(
-        default_factory=dict, repr=False
-    )
-    for_loop_intermediate_type: dict[AstFor, FppTypeClass] = field(
-        default_factory=dict, repr=False
-    )
+    for_loops: dict[AstFor, ForLoopAnalysis] = field(default_factory=dict)
 
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
     )
     """reference to its singular resolution"""
 
-    expr_unconverted_types: dict[AstExpr, FppTypeClass | NothingTypeClass] = field(
+    expr_unconverted_types: dict[AstExpr, FppType | NothingTypeClass] = field(
         default_factory=dict
     )
     """expr to its fprime type, before type conversions are applied"""
@@ -613,10 +593,10 @@ class CompileState:
     )
     """some stack operation to which directive will be emitted for it"""
 
-    expr_converted_types: dict[AstExpr, FppTypeClass] = field(default_factory=dict)
+    expr_converted_types: dict[AstExpr, FppType] = field(default_factory=dict)
     """expr to fprime type it will end up being on the stack after type conversions"""
 
-    expr_converted_values: dict[AstExpr, FppType | NothingType | None] = field(
+    expr_converted_values: dict[AstExpr, FppValue | NothingType | None] = field(
         default_factory=dict
     )
     """expr to the fprime value it will end up being on the stack after type conversions.
@@ -636,6 +616,12 @@ class CompileState:
 
     errors: list[CompileError] = field(default_factory=list)
     """a list of all compile exceptions generated by passes"""
+
+    next_anon_var_id: int = 0
+
+    def new_anonymous_variable_name(self) -> str:
+        id = self.next_anon_var_id
+        return f"$value{id}"
 
     def err(self, msg, n):
         """adds a compile exception to internal state"""
@@ -665,7 +651,7 @@ class Visitor:
 
     def _visit(self, node: Ast, state: CompileState):
         visit_func = self._find_custom_visit_func(node)
-        visit_func(node, state)
+        return visit_func(node, state)
 
     def visit_default(self, node: Ast, state: CompileState):
         pass
@@ -714,7 +700,11 @@ class Transformer(Visitor):
                     # child is a list, iterate over each member of the list
                     # use a copy so we can remove as we traverse, also so
                     # we don't visit things that we added
-                    for idx, child in enumerate(field_val[:]):
+                    
+                    # 
+                    idx = -1
+                    for child in field_val[:]:
+                        idx += 1
                         if not isinstance(child, Ast):
                             continue
                         _descend(child)
@@ -733,6 +723,11 @@ class Transformer(Visitor):
                             field_val.remove(child)
                             for new_child_idx, new_child in enumerate(transformed):
                                 field_val.insert(idx + new_child_idx, new_child)
+                            # make sure that we maintain insertion order by updating the idx
+                            # accounting for our removal of an original node
+                            # if we don't do this, then if we were to insert into list after this based on idx,
+                            # the positions could be swapped around
+                            idx += len(transformed) - 1
                         elif isinstance(transformed, Ast):
                             field_val.remove(child)
                             field_val.insert(idx, transformed)
@@ -742,15 +737,25 @@ class Transformer(Visitor):
                         else:
                             assert transformed is None, transformed
                             # don't do anything, didn't return anything
-                        # update the field
-                    setattr(node, field.name, field_val)
+                    if len(state.errors) != 0:
+                        # need a second check here to get out of the enclosing loop
+                        break
+                    # don't need to update the field, it was a ptr to a list so should
+                    # already be updated
                 else:
+                    _descend(field_val)
+                    if len(state.errors) != 0:
+                        break
+                    transformed = self._visit(field_val, state)
+                    if len(state.errors) != 0:
+                        break
                     if isinstance(transformed, Ast):
                         setattr(node, field.name, transformed)
                     elif transformed is Transformer.Delete:
                         # just delete it
                         setattr(node, field.name, None)
                     else:
+                        # cannot return a list if the original attr wasn't a list
                         assert transformed is None, transformed
                         # don't do anything, didn't return anything
 

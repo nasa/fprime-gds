@@ -16,12 +16,41 @@ def fprime_test_api_override():
     return None
 
 
+def test_comment(fprime_test_api):
+    seq = """
+# test
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_empty(fprime_test_api):
+    seq = """"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_no_newline(fprime_test_api):
+    seq = """
+# test"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
 def test_simple_var(fprime_test_api):
     seq = """
 var: U32 = 1
 """
 
     assert_run_success(fprime_test_api, seq)
+
+
+def test_var_bad_name(fprime_test_api):
+    seq = """
+$var: U32 = 1
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_int_literal(fprime_test_api):
@@ -302,6 +331,7 @@ def test_expr_as_stmt(fprime_test_api):
 """
 
     assert_compile_failure(fprime_test_api, seq)
+
 
 def test_str_as_stmt(fprime_test_api):
     seq = """
@@ -1274,7 +1304,7 @@ var: string = "test"
 
 
 def test_too_many_dirs(fprime_test_api):
-    from fprime_gds.common.fpy.codegen import MAX_DIRECTIVES_COUNT
+    from fprime_gds.common.fpy.types import MAX_DIRECTIVES_COUNT
 
     seq = "CdhCore.cmdDisp.CMD_NO_OP()\n" * (MAX_DIRECTIVES_COUNT + 1)
     assert_compile_failure(fprime_test_api, seq)
@@ -1282,7 +1312,7 @@ def test_too_many_dirs(fprime_test_api):
 
 def test_dir_too_large(fprime_test_api):
     # TODO this doesn't actually crash cuz the dir is too large... not sure at the moment how to trigger this
-    from fprime_gds.common.fpy.codegen import MAX_DIRECTIVE_SIZE
+    from fprime_gds.common.fpy.types import MAX_DIRECTIVE_SIZE
 
     seq = 'CdhCore.cmdDisp.CMD_NO_OP_STRING("' + "a" * MAX_DIRECTIVE_SIZE + '")'
     assert_compile_failure(fprime_test_api, seq)
@@ -1576,14 +1606,20 @@ continue
 
     assert_compile_failure(fprime_test_api, seq)
 
+
 def test_simple_for(fprime_test_api):
     seq = """
-counter: U8 = 0
-
-for x: U8 in 0..1:
+for i: U8 from 0 to 2:
     pass
+"""
 
-for i: U8 in 0 to 2:
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_slightly_more_complex_for(fprime_test_api):
+    seq = """
+counter: U8 = 0
+for i: U8 from 0 to 2:
     if i > 2:
         exit(1)
     counter = counter + 1
@@ -1595,21 +1631,23 @@ assert counter == 2
     assert_run_success(fprime_test_api, seq)
 
 
-# TODO opinions on this
 def test_loop_var_outside_loop_after(fprime_test_api):
     seq = """
-for i: U8 in 0 to 7:
+for i: U8 from 0 to 7:
     pass
+assert i == 7
+# succeeds because i is declared in the scope of for
 i = 123
+assert i == 123
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_loop_var_outside_loop_before(fprime_test_api):
     seq = """
 i = 123
-for i: U8 in 0 to 7:
+for i: U8 from 0 to 7:
     pass
 """
 
@@ -1619,17 +1657,17 @@ for i: U8 in 0 to 7:
 def test_loop_var_redeclare(fprime_test_api):
     seq = """
 i: U16 = 123
-for i: U8 in 0 to 7:
+for i: U8 from 0 to 7:
     assert i >= 0 and i < 7
 assert i == 123
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_loop_var_bad_type(fprime_test_api):
     seq = """
-for i: bool in 0 to 7:
+for i: bool from 0 to 7:
     pass
 """
 
@@ -1640,6 +1678,7 @@ def test_scope_override_name(fprime_test_api):
     seq = """
 i: U8 = 0
 while True:
+    # fails because while does not begin a new scope
     i: U8 = 1
     if i == 1:
         exit(0)
@@ -1703,22 +1742,22 @@ assert True, True
 
 def test_redeclare_after_scope(fprime_test_api):
     seq = """
-for i: U8 in 0 to 7:
+for i: U8 from 0 to 7:
     pass
 i: U16 = 0
 assert i == 0
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
-def test_nested_scopes(fprime_test_api):
+def test_nested_for_loops(fprime_test_api):
     seq = """
 z: U8 = 123
-for i: U8 in 0 to 7:
-    for y: U8 in 0 to 7:
+for i: U8 from 0 to 7:
+    for y: U8 from 20 to 30:
         assert i < 8
-        assert y < 8
+        assert y >= 20 and y < 30
         assert z == 123
 """
 
@@ -1728,34 +1767,53 @@ for i: U8 in 0 to 7:
 def test_redeclare_in_nested_scopes(fprime_test_api):
     seq = """
 z: U8 = 123
-for i: U8 in 0 to 7:
-    for z: U8 in 0 to 7:
+for i: U8 from 0 to 7:
+    for z: U8 from 0 to 7:
         assert z < 8
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_for_loop_declare_var_bad(fprime_test_api):
     seq = """
-for x.y: U8 in 0 to 7:
+for x.y: U8 from 0 to 7:
     pass
 """
 
     assert_compile_failure(fprime_test_api, seq)
-    
-def test_loop_var_overflow(fprime_test_api):
+
+
+def test_loop_var_almost_overflow(fprime_test_api):
     seq = """
-for x: U8 in 0 to 255:
-    pass
+for x: U8 from 0 to 255:
+    assert x < 255
 """
 
     assert_run_success(fprime_test_api, seq)
 
-def test_loop_var_ub_too_big(fprime_test_api):
+def test_loop_var_overflow(fprime_test_api):
+    seq = """
+for x: U8 from 0 to 256:
+    pass
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_loop_var_ub_type_too_big(fprime_test_api):
     seq = """
 var: U32 = 123123
-for i: U8 in 0 to var:
+for i: U8 from 0 to var:
+    pass
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_use_loop_var_in_bounds(fprime_test_api):
+    seq = """
+for i: U8 from i to 8:
     pass
 """
 

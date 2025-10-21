@@ -6,8 +6,7 @@ import fprime_gds.common.fpy.error
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
 import fprime_gds.common.fpy.model 
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
-from fprime_gds.common.fpy.parser import parse
-from fprime_gds.common.fpy.codegen import compile
+from fprime_gds.common.fpy.compiler import text_to_ast, ast_to_directives
 
 def human_readable_size(size_bytes):
     units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
@@ -56,8 +55,8 @@ def compile_main(args: list[str]=None):
         sys.exit(-1)
 
     fprime_gds.common.fpy.error.file_name = str(args.input)
-    body = parse(args.input.read_text())
-    directives = compile(body, args.dictionary)
+    body = text_to_ast(args.input.read_text())
+    directives = ast_to_directives(body, args.dictionary)
     if isinstance(directives, fprime_gds.common.fpy.error.CompileError):
         print(directives) # directives is an error
         sys.exit(1)

@@ -1,0 +1,28 @@
+if check 10 every 1 s timeout 10 s:
+    pass
+
+
+# reserve certain types of identifiers, i.e. $
+
+# $value0, $value1
+
+
+$value: bool = False
+$check_end: Fw.Time = now() + 10s
+while now() < $check_end:
+    $value = a > b
+    if $value:
+        break
+    sleep(1s)
+
+
+# mention that we don't have analysis on the transformed syntax
+# just manually insert info about these nodes into the maps?
+
+
+if $value:
+    pass
+
+
+print()
+

@@ -29,6 +29,8 @@ Fw.Example(0, True)
 ```
 
 
+## Fields
+Fields are either members (of structs) or elements (of arrays)
 # Literals
 The following literals are supported by Fpy:
 * Integer literals: `123`, `-456_879`
