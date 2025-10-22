@@ -583,6 +583,7 @@ class CompileState:
     local_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
     for_loops: dict[AstFor, ForLoopAnalysis] = field(default_factory=dict)
     enclosing_loops: dict[Union[AstBreak, AstContinue], Union[AstFor, AstWhile]] = field(default_factory=dict)
+    desugared_for_loops: dict[AstWhile, AstFor] = field(default_factory=dict)
 
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False

@@ -1616,6 +1616,55 @@ for i: U8 from 0 to 2:
     assert_run_success(fprime_test_api, seq)
 
 
+def test_for_loop_break(fprime_test_api):
+    seq = """
+for i: U32 from 0 to 10:
+    break
+assert i == 0
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_for_loop_continue(fprime_test_api):
+    seq = """
+for i: U32 from 0 to 10:
+    continue
+assert i == 10 # will be equal to the ending index
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_nested_for_while_break(fprime_test_api):
+    seq = """
+for i: U32 from 0 to 10:
+    while True:
+        break
+assert i == 10
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_nested_for_loops_break_inner(fprime_test_api):
+    seq = """
+for i: U32 from 0 to 10:
+    for j: U32 from 0 to 5:
+        break
+assert i == 10 and j == 0
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_nested_for_loops_break_outer(fprime_test_api):
+    seq = """
+for i: U32 from 0 to 10:
+    for j: U32 from 0 to 5:
+        break
+    break
+assert i == 0 and j == 0
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
 def test_slightly_more_complex_for(fprime_test_api):
     seq = """
 counter: U8 = 0

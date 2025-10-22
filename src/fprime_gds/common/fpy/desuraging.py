@@ -237,7 +237,16 @@ class DesugarForLoops(Transformer):
         # 2
         declare_upper_bound_var = self.declare_upper_bound_var(state, node, loop_info)
         # 3
-        while_loop = self.while_loop(state, node, loop_info)
+        while_loop: AstWhile = self.while_loop(state, node, loop_info)
+
+        # this is the first and so far only piece of code in the compiler itself written by AI
+        # Update any break/continue statements in the body to point to new while loop
+        # instead of the original for loop
+        for key, value in list(state.enclosing_loops.items()):
+            if value == node: # If a break/continue was pointing to our for loop
+                state.enclosing_loops[key] = while_loop # Point it to while loop instead
+
+        state.desugared_for_loops[while_loop] = node
 
         # turn one node into three
         return [declare_loop_var, declare_upper_bound_var, while_loop]

@@ -147,11 +147,11 @@ class AstAssert(Ast):
     exit_code: AstNumber|None
 
 @dataclass
-class AstBreak:
+class AstBreak(Ast):
     pass
 
 @dataclass
-class AstContinue:
+class AstContinue(Ast):
     pass
 
 AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf, AstElif, AstFor, AstBreak, AstContinue, AstWhile, AstAssert, AstEllipsis]
