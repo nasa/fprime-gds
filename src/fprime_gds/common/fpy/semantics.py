@@ -69,6 +69,8 @@ from fprime_gds.common.fpy.syntax import (
     AstAssert,
     AstBinaryOp,
     AstBoolean,
+    AstBreak,
+    AstContinue,
     AstElif,
     AstExpr,
     AstFor,
@@ -174,6 +176,22 @@ class CreateVariables(TopDownVisitor):
         state.local_scopes[node][node.loop_var.var] = var
         analysis = ForLoopAnalysis(var)
         state.for_loops[node] = analysis
+
+class SetEnclosingLoops(Visitor):
+    def __init__(self, loop: Union[AstFor, AstWhile]):
+        self.loop = loop
+
+    def visit_AstBreak_AstContinue(self, node: Union[AstBreak, AstContinue], state: CompileState):
+        state.enclosing_loops[node] = self.loop
+
+class CheckBreakAndContinueInLoop(TopDownVisitor):
+    def visit_AstFor_AstWhile(self, node: Union[AstFor, AstWhile], state: CompileState):
+        SetEnclosingLoops(node).run(node.body, state)
+
+    def visit_AstBreak_AstContinue(self, node: Union[AstBreak, AstContinue], state: CompileState):
+        if node not in state.enclosing_loops:
+            state.err("Not inside of a loop", node)
+            return
 
 
 class ResolveVarsAndTypes(TopDownVisitor):

@@ -28,11 +28,13 @@ from fprime_gds.common.fpy.semantics import (
     AssignIds,
     AssignLocalScopes,
     CalculateConstExprValues,
+    CheckBreakAndContinueInLoop,
     CheckUseBeforeDeclare,
     CheckUseBeforeDeclareForLoopVariables,
     CreateVariables,
     PickTypesAndResolveAttrsAndItems,
     ResolveVarsAndTypes,
+    SetEnclosingLoops,
 )
 from fprime_gds.common.fpy.syntax import AstScopedBody, FpyTransformer
 from fprime_gds.common.fpy.types import (
@@ -184,6 +186,8 @@ def ast_to_directives(
         AssignLocalScopes(),
         # based on assignment syntax nodes, we know which variables exist where
         CreateVariables(),
+        # check that break/continue are in loops, and store which loop they're in
+        CheckBreakAndContinueInLoop(),
         # now that variables have been defined, we can resolve all "single word"
         # nodes in the tree, to either some namespace or a var probs
         # also, because types have a restricted set of possible syntax, resolve them
@@ -201,11 +205,11 @@ def ast_to_directives(
         # we can calculate values of type ctors etc etc
         CalculateConstExprValues(),
     ]
-    desugaring_passes = [
+    desugaring_passes: list[Visitor] = [
         # now that semantic analysis is done, we can desugar things. start with for loops
         DesugarForLoops(),
     ]
-    codegen_passes = [
+    codegen_passes: list[Visitor] = [
         # for expressions which have constant values, generate corresponding directives
         # to put the expr on the stack
         GenerateConstExprDirectives(),
@@ -228,7 +232,6 @@ def ast_to_directives(
         compile_pass.run(body, state)
         if len(state.errors) != 0:
             return state.errors[0]
-    print(pprint.pprint(body))
     for compile_pass in codegen_passes:
         compile_pass.run(body, state)
         if len(state.errors) != 0:

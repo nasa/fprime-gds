@@ -64,6 +64,8 @@ from fprime.common.models.serialize.numerical_types import (
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.syntax import (
+    AstBreak,
+    AstContinue,
     AstExpr,
     AstFor,
     AstOp,
@@ -72,6 +74,7 @@ from fprime_gds.common.fpy.syntax import (
     AstAssign,
     AstScopedBody,
     AstVar,
+    AstWhile,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppValue
 
@@ -579,6 +582,7 @@ class CompileState:
     body_scopes: dict[AstScopedBody, FpyScope] = field(default_factory=dict, repr=False)
     local_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
     for_loops: dict[AstFor, ForLoopAnalysis] = field(default_factory=dict)
+    enclosing_loops: dict[Union[AstBreak, AstContinue], Union[AstFor, AstWhile]] = field(default_factory=dict)
 
     resolved_references: dict[AstReference, FpyReference] = field(
         default_factory=dict, repr=False
