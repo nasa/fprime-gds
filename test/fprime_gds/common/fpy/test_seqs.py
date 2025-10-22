@@ -1933,17 +1933,6 @@ for i: U8 from i to 8:
     assert_compile_failure(fprime_test_api, seq)
 
 
-def test_simple_check(fprime_test_api):
-    seq = """
-check 0 < 1:
-    pass
-timeout:
-    assert False
-"""
-
-    assert_run_success(fprime_test_api, seq)
-
-
 def test_get_time(fprime_test_api):
     seq = """
 time: Fw.Time = now()

@@ -133,15 +133,6 @@ class AstWhile(Ast):
     body: AstBody
 
 @dataclass
-class AstCheck(Ast):
-    condition: AstExpr
-    timeout: Union[AstExpr, None]
-    persist: Union[AstExpr, None]
-    every: Union[AstExpr, None]
-    body: AstBody
-    els: Union[AstBody, None]
-
-@dataclass
 class AstAssert(Ast):
     condition: AstExpr
     exit_code: AstNumber|None
@@ -230,7 +221,6 @@ class FpyTransformer(Transformer):
     scoped_body = no_inline(AstScopedBody)
     break_stmt = AstBreak
     continue_stmt = AstContinue
-    check_stmt = AstCheck
 
     assert_stmt = AstAssert
 
