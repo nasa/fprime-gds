@@ -11,6 +11,7 @@ from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
     U8Type,
+    NumericalType
 )
 from fprime.common.models.serialize.type_base import BaseType as FppValue
 from lark import Lark
@@ -44,6 +45,7 @@ from fprime_gds.common.fpy.types import (
     CompileState,
     FppType,
     FpyCallable,
+    FpyCast,
     FpyCmd,
     FpyTypeCtor,
     Visitor,
@@ -138,6 +140,10 @@ def get_base_compile_state(dictionary: str) -> CompileState:
             args.append((arg_name, arg_type))
         # cmds are thought of as callables with a Fw.CmdResponse return value
         callable_name_dict[name] = FpyCmd(cmd_response_type, args, cmd)
+
+    # add numeric type casts to callable dict
+    for typ in SPECIFIC_NUMERIC_TYPES:
+        callable_name_dict[typ.get_canonical_name()] = FpyCast(typ, [("value", NumericalType)], typ)
 
     # for each type in the dict, if it has a constructor, create an FpyTypeCtor
     # object to track the constructor and put it in the callable name dict

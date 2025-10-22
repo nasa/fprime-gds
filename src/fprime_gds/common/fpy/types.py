@@ -231,6 +231,10 @@ MACROS: dict[str, FpyMacro] = {
 class FpyTypeCtor(FpyCallable):
     type: FppType
 
+@dataclass
+class FpyCast(FpyCallable):
+    to_type: FppType
+
 
 @dataclass
 class FieldReference:

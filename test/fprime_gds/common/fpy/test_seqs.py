@@ -1939,3 +1939,12 @@ time: Fw.Time = now()
 """
 
     assert_run_success(fprime_test_api, seq)
+
+
+def test_numeric_cast(fprime_test_api):
+    seq = """
+i: I32 = -123
+u: U8 = U8(i)
+"""
+
+    assert_run_success(fprime_test_api, seq)
