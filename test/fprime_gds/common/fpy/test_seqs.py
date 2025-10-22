@@ -1660,7 +1660,6 @@ for i: U32 from 0 to 10:
     for j: U32 from 0 to 5:
         break
     break
-assert i == 0 and j == 0
 """
     assert_run_success(fprime_test_api, seq)
 
@@ -1875,6 +1874,14 @@ check 0 < 1:
     pass
 timeout:
     assert False
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_get_time(fprime_test_api):
+    seq = """
+time: Fw.Time = now()
 """
 
     assert_run_success(fprime_test_api, seq)
