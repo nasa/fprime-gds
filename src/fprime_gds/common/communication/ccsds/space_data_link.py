@@ -17,7 +17,6 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     SEQUENCE_NUMBER_MAXIMUM = 256
     TC_HEADER_SIZE = 5
     TM_HEADER_SIZE = 6
-    TM_FIXED_FRAME_SIZE = 1024
     TM_TRAILER_SIZE = 2
     TC_TRAILER_SIZE = 2
 
@@ -31,10 +30,11 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     )
     CRC_CALCULATOR = crc.Calculator(CRC_CCITT_CONFIG)
 
-    def __init__(self, scid, vcid):
+    def __init__(self, scid, vcid, frame_size):
         """ """
         self.scid = scid
         self.vcid = vcid
+        self.frame_size = frame_size
         self.sequence_number = 0
 
     def frame(self, data):
@@ -104,7 +104,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         if not no_copy:
             data = copy.copy(data)
         # Continue until there is not enough data for the header, or until a packet is found (return)
-        while len(data) >= self.TM_FIXED_FRAME_SIZE:
+        while len(data) >= self.frame_size:
             # Read header information
             sc_and_channel_ids = struct.unpack_from(">H", data)
             spacecraft_id = (sc_and_channel_ids[0] & 0x3FF0) >> 4
@@ -116,12 +116,12 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
                 data = data[1:]
                 continue
             # Spacecraft ID and Virtual Channel ID match, so we look at end of frame for CRC
-            crc_offset = self.TM_FIXED_FRAME_SIZE - self.TM_TRAILER_SIZE
+            crc_offset = self.frame_size - self.TM_TRAILER_SIZE
             transmitted_crc = struct.unpack_from(">H", data, crc_offset)[0]
             if transmitted_crc == self.CRC_CALCULATOR.checksum(data[:crc_offset]):
                 # CRC is valid, so we return the deframed data
                 deframed_data_len = (
-                    self.TM_FIXED_FRAME_SIZE
+                    self.frame_size
                     - self.TM_TRAILER_SIZE
                     - self.TM_HEADER_SIZE
                 )
@@ -129,7 +129,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
                     f">{deframed_data_len}s", data, self.TM_HEADER_SIZE
                 )[0]
                 # Consume the fixed size frame
-                data = data[self.TM_FIXED_FRAME_SIZE :]
+                data = data[self.frame_size :]
                 return deframed, data, discarded
 
             print(
@@ -158,10 +158,16 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
                 "default": 1,
                 "required": False,
             },
+            ("--frame-size",): {
+                "type": lambda input_arg: int(input_arg, 0),
+                "help": "Fixed Size of TM Frames",
+                "default": 1024,
+                "required": False,
+            },
         }
 
     @classmethod
-    def check_arguments(cls, scid, vcid):
+    def check_arguments(cls, scid, vcid, frame_size):
         """Check arguments from the CLI
 
         Confirms that the input arguments are valid for this framer/deframer.
@@ -183,6 +189,9 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             raise TypeError(f"Virtual Channel ID {vcid} is negative")
         if vcid > 0x3F:
             raise TypeError(f"Virtual Channel ID {vcid} is larger than {0x3FF}")
+
+        if frame_size < 0:
+            raise TypeError(f"TM Fixed Frame size {frame_size} is negative")
 
     @classmethod
     def get_name(cls):

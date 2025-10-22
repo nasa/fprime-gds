@@ -1120,7 +1120,7 @@ class CalculateConstExprValues(Visitor):
             state.expr_converted_values[e]
             for e in (node.args if node.args is not None else [])
         ]
-        unknown_value = any(v for v in arg_values if v is None)
+        unknown_value = any(v is None for v in arg_values)
         if unknown_value:
             # we will have to calculate this at runtime
             state.expr_converted_values[node] = None

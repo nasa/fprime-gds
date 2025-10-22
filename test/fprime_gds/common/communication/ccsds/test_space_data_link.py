@@ -7,11 +7,11 @@ from fprime_gds.common.communication.ccsds.space_data_link import (
 
 SCID_TEST_VALUE = 0x77
 VCID_TEST_VALUE = 5
-
+FRAME_SIZE_TEST_VALUE = 2222
 
 @pytest.fixture
 def framer_deframer():
-    return SpaceDataLinkFramerDeframer(scid=SCID_TEST_VALUE, vcid=VCID_TEST_VALUE)
+    return SpaceDataLinkFramerDeframer(scid=SCID_TEST_VALUE, vcid=VCID_TEST_VALUE, frame_size=FRAME_SIZE_TEST_VALUE)
 
 
 def test_frame_valid_data(framer_deframer):
@@ -34,7 +34,7 @@ def test_frame_valid_data(framer_deframer):
 def test_deframe_valid_frame(framer_deframer):
     """Test deframing a valid TM frame."""
     FIXED_PAYLOAD_LENGTH = (
-        framer_deframer.TM_FIXED_FRAME_SIZE
+        framer_deframer.frame_size
         - SpaceDataLinkFramerDeframer.TM_HEADER_SIZE
         - SpaceDataLinkFramerDeframer.TM_TRAILER_SIZE
     )
@@ -63,7 +63,7 @@ def test_deframe_valid_frame(framer_deframer):
 def test_deframe_incorrect_crc(framer_deframer):
     """Test deframing a valid TM frame."""
     FIXED_PAYLOAD_LENGTH = (
-        framer_deframer.TM_FIXED_FRAME_SIZE
+        framer_deframer.frame_size
         - SpaceDataLinkFramerDeframer.TM_HEADER_SIZE
         - SpaceDataLinkFramerDeframer.TM_TRAILER_SIZE
     )

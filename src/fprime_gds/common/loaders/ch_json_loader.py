@@ -21,7 +21,7 @@ class ChJsonLoader(JsonLoader):
     DESC = "annotation"
     TYPE = "type"
     FMT_STR = "format"
-    LIMIT_FIELD = "limit"
+    LIMIT_FIELD = "limits"
     LIMIT_LOW = "low"
     LIMIT_HIGH = "high"
     LIMIT_RED = "red"

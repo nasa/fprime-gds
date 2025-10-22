@@ -68,6 +68,8 @@ fprime-gds = "fprime_gds.executables.run_deployment:main"
 fprime-prm-write = "fprime_gds.common.tools.params:main"
 fprime-fpyc = "fprime_gds.common.fpy.main:compile_main"
 fprime-fpy-model = "fprime_gds.common.fpy.main:model_main"
+fprime-fpy-asm = "fprime_gds.common.fpy.main:assemble_main"
+fprime-fpy-disasm = "fprime_gds.common.fpy.main:disassemble_main"
 fprime-merge-dictionary = "fprime_gds.executables.dictionary_merge:main"
 
 # For Pytest fixtures

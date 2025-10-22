@@ -2,9 +2,10 @@ import argparse
 from pathlib import Path
 import sys
 
+from fprime_gds.common.fpy.bytecode.assembler import assemble, directives_to_fpybc, parse as fpybc_parse
 import fprime_gds.common.fpy.error
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
-import fprime_gds.common.fpy.model 
+import fprime_gds.common.fpy.model
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.compiler import text_to_ast, ast_to_directives
 
@@ -17,7 +18,7 @@ def human_readable_size(size_bytes):
     size_bytes = int(size_bytes)
     return f"{size_bytes} {units[unit_idx]}"
 
-def compile_main(args: list[str]=None):
+def compile_main(args: list[str] = None):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .fpy file")
     arg_parser.add_argument(
@@ -34,6 +35,13 @@ def compile_main(args: list[str]=None):
         type=Path,
         required=True,
         help="The FPrime dictionary .json file",
+    )
+    arg_parser.add_argument(
+        "-b",
+        "--bytecode",
+        action="store_true",
+        default=False,
+        help="Whether to output human-readable bytecode instead of binary",
     )
     arg_parser.add_argument(
         "--debug",
@@ -60,16 +68,27 @@ def compile_main(args: list[str]=None):
     if isinstance(directives, fprime_gds.common.fpy.error.CompileError):
         print(directives) # directives is an error
         sys.exit(1)
+
     output = args.output
     if output is None:
-        output = args.input.with_suffix(".bin")
-    output_bytes, crc = serialize_directives(directives)
-    output.write_bytes(output_bytes)
-    print(f"{output}\nCRC {hex(crc)} size {human_readable_size(len(output_bytes))}")
+        if args.bytecode:
+            output = args.input.with_suffix(".fpybc")
+        else:
+            output = args.input.with_suffix(".bin")
+    if args.bytecode:
+        fpybc = directives_to_fpybc(directives)
+        output.write_text(fpybc)
+        print(f"{output}")
+    else:
+        output_bytes, crc = serialize_directives(directives)
+        output.write_bytes(output_bytes)
+        print(f"{output}\nCRC {hex(crc)} size {human_readable_size(len(output_bytes))}")
 
 
 
-def model_main(args: list[str]=None):
+
+
+def model_main(args: list[str] = None):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input", type=Path, help="The input .bin file")
     arg_parser.add_argument(
@@ -95,3 +114,65 @@ def model_main(args: list[str]=None):
     ret = model.run(directives)
     if ret != DirectiveErrorCode.NO_ERROR:
         print("Sequence failed with " + str(ret))
+        exit(1)
+
+
+def assemble_main(args: list[str] = None):
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("input", type=Path, help="The input .fpybc file")
+    arg_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=False,
+        default=None,
+        help="The output .bin path",
+    )
+
+    if args is not None:
+        args = arg_parser.parse_args(args)
+    else:
+        args = arg_parser.parse_args()
+
+    if not args.input.exists():
+        print(f"Input file {args.input} does not exist")
+        exit(-1)
+
+    body = fpybc_parse(args.input.read_text())
+    directives = assemble(body)
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix(".bin")
+    output_bytes, crc = serialize_directives(directives)
+    output.write_bytes(output_bytes)
+    print(f"{output}\nCRC {hex(crc)} size {human_readable_size(len(output_bytes))}")
+
+
+def disassemble_main(args: list[str] = None):
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("input", type=Path, help="The input .bin file")
+    arg_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=False,
+        default=None,
+        help="The output .fpybc path",
+    )
+
+    if args is not None:
+        args = arg_parser.parse_args(args)
+    else:
+        args = arg_parser.parse_args()
+
+    if not args.input.exists():
+        print(f"Input file {args.input} does not exist")
+        exit(-1)
+
+    dirs = deserialize_directives(args.input.read_bytes())
+    fpybc = directives_to_fpybc(dirs)
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix(".fpybc")
+    output.write_text(fpybc)
+    print("Done")

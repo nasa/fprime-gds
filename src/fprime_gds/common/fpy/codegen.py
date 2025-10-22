@@ -8,6 +8,7 @@ from fprime_gds.common.fpy.types import (
     FieldReference,
     FpyCmd,
     FpyMacro,
+    FpyTypeCtor,
     FpyVariable,
     InternalIntType,
     InternalStringType,
@@ -376,8 +377,14 @@ class GenerateExprMacrosAndCmds(Visitor):
                 directives.extend(node_dirs)
 
             directives.append(func.dir())
+        elif isinstance(func, FpyTypeCtor):
+            # put arg values onto stack in correct order for serialization
+            for arg_node in node_args:
+                node_dirs = state.directives[arg_node]
+                assert len(node_dirs) >= 1
+                directives.extend(node_dirs)
         else:
-            assert False, (node, func)
+            assert False, func
 
         # perform type conversion if called for
         unconverted_type = state.expr_unconverted_types[node]

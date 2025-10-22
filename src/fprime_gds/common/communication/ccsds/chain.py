@@ -69,18 +69,42 @@ class ChainedFramerDeframer(FramerDeframer, ABC):
             if hasattr(composite, "check_arguments"):
                 composite.check_arguments(**subset_arguments)
 
-    def deframe(self, data, no_copy=False):
-        """ Deframe via a chain of children deframers """
-        packet = data[:] if not no_copy else data
-        remaining = None
-        discarded = b""
+    def deframe_all(self, data, no_copy):
+        """ Deframe all available frames"
 
+        Since packets can be composites of multiple underlying packets, the chaining framer must override deframe_all
+        in order to allow for these composite packets
+        """
+        # Packet the incoming data as an array of 1 packet. This will set up the standard algorithm where each packet
+        # is processed in series
+        packets = [data if no_copy else data[:]]
+        # Remaining data (left over from first packet) is unset, but will be set after the processing of the first
+        # packet as the first represents the outer frame
+        remaining = None
+        # Aggregate discarded data across all packets
+        discarded_aggregate = b""
+        # Loop over ever deframer
         for deframer in self.deframers:
-            new_packet, new_remaining, new_discarded = deframer.deframe(packet, True)
-            discarded += new_discarded
-            remaining = new_remaining if remaining is None else remaining
-            packet = new_packet
-        return packet, remaining, discarded
+            deframer_packets = []
+            # Loop over the list of packets from the previous deframer
+            for packet_data in packets:
+                # Deframe all packets available in this current packet. The packet list is updated from the return
+                # value as we use the chained deframers to continually break into it
+                new_packets, new_remaining, new_discarded = deframer.deframe_all(packet_data, True)
+                # If the first packet remaining hasn't be updated, then we set remaining. Otherwise we retain the old
+                # value because remaining is defined as the outer-most packet.
+                remaining =  new_remaining if remaining is None else remaining
+                # Discarded data is aggregated regardless of where it comes from
+                discarded_aggregate += new_discarded
+                # Append all packets from this layer into the list of processing for the next layer
+                deframer_packets.extend(new_packets)
+            # Update the list of packets for the next deframer as the concatenated output of each run of this layer.
+            packets = deframer_packets
+        # Return list of packets from the last layer, remaining from the outer layer, and discarded from all layers
+        return packets, remaining, discarded_aggregate
+    
+    def deframe(self, data, no_copy=False):
+        assert False, "Should never be called"
 
     def frame(self, data):
         """ Frame via a chain of children framers """

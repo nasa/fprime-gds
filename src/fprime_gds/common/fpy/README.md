@@ -42,7 +42,7 @@ For types, Fpy has most of the same basic ones that FPP does:
 
 Float literals are denoted with a decimal point (`5.0`, `0.123`) and Boolean literals have a capitalized first letter: `True`, `False`. There is no way to differentiate between signed and unsigned integer literals, so the compiler looks at where the literal is used to determine the signedness.
 
-Note there is currently no built-in `string` type. See [Strings](#13-strings).
+Note there is currently no built-in `string` type. See [Strings](#12-strings).
 
 ## 3. Dictionary Types
 
@@ -75,7 +75,7 @@ Fpy supports the following math operations:
 
 The behavior of these operators is designed to mimic Python. Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
 
-## 5. Variable Arguments to Commands
+## 5. Variable Arguments to Commands, Macros and Constructors
 
 Where this really gets interesting is when you pass variables or expressions into commands:
 ```py
@@ -86,11 +86,11 @@ param4: F32 = 15.0
 Ref.recvBuffComp.PARAMETER4_PRM_SET(param4)
 ```
 
-The same syntax works with the [`sleep`](#11-relative-and-absolute-sleep), [`exit`](#12-exit-macro), and `log` macros.
+You can also pass variable arguments to the [`sleep`](#10-relative-and-absolute-sleep), [`exit`](#11-exit-macro), and `log` macros, as well as to constructors.
 
-There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#13-strings).
+There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#12-strings).
 
-## 6. Getting Telemetry Channels
+## 6. Getting Telemetry Channels and Parameters
 
 Fpy supports getting the value of telemetry channels:
 ```py
@@ -101,8 +101,6 @@ signal_pair: Ref.SignalPair = Ref.SG1.PairOutput
 
 It's important to note that if your component hasn't written telemetry to the telemetry database (`TlmPacketizer` or `TlmChan`) in a while, the value the sequence sees may be old. Make sure to regularly write your telemetry!
 
-## 7. Getting Parameters
-
 Fpy supports getting the value of parameters:
 ```py
 prm_3: U8 = Ref.sendBuffComp.parameter3
@@ -110,7 +108,8 @@ prm_3: U8 = Ref.sendBuffComp.parameter3
 
 A significant limitation of this is that it will only return the value most recently saved to the parameter database. This means you must command `_PRM_SAVE` before the sequence will see the new value.
 
-## 8. Conditionals
+#### Note:  If a telemetry channel and parameter have the same fully-qualified name, the fully-qualified name will get the value of the telemetry channel
+## 7. Conditionals
 Fpy supports comparison operators:
 ```py
 value: bool = 1 > 2 and (3 + 4) != 5
@@ -126,7 +125,7 @@ record1: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 record2: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 records_equal: bool = record1 == record2 # == True
 ```
-## 9. If/elif/else
+## 8. If/elif/else
 
 You can branch off of conditionals with `if`, `elif` and `else`:
 ```py
@@ -149,7 +148,7 @@ if CdhCore.cmdDisp.CommandsDispatched >= 1:
     CdhCore.cmdDisp.CMD_NO_OP_STRING("should happen")
 ```
 
-## 10. Getting Struct Members and Array Items
+## 9. Getting Struct Members and Array Items
 
 You can access members of structs by name, or array elements by index:
 ```py
@@ -173,7 +172,7 @@ com_queue_depth: Svc.ComQueueDepth = ComCcsds.comQueue.comQueueDepth
 com_queue_depth[0] = 1
 ```
 
-## 11. Relative and Absolute Sleep
+## 10. Relative and Absolute Sleep
 You can pause the execution of a sequence for a relative duration, or until an absolute time:
 ```py
 CdhCore.cmdDisp.CMD_NO_OP_STRING("second 0")
@@ -184,13 +183,14 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("second 1")
 
 CdhCore.cmdDisp.CMD_NO_OP_STRING("today")
 # sleep until 12345678900 seconds and 0 microseconds after the epoch
-sleep_until(0, 0, 12345678900, 0)
+# time base of 0, time context of 1
+sleep_until(Fw.Time(0, 1, 12345678900, 0))
 CdhCore.cmdDisp.CMD_NO_OP_STRING("much later")
 ```
 
 Make sure that the `Svc.FpySequencer.checkTimers` port is connected to a rate group. The sequencer only checks if a sleep is done when the port is called, so the more frequently you call it, the more accurate the wakeup time.
 
-## 12. Exit Macro
+## 11. Exit Macro
 You can end the execution of the sequence early by calling the `exit` macro:
 ```py
 # exit takes a U8 argument
@@ -200,5 +200,5 @@ exit(0)
 exit(123)
 ```
 
-## 13. Strings
+## 12. Strings
 Fpy does not support a fully-fledged `string` type yet. You can pass a string literal as an argument to a command, but you cannot pass a string from a telemetry channel. You also cannot store a string in a variable, or perform any string manipulation. These features will be added in a later Fpy update.

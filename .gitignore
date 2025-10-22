@@ -2,6 +2,7 @@
 docs/doxy/**
 *.log
 .vscode
+*.swp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

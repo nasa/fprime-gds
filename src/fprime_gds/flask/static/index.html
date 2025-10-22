@@ -139,11 +139,11 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                 </div>
             </template>
 
-            <!-- Charts: 
+            <!-- Charts:
             Display telemetry time series charts. User has option to select which telemetry channels should be plotted.
             -->
             <chart-wrapper></chart-wrapper>
-            
+
             <!--
             Dashboard:
 
@@ -154,9 +154,9 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     <div class="fp-flex-header">
                         <div class="col-md-5 mt-2">
                             <div class="form-group">
-                                <input type="file" name="config-file" 
-                                    id="config-file" 
-                                    accept="application/xml" 
+                                <input type="file" name="config-file"
+                                    id="config-file"
+                                    accept="application/xml"
                                     v-on:change="configureDashboardFromFile($event.target.files[0])"
                                     style="display: none;"/>
                                 <label for="config-file" class="btn btn-secondary mr-1 mb-1 col-md-5">
@@ -221,6 +221,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                          :filter-text="filterText"
                          :initial-views="itemsShown"
                          :compact="compact"
+                         :row-style="calculateRowStyle"
                     ></fp-table>
                 </div>
             </template>
@@ -245,7 +246,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                             <div class="form-row">
                                 <div class="col-md-5">
                                     <button type="button" class="btn btn-primary btn-block" v-on:click="uplinkFiles">
-                                        <i class="fas fa-satellite-dish"></i> 
+                                        <i class="fas fa-satellite-dish"></i>
                                         <span class="d-md-none d-lg-inline">Uplink</span>
                                     </button>
                                 </div>
@@ -259,7 +260,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                     <input type="file" id="chooseUplinkFile" v-bind:files="selected" multiple
                                         v-on:change="handleFiles" style="display: none;">
                                     <label for="chooseUplinkFile" class="btn btn-secondary btn-block">
-                                        <i class="fas fa-upload"></i> 
+                                        <i class="fas fa-upload"></i>
                                         <span class="d-md-none d-lg-inline">Upload</span>
                                     </label>
                                 </div>

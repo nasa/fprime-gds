@@ -423,6 +423,71 @@ sleep(1, 1000)
     assert_run_success(fprime_test_api, seq)
 
 
+def test_wait_abs(fprime_test_api):
+    seq = """
+sleep_until(Fw.Time(0, 0, 123, 123))
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_wait_abs_var_arg(fprime_test_api):
+    seq = """
+x: U32 = 123
+sleep_until(Fw.Time(0, 0, x, 123))
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_wait_abs_var_arg_2(fprime_test_api):
+    seq = """
+x: Fw.Time = Fw.Time(0, 1, 2, 3)
+sleep_until(x)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_wait_abs_bad_arg(fprime_test_api):
+    seq = """
+sleep_until(0, 1, 2, 3)
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_time_type_ctor(fprime_test_api):
+    seq = """
+var: Fw.Time = Fw.Time(0, 1, 2, 3)
+if var.time_base == 0 and var.time_context == 1 and var.seconds == 2 and var.useconds == 3:
+    exit(0)
+exit(1)
+"""
+    assert_run_success(fprime_test_api, seq)
+
+def test_struct_ctor_var_arg(fprime_test_api):
+    seq = """
+id: U32 = 111
+priority: U32 = 3
+state: Fw.DpState = Fw.DpState.UNTRANSMITTED
+var: Svc.DpRecord = Svc.DpRecord(id, 1, 2, priority, 4, 5, state)
+if var.priority == priority and var.id == id and state == var.state:
+    exit(0)
+exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_array_ctor_var_arg(fprime_test_api):
+    seq = """
+arr_0: U32 = 123
+arr_1: U32 = 456
+val: Svc.ComQueueDepth = Svc.ComQueueDepth(arr_0, arr_1)
+if val[0] == arr_0 and val[1] == arr_1:
+    exit(0)
+exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
 def test_f32_f64_cmp(fprime_test_api):
     seq = """
 val: F32 = 0.0

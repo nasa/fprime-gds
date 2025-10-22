@@ -727,7 +727,7 @@ for cls in Directive.__subclasses__():
 
 for cls in StackOpDirective.__subclasses__():
     cls.__old_repr__ = cls.__repr__
-    cls.__repr__ = Directive.__repr__
+    cls.__repr__ = StackOpDirective.__repr__
 
 
 class UnaryStackOp(str, Enum):

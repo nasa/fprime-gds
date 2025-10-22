@@ -22,6 +22,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     GetMemberDirective,
     GotoDirective,
     MemCompareDirective,
+    PushTimeDirective,
     SignedIntDivideDirective,
     SignedModuloDirective,
     StoreConstOffsetDirective,
@@ -78,6 +79,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
 )
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime.common.models.serialize.type_base import BaseType
+from fprime.common.models.serialize.time_type import TimeType
 
 debug = True
 
@@ -354,9 +356,10 @@ class FpySequencerModel:
         if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_UNDERFLOW
 
-        seconds = self.pop(type=float)
+        useconds = self.pop(size=4)
+        seconds = self.pop(size=4)
 
-        print("wait rel", seconds)
+        print("wait rel", seconds, useconds)
 
     def handle_wait_abs(self, dir: WaitAbsDirective):
         if len(self.stack) < 11:
@@ -872,3 +875,9 @@ class FpySequencerModel:
             if len(error_code_enum) == 0:
                 return DirectiveErrorCode.ASSERTION_FAILURE
             return error_code_enum[0]
+
+    def handle_push_time(self, dir: PushTimeDirective):
+        if len(self.stack) + TimeType.getMaxSize() > self.max_stack_size:
+            return DirectiveErrorCode.STACK_OVERFLOW
+
+        self.push(TimeType(0, 0, 0, 0).serialize())

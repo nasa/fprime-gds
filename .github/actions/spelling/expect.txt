@@ -361,6 +361,7 @@ Ssymbols
 stackoverflow
 startuml
 subclasscheck
+subcls
 subcmd
 subgrouping
 subhist

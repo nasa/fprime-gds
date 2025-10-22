@@ -81,29 +81,43 @@ Vue.component("channel-table", {
         /**
          * Use the row's values and bounds to colorize the row. This function will color red and yellow items using
          * the boot-strap "warning" and "danger" calls.
+         * @param item: channel item
          * @return {string}: style-class to use
          */
-        calculateRowStyle() {
+        calculateRowStyle(item) {
+            if (item.val == null) {
+                // No channel value yet
+                return "";
+            }
             let template = _dictionaries.channels[item.id];
-            let value = this.channel.value;
+            // Check if any bounds are actually set
+            if ((template.low_red == null) && (template.low_orange == null) && (template.low_yellow == null) &&
+                (template.high_red == null) && (template.high_orange == null) && (template.high_yellow == null)) {
+                return "";
+            }
             let bounds = [
-                {"class": "fp-color-fatal", "bounds": [template.low_red, value <= template.high_red]},
+                {
+                    "class": "fp-color-fatal",
+                    "bounds": [template.low_red, template.high_red]
+                },
                 {
                     "class": "fp-color-warn-hi",
-                    "bounds": [template.low_yellow, value <= template.high_yellow]
+                    "bounds": [template.low_orange, template.high_orange]
+                },
+                {
+                    "class": "fp-color-warn-lo",
+                    "bounds": [template.low_yellow, template.high_yellow]
                 }
             ];
             // Check bounds.
             for (let i = 0; i < bounds.length; i++) {
                 let bound = bounds[i];
-                if ((bound.bounds[0] != null && value < bound.bounds[0]) ||
-                    (bound.bounds[1] != null && value < bound.bounds[1])) {
+                if ((bound.bounds[0] != null && item.val < bound.bounds[0]) ||
+                    (bound.bounds[1] != null && item.val > bound.bounds[1])) {
                     return bound.class;
-                } else if (bound.bounds[0] != null || bound.bounds[1] != null) {
-                    return "table-success";
                 }
             }
-            return "";
+            return "table-success";
         },
         /**
          * Converts an item to a name for use with the views functionality.

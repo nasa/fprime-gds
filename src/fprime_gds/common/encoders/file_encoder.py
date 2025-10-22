@@ -67,7 +67,6 @@ class FileEncoder(encoder.Encoder):
                     defaults are used.
         """
         super().__init__(config)
-        self.len_obj = self.config.get_type("msg_len")
 
     def encode_api(self, data):
         """
@@ -93,8 +92,13 @@ class FileEncoder(encoder.Encoder):
         elif data.packetType != FilePacketType.CANCEL:
             msg = f"Invalid packet type found while encoding: {data.packetType}"
             raise Exception(msg)
-        descriptor = U32Type(DataDescType["FW_PACKET_FILE"].value).serialize()
+        descriptor_obj = self.config.get_type("FwPacketDescriptorType")
+        descriptor_obj.val = DataDescType["FW_PACKET_FILE"].value
         length_obj = self.config.get_type("msg_len")
-        length_obj.val = len(descriptor) + len(out_data)
-        header = U32Type(0x5A5A5A5A).serialize() + length_obj.serialize() + descriptor
+        length_obj.val = descriptor_obj.getSize() + len(out_data)
+        header = (
+            U32Type(0x5A5A5A5A).serialize()
+            + length_obj.serialize()
+            + descriptor_obj.serialize()
+        )
         return header + out_data
