@@ -148,6 +148,7 @@ class DirectiveId(Enum):
     DUPLICATE = 68
     ASSERT = 69
     STORE_CONST_OFFSET = 70
+    PUSH_TIME = 71
 
 
 class Directive:
@@ -716,6 +717,9 @@ class DuplicateDirective(Directive):
 class AssertDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.ASSERT
 
+@dataclass
+class PushTimeDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.PUSH_TIME
 
 for cls in Directive.__subclasses__():
     cls.__old_repr__ = cls.__repr__

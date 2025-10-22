@@ -6,7 +6,7 @@ _literal: number | string | boolean
 
 _stmt: _small_stmt [_NEWLINE] | _compound_stmt
 _small_stmt: _expr_stmt | assign | pass_stmt | break_stmt | continue_stmt | assert_stmt
-_compound_stmt: if_stmt | for_stmt | while_stmt
+_compound_stmt: if_stmt | for_stmt | while_stmt | check_stmt
 pass_stmt: "pass"
 break_stmt: "break"
 continue_stmt: "continue"
@@ -30,6 +30,8 @@ while_stmt: "while" _expr ":" body
 if_stmt: "if" _expr ":" body elifs ["else" ":" body]
 elifs: elif_*
 elif_: "elif" _expr ":" body
+
+check_stmt: "check" _expr ["timeout" _expr] ["persist" _expr] ["every" _expr] ":" body ["timeout" ":" body]
 
 body: _NEWLINE _INDENT _stmt+ _DEDENT
 scoped_body: _NEWLINE _INDENT _stmt+ _DEDENT

@@ -32,6 +32,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerZeroExtend16To64Directive,
     IntegerZeroExtend32To64Directive,
     IntegerZeroExtend8To64Directive,
+    PushTimeDirective,
     SignedIntToFloatDirective,
     StackOpDirective,
     FloatLogDirective,
@@ -219,6 +220,7 @@ MACROS: dict[str, FpyMacro] = {
     "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
     "exit": FpyMacro(NothingType, [("exit_code", U8Type)], ExitDirective),
     "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
+    "now": FpyMacro(TimeType, [], PushTimeDirective)
 }
 
 
