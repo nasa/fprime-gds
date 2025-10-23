@@ -493,6 +493,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if type == InternalStringType and issubclass(to_type, StringType):
             # we can convert the internal String type to any string type
             return True
+        if not issubclass(type, NumericalType) or not issubclass(to_type, NumericalType):
+            # if one of the src or dest aren't numerical, we can't coerce
+            return False
         # for numeric types
         # ints can only go to >= size ints, or floats
         # and floats can only go into >= size floats
@@ -509,9 +512,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # i think this should be impossible rn
             assert to_type != InternalIntType
             return type == InternalIntType or type.get_bits() <= to_type.get_bits()
-        if (
-            issubclass(type, FloatType)
-        ):
+        if issubclass(type, FloatType):
             if not issubclass(to_type, FloatType):
                 # definitely will fail, cannot coerce float into non float
                 return False
@@ -547,7 +548,10 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # cannot find intermediate type
             return None
 
-        arbitrary_precision = all(t == InternalIntType or t == InternalFloatType for t in arg_types)
+        arbitrary_precision = all(
+            t == InternalIntType or t == InternalFloatType for t in arg_types
+        )
+        float = any(issubclass(t, FloatType) for t in arg_types)
 
         if arbitrary_precision:
             # all arguments are arbitrary precision
@@ -555,21 +559,27 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
                 # always do true division over floats, python style
                 return InternalFloatType
-            if any(issubclass(t, FloatType) for t in arg_types):
+            if float:
                 # at least one arg is a float
                 return InternalFloatType
             # no args are floats
             return InternalIntType
 
+        unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
+
         if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
             # always do true division over floats, python style
             return F64Type
-        
-        if any(issubclass(t, FloatType) for t in arg_types):
+
+        if float:
             # at least one arg is a float
             return F64Type
 
-        if any(t in UNSIGNED_INTEGER_TYPES for t in arg_types):
+        if op == UnaryStackOp.NEGATE and unsigned:
+            # negation of an unsigned integer always returns a signed int
+            return I64Type
+
+        if unsigned:
             # at least one arg is unsigned
             return U64Type
 
@@ -907,7 +917,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             [loop_var_type, loop_var_type], BinaryStackOp.LESS_THAN
         )
 
-        if cmp_intermediate_type is None or issubclass(cmp_intermediate_type, FloatType):
+        if cmp_intermediate_type is None or issubclass(
+            cmp_intermediate_type, FloatType
+        ):
             state.err(
                 f"Loop variable type must be a signed or unsigned integer type",
                 node,
@@ -915,8 +927,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             return
 
         loop_info.cmp_intermediate_type = cmp_intermediate_type
-        assert (
-            cmp_intermediate_type is not None and not issubclass(cmp_intermediate_type, FloatType)
+        assert cmp_intermediate_type is not None and not issubclass(
+            cmp_intermediate_type, FloatType
         ), cmp_intermediate_type
 
         # upper and lower bounds must be coercible to loop variable type
@@ -992,7 +1004,12 @@ class CalculateConstExprValues(Visitor):
     calculated at compile time, and NothingType if the expr had no value"""
 
     def const_convert_type(
-        self, from_val: FppValue, to_type: FppType, node: Ast, state: CompileState
+        self,
+        from_val: FppValue,
+        to_type: FppType,
+        node: Ast,
+        state: CompileState,
+        explicit_cast: bool = False,
     ) -> FppValue | None:
         try:
             if type(from_val) == to_type:
@@ -1007,6 +1024,18 @@ class CalculateConstExprValues(Visitor):
                 return to_type(float(from_val.val))
             if issubclass(to_type, IntegerType):
                 assert issubclass(type(from_val), NumericalType), type(from_val)
+                if not explicit_cast:
+                    # if this was a coercion, we can actually perform one additional check
+                    # before we convert it: does it fit within bounds?
+                    assert isinstance(from_val, IntegerType), from_val
+                    # this is an implicit cast, check that the value can fit in the dest type
+                    dest_min, dest_max = to_type.range()
+                    if from_val.val < dest_min or from_val.val > dest_max:
+                        state.err(
+                            f"{from_val.val} is out of range for type {to_type.__name__}",
+                            node,
+                        )
+                        return None
                 # handle narrowing, if necessary
                 value = int(from_val.val)
                 mask = (1 << to_type.get_bits()) - 1
@@ -1185,6 +1214,8 @@ class CalculateConstExprValues(Visitor):
 
         expr_value = None
 
+        # whether the conversion that will happen is due to an explicit cast
+        explicit_cast = False
         if isinstance(func, FpyTypeCtor):
             # actually construct the type
             if issubclass(func.type, StructType):
@@ -1210,6 +1241,7 @@ class CalculateConstExprValues(Visitor):
             # should only be one value. it should be of some numeric type
             # our const convert type func will convert it for us
             expr_value = arg_values[0]
+            explitic_cast = True
         else:
             # don't try to calculate the value of this function call
             # it's something like a cmd or macro
@@ -1222,7 +1254,7 @@ class CalculateConstExprValues(Visitor):
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state
+                expr_value, converted_type, node, state, explicit_cast
             )
             if expr_value is None:
                 return
@@ -1251,8 +1283,6 @@ class CalculateConstExprValues(Visitor):
             lhs_value = lhs_value.val
             rhs_value = rhs_value.val
 
-        print(lhs_value, rhs_value, node.op)
-
         folded_value = None
         # Arithmetic operations
         if node.op == BinaryStackOp.ADD:
@@ -1264,7 +1294,7 @@ class CalculateConstExprValues(Visitor):
         elif node.op == BinaryStackOp.DIVIDE:
             folded_value = lhs_value / rhs_value
         elif node.op == BinaryStackOp.EXPONENT:
-            folded_value = lhs_value ** rhs_value
+            folded_value = lhs_value**rhs_value
         elif node.op == BinaryStackOp.FLOOR_DIVIDE:
             folded_value = lhs_value // rhs_value
         elif node.op == BinaryStackOp.MODULUS:
@@ -1372,8 +1402,26 @@ class CalculateConstExprValues(Visitor):
             if folded_value is None:
                 return
         state.expr_converted_values[node] = folded_value
-        print(folded_value.val, unconverted_type, converted_type)
 
     def visit_default(self, node, state):
         # coding error, missed an expr
         assert not is_instance_compat(node, AstExpr), node
+
+
+class CheckConstArrayAccesses(Visitor):
+    def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
+        # if the index is a const, we should be able to check if it's in bounds
+        idx_value = state.expr_converted_values.get(node.item)
+        if idx_value is None:
+            # can't check at compile time
+            return
+
+        parent_type = state.expr_converted_types[node.parent]
+        assert issubclass(parent_type, ArrayType), parent_type
+
+        if idx_value.val < 0 or idx_value.val >= parent_type.LENGTH:
+            state.err(
+                f"Index {idx_value.val} out of bounds for array type {parent_type.__name__} with length {parent_type.LENGTH}",
+                node.item,
+            )
+            return

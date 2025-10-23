@@ -322,7 +322,7 @@ def test_int_as_stmt(fprime_test_api):
 2
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_expr_as_stmt(fprime_test_api):
@@ -330,14 +330,14 @@ def test_expr_as_stmt(fprime_test_api):
 2 + 2
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_str_as_stmt(fprime_test_api):
     seq = """
 "test"
 """
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_complex_as_stmt(fprime_test_api):
@@ -876,12 +876,9 @@ exit(1)
 
 def test_negative_val_unsigned_type(fprime_test_api):
     seq = """
-val1: U32 = -1  # Should succeed and be equal to largest u32 val
-if val1 == 2 ** 32 - 1:
-    exit(0)
-exit(1)
+val1: U32 = -1
 """
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_overflow_compile_error(fprime_test_api):
@@ -985,7 +982,7 @@ exit(1)
 def test_float_truncate_stack_size(fprime_test_api):
     seq = """
 var2: F64 = 123.0
-var1: F32 = -var2
+var1: F32 = F32(-var2)
 if var1 == -123.0:
     exit(0)
 exit(1)
@@ -1595,7 +1592,7 @@ def test_array_oob_1(fprime_test_api):
 val: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
 val[2] = 3
 """
-    assert_run_failure(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_array_oob_2(fprime_test_api):
@@ -1606,7 +1603,7 @@ if val[-1] == 456:
 exit(1)
 """
     # TODO in the future this should work, should be the last element
-    assert_run_failure(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_get_variable_array_idx(fprime_test_api):
@@ -1735,7 +1732,7 @@ counter: U8 = 0
 for i: U8 from 0 to 2:
     if i > 2:
         exit(1)
-    counter = counter + 1
+    counter = U8(counter + 1)
 
 
 assert counter == 2
@@ -1977,3 +1974,10 @@ assert u == i
 """
 
     assert_run_success(fprime_test_api, seq)
+    
+def test_wrong_bool_type(fprime_test_api):
+    seq = """
+val: bool = 123
+"""
+
+    assert_compile_failure(fprime_test_api, seq)

@@ -135,7 +135,7 @@ class AstWhile(Ast):
 @dataclass
 class AstAssert(Ast):
     condition: AstExpr
-    exit_code: AstNumber|None
+    exit_code: Union[AstExpr, None]
 
 @dataclass
 class AstBreak(Ast):
@@ -147,6 +147,7 @@ class AstContinue(Ast):
 
 AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf, AstElif, AstFor, AstBreak, AstContinue, AstWhile, AstAssert, AstEllipsis]
 AstStmtWithExpr = Union[AstExpr, AstAssign, AstIf, AstElif, AstFor, AstWhile, AstAssert]
+AstNodeWithSideEffects = Union[AstFuncCall, AstAssign, AstIf, AstElif, AstFor, AstWhile, AstAssert, AstBreak, AstContinue]
 
 
 @dataclass
@@ -208,6 +209,14 @@ def handle_assign(meta, args):
         type = None
     return AstAssign(meta, var, type, value)
 
+def handle_assert(meta, args):
+    condition = args[0]
+    if len(args) > 1:
+        exit_code = args[1]
+    else:
+        exit_code = None
+    return AstAssert(meta, condition, exit_code)
+
 
 @v_args(meta=True, inline=True)
 class FpyTransformer(Transformer):
@@ -222,7 +231,7 @@ class FpyTransformer(Transformer):
     break_stmt = AstBreak
     continue_stmt = AstContinue
 
-    assert_stmt = AstAssert
+    assert_stmt = no_inline(handle_assert)
 
     if_stmt = AstIf
     elifs = no_inline(AstElifs)

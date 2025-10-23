@@ -1,5 +1,7 @@
 from __future__ import annotations
+import inspect
 from typing import Union
+import typing
 
 from fprime_gds.common.fpy.model import DirectiveErrorCode
 from fprime_gds.common.fpy.types import (
@@ -19,6 +21,7 @@ from fprime_gds.common.fpy.types import (
     TopDownVisitor,
     Visitor,
     convert_numeric_type,
+    is_instance_compat,
 )
 
 from fprime_gds.common.fpy.bytecode.directives import (
@@ -74,6 +77,7 @@ from fprime_gds.common.fpy.syntax import (
     AstGetAttr,
     AstGetItem,
     AstLiteral,
+    AstNodeWithSideEffects,
     AstScopedBody,
     AstScopedBody,
     AstIf,
@@ -84,24 +88,21 @@ from fprime_gds.common.fpy.syntax import (
     AstWhile,
 )
 
+
 class GenerateCode:
 
-    def __init__(self):
-        # used for break in while and for loop
-        self.while_loop_end_indices: dict[AstWhile, int] = {}
-        # used for continue in while loop
-        self.while_loop_start_indices: dict[AstWhile, int] = {}
-        # used for continue in for loop
-        self.for_loop_increment_indices: dict[AstWhile, int] = {}
-
-    def try_emit_expr_as_const(self, node: AstExpr, state: CompileState) -> Union[list[Directive],None]:
+    def try_emit_expr_as_const(
+        self, node: AstExpr, state: CompileState
+    ) -> Union[list[Directive], None]:
         expr_value = state.expr_converted_values.get(node)
 
         if expr_value is None:
             # no const value
             return None
 
-        assert not isinstance(expr_value, (InternalIntType, InternalStringType, InternalFloatType))
+        assert not isinstance(
+            expr_value, (InternalIntType, InternalStringType, InternalFloatType)
+        )
 
         if isinstance(expr_value, NothingValue):
             # nothing type has no value
@@ -113,25 +114,45 @@ class GenerateCode:
         # push it to the stack
         return [PushValDirective(serialized_expr_value)]
 
-
     def emit(self, node: Ast, start_idx: int, state: CompileState) -> list[Directive]:
         # if node is an expr, emit the code to push the expr to the stack, accounting
         # for type conversions
 
+        for name, func in inspect.getmembers(type(self), inspect.isfunction):
+            if not name.startswith("emit_"):
+                # not a visitor, or the default visit func
+                continue
+            signature = inspect.signature(func)
+            params = list(signature.parameters.values())
+            assert len(params) == 4
+            assert params[1].annotation is not None
+            annotations = typing.get_type_hints(func)
+            param_type = annotations[params[1].name]
+            if is_instance_compat(node, param_type):
+                return getattr(self, name)(node, start_idx, state)
+        raise NotImplementedError(node)
 
-        pass
-
-    def emit_AstScopedBody(self, node: AstScopedBody, start_idx: int, state: CompileState):
+    def emit_AstScopedBody(
+        self, node: AstScopedBody, start_idx: int, state: CompileState
+    ):
         dirs = []
         if state.root == node:
             dirs.append(AllocateDirective(state.lvar_array_size_bytes))
         for stmt in node.stmts:
+            if not isinstance(stmt, AstNodeWithSideEffects):
+                # if the stmt can't do anything on its own, ignore it
+                # TODO warn
+                continue
             dirs.extend(self.emit(stmt, start_idx + len(dirs), state))
         return dirs
 
     def emit_AstBody(self, node: AstBody, start_idx: int, state: CompileState):
         dirs = []
         for stmt in node.stmts:
+            if not isinstance(stmt, AstNodeWithSideEffects):
+                # if the stmt can't do anything on its own, ignore it
+                # TODO warn
+                continue
             dirs.extend(self.emit(stmt, start_idx + len(dirs), state))
         return dirs
 
@@ -156,16 +177,16 @@ class GenerateCode:
 
             case_dirs.append(if_dir)
             # include body
-            case_dirs.extend(self.emit(case[1], start_idx + len(dirs) + len(case_dirs), state))
+            case_dirs.extend(
+                self.emit(case[1], start_idx + len(dirs) + len(case_dirs), state)
+            )
             # include a temporary goto end of if, will be refined later
             goto_dir = GotoDirective(-1)
             case_dirs.append(goto_dir)
             goto_ends.append(goto_dir)
 
             # if false, skip the body and goto
-            if_dir.false_goto_dir_index = (
-                start_idx + len(dirs) + len(case_dirs)
-            )
+            if_dir.false_goto_dir_index = start_idx + len(dirs) + len(case_dirs)
 
             dirs.extend(case_dirs)
 
@@ -185,7 +206,13 @@ class GenerateCode:
         dirs.append(if_dir)
         # run body
         last_stmt_dir_idx = -1
+
+        break_positions = []
+        continue_positions = []
         for stmt_idx, stmt in enumerate(node.body.stmts):
+            if not isinstance(stmt, AstNodeWithSideEffects):
+                # if the stmt can't do anything on its own, ignore it
+                continue
             # we're going to manually emit the body's stmts instead
             # of just emitting the body, because A) it doesn't matter
             # and B) we need the index of the last statement in the body
@@ -194,38 +221,46 @@ class GenerateCode:
             if stmt_idx == len(node.body.stmts) - 1:
                 # last stmt
                 last_stmt_dir_idx = start_idx + len(dirs)
-            dirs.append(self.emit(stmt, start_idx + len(dirs), state))
+            if isinstance(stmt, AstBreak):
+                # keep track of the position of breaks and continues
+                # don't emit them yet, because we don't know our end line index/inc line idx
+                break_positions.append(len(dirs))
+                # instead, just put in a placeholder
+                dirs.append(GotoDirective(-1))
+            elif isinstance(stmt, AstContinue):
+                continue_positions.append(len(dirs))
+                dirs.append(GotoDirective(-1))
+            else:
+                dirs.extend(self.emit(stmt, start_idx + len(dirs), state))
         # go back to condition check
         dirs.append(GotoDirective(start_idx))
         end_line_idx = start_idx + len(dirs)
         if_dir.false_goto_dir_index = end_line_idx
 
-        # save this so we know where to go with break and continue
-        self.while_loop_end_indices[node] = end_line_idx
-        self.while_loop_start_indices[node] = start_idx
-        if node in state.desugared_for_loops:
-            # there should be at least one stmt in a for loop's body (the inc stmt)
-            assert last_stmt_dir_idx != -1
-            self.for_loop_increment_indices[node] = last_stmt_dir_idx
+        for break_pos in break_positions:
+            # break should go to end idx
+            dirs[break_pos].dir_idx = end_line_idx
+        for continue_pos in continue_positions:
+            dir: GotoDirective = dirs[continue_pos]
+            # if this used to be a for loop:
+            if node in state.desugared_for_loops:
+                # go to the increment stmt
+                # there should be at least one stmt in a for loop's body (the inc stmt)
+                assert last_stmt_dir_idx != -1
+                dir.dir_idx = last_stmt_dir_idx
+            else:
+                # this is just a plain ol while loop
+                # go back to condition
+                dir.dir_idx = start_idx
         return dirs
 
     def emit_AstBreak(self, node: AstBreak, start_idx: int, state: CompileState):
-        enclosing_loop = state.enclosing_loops[node]
-        # go to end of enclosing loop
-        end_of_loop_idx = self.while_loop_end_indices[enclosing_loop]
-
-        return [GotoDirective(end_of_loop_idx)]
+        # break and continue are handled by the while emitter
+        assert False, node
 
     def emit_AstContinue(self, node: AstContinue, start_idx: int, state: CompileState):
-        enclosing_loop = state.enclosing_loops[node]
-        # if it used to be a for loop, go to the increment statement
-        if enclosing_loop in state.desugared_for_loops:
-            # the last stmt in the body of the while loop is the increment stmt
-            end_of_loop_idx = self.for_loop_increment_indices[enclosing_loop]
-        else:
-            # if it's a while loop, go to the beginning
-            end_of_loop_idx = self.while_loop_start_indices[enclosing_loop]
-        return [GotoDirective(end_of_loop_idx)]
+        # break and continue are handled by the while emitter
+        assert False, node
 
     def emit_AstFor(self, node: AstFor, start_idx: int, state: CompileState):
         # should have been desugared out
@@ -283,9 +318,7 @@ class GenerateCode:
         # okay we're good. should still have the idx on the stack
 
         # multiply the index by the member type size
-        dirs.append(
-            PushValDirective(U64Type(parent_type.MEMBER_TYPE.getMaxSize()))
-        )
+        dirs.append(PushValDirective(U64Type(parent_type.MEMBER_TYPE.getMaxSize())))
         dirs.append(IntMultiplyDirective())
 
         # okay now we have the offset on the stack
@@ -305,7 +338,7 @@ class GenerateCode:
 
         return dirs
 
-    def emit_AstVar(self, node: AstVar, state: CompileState):
+    def emit_AstVar(self, node: AstVar, start_idx: int, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         if const_dirs is not None:
             return const_dirs
@@ -388,7 +421,7 @@ class GenerateCode:
             dir = BINARY_STACK_OPS[node.op][intermediate_type]
 
         # push lhs and rhs to stack
-        dirs = [self.emit(node.lhs, start_idx, state)]
+        dirs = self.emit(node.lhs, start_idx, state)
         dirs.extend(self.emit(node.rhs, start_idx + len(dirs), state))
         # generate the actual op itself
         if dir == MemCompareDirective:
@@ -418,7 +451,7 @@ class GenerateCode:
             return const_dirs
 
         # push val to stack
-        dirs = [self.emit(node.val, start_idx, state)]
+        dirs = self.emit(node.val, start_idx, state)
 
         # generate the actual op itself
         # which dir should we use?
@@ -522,7 +555,7 @@ class GenerateCode:
                 # again, offset is the offset in base type + offset of base lvar
 
                 # however, because array idx can be variable, we might not know at compile time
-                # the offset in base type. 
+                # the offset in base type.
 
                 # check if we have a value for it
                 const_idx_expr_value = state.expr_converted_values.get(lhs.idx_expr)
@@ -530,94 +563,88 @@ class GenerateCode:
                     assert isinstance(const_idx_expr_value, ArrayIndexType)
                     # okay, so we have an index which might be variable
                     lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
-                    assert issubclass(lhs_parent_type, ArrayType), (
-                        lhs_parent_type,
-                        type(lhs_parent_type),
+                    const_lvar_offset = (
+                        lhs.base_ref.lvar_offset
+                        + const_idx_expr_value.val * lhs_parent_type.MEMBER_TYPE.getMaxSize()
                     )
-                    const_lvar_offset = lhs.base_ref.lvar_offset + const_idx_expr_value.val * lhs.type.ELEMENT_TYPE.getMaxSize()
                 # otherwise, the array idx is unknown at compile time. we will have to calculate it
 
         # start with rhs on stack
         dirs = self.emit(node.rhs, start_idx, state)
-        
+
         if const_lvar_offset != -1:
             # in this case, we can use StoreConstOffset
-            dirs.append(StoreConstOffsetDirective(const_lvar_offset, lhs.type.getMaxSize()))
+            dirs.append(
+                StoreConstOffsetDirective(const_lvar_offset, lhs.type.getMaxSize())
+            )
+        else:
+            # okay we don't know the offset
+            assert lhs.is_array_element
+            # let's push the offset of base lvar first, then
+            # calculate the offset in base type, then add
 
-                # let's push the offset of base lvar first, then
-                # calculate the offset in base type, then add
+            # push as u64 because we're going to do math
+            dirs.append(PushValDirective(U64Type(lhs.base_ref.lvar_offset).serialize()))
 
-                # push as u64 because we're going to do math
-                dirs.append(
-                    PushValDirective(U64Type(lhs.base_ref.lvar_offset).serialize())
+            # push the index to the stack, do a bounds check,
+            dirs.extend(self.emit(lhs.idx_expr, start_idx + len(dirs), state))
+            # okay now let's do an array oob check
+            dirs.append(
+                DuplicateDirective(ArrayIndexType.getMaxSize())
+            )  # duplicate the index
+            # convert idx to u64
+            dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
+            lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
+            dirs.append(
+                PushValDirective(U64Type(lhs_parent_type.LENGTH).serialize())
+            )  # push the length as U64
+            # check if idx < length
+            dirs.append(UnsignedLessThanDirective())
+            # assert it's true
+            # push the assert error code we should fail with if false
+            dirs.append(
+                PushValDirective(
+                    U8Type(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
                 )
+            )
+            dirs.append(AssertDirective())
+            # okay we're good. should still have the idx on the stack
 
+            # multiply the index by the member type size
+            dirs.append(
+                PushValDirective(U64Type(lhs_parent_type.MEMBER_TYPE.getMaxSize()))
+            )
+            dirs.append(IntMultiplyDirective())
+            # okay, now we should have the offset wrt base of the parent type on the stack
+            # right below it is the offset in the lvar array
+            # add them
+            dirs.append(IntAddDirective())
 
-                # push the index to the stack, do a bounds check,
-                index_dirs = state.directives[lhs.idx_expr]
-                dirs.extend(index_dirs)
-                # okay now let's do an array oob check
-                dirs.append(
-                    DuplicateDirective(ArrayIndexType.getMaxSize())
-                )  # duplicate the index
-                # convert idx to u64
-                dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
-                dirs.append(
-                    PushValDirective(ArrayIndexType(lhs_parent_type.LENGTH).serialize())
-                )  # push the length
-                # convert len to u64
-                dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
-                # check if idx < length
-                dirs.append(UnsignedLessThanDirective())
-                # assert it's true
-                # push the assert error code we should fail with if false
-                dirs.append(
-                    PushValDirective(
-                        U8Type(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
-                    )
-                )
-                dirs.append(AssertDirective())
-                # okay we're good. should still have the idx on the stack
+            # and now convert the u64 back into the U32 that store expects
+            dirs.append(IntegerTruncate64To32Directive())
 
-                # multiply the index by the member type size
-                dirs.append(
-                    PushValDirective(U64Type(lhs_parent_type.MEMBER_TYPE.getMaxSize()))
-                )
-                dirs.append(IntMultiplyDirective())
-                # okay, now we should have the offset wrt base of the parent type on the stack
-                # right below it is the offset in the lvar array
-                # add them
-                dirs.append(IntAddDirective())
+            # now that lvar array offset is pushed, use it to store in lvar array
+            dirs.append(StoreDirective(lhs.type.getMaxSize()))
 
-                # and now convert the u64 back into the U32 that store expects
-                dirs.append(IntegerTruncate64To32Directive())
+        return dirs
 
-        # use the converted type, the node value has already had
-        # conversion handled, so its stack value is converted
-        converted_type = state.expr_converted_types[node.rhs]
-
-        # now that lvar array offset is pushed, use it to store in lvar array
-        dirs.append(StoreDirective(converted_type.getMaxSize()))
-
-        state.directives[node] = dirs
-        
     def emit_AstLiteral(self, node: AstLiteral, start_idx: int, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         assert const_dirs is not None
         return const_dirs
 
-    def emit_AstAssert(self, node: AstAssert, state: CompileState):
-        directives = state.directives[node.condition]
+    def emit_AstAssert(self, node: AstAssert, start_idx: int, state: CompileState):
+        dirs = self.emit(node.condition, start_idx, state)
         # push the error code we should use if false, if one was given
         if node.exit_code is not None:
-            directives.extend(state.directives[node.exit_code])
+            dirs.extend(self.emit(node.exit_code, start_idx + len(dirs), state))
         else:
             # otherwise just use the default "ASSERTION_FAILURE error code"
-            directives.append(
+            dirs.append(
                 PushValDirective(
                     U8Type(DirectiveErrorCode.ASSERTION_FAILURE.value).serialize()
                 )
             )
-        directives.append(AssertDirective())
+        dirs.append(AssertDirective())
 
-        state.directives[node] = directives
+        return dirs

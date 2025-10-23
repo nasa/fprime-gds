@@ -14,7 +14,7 @@ continue_stmt: "continue"
 _expr_stmt: _expr
 
 
-assert_stmt: "assert" _expr ["," DEC_NUMBER]
+assert_stmt: "assert" _expr ["," _expr]
 
 # assignment
 

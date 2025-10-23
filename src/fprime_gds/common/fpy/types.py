@@ -61,7 +61,7 @@ from fprime.common.models.serialize.numerical_types import (
     F32Type,
     F64Type,
     IntegerType,
-    FloatType
+    FloatType,
 )
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
@@ -123,6 +123,7 @@ class InternalFloatType(FloatType):
     def validate(cls, val):
         if not isinstance(val, (float, int)):
             raise RuntimeError()
+
 
 InternalStringType = StringType.construct_type("InternalStringType", None)
 
@@ -238,16 +239,19 @@ MACROS: dict[str, FpyMacro] = {
         ],
         WaitRelDirective,
     ),
-    "sleep_until": FpyMacro(NothingValue, [("wakeup_time", TimeType)], WaitAbsDirective),
+    "sleep_until": FpyMacro(
+        NothingValue, [("wakeup_time", TimeType)], WaitAbsDirective
+    ),
     "exit": FpyMacro(NothingValue, [("exit_code", U8Type)], ExitDirective),
     "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
-    "now": FpyMacro(TimeType, [], PushTimeDirective)
+    "now": FpyMacro(TimeType, [], PushTimeDirective),
 }
 
 
 @dataclass
 class FpyTypeCtor(FpyCallable):
     type: FppType
+
 
 @dataclass
 class FpyCast(FpyCallable):
@@ -294,13 +298,13 @@ class FpyVariable:
     lvar_offset: int | None = None
     """the offset in the lvar array where this var is stored"""
 
+
 @dataclass
 class ForLoopAnalysis:
     loop_var: FpyVariable
     cmp_intermediate_type: FppType = None
     inc_intermediate_type: FppType = None
     upper_bound_var: FpyVariable = None
-    
 
 
 # a scope
@@ -452,9 +456,7 @@ def get_64_bit_numeric_type(type: FppType) -> FppType:
     )
 
 
-def convert_numeric_type(
-    from_type: FppType, to_type: FppType
-) -> list[Directive]:
+def convert_numeric_type(from_type: FppType, to_type: FppType) -> list[Directive]:
     if from_type == to_type:
         return []
 
@@ -595,7 +597,9 @@ class CompileState:
     body_scopes: dict[AstScopedBody, FpyScope] = field(default_factory=dict, repr=False)
     local_scopes: dict[Ast, FpyScope] = field(default_factory=dict, repr=False)
     for_loops: dict[AstFor, ForLoopAnalysis] = field(default_factory=dict)
-    enclosing_loops: dict[Union[AstBreak, AstContinue], Union[AstFor, AstWhile]] = field(default_factory=dict)
+    enclosing_loops: dict[Union[AstBreak, AstContinue], Union[AstFor, AstWhile]] = (
+        field(default_factory=dict)
+    )
     desugared_for_loops: dict[AstWhile, AstFor] = field(default_factory=dict)
 
     resolved_references: dict[AstReference, FpyReference] = field(
@@ -608,9 +612,7 @@ class CompileState:
     )
     """expr to its fprime type, before type conversions are applied"""
 
-    op_intermediate_types: dict[AstOp, FppType] = field(
-        default_factory=dict
-    )
+    op_intermediate_types: dict[AstOp, FppType] = field(default_factory=dict)
 
     expr_converted_types: dict[AstExpr, FppType] = field(default_factory=dict)
     """expr to fprime type it will end up being on the stack after type conversions"""
@@ -655,9 +657,8 @@ class Visitor:
             param_type = annotations[params[1].name]
             if is_instance_compat(node, param_type):
                 return getattr(self, name)
-        else:
-            # call the default
-            return self.visit_default
+        # call the default
+        return self.visit_default
 
     def _visit(self, node: Ast, state: CompileState):
         visit_func = self._find_custom_visit_func(node)
@@ -710,8 +711,8 @@ class Transformer(Visitor):
                     # child is a list, iterate over each member of the list
                     # use a copy so we can remove as we traverse, also so
                     # we don't visit things that we added
-                    
-                    # 
+
+                    #
                     idx = -1
                     for child in field_val[:]:
                         idx += 1
@@ -857,6 +858,7 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
 
 
 def serialize_directives(dirs: list[Directive]) -> tuple[bytes, int]:
+    print(dirs)
     output_bytes = bytes()
 
     for dir in dirs:
