@@ -462,6 +462,7 @@ exit(1)
 """
     assert_run_success(fprime_test_api, seq)
 
+
 def test_struct_ctor_var_arg(fprime_test_api):
     seq = """
 id: U32 = 111
@@ -487,6 +488,7 @@ exit(1)
 """
 
     assert_run_success(fprime_test_api, seq)
+
 
 def test_f32_f64_cmp(fprime_test_api):
     seq = """
@@ -1935,6 +1937,7 @@ for x: U8 from 0 to 255:
 
     assert_run_success(fprime_test_api, seq)
 
+
 def test_loop_var_overflow(fprime_test_api):
     seq = """
 for x: U8 from 0 to 256:
@@ -2007,10 +2010,60 @@ assert u == i
 """
 
     assert_run_success(fprime_test_api, seq)
-    
+
+
 def test_wrong_bool_type(fprime_test_api):
     seq = """
 val: bool = 123
 """
 
     assert_compile_failure(fprime_test_api, seq)
+
+
+def test_while_break_in_if(fprime_test_api):
+    seq = """
+while True:
+    if True:
+        break
+    exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_for_break_in_if(fprime_test_api):
+    seq = """
+for i: U64 from 0 to 100:
+    if True:
+        break
+    exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_while_continue_in_if(fprime_test_api):
+    seq = """
+i: U64 = 0
+while i < 2:
+    i = i + 1
+    if True:
+        continue
+    exit(1)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_for_continue_in_if(fprime_test_api):
+    seq = """
+sum: U64 = 0
+for i: U64 from 0 to 100:
+    sum = sum + 1
+    if True:
+        continue
+    exit(1)
+assert sum == 100
+"""
+
+    assert_run_success(fprime_test_api, seq)
