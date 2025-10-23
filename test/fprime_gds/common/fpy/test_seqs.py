@@ -1943,8 +1943,37 @@ time: Fw.Time = now()
 
 def test_numeric_cast(fprime_test_api):
     seq = """
-i: I32 = -123
+i: I32 = I32(-123)
+assert i == -123
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_downcast(fprime_test_api):
+    seq = """
+i: U32 = 123123
 u: U8 = U8(i)
+assert u == (i % 256)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_downcast_fail(fprime_test_api):
+    seq = """
+i: U32 = 123123
+u: U8 = i
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_upcast(fprime_test_api):
+    seq = """
+i: U8 = 255
+u: U32 = U32(i)
+assert u == i
 """
 
     assert_run_success(fprime_test_api, seq)

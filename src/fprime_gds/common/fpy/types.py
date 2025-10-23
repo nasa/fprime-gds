@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC
 import inspect
 from dataclasses import astuple, dataclass, field, fields
+import math
 from pathlib import Path
 import struct
 import traceback
@@ -60,6 +61,7 @@ from fprime.common.models.serialize.numerical_types import (
     F32Type,
     F64Type,
     IntegerType,
+    FloatType
 )
 from fprime.common.models.serialize.string_type import StringType
 from fprime.common.models.serialize.bool_type import BoolType
@@ -98,13 +100,21 @@ class InternalIntType(IntegerType):
 
     @classmethod
     def get_bits(cls):
-        raise NotImplementedError()
+        return math.inf
 
     @classmethod
     def validate(cls, val):
         if not isinstance(val, int):
             raise RuntimeError()
 
+
+# this is the "internal" float type that float literals have by
+# default.
+class InternalFloatType(FloatType):
+    @classmethod
+    def validate(cls, val):
+        if not isinstance(val, (float, int)):
+            raise RuntimeError()
 
 InternalStringType = StringType.construct_type("InternalStringType", None)
 
@@ -178,7 +188,7 @@ def is_instance_compat(obj, cls):
 FppType = type[FppValue]
 
 
-class NothingType(ABC):
+class NothingValue(ABC):
     """a type which has no valid values in fprime. used to denote
     a function which doesn't return a value"""
 
@@ -188,12 +198,12 @@ class NothingType(ABC):
 
 
 # the `type` object representing the NothingType class
-NothingTypeClass = type[NothingType]
+NothingType = type[NothingValue]
 
 
 @dataclass
 class FpyCallable:
-    return_type: FppType | NothingTypeClass
+    return_type: FppType | NothingType
     args: list[tuple[str, FppType]]
 
 
@@ -210,7 +220,7 @@ class FpyMacro(FpyCallable):
 
 MACROS: dict[str, FpyMacro] = {
     "sleep": FpyMacro(
-        NothingType,
+        NothingValue,
         [
             (
                 "seconds",
@@ -220,8 +230,8 @@ MACROS: dict[str, FpyMacro] = {
         ],
         WaitRelDirective,
     ),
-    "sleep_until": FpyMacro(NothingType, [("wakeup_time", TimeType)], WaitAbsDirective),
-    "exit": FpyMacro(NothingType, [("exit_code", U8Type)], ExitDirective),
+    "sleep_until": FpyMacro(NothingValue, [("wakeup_time", TimeType)], WaitAbsDirective),
+    "exit": FpyMacro(NothingValue, [("exit_code", U8Type)], ExitDirective),
     "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
     "now": FpyMacro(TimeType, [], PushTimeDirective)
 }
@@ -280,9 +290,7 @@ class FpyVariable:
 class ForLoopAnalysis:
     loop_var: FpyVariable
     cmp_intermediate_type: FppType = None
-    cmp_dir: type[Directive] = None
     inc_intermediate_type: FppType = None
-    inc_dir: type[Directive] = None
     upper_bound_var: FpyVariable = None
     
 
@@ -408,19 +416,19 @@ def get_ref_fpp_type_class(ref: FpyReference) -> FppType:
         # a reference to a callable isn't a type in and of itself
         # it has a return type but you have to call it (with an AstFuncCall)
         # consider making a separate "reference" type
-        result_type = NothingType
+        result_type = NothingValue
     elif isinstance(ref, FpyVariable):
         result_type = ref.type
     elif isinstance(ref, type):
         # a reference to a type doesn't have a value, and so doesn't have a type,
         # in and of itself. if this were a function call to the type's ctor then
         # it would have a value and thus a type
-        result_type = NothingType
+        result_type = NothingValue
     elif isinstance(ref, FieldReference):
         result_type = ref.type
     elif isinstance(ref, dict):
         # reference to a scope. scopes don't have values
-        result_type = NothingType
+        result_type = NothingValue
     else:
         assert False, ref
 
@@ -587,20 +595,19 @@ class CompileState:
     )
     """reference to its singular resolution"""
 
-    expr_unconverted_types: dict[AstExpr, FppType | NothingTypeClass] = field(
+    expr_unconverted_types: dict[AstExpr, FppType | NothingType] = field(
         default_factory=dict
     )
     """expr to its fprime type, before type conversions are applied"""
 
-    stack_op_directives: dict[AstOp, type[StackOpDirective]] = field(
+    op_intermediate_types: dict[AstOp, FppType] = field(
         default_factory=dict
     )
-    """some stack operation to which directive will be emitted for it"""
 
     expr_converted_types: dict[AstExpr, FppType] = field(default_factory=dict)
     """expr to fprime type it will end up being on the stack after type conversions"""
 
-    expr_converted_values: dict[AstExpr, FppValue | NothingType | None] = field(
+    expr_converted_values: dict[AstExpr, FppValue | NothingValue | None] = field(
         default_factory=dict
     )
     """expr to the fprime value it will end up being on the stack after type conversions.

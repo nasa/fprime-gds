@@ -1,8 +1,8 @@
 from __future__ import annotations
-from pathlib import Path
 from typing import Union
 
 from fprime_gds.common.fpy.types import (
+    SIGNED_INTEGER_TYPES,
     SPECIFIC_NUMERIC_TYPES,
     UNSIGNED_INTEGER_TYPES,
     ArrayIndexType,
@@ -11,20 +11,19 @@ from fprime_gds.common.fpy.types import (
     ForLoopAnalysis,
     FppType,
     FpyCallable,
+    FpyCast,
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
     InternalIntType,
     InternalStringType,
-    NothingType,
+    NothingValue,
     TopDownVisitor,
     Visitor,
     get_ref_fpp_type_class,
     is_instance_compat,
     resolve_var,
 )
-
-from fprime_gds.common.fpy.error import CompileError
 
 # In Python 3.10+, the `|` operator creates a `types.UnionType`.
 # We need to handle this for forward compatibility, but it won't exist in 3.9.
@@ -47,6 +46,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime.common.models.serialize.time_type import TimeType
+from fprime.common.models.serialize.type_base import ValueType
 from fprime.common.models.serialize.serializable_type import (
     SerializableType as StructType,
 )
@@ -177,18 +177,24 @@ class CreateVariables(TopDownVisitor):
         analysis = ForLoopAnalysis(var)
         state.for_loops[node] = analysis
 
+
 class SetEnclosingLoops(Visitor):
     def __init__(self, loop: Union[AstFor, AstWhile]):
         self.loop = loop
 
-    def visit_AstBreak_AstContinue(self, node: Union[AstBreak, AstContinue], state: CompileState):
+    def visit_AstBreak_AstContinue(
+        self, node: Union[AstBreak, AstContinue], state: CompileState
+    ):
         state.enclosing_loops[node] = self.loop
+
 
 class CheckBreakAndContinueInLoop(TopDownVisitor):
     def visit_AstFor_AstWhile(self, node: Union[AstFor, AstWhile], state: CompileState):
         SetEnclosingLoops(node).run(node.body, state)
 
-    def visit_AstBreak_AstContinue(self, node: Union[AstBreak, AstContinue], state: CompileState):
+    def visit_AstBreak_AstContinue(
+        self, node: Union[AstBreak, AstContinue], state: CompileState
+    ):
         if node not in state.enclosing_loops:
             state.err("Not inside of a loop", node)
             return
@@ -433,6 +439,7 @@ class CheckUseBeforeDeclare(Visitor):
             state.err(f"'{node.var}' used before declared", node)
             return
 
+
 class CheckUseBeforeDeclareForLoopVariables(TopDownVisitor):
 
     def __init__(self):
@@ -481,16 +488,28 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def can_coerce_type(self, type: FppType, to_type: FppType) -> bool:
         if type == to_type:
             return True
-        if issubclass(type, IntegerType) and issubclass(to_type, NumericalType):
-            # we can coerce any integer into any other number
-            return True
-        if issubclass(type, FloatType) and issubclass(to_type, FloatType):
-            # we can convert any float into any float
-            return True
         if type == InternalStringType and issubclass(to_type, StringType):
             # we can convert the internal String type to any string type
             return True
-
+        # for numeric types
+        # ints can only go to >= size ints, or floats
+        # and floats can only go into >= size floats
+        if issubclass(type, IntegerType):
+            if issubclass(to_type, FloatType):
+                # int to a float is allowed. yes this can cause
+                # loss of precision for large integer values
+                # TODO is this the right call?
+                return True
+            assert issubclass(to_type, IntegerType), to_type
+            # if the from_type is internal int, then it has infinite precision
+            # we'll allow interpreting this as any integer, regardless of dest bitwidth
+            return type == InternalIntType or type.get_bits() <= to_type.get_bits()
+        if (
+            issubclass(type, FloatType)
+            and issubclass(to_type, FloatType)
+            and type.get_bits() <= to_type.get_bits()
+        ):
+            return True
         return False
 
     def pick_intermediate_type(
@@ -520,6 +539,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         float = any(issubclass(t, FloatType) for t in arg_types)
         unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
+        arbitrary_precision = all(t == InternalIntType for t in arg_types)
 
         if float:
             # at least one arg is a float
@@ -528,6 +548,10 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if unsigned:
             # at least one arg is unsigned
             return U64Type
+
+        if arbitrary_precision:
+            # all arguments are arbitrary precision
+            return InternalIntType
 
         return I64Type
 
@@ -725,24 +749,13 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if not self.coerce_expr_type(node.rhs, intermediate_type, state):
             return
 
-        # okay now find which actual directive we're going to use based on this intermediate
-        # type, and save it
-
-        dir = None
-        if (
-            node.op == BinaryStackOp.EQUAL or node.op == BinaryStackOp.NOT_EQUAL
-        ) and intermediate_type not in SPECIFIC_NUMERIC_TYPES:
-            dir = MemCompareDirective
-        else:
-            dir = BINARY_STACK_OPS[node.op][intermediate_type]
-
         result_type = None
         if node.op in NUMERIC_OPERATORS:
             result_type = intermediate_type
         else:
             result_type = BoolType
 
-        state.stack_op_directives[node] = dir
+        state.op_intermediate_types[node] = intermediate_type
         state.expr_unconverted_types[node] = result_type
         state.expr_converted_types[node] = result_type
 
@@ -757,18 +770,13 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if not self.coerce_expr_type(node.val, intermediate_type, state):
             return
 
-        # okay now find which actual directive we're going to use based on this intermediate
-        # type, and save it
-
-        chosen_dir = UNARY_STACK_OPS[node.op][intermediate_type]
-
         result_type = None
         if node.op in NUMERIC_OPERATORS:
             result_type = intermediate_type
         else:
             result_type = BoolType
 
-        state.stack_op_directives[node] = chosen_dir
+        state.op_intermediate_types[node] = intermediate_type
         state.expr_unconverted_types[node] = result_type
         state.expr_converted_types[node] = result_type
 
@@ -805,11 +813,27 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             )
             return
 
-        for value_expr, arg in zip(node_args, func_args):
-            arg_name, arg_type = arg
-
-            if not self.coerce_expr_type(value_expr, arg_type, state):
+        if isinstance(func, FpyCast):
+            # casts do not follow coercion rules, because casting is the counterpart of coercion!
+            # coercion is implicit, casting is explicit. if they say they want to cast, we let them
+            node_arg = node_args[0]
+            input_type = state.expr_unconverted_types[node_arg]
+            output_type = func.to_type
+            # right now we only have casting to numbers
+            assert output_type in SPECIFIC_NUMERIC_TYPES
+            if not issubclass(input_type, NumericalType):
+                # cannot convert a non-numeric type to a numeric type
+                state.err(f"Expected a number, found {input_type.__name__}", node_arg)
                 return
+            # we're going from input_type to output type, and we're going to ignore
+            # the coercion rules
+            state.expr_converted_types[node_arg] = output_type
+        else:
+            for value_expr, arg in zip(node_args, func_args):
+                arg_name, arg_type = arg
+
+                if not self.coerce_expr_type(value_expr, arg_type, state):
+                    return
 
         # got thru all args successfully
         state.expr_unconverted_types[node] = func.return_type
@@ -872,11 +896,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         loop_info.cmp_intermediate_type = cmp_intermediate_type
 
-        # okay, and based on this intermediate type, pick a directive we're going to use to compare
-        loop_info.cmp_dir = BINARY_STACK_OPS[BinaryStackOp.LESS_THAN][
-            cmp_intermediate_type
-        ]
-
         # upper and lower bounds must be coercible to loop variable type
         if not self.coerce_expr_type(node.lower_bound, loop_var_type, state):
             return
@@ -886,7 +905,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # handle increment loop var
         # this looks like:
         # loop_var = loop_var + 1
-        # LOAD, EXTEND, PUSH U64(1), IADD, TRUNC, STORE
         inc_intermediate_type = self.pick_intermediate_type(
             [loop_var_type, loop_var_type], BinaryStackOp.ADD
         )
@@ -894,7 +912,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             cmp_intermediate_type is not None and cmp_intermediate_type is not F64Type
         ), cmp_intermediate_type
         loop_info.inc_intermediate_type = inc_intermediate_type
-        loop_info.inc_dir = BINARY_STACK_OPS[BinaryStackOp.ADD][inc_intermediate_type]
 
     def visit_AstWhile(self, node: AstWhile, state: CompileState):
         if not self.coerce_expr_type(node.condition, BoolType, state):
@@ -954,7 +971,7 @@ class CalculateConstExprValues(Visitor):
     """for each expr, try to calculate its constant value and store it in a map. stores None if no value could be
     calculated at compile time, and NothingType if the expr had no value"""
 
-    def const_coerce_type(
+    def const_convert_type(
         self, from_val: FppValue, to_type: FppType, node: Ast, state: CompileState
     ) -> FppValue | None:
         try:
@@ -965,41 +982,55 @@ class CalculateConstExprValues(Visitor):
                 return to_type(from_val.val)
             if issubclass(to_type, FloatType):
                 assert issubclass(type(from_val), NumericalType), type(from_val)
+                # based on inspection of the underlying FloatType classes,
+                # floats do not need narrowing handling
                 return to_type(float(from_val.val))
             if issubclass(to_type, IntegerType):
-                assert issubclass(type(from_val), IntegerType), type(from_val)
-                return to_type(int(from_val.val))
+                assert issubclass(type(from_val), NumericalType), type(from_val)
+                # handle narrowing, if necessary
+                value = int(from_val.val)
+                mask = (1 << to_type.get_bits()) - 1
+                value &= mask
+                if to_type in SIGNED_INTEGER_TYPES:
+                    sign_bit = 1 << (to_type.get_bits() - 1)
+                    if value & sign_bit:
+                        # the sign bit is set, the result should be negative
+                        # subtract the max value as this is how two's complement works
+                        value -= 1 << to_type.get_bits()
+                return to_type(value)
             assert False, (from_val, type(from_val), to_type)
         except TypeException as e:
             state.err(f"For type {type(from_val).__name__}: {e}", node)
             return None
 
     def visit_AstLiteral(self, node: AstLiteral, state: CompileState):
-        uncoerced_type = state.expr_unconverted_types[node]
+        unconverted_type = state.expr_unconverted_types[node]
 
         try:
-            expr_value = uncoerced_type(node.value)
+            expr_value = unconverted_type(node.value)
         except TypeException as e:
-            state.err(f"For type {uncoerced_type.__name__}: {e}", node)
+            # TODO can this be reached any more? maybe for string types
+            state.err(f"For type {unconverted_type.__name__}: {e}", node)
             return
 
-        coerced_type = state.expr_converted_types[node]
-        if coerced_type != uncoerced_type:
-            expr_value = self.const_coerce_type(expr_value, coerced_type, node, state)
+        converted_type = state.expr_converted_types[node]
+        if converted_type != unconverted_type:
+            expr_value = self.const_convert_type(
+                expr_value, converted_type, node, state
+            )
             if expr_value is None:
                 return
 
         state.expr_converted_values[node] = expr_value
 
     def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
-
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         ref = state.resolved_references[node]
         expr_value = None
         if isinstance(ref, (type, dict, FpyCallable)):
             # these types have no value
-            state.expr_converted_values[node] = NothingType()
+            state.expr_converted_values[node] = NothingValue()
             assert unconverted_type == converted_type, (
                 unconverted_type,
                 converted_type,
@@ -1041,7 +1072,9 @@ class CalculateConstExprValues(Visitor):
         assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
 
         if converted_type != unconverted_type:
-            expr_value = self.const_coerce_type(expr_value, converted_type, node, state)
+            expr_value = self.const_convert_type(
+                expr_value, converted_type, node, state
+            )
             if expr_value is None:
                 return
         state.expr_converted_values[node] = expr_value
@@ -1070,12 +1103,14 @@ class CalculateConstExprValues(Visitor):
 
         expr_value = parent_value._val[idx._val]
 
-        uncoerced_type = state.expr_unconverted_types[node]
-        assert isinstance(expr_value, uncoerced_type), (expr_value, uncoerced_type)
+        unconverted_type = state.expr_unconverted_types[node]
+        assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
 
-        coerced_type = state.expr_converted_types[node]
-        if coerced_type != uncoerced_type:
-            expr_value = self.const_coerce_type(expr_value, coerced_type, node, state)
+        converted_type = state.expr_converted_types[node]
+        if converted_type != unconverted_type:
+            expr_value = self.const_convert_type(
+                expr_value, converted_type, node, state
+            )
             if expr_value is None:
                 return
         state.expr_converted_values[node] = expr_value
@@ -1087,7 +1122,7 @@ class CalculateConstExprValues(Visitor):
         expr_value = None
         if isinstance(ref, (type, dict, FpyCallable)):
             # these types have no value
-            state.expr_converted_values[node] = NothingType()
+            state.expr_converted_values[node] = NothingValue()
             assert unconverted_type == converted_type, (
                 unconverted_type,
                 converted_type,
@@ -1107,7 +1142,9 @@ class CalculateConstExprValues(Visitor):
         assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
 
         if converted_type != unconverted_type:
-            expr_value = self.const_coerce_type(expr_value, converted_type, node, state)
+            expr_value = self.const_convert_type(
+                expr_value, converted_type, node, state
+            )
             if expr_value is None:
                 return
         state.expr_converted_values[node] = expr_value
@@ -1149,26 +1186,171 @@ class CalculateConstExprValues(Visitor):
             else:
                 # no other FppTypees have ctors
                 assert False, func.return_type
+        elif isinstance(func, FpyCast):
+            # should only be one value. it should be of some numeric type
+            # our const convert type func will convert it for us
+            expr_value = arg_values[0]
         else:
             # don't try to calculate the value of this function call
             # it's something like a cmd or macro
             state.expr_converted_values[node] = None
             return
 
-        uncoerced_type = state.expr_unconverted_types[node]
-        assert isinstance(expr_value, uncoerced_type), (expr_value, uncoerced_type)
+        unconverted_type = state.expr_unconverted_types[node]
+        assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
 
-        coerced_type = state.expr_converted_types[node]
-        if coerced_type != uncoerced_type:
-            expr_value = self.const_coerce_type(expr_value, coerced_type, node, state)
+        converted_type = state.expr_converted_types[node]
+        if converted_type != unconverted_type:
+            expr_value = self.const_convert_type(
+                expr_value, converted_type, node, state
+            )
             if expr_value is None:
                 return
 
         state.expr_converted_values[node] = expr_value
 
-    def visit_AstOp(self, node: AstOp, state: CompileState):
-        # we do not calculate compile time value of operators at the moment
-        state.expr_converted_values[node] = None
+    def visit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
+        # Check if both left-hand side (lhs) and right-hand side (rhs) are constants
+        lhs_value: FppValue = state.expr_converted_values.get(node.lhs)
+        rhs_value: FppValue = state.expr_converted_values.get(node.rhs)
+
+        if lhs_value is None or rhs_value is None:
+            state.expr_converted_values[node] = None
+            return
+
+        # Both sides are constants, evaluate the operation if the operator is supported
+
+        if not isinstance(lhs_value, ValueType) or not isinstance(rhs_value, ValueType):
+            # if one of them isn't a ValueType, assume it must be TimeType
+            assert lhs_value == rhs_value and lhs_value == TimeType, (
+                lhs_value,
+                rhs_value,
+            )
+        else:
+            # get the actual pythonic value from the fpp type
+            lhs_value = lhs_value.val
+            rhs_value = rhs_value.val
+
+        folded_value = None
+        # Arithmetic operations
+        if node.op == BinaryStackOp.ADD:
+            folded_value = lhs_value + rhs_value
+        elif node.op == BinaryStackOp.SUBTRACT:
+            folded_value = lhs_value - rhs_value
+        elif node.op == BinaryStackOp.MULTIPLY:
+            folded_value = lhs_value * rhs_value
+        elif node.op == BinaryStackOp.DIVIDE:
+            folded_value = lhs_value / rhs_value
+        elif node.op == BinaryStackOp.EXPONENT:
+            folded_value = lhs_value**rhs_value
+        elif node.op == BinaryStackOp.FLOOR_DIVIDE:
+            folded_value = lhs_value // rhs_value
+        elif node.op == BinaryStackOp.MODULUS:
+            folded_value = lhs_value % rhs_value
+        # Boolean logic operations
+        elif node.op == BinaryStackOp.AND:
+            folded_value = lhs_value and rhs_value
+        elif node.op == BinaryStackOp.OR:
+            folded_value = lhs_value or rhs_value
+        # Inequalities
+        elif node.op == BinaryStackOp.GREATER_THAN:
+            folded_value = lhs_value > rhs_value
+        elif node.op == BinaryStackOp.GREATER_THAN_OR_EQUAL:
+            folded_value = lhs_value >= rhs_value
+        elif node.op == BinaryStackOp.LESS_THAN:
+            folded_value = lhs_value < rhs_value
+        elif node.op == BinaryStackOp.LESS_THAN_OR_EQUAL:
+            folded_value = lhs_value <= rhs_value
+        # Equality Checking
+        elif node.op == BinaryStackOp.EQUAL:
+            if not issubclass(lhs_value, NumericalType):
+                # comparing two complex types
+                assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
+                # for now we don't fold this
+                folded_value = None
+            else:
+                folded_value = lhs_value == rhs_value
+        elif node.op == BinaryStackOp.NOT_EQUAL:
+            if not issubclass(lhs_value, NumericalType):
+                # comparing two complex types
+                assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
+                # for now we don't fold this
+                folded_value = None
+            else:
+                folded_value = lhs_value != rhs_value
+        else:
+            # missing an operation
+            assert False, node.op
+
+        if folded_value is None:
+            # give up, don't try to calculate the value of this expr at compile time
+            state.expr_converted_values[node] = None
+            return
+
+        if type(folded_value) == int:
+            folded_value = InternalIntType(folded_value)
+        elif type(folded_value) == float:
+            folded_value = F64Type(folded_value)
+        elif type(folded_value) == bool:
+            folded_value = BoolType(folded_value)
+        else:
+            assert False, folded_value
+
+        unconverted_type = state.expr_unconverted_types.get(node)
+        converted_type = state.expr_converted_types.get(node)
+        if converted_type != unconverted_type:
+            folded_value = self.const_convert_type(
+                folded_value, converted_type, node, state
+            )
+            if folded_value is None:
+                return
+        state.expr_converted_values[node] = folded_value
+
+    def visit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
+        value: FppValue = state.expr_converted_values.get(node.val)
+
+        if value is None:
+            state.expr_converted_values[node] = None
+            return
+
+        # input is constant, evaluate the operation if the operator is supported
+        assert isinstance(value, ValueType), value
+
+        # get the actual pythonic value from the fpp type
+        value = value.val
+        folded_value = None
+
+        if node.op == UnaryStackOp.NEGATE:
+            folded_value = -value
+        elif node.op == UnaryStackOp.IDENTITY:
+            folded_value = value
+        elif node.op == UnaryStackOp.NOT:
+            folded_value = not value
+        else:
+            # missing an operation
+            assert False, node.op
+
+        assert folded_value is not None
+
+        if type(folded_value) == int:
+            folded_value = InternalIntType(folded_value)
+        elif type(folded_value) == float:
+            folded_value = F64Type(folded_value)
+        elif type(folded_value) == bool:
+            folded_value = BoolType(folded_value)
+        else:
+            assert False, folded_value
+
+        unconverted_type = state.expr_unconverted_types.get(node)
+        converted_type = state.expr_converted_types.get(node)
+        if converted_type != unconverted_type:
+            folded_value = self.const_convert_type(
+                folded_value, converted_type, node, state
+            )
+            if folded_value is None:
+                return
+        state.expr_converted_values[node] = folded_value
+        print(folded_value.val, unconverted_type, converted_type)
 
     def visit_default(self, node, state):
         # coding error, missed an expr

@@ -3,22 +3,26 @@ from typing import Union
 
 from fprime_gds.common.fpy.model import DirectiveErrorCode
 from fprime_gds.common.fpy.types import (
+    SPECIFIC_NUMERIC_TYPES,
     ArrayIndexType,
     CompileState,
     FieldReference,
+    FpyCast,
     FpyCmd,
     FpyMacro,
     FpyTypeCtor,
     FpyVariable,
     InternalIntType,
     InternalStringType,
-    NothingType,
+    NothingValue,
     TopDownVisitor,
     Visitor,
     convert_numeric_type,
 )
 
 from fprime_gds.common.fpy.bytecode.directives import (
+    BINARY_STACK_OPS,
+    UNARY_STACK_OPS,
     AllocateDirective,
     AssertDirective,
     BinaryStackOp,
@@ -93,6 +97,11 @@ class GenerateConstExprDirectives(Visitor):
             # no const value
             return
 
+        if isinstance(expr_value, (InternalIntType, InternalStringType)):
+            # nothing was present to give this a specific type
+            # no const value
+            return
+
         expr_type = state.expr_converted_types[node]
 
         assert isinstance(expr_value, expr_type), (
@@ -101,13 +110,9 @@ class GenerateConstExprDirectives(Visitor):
             expr_type,
         )
 
-        if isinstance(expr_value, NothingType):
+        if isinstance(expr_value, NothingValue):
             # nothing type has no value
             state.directives[node] = []
-            return
-
-        if isinstance(expr_value, (InternalIntType, InternalStringType)):
-            state.err("Expression is invalid when used here", node)
             return
 
         # it has a constant value at compile time
@@ -277,8 +282,15 @@ class GenerateExprMacrosAndCmds(Visitor):
         lhs_dirs = state.directives[node.lhs]
         rhs_dirs = state.directives[node.rhs]
 
-        # which variant of the op did we pick?
-        dir = state.stack_op_directives[node]
+        # which dir should we use?
+        intermediate_type = state.op_intermediate_types[node]
+        dir = None
+        if (
+            node.op == BinaryStackOp.EQUAL or node.op == BinaryStackOp.NOT_EQUAL
+        ) and intermediate_type not in SPECIFIC_NUMERIC_TYPES:
+            dir = MemCompareDirective
+        else:
+            dir = BINARY_STACK_OPS[node.op][intermediate_type]
 
         # generate the actual op itself
         directives: list[Directive] = lhs_dirs + rhs_dirs
@@ -312,8 +324,9 @@ class GenerateExprMacrosAndCmds(Visitor):
 
         val_dirs = state.directives[node.val]
 
-        # which variant of the op did we pick?
-        dir = state.stack_op_directives[node]
+        # which dir should we use?
+        intermediate_type = state.op_intermediate_types[node]
+        dir = UNARY_STACK_OPS[node.op][intermediate_type]
         # generate the actual op itself
         directives: list[Directive] = val_dirs
 
@@ -383,6 +396,10 @@ class GenerateExprMacrosAndCmds(Visitor):
                 node_dirs = state.directives[arg_node]
                 assert len(node_dirs) >= 1
                 directives.extend(node_dirs)
+        elif isinstance(func, FpyCast):
+            # just putting the arg value on the stack should be good enough, the
+            # conversion will happen below
+            directives.extend(state.directives[node.args[0]])
         else:
             assert False, func
 
