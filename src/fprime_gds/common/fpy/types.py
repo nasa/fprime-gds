@@ -623,6 +623,11 @@ class CompileState:
     """expr to the fprime value it will end up being on the stack after type conversions.
     None if unsure at compile time"""
 
+    while_loop_end_labels: dict[AstWhile, int] = field(default_factory=dict)
+    while_loop_start_labels: dict[AstWhile, int] = field(default_factory=dict)
+    # store keys as while because for loops are desugared to while
+    for_loop_inc_labels: dict[AstWhile, int] = field(default_factory=dict)
+
     lvar_array_size_bytes: int = 0
     """the size in bytes of the lvar array"""
 

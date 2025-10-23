@@ -1382,17 +1382,25 @@ def test_dir_too_large(fprime_test_api):
 
 def test_readme_examples(fprime_test_api):
     seq = """
-Ref.recvBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
+Ref.sendBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
 param4: F32 = 15.0
-Ref.recvBuffComp.PARAMETER4_PRM_SET(param4)
+Ref.sendBuffComp.PARAMETER4_PRM_SET(param4)
 
-prm_3: U8 = Ref.sendBuffComp.parameter3
-cmds_dispatched: U32 = CdhCore.cmdDisp.CommandsDispatched
+#prm_3: U8 = Ref.sendBuffComp.parameter3
+#cmds_dispatched: U32 = CdhCore.cmdDisp.CommandsDispatched
+cmds_dispatched: U32 = 0
 
-signal_pair: Ref.SignalPair = Ref.SG1.PairOutput
+signal_pair: Ref.SignalPair = Ref.SignalPair(0, 0)
 
-signal_pair_time: F32 = Ref.SG1.PairOutput.time
-com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
+signal_pair.time = 0.2
+
+# Svc.ComQueueDepth is an array type
+com_queue_depth: Svc.ComQueueDepth = Svc.ComQueueDepth(0, 0)
+com_queue_depth[0] = 1
+#signal_pair_time: F32 = Ref.SG1.PairOutput.time
+#com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
+
+
 value: bool = 1 > 2 and (3 + 4) != 5
 many_cmds_dispatched: bool = cmds_dispatched >= 123
 record1: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
@@ -1406,8 +1414,33 @@ elif random_value > 0 and random_value <= 6:
     CdhCore.cmdDisp.CMD_NO_OP_STRING("should happen!")
 else:
     CdhCore.cmdDisp.CMD_NO_OP_STRING("uh oh...")
+counter: U64 = 0
+while counter < 100:
+    counter = counter + 1
+
+assert counter == 100
+sum: U64 = 0
+# loop i from 0 inclusive to 5 exclusive
+for i: I8 from 0 to 5:
+    sum = sum + i
+
+assert sum == 10
+counter = 0
+while True:
+    counter = counter + 1
+    if counter == 100:
+        break
+
+assert counter == 100
+odd_numbers_sum: U64 = 0
+for j: U64 from 0 to 10:
+    if j % 2 == 0:
+        continue
+    odd_numbers_sum = odd_numbers_sum + j
+
+assert odd_numbers_sum == 25
 """
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_unary_plus_unsigned(fprime_test_api):

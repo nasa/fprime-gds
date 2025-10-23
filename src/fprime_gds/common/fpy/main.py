@@ -2,21 +2,27 @@ import argparse
 from pathlib import Path
 import sys
 
-from fprime_gds.common.fpy.bytecode.assembler import assemble, directives_to_fpybc, parse as fpybc_parse
+from fprime_gds.common.fpy.bytecode.assembler import (
+    assemble,
+    directives_to_fpybc,
+    parse as fpybc_parse,
+)
 import fprime_gds.common.fpy.error
 from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
 import fprime_gds.common.fpy.model
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.compiler import text_to_ast, ast_to_directives
 
+
 def human_readable_size(size_bytes):
-    units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
     unit_idx = 0
     while size_bytes >= 1024.0 and unit_idx < len(units) - 1:
         size_bytes /= 1024.0
         unit_idx += 1
     size_bytes = int(size_bytes)
     return f"{size_bytes} {units[unit_idx]}"
+
 
 def compile_main(args: list[str] = None):
     arg_parser = argparse.ArgumentParser()
@@ -65,8 +71,14 @@ def compile_main(args: list[str] = None):
     fprime_gds.common.fpy.error.file_name = str(args.input)
     body = text_to_ast(args.input.read_text())
     directives = ast_to_directives(body, args.dictionary)
-    if isinstance(directives, fprime_gds.common.fpy.error.CompileError):
-        print(directives) # directives is an error
+    if isinstance(
+        directives,
+        (
+            fprime_gds.common.fpy.error.CompileError,
+            fprime_gds.common.fpy.error.BackendError,
+        ),
+    ):
+        print(directives)  # directives is an error
         sys.exit(1)
 
     output = args.output
@@ -83,9 +95,6 @@ def compile_main(args: list[str] = None):
         output_bytes, crc = serialize_directives(directives)
         output.write_bytes(output_bytes)
         print(f"{output}\nCRC {hex(crc)} size {human_readable_size(len(output_bytes))}")
-
-
-
 
 
 def model_main(args: list[str] = None):

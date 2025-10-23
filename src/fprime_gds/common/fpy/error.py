@@ -82,6 +82,10 @@ class CompileError:
 
         return result
 
+@dataclass
+class BackendError:
+    msg: str
+
 
 def handle_lark_error(err):
     assert isinstance(err, LarkError), err

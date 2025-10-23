@@ -42,7 +42,7 @@ For types, Fpy has most of the same basic ones that FPP does:
 
 Float literals are denoted with a decimal point (`5.0`, `0.123`) and Boolean literals have a capitalized first letter: `True`, `False`. There is no way to differentiate between signed and unsigned integer literals, so the compiler looks at where the literal is used to determine the signedness.
 
-Note there is currently no built-in `string` type. See [Strings](#12-strings).
+Note there is currently no built-in `string` type. See [Strings](#14-strings).
 
 ## 3. Dictionary Types
 
@@ -80,15 +80,15 @@ The behavior of these operators is designed to mimic Python. Note that **divisio
 Where this really gets interesting is when you pass variables or expressions into commands:
 ```py
 # this is a command that takes an F32
-Ref.recvBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
+Ref.sendBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
 # alternatively:
 param4: F32 = 15.0
-Ref.recvBuffComp.PARAMETER4_PRM_SET(param4)
+Ref.sendBuffComp.PARAMETER4_PRM_SET(param4)
 ```
 
-You can also pass variable arguments to the [`sleep`](#10-relative-and-absolute-sleep), [`exit`](#11-exit-macro), and `log` macros, as well as to constructors.
+You can also pass variable arguments to the [`sleep`](#11-relative-and-absolute-sleep), [`exit`](#12-exit-macro), and `log` macros, as well as to constructors.
 
-There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#12-strings).
+There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#14-strings).
 
 ## 6. Getting Telemetry Channels and Parameters
 
@@ -159,20 +159,61 @@ signal_pair_time: F32 = Ref.SG1.PairOutput.time
 com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
 ```
 
-You cannot reassign struct members or array elements however:
+You can also reassign struct members or array elements:
 ```py
 # Ref.SignalPair is a struct type
 signal_pair: Ref.SignalPair = Ref.SG1.PairOutput
-# compiler error:
 signal_pair.time = 0.2
 
 # Svc.ComQueueDepth is an array type
 com_queue_depth: Svc.ComQueueDepth = ComCcsds.comQueue.comQueueDepth
-# compiler error:
 com_queue_depth[0] = 1
 ```
 
-## 10. Relative and Absolute Sleep
+## 10. For and while loops
+You can loop while a condition is true:
+```py
+counter: U64 = 0
+while counter < 100:
+    counter = counter + 1
+
+# counter == 100
+```
+
+You can also loop over a range of integers:
+```py
+sum: U64 = 0
+# loop i from 0 inclusive to 5 exclusive
+for i: I8 from 0 to 5:
+    sum = sum + i
+
+# sum == 10
+```
+There is currently no support for a step size other than 1.
+
+While inside of a loop, you can break out of the loop:
+```py
+counter: U64 = 0
+while True:
+    counter = counter + 1
+    if counter == 100:
+        break
+
+# counter == 100
+```
+
+You can also continue on to the next iteration of the loop, skipping the remainder of the loop body:
+```py
+odd_numbers_sum: U64 = 0
+for i: U64 from 0 to 10:
+    if i % 2 == 0:
+        continue
+    odd_numbers_sum = odd_numbers_sum + i
+
+# odd_numbers_sum == 24
+```
+
+## 11. Relative and Absolute Sleep
 You can pause the execution of a sequence for a relative duration, or until an absolute time:
 ```py
 CdhCore.cmdDisp.CMD_NO_OP_STRING("second 0")
@@ -190,7 +231,7 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("much later")
 
 Make sure that the `Svc.FpySequencer.checkTimers` port is connected to a rate group. The sequencer only checks if a sleep is done when the port is called, so the more frequently you call it, the more accurate the wakeup time.
 
-## 11. Exit Macro
+## 12. Exit Macro
 You can end the execution of the sequence early by calling the `exit` macro:
 ```py
 # exit takes a U8 argument
@@ -200,5 +241,20 @@ exit(0)
 exit(123)
 ```
 
-## 12. Strings
+## 13. Assertions
+You can assert that a Boolean condition is true:
+```py
+# won't end the sequence
+assert 1 > 0
+# will end the sequence
+assert 0 > 1
+```
+
+You can also specify an error code to be raised if the expression is not true:
+```py
+# will raise an error code of 123
+assert 1 > 2, 123
+```
+
+## 14. Strings
 Fpy does not support a fully-fledged `string` type yet. You can pass a string literal as an argument to a command, but you cannot pass a string from a telemetry channel. You also cannot store a string in a variable, or perform any string manipulation. These features will be added in a later Fpy update.

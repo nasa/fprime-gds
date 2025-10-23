@@ -1,10 +1,14 @@
 from __future__ import annotations
+from dataclasses import dataclass
 import inspect
 from typing import Union
 import typing
 
+from fprime_gds.common.fpy.error import BackendError, CompileError
 from fprime_gds.common.fpy.model import DirectiveErrorCode
 from fprime_gds.common.fpy.types import (
+    MAX_DIRECTIVES_COUNT,
+    MAX_STACK_SIZE,
     SPECIFIC_NUMERIC_TYPES,
     ArrayIndexType,
     CompileState,
@@ -89,11 +93,31 @@ from fprime_gds.common.fpy.syntax import (
 )
 
 
+@dataclass(frozen=True, unsafe_hash=True)
+class Ir:
+    pass
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class IrLabel(Ir):
+    label: str
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class IrGoto(Ir):
+    label: Union[str, IrLabel]
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class IrIf(Ir):
+    goto_if_false_label: Union[str, IrLabel]
+
+
 class GenerateCode:
 
     def try_emit_expr_as_const(
         self, node: AstExpr, state: CompileState
-    ) -> Union[list[Directive], None]:
+    ) -> Union[list[Directive|Ir], None]:
         expr_value = state.expr_converted_values.get(node)
 
         if expr_value is None:
@@ -114,7 +138,7 @@ class GenerateCode:
         # push it to the stack
         return [PushValDirective(serialized_expr_value)]
 
-    def emit(self, node: Ast, start_idx: int, state: CompileState) -> list[Directive]:
+    def emit(self, node: Ast, state: CompileState) -> list[Directive|Ir]:
         # if node is an expr, emit the code to push the expr to the stack, accounting
         # for type conversions
 
@@ -124,17 +148,15 @@ class GenerateCode:
                 continue
             signature = inspect.signature(func)
             params = list(signature.parameters.values())
-            assert len(params) == 4
+            assert len(params) == 3
             assert params[1].annotation is not None
             annotations = typing.get_type_hints(func)
             param_type = annotations[params[1].name]
             if is_instance_compat(node, param_type):
-                return getattr(self, name)(node, start_idx, state)
+                return getattr(self, name)(node, state)
         raise NotImplementedError(node)
 
-    def emit_AstScopedBody(
-        self, node: AstScopedBody, start_idx: int, state: CompileState
-    ):
+    def emit_AstScopedBody(self, node: AstScopedBody, state: CompileState):
         dirs = []
         if state.root == node:
             dirs.append(AllocateDirective(state.lvar_array_size_bytes))
@@ -143,24 +165,23 @@ class GenerateCode:
                 # if the stmt can't do anything on its own, ignore it
                 # TODO warn
                 continue
-            dirs.extend(self.emit(stmt, start_idx + len(dirs), state))
+            dirs.extend(self.emit(stmt, state))
         return dirs
 
-    def emit_AstBody(self, node: AstBody, start_idx: int, state: CompileState):
+    def emit_AstBody(self, node: AstBody, state: CompileState):
         dirs = []
         for stmt in node.stmts:
             if not isinstance(stmt, AstNodeWithSideEffects):
                 # if the stmt can't do anything on its own, ignore it
                 # TODO warn
                 continue
-            dirs.extend(self.emit(stmt, start_idx + len(dirs), state))
+            dirs.extend(self.emit(stmt, state))
         return dirs
 
-    def emit_AstIf(self, node: AstIf, start_idx: int, state: CompileState):
+    def emit_AstIf(self, node: AstIf, state: CompileState):
         dirs = []
 
         cases: list[tuple[AstExpr, AstBody]] = []
-        goto_ends: list[GotoDirective] = []
 
         cases.append((node.condition, node.body))
 
@@ -168,47 +189,54 @@ class GenerateCode:
             for case in node.elifs.cases:
                 cases.append((case.condition, case.body))
 
+        if_end_label = IrLabel(f"{node.id}.end")
+
         for case in cases:
+            case_end_label = IrLabel(f"{case[1].id}.end")
             case_dirs = []
             # put the conditional on top of stack
-            case_dirs.extend(self.emit(case[0], start_idx + len(dirs), state))
+            case_dirs.extend(self.emit(case[0], state))
             # include if stmt (update the end idx later)
-            if_dir = IfDirective(-1)
+            if_dir = IrIf(case_end_label)
 
             case_dirs.append(if_dir)
             # include body
-            case_dirs.extend(
-                self.emit(case[1], start_idx + len(dirs) + len(case_dirs), state)
-            )
-            # include a temporary goto end of if, will be refined later
-            goto_dir = GotoDirective(-1)
-            case_dirs.append(goto_dir)
-            goto_ends.append(goto_dir)
-
-            # if false, skip the body and goto
-            if_dir.false_goto_dir_index = start_idx + len(dirs) + len(case_dirs)
+            case_dirs.extend(self.emit(case[1], state))
+            # once we've finished executing the body:
+            # include a goto end of if
+            case_dirs.append(IrGoto(if_end_label))
+            case_dirs.append(case_end_label)
 
             dirs.extend(case_dirs)
 
         if node.els is not None:
-            dirs.extend(self.emit(node.els, start_idx + len(dirs), state))
+            dirs.extend(self.emit(node.els, state))
 
-        for goto in goto_ends:
-            goto.dir_idx = start_idx + len(dirs)
+        dirs.append(if_end_label)
 
         return dirs
 
-    def emit_AstWhile(self, node: AstWhile, start_idx: int, state: CompileState):
-        # push the condition to the stack
-        dirs = self.emit(node.condition, start_idx, state)
-        # if the cond is true, fall thru, otherwise go to end
-        if_dir = IfDirective(-1)
-        dirs.append(if_dir)
-        # run body
-        last_stmt_dir_idx = -1
+    def emit_AstWhile(self, node: AstWhile, state: CompileState):
+        # start by creating labels. store them in dicts so that break/continue
+        # can use them
+        while_start_label = IrLabel(f"{node.id}.start")
+        while_end_label = IrLabel(f"{node.id}.end")
+        for_loop_increment_label = None
+        state.while_loop_start_labels[node] = while_start_label
+        state.while_loop_end_labels[node] = while_end_label
+        # if this used to be a for loop:
+        if node in state.desugared_for_loops:
+            # there should be at least one stmt in a for loop's body (the inc stmt)
+            for_loop_increment_label = IrLabel(f"{node.id}.increment")
+            state.for_loop_inc_labels[node] = for_loop_increment_label
 
-        break_positions = []
-        continue_positions = []
+        dirs = [while_start_label]
+        # push the condition to the stack
+        dirs.extend(self.emit(node.condition, state))
+        # if the cond is true, fall thru, otherwise go to end
+        dirs.append(IrIf(while_end_label))
+        # run body
+
         for stmt_idx, stmt in enumerate(node.body.stmts):
             if not isinstance(stmt, AstNodeWithSideEffects):
                 # if the stmt can't do anything on its own, ignore it
@@ -218,55 +246,34 @@ class GenerateCode:
             # and B) we need the index of the last statement in the body
             # if we're a for loop, because that's where the continue stmt
             # needs to go
-            if stmt_idx == len(node.body.stmts) - 1:
-                # last stmt
-                last_stmt_dir_idx = start_idx + len(dirs)
-            if isinstance(stmt, AstBreak):
-                # keep track of the position of breaks and continues
-                # don't emit them yet, because we don't know our end line index/inc line idx
-                break_positions.append(len(dirs))
-                # instead, just put in a placeholder
-                dirs.append(GotoDirective(-1))
-            elif isinstance(stmt, AstContinue):
-                continue_positions.append(len(dirs))
-                dirs.append(GotoDirective(-1))
-            else:
-                dirs.extend(self.emit(stmt, start_idx + len(dirs), state))
+            if stmt_idx == len(node.body.stmts) - 1 and for_loop_increment_label is not None:
+                # last stmt, it must be the inc stmt, add the label before it
+                dirs.append(for_loop_increment_label)
+            dirs.extend(self.emit(stmt, state))
         # go back to condition check
-        dirs.append(GotoDirective(start_idx))
-        end_line_idx = start_idx + len(dirs)
-        if_dir.false_goto_dir_index = end_line_idx
+        dirs.append(IrGoto(while_start_label))
+        dirs.append(while_end_label)
 
-        for break_pos in break_positions:
-            # break should go to end idx
-            dirs[break_pos].dir_idx = end_line_idx
-        for continue_pos in continue_positions:
-            dir: GotoDirective = dirs[continue_pos]
-            # if this used to be a for loop:
-            if node in state.desugared_for_loops:
-                # go to the increment stmt
-                # there should be at least one stmt in a for loop's body (the inc stmt)
-                assert last_stmt_dir_idx != -1
-                dir.dir_idx = last_stmt_dir_idx
-            else:
-                # this is just a plain ol while loop
-                # go back to condition
-                dir.dir_idx = start_idx
         return dirs
 
-    def emit_AstBreak(self, node: AstBreak, start_idx: int, state: CompileState):
-        # break and continue are handled by the while emitter
-        assert False, node
+    def emit_AstBreak(self, node: AstBreak, state: CompileState):
+        enclosing_loop = state.enclosing_loops[node]
+        loop_end = state.while_loop_end_labels[enclosing_loop]
+        return [IrGoto(loop_end)]
 
-    def emit_AstContinue(self, node: AstContinue, start_idx: int, state: CompileState):
-        # break and continue are handled by the while emitter
-        assert False, node
+    def emit_AstContinue(self, node: AstContinue, state: CompileState):
+        enclosing_loop = state.enclosing_loops[node]
+        if enclosing_loop in state.desugared_for_loops:
+            loop_start = state.for_loop_inc_labels[enclosing_loop]
+        else:
+            loop_start = state.while_loop_end_labels[enclosing_loop]
+        return [IrGoto(loop_start)]
 
-    def emit_AstFor(self, node: AstFor, start_idx: int, state: CompileState):
+    def emit_AstFor(self, node: AstFor, state: CompileState):
         # should have been desugared out
         assert False, node
 
-    def emit_AstGetItem(self, node: AstGetItem, start_idx: int, state: CompileState):
+    def emit_AstGetItem(self, node: AstGetItem, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         if const_dirs is not None:
             return const_dirs
@@ -290,10 +297,10 @@ class GenerateCode:
 
         # optimization: leave it in the lvar array
 
-        dirs = self.emit(node.parent, start_idx, state)
+        dirs = self.emit(node.parent, state)
 
         # push the index (must be U64) to the stack
-        dirs.extend(self.emit(node.item, start_idx + len(dirs), state))
+        dirs.extend(self.emit(node.item, state))
         # okay now let's do an array oob check
         dirs.append(
             DuplicateDirective(ArrayIndexType.getMaxSize())
@@ -338,7 +345,7 @@ class GenerateCode:
 
         return dirs
 
-    def emit_AstVar(self, node: AstVar, start_idx: int, state: CompileState):
+    def emit_AstVar(self, node: AstVar, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         if const_dirs is not None:
             return const_dirs
@@ -357,7 +364,7 @@ class GenerateCode:
 
         return dirs
 
-    def emit_AstGetAttr(self, node: AstGetAttr, start_idx: int, state: CompileState):
+    def emit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         if const_dirs is not None:
             return const_dirs
@@ -383,7 +390,7 @@ class GenerateCode:
             dirs.append(LoadDirective(ref.lvar_offset, ref.type.getMaxSize()))
         elif isinstance(ref, FieldReference):
             # okay, put parent dirs in first
-            dirs.extend(self.emit(ref.parent_expr, start_idx + len(dirs), state))
+            dirs.extend(self.emit(ref.parent_expr, state))
             assert ref.local_offset is not None
             # use the converted type of parent
             parent_type = state.expr_converted_types[ref.parent_expr]
@@ -405,7 +412,7 @@ class GenerateCode:
 
         return dirs
 
-    def emit_AstBinaryOp(self, node: AstBinaryOp, start_idx: int, state: CompileState):
+    def emit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         if const_dirs is not None:
             return const_dirs
@@ -421,8 +428,8 @@ class GenerateCode:
             dir = BINARY_STACK_OPS[node.op][intermediate_type]
 
         # push lhs and rhs to stack
-        dirs = self.emit(node.lhs, start_idx, state)
-        dirs.extend(self.emit(node.rhs, start_idx + len(dirs), state))
+        dirs = self.emit(node.lhs, state)
+        dirs.extend(self.emit(node.rhs, state))
         # generate the actual op itself
         if dir == MemCompareDirective:
             lhs_type = state.expr_converted_types[node.lhs]
@@ -445,13 +452,13 @@ class GenerateCode:
 
         return dirs
 
-    def emit_AstUnaryOp(self, node: AstUnaryOp, start_idx: int, state: CompileState):
+    def emit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         if const_dirs is not None:
             return const_dirs
 
         # push val to stack
-        dirs = self.emit(node.val, start_idx, state)
+        dirs = self.emit(node.val, state)
 
         # generate the actual op itself
         # which dir should we use?
@@ -475,7 +482,7 @@ class GenerateCode:
 
         return dirs
 
-    def emit_AstFuncCall(self, node: AstFuncCall, start_idx: int, state: CompileState):
+    def emit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         if const_dirs is not None:
             return const_dirs
@@ -499,7 +506,7 @@ class GenerateCode:
                 # push all args to the stack
                 # keep track of how many bytes total we have pushed
                 for arg_node in node_args:
-                    dirs.extend(self.emit(arg_node, start_idx + len(dirs), state))
+                    dirs.extend(self.emit(arg_node, state))
                     arg_converted_type = state.expr_converted_types[arg_node]
                     arg_byte_count += arg_converted_type.getMaxSize()
                 # then push cmd opcode to stack as u32
@@ -512,17 +519,17 @@ class GenerateCode:
         elif isinstance(func, FpyMacro):
             # put all arg values on stack
             for arg_node in node_args:
-                dirs.extend(self.emit(arg_node, start_idx + len(dirs), state))
+                dirs.extend(self.emit(arg_node, state))
 
             dirs.append(func.dir())
         elif isinstance(func, FpyTypeCtor):
             # put arg values onto stack in correct order for serialization
             for arg_node in node_args:
-                dirs.extend(self.emit(arg_node, start_idx + len(dirs), state))
+                dirs.extend(self.emit(arg_node, state))
         elif isinstance(func, FpyCast):
             # just putting the arg value on the stack should be good enough, the
             # conversion will happen below
-            dirs.extend(self.emit(node_args[0], start_idx + len(dirs), state))
+            dirs.extend(self.emit(node_args[0], state))
         else:
             assert False, func
 
@@ -534,7 +541,7 @@ class GenerateCode:
 
         return dirs
 
-    def emit_AstAssign(self, node: AstAssign, start_idx: int, state: CompileState):
+    def emit_AstAssign(self, node: AstAssign, state: CompileState):
         lhs = state.resolved_references[node.lhs]
 
         const_lvar_offset = -1
@@ -565,12 +572,13 @@ class GenerateCode:
                     lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
                     const_lvar_offset = (
                         lhs.base_ref.lvar_offset
-                        + const_idx_expr_value.val * lhs_parent_type.MEMBER_TYPE.getMaxSize()
+                        + const_idx_expr_value.val
+                        * lhs_parent_type.MEMBER_TYPE.getMaxSize()
                     )
                 # otherwise, the array idx is unknown at compile time. we will have to calculate it
 
         # start with rhs on stack
-        dirs = self.emit(node.rhs, start_idx, state)
+        dirs = self.emit(node.rhs, state)
 
         if const_lvar_offset != -1:
             # in this case, we can use StoreConstOffset
@@ -587,7 +595,7 @@ class GenerateCode:
             dirs.append(PushValDirective(U64Type(lhs.base_ref.lvar_offset).serialize()))
 
             # push the index to the stack, do a bounds check,
-            dirs.extend(self.emit(lhs.idx_expr, start_idx + len(dirs), state))
+            dirs.extend(self.emit(lhs.idx_expr, state))
             # okay now let's do an array oob check
             dirs.append(
                 DuplicateDirective(ArrayIndexType.getMaxSize())
@@ -628,16 +636,16 @@ class GenerateCode:
 
         return dirs
 
-    def emit_AstLiteral(self, node: AstLiteral, start_idx: int, state: CompileState):
+    def emit_AstLiteral(self, node: AstLiteral, state: CompileState):
         const_dirs = self.try_emit_expr_as_const(node, state)
         assert const_dirs is not None
         return const_dirs
 
-    def emit_AstAssert(self, node: AstAssert, start_idx: int, state: CompileState):
-        dirs = self.emit(node.condition, start_idx, state)
+    def emit_AstAssert(self, node: AstAssert, state: CompileState):
+        dirs = self.emit(node.condition, state)
         # push the error code we should use if false, if one was given
         if node.exit_code is not None:
-            dirs.extend(self.emit(node.exit_code, start_idx + len(dirs), state))
+            dirs.extend(self.emit(node.exit_code, state))
         else:
             # otherwise just use the default "ASSERTION_FAILURE error code"
             dirs.append(
@@ -648,3 +656,62 @@ class GenerateCode:
         dirs.append(AssertDirective())
 
         return dirs
+
+
+class IrPass:
+    def run(
+        self, ir: list[Directive | Ir], state: CompileState
+    ) -> Union[list[Directive | Ir], BackendError]:
+        pass
+
+
+class ResolveLabels(IrPass):
+    def run(self, ir, state: CompileState):
+        labels: dict[str, int] = {}
+        idx = 0
+        dirs = []
+        for dir in ir:
+            if isinstance(dir, IrLabel):
+                if dir.label in labels:
+                    return BackendError(f"Label {dir.label} already exists")
+                labels[dir.label] = idx
+                continue
+            idx += 1
+
+        # okay, we have all the labels
+        for dir in ir:
+            if isinstance(dir, IrLabel):
+                # drop these from the result
+                continue
+            elif isinstance(dir, IrGoto):
+                label = dir.label.label if isinstance(dir.label, IrLabel) else dir.label
+                if label not in labels:
+                    return BackendError(f"Unknown label {label}")
+                dirs.append(GotoDirective(labels[label]))
+            elif isinstance(dir, IrIf):
+                label = dir.goto_if_false_label.label if isinstance(dir.goto_if_false_label, IrLabel) else dir.goto_if_false_label
+                if label not in labels:
+                    return BackendError(f"Unknown label {label}")
+                dirs.append(IfDirective(labels[label]))
+            else:
+                dirs.append(dir)
+
+        return dirs
+
+
+class FinalChecks(IrPass):
+    def run(self, ir, state):
+        if state.lvar_array_size_bytes > MAX_STACK_SIZE:
+            return BackendError(
+                f"Stack size too big (expected less than {MAX_STACK_SIZE}, had {state.lvar_array_size_bytes})"
+            )
+        if len(ir) > MAX_DIRECTIVES_COUNT:
+            return BackendError(
+                f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(ir)})"
+            )
+
+        for dir in ir:
+            # double check we've got rid of all the IR
+            assert isinstance(dir, Directive), dir
+
+        return ir

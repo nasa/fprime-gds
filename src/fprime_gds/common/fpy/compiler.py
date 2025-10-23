@@ -17,7 +17,10 @@ from fprime.common.models.serialize.type_base import BaseType as FppValue
 from lark import Lark
 from fprime_gds.common.fpy.bytecode.directives import Directive
 from fprime_gds.common.fpy.codegen import (
+    FinalChecks,
     GenerateCode,
+    IrPass,
+    ResolveLabels,
 )
 from fprime_gds.common.fpy.desuraging import DesugarForLoops
 from fprime_gds.common.fpy.semantics import (
@@ -57,7 +60,7 @@ from pathlib import Path
 from lark import Lark, LarkError
 from lark.indenter import PythonIndenter
 
-from fprime_gds.common.fpy.error import CompileError, handle_lark_error
+from fprime_gds.common.fpy.error import BackendError, CompileError, handle_lark_error
 import fprime_gds.common.fpy.error
 
 fpy_grammar_str = (Path(__file__).parent / "grammar.lark").read_text()
@@ -180,7 +183,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
 
 def ast_to_directives(
     body: AstScopedBody, dictionary: str
-) -> list[Directive] | CompileError:
+) -> list[Directive] | CompileError | BackendError:
     state = get_base_compile_state(dictionary)
     state.root = body
     semantics_passes: list[Visitor] = [
@@ -215,6 +218,10 @@ def ast_to_directives(
         DesugarForLoops(),
     ]
     code_generator = GenerateCode()
+    ir_passes: list[IrPass] = [
+        ResolveLabels(),
+        FinalChecks()
+    ]
 
     for compile_pass in semantics_passes:
         compile_pass.run(body, state)
@@ -224,13 +231,12 @@ def ast_to_directives(
         compile_pass.run(body, state)
         if len(state.errors) != 0:
             return state.errors[0]
+    ir = code_generator.emit(body, state)
+    for compile_pass in ir_passes:
+        ir = compile_pass.run(ir, state)
+        if isinstance(ir, BackendError):
+            # early return errors
+            return ir
 
-    dirs = code_generator.emit(body, 0, state)
-    if len(dirs) > MAX_DIRECTIVES_COUNT:
-        return CompileError(
-            f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"
-        )
-
-    # TODO check lvar array not > max stack size (AND TEST THIS!)
-
-    return dirs
+    # all the ir is guaranteed to have been converted to directives by now
+    return ir
