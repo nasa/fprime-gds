@@ -42,9 +42,30 @@ For types, Fpy has most of the same basic ones that FPP does:
 
 Float literals are denoted with a decimal point (`5.0`, `0.123`) and Boolean literals have a capitalized first letter: `True`, `False`. There is no way to differentiate between signed and unsigned integer literals, so the compiler looks at where the literal is used to determine the signedness.
 
-Note there is currently no built-in `string` type. See [Strings](#14-strings).
+Note there is currently no built-in `string` type. See [Strings](#15-strings).
 
-## 3. Dictionary Types
+## 3. Type coercion and casting
+If you have a lower-bitwidth numerical type and want to turn it into a higher-bitwidth type, this happens automatically:
+```py
+low_bitwidth: U8 = 123
+high_bitwidth: U32 = low_bitwidth
+```
+
+However, the opposite produces a compiler error:
+```py
+high_bitwidth: U32 = 25565
+low_bitwidth: U8 = high_bitwidth # compiler error
+```
+
+If you are sure you want to do this, you can manually cast the type to the lower-bitwidth type:
+```py
+high_bitwidth: U32 = 25565
+low_bitwidth: U8 = U8(high_bitwidth) # no more error!
+```
+This is called downcasting
+
+
+## 4. Dictionary Types
 
 Fpy also has access to all structs, arrays and enums in the FPrime dictionary:
 ```py
@@ -60,7 +81,7 @@ struct_var: Ref.SignalPair = Ref.SignalPair(0.0, 1.0)
 
 In general, the syntax for instantiating a struct or array type is `Full.Type.Name(arg, ..., arg)`.
 
-## 4. Math
+## 5. Math
 You can do basic math and store the result in variables in Fpy:
 ```py
 pemdas: F32 = 1 - 2 + 3 * 4 + 10 / 5 * 2 # == 15.0
@@ -75,7 +96,7 @@ Fpy supports the following math operations:
 
 The behavior of these operators is designed to mimic Python. Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
 
-## 5. Variable Arguments to Commands, Macros and Constructors
+## 6. Variable Arguments to Commands, Macros and Constructors
 
 Where this really gets interesting is when you pass variables or expressions into commands:
 ```py
@@ -86,11 +107,11 @@ param4: F32 = 15.0
 Ref.sendBuffComp.PARAMETER4_PRM_SET(param4)
 ```
 
-You can also pass variable arguments to the [`sleep`](#11-relative-and-absolute-sleep), [`exit`](#12-exit-macro), and `log` macros, as well as to constructors.
+You can also pass variable arguments to the [`sleep`](#12-relative-and-absolute-sleep), [`exit`](#13-exit-macro), and `log` macros, as well as to constructors.
 
-There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#14-strings).
+There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#15-strings).
 
-## 6. Getting Telemetry Channels and Parameters
+## 7. Getting Telemetry Channels and Parameters
 
 Fpy supports getting the value of telemetry channels:
 ```py
@@ -109,7 +130,7 @@ prm_3: U8 = Ref.sendBuffComp.parameter3
 A significant limitation of this is that it will only return the value most recently saved to the parameter database. This means you must command `_PRM_SAVE` before the sequence will see the new value.
 
 #### Note:  If a telemetry channel and parameter have the same fully-qualified name, the fully-qualified name will get the value of the telemetry channel
-## 7. Conditionals
+## 8. Conditionals
 Fpy supports comparison operators:
 ```py
 value: bool = 1 > 2 and (3 + 4) != 5
@@ -125,7 +146,7 @@ record1: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 record2: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 records_equal: bool = record1 == record2 # == True
 ```
-## 8. If/elif/else
+## 9. If/elif/else
 
 You can branch off of conditionals with `if`, `elif` and `else`:
 ```py
@@ -148,7 +169,7 @@ if CdhCore.cmdDisp.CommandsDispatched >= 1:
     CdhCore.cmdDisp.CMD_NO_OP_STRING("should happen")
 ```
 
-## 9. Getting Struct Members and Array Items
+## 10. Getting Struct Members and Array Items
 
 You can access members of structs by name, or array elements by index:
 ```py
@@ -170,7 +191,7 @@ com_queue_depth: Svc.ComQueueDepth = ComCcsds.comQueue.comQueueDepth
 com_queue_depth[0] = 1
 ```
 
-## 10. For and while loops
+## 11. For and while loops
 You can loop while a condition is true:
 ```py
 counter: U64 = 0
@@ -210,10 +231,10 @@ for i: U64 from 0 to 10:
         continue
     odd_numbers_sum = odd_numbers_sum + i
 
-# odd_numbers_sum == 24
+# odd_numbers_sum == 25
 ```
 
-## 11. Relative and Absolute Sleep
+## 12. Relative and Absolute Sleep
 You can pause the execution of a sequence for a relative duration, or until an absolute time:
 ```py
 CdhCore.cmdDisp.CMD_NO_OP_STRING("second 0")
@@ -231,7 +252,7 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("much later")
 
 Make sure that the `Svc.FpySequencer.checkTimers` port is connected to a rate group. The sequencer only checks if a sleep is done when the port is called, so the more frequently you call it, the more accurate the wakeup time.
 
-## 12. Exit Macro
+## 13. Exit Macro
 You can end the execution of the sequence early by calling the `exit` macro:
 ```py
 # exit takes a U8 argument
@@ -241,7 +262,7 @@ exit(0)
 exit(123)
 ```
 
-## 13. Assertions
+## 14. Assertions
 You can assert that a Boolean condition is true:
 ```py
 # won't end the sequence
@@ -256,5 +277,5 @@ You can also specify an error code to be raised if the expression is not true:
 assert 1 > 2, 123
 ```
 
-## 14. Strings
+## 15. Strings
 Fpy does not support a fully-fledged `string` type yet. You can pass a string literal as an argument to a command, but you cannot pass a string from a telemetry channel. You also cannot store a string in a variable, or perform any string manipulation. These features will be added in a later Fpy update.
