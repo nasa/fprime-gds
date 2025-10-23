@@ -1,4 +1,5 @@
 from __future__ import annotations
+from numbers import Number
 from typing import Union
 
 from fprime_gds.common.fpy.types import (
@@ -15,6 +16,7 @@ from fprime_gds.common.fpy.types import (
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
+    InternalFloatType,
     InternalIntType,
     InternalStringType,
     NothingValue,
@@ -503,13 +505,25 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             assert issubclass(to_type, IntegerType), to_type
             # if the from_type is internal int, then it has infinite precision
             # we'll allow interpreting this as any integer, regardless of dest bitwidth
+
+            # i think this should be impossible rn
+            assert to_type != InternalIntType
             return type == InternalIntType or type.get_bits() <= to_type.get_bits()
         if (
             issubclass(type, FloatType)
-            and issubclass(to_type, FloatType)
-            and type.get_bits() <= to_type.get_bits()
         ):
-            return True
+            if not issubclass(to_type, FloatType):
+                # definitely will fail, cannot coerce float into non float
+                return False
+            if type == InternalFloatType:
+                # can convert the internal float type into any float type
+                return True
+            # otherwise we're going from a specific float type
+
+            # i think this should be impossible rn
+            assert to_type != InternalFloatType
+
+            return type.get_bits() <= to_type.get_bits()
         return False
 
     def pick_intermediate_type(
@@ -533,25 +547,31 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # cannot find intermediate type
             return None
 
-        if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
-            # always do true division over floats, python style
-            return F64Type
-
-        float = any(issubclass(t, FloatType) for t in arg_types)
-        unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
-        arbitrary_precision = all(t == InternalIntType for t in arg_types)
-
-        if float:
-            # at least one arg is a float
-            return F64Type
-
-        if unsigned:
-            # at least one arg is unsigned
-            return U64Type
+        arbitrary_precision = all(t == InternalIntType or t == InternalFloatType for t in arg_types)
 
         if arbitrary_precision:
             # all arguments are arbitrary precision
+            # the return value should be arbitrary precision
+            if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
+                # always do true division over floats, python style
+                return InternalFloatType
+            if any(issubclass(t, FloatType) for t in arg_types):
+                # at least one arg is a float
+                return InternalFloatType
+            # no args are floats
             return InternalIntType
+
+        if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
+            # always do true division over floats, python style
+            return F64Type
+        
+        if any(issubclass(t, FloatType) for t in arg_types):
+            # at least one arg is a float
+            return F64Type
+
+        if any(t in UNSIGNED_INTEGER_TYPES for t in arg_types):
+            # at least one arg is unsigned
+            return U64Type
 
         return I64Type
 
@@ -725,7 +745,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # give a best guess as to the final type of this node. we don't actually know
         # its bitwidth or signedness yet
         if isinstance(node.value, float):
-            result_type = F64Type
+            result_type = InternalFloatType
         else:
             result_type = InternalIntType
 
@@ -887,7 +907,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             [loop_var_type, loop_var_type], BinaryStackOp.LESS_THAN
         )
 
-        if cmp_intermediate_type is None or cmp_intermediate_type is F64Type:
+        if cmp_intermediate_type is None or issubclass(cmp_intermediate_type, FloatType):
             state.err(
                 f"Loop variable type must be a signed or unsigned integer type",
                 node,
@@ -895,6 +915,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             return
 
         loop_info.cmp_intermediate_type = cmp_intermediate_type
+        assert (
+            cmp_intermediate_type is not None and not issubclass(cmp_intermediate_type, FloatType)
+        ), cmp_intermediate_type
 
         # upper and lower bounds must be coercible to loop variable type
         if not self.coerce_expr_type(node.lower_bound, loop_var_type, state):
@@ -908,9 +931,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         inc_intermediate_type = self.pick_intermediate_type(
             [loop_var_type, loop_var_type], BinaryStackOp.ADD
         )
-        assert (
-            cmp_intermediate_type is not None and cmp_intermediate_type is not F64Type
-        ), cmp_intermediate_type
         loop_info.inc_intermediate_type = inc_intermediate_type
 
     def visit_AstWhile(self, node: AstWhile, state: CompileState):
@@ -1231,6 +1251,8 @@ class CalculateConstExprValues(Visitor):
             lhs_value = lhs_value.val
             rhs_value = rhs_value.val
 
+        print(lhs_value, rhs_value, node.op)
+
         folded_value = None
         # Arithmetic operations
         if node.op == BinaryStackOp.ADD:
@@ -1242,7 +1264,7 @@ class CalculateConstExprValues(Visitor):
         elif node.op == BinaryStackOp.DIVIDE:
             folded_value = lhs_value / rhs_value
         elif node.op == BinaryStackOp.EXPONENT:
-            folded_value = lhs_value**rhs_value
+            folded_value = lhs_value ** rhs_value
         elif node.op == BinaryStackOp.FLOOR_DIVIDE:
             folded_value = lhs_value // rhs_value
         elif node.op == BinaryStackOp.MODULUS:
@@ -1263,7 +1285,7 @@ class CalculateConstExprValues(Visitor):
             folded_value = lhs_value <= rhs_value
         # Equality Checking
         elif node.op == BinaryStackOp.EQUAL:
-            if not issubclass(lhs_value, NumericalType):
+            if not isinstance(lhs_value, Number):
                 # comparing two complex types
                 assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
                 # for now we don't fold this
@@ -1271,7 +1293,7 @@ class CalculateConstExprValues(Visitor):
             else:
                 folded_value = lhs_value == rhs_value
         elif node.op == BinaryStackOp.NOT_EQUAL:
-            if not issubclass(lhs_value, NumericalType):
+            if not isinstance(lhs_value, Number):
                 # comparing two complex types
                 assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
                 # for now we don't fold this
@@ -1290,7 +1312,7 @@ class CalculateConstExprValues(Visitor):
         if type(folded_value) == int:
             folded_value = InternalIntType(folded_value)
         elif type(folded_value) == float:
-            folded_value = F64Type(folded_value)
+            folded_value = InternalFloatType(folded_value)
         elif type(folded_value) == bool:
             folded_value = BoolType(folded_value)
         else:
@@ -1335,7 +1357,7 @@ class CalculateConstExprValues(Visitor):
         if type(folded_value) == int:
             folded_value = InternalIntType(folded_value)
         elif type(folded_value) == float:
-            folded_value = F64Type(folded_value)
+            folded_value = InternalFloatType(folded_value)
         elif type(folded_value) == bool:
             folded_value = BoolType(folded_value)
         else:

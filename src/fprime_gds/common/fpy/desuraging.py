@@ -33,7 +33,7 @@ class DesugarForLoops(Transformer):
         expr_converted_type: FppType | None,
         expr_unconverted_type: FppType | None,
         expr_converted_value: FppValue | None,
-        stack_op_directive: type[Directive] | None,
+        op_intermediate_type: type[Directive] | None,
         resolved_reference: FpyReference | None,
     ) -> Ast:
         node.id = state.next_node_id
@@ -41,7 +41,7 @@ class DesugarForLoops(Transformer):
         state.expr_converted_types[node] = expr_converted_type
         state.expr_unconverted_types[node] = expr_unconverted_type
         state.expr_converted_values[node] = expr_converted_value
-        state.stack_op_directives[node] = stack_op_directive
+        state.op_intermediate_types[node] = op_intermediate_type
         state.resolved_references[node] = resolved_reference
         return node
 
@@ -58,7 +58,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=None,
             expr_unconverted_type=None,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=None,
         )
 
@@ -74,7 +74,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=None,
             expr_unconverted_type=None,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=loop_info.upper_bound_var,
         )
 
@@ -88,7 +88,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=None,
             expr_unconverted_type=None,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=None,
         )
 
@@ -105,7 +105,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=loop_info.inc_intermediate_type,
             expr_unconverted_type=loop_info.loop_var.type,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=loop_info.loop_var,
         )
         rhs = self.new(
@@ -114,7 +114,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=loop_info.inc_intermediate_type,
             expr_unconverted_type=InternalIntType,
             expr_converted_value=loop_info.inc_intermediate_type(1),
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=None,
         )
 
@@ -124,7 +124,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=loop_info.loop_var.type,
             expr_unconverted_type=loop_info.inc_intermediate_type,
             expr_converted_value=None,
-            stack_op_directive=loop_info.inc_dir,
+            op_intermediate_type=loop_info.inc_intermediate_type,
             resolved_reference=None,
         )
 
@@ -140,7 +140,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=None,
             expr_unconverted_type=None,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=loop_info.loop_var,
         )
 
@@ -152,7 +152,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=None,
             expr_unconverted_type=None,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=None,
         )
 
@@ -167,7 +167,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=loop_info.cmp_intermediate_type,
             expr_unconverted_type=loop_info.loop_var.type,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=loop_info.loop_var,
         )
         rhs = self.new(
@@ -176,7 +176,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=loop_info.cmp_intermediate_type,
             expr_unconverted_type=loop_info.upper_bound_var.type,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=loop_info.upper_bound_var,
         )
 
@@ -186,7 +186,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=BoolType,
             expr_unconverted_type=BoolType,
             expr_converted_value=None,
-            stack_op_directive=loop_info.cmp_dir,
+            op_intermediate_type=loop_info.cmp_intermediate_type,
             resolved_reference=None,
         )
 
@@ -210,7 +210,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=None,
             expr_unconverted_type=None,
             expr_converted_value=None,
-            stack_op_directive=None,
+            op_intermediate_type=None,
             resolved_reference=None,
         )
 
