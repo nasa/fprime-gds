@@ -424,7 +424,7 @@ class CheckUseBeforeDeclare(Visitor):
         self.currently_declared_vars.append(var)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
-        ref = resolve_var(node, node.var, state)
+        ref = state.resolved_references[node]
         if not isinstance(ref, FpyVariable):
             # not a variable, might be a type name or smth
             return
@@ -441,6 +441,17 @@ class CheckUseBeforeDeclare(Visitor):
             return
 
 
+class CheckVariableNotReferenced(Visitor):
+    def __init__(self, var: FpyVariable):
+        self.var = var
+
+    def visit_AstVar(self, node: AstVar, state: CompileState):
+        ref = state.resolved_references[node]
+        if ref == self.var:
+            state.err(f"'{node.var}' used before declared", node)
+            return
+
+
 class CheckUseBeforeDeclareForLoopVariables(TopDownVisitor):
 
     def __init__(self):
@@ -450,9 +461,12 @@ class CheckUseBeforeDeclareForLoopVariables(TopDownVisitor):
         var = state.resolved_references[node.loop_var]
 
         self.currently_declared_vars.append(var)
+        # also double check that the vars aren't referenced in the ub and lb
+        CheckVariableNotReferenced(var).run(node.lower_bound, state)
+        CheckVariableNotReferenced(var).run(node.upper_bound, state)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
-        ref = resolve_var(node, node.var, state)
+        ref = state.resolved_references[node]
         if not isinstance(ref, FpyVariable):
             # not a variable, might be a type name or smth
             return
