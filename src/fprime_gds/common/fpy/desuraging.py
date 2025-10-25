@@ -1,3 +1,4 @@
+from __future__ import annotations
 from fprime_gds.common.fpy.bytecode.directives import BinaryStackOp, Directive
 from fprime_gds.common.fpy.syntax import (
     Ast,

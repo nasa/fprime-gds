@@ -133,7 +133,7 @@ class CreateVariables(TopDownVisitor):
         # okay, what are we assigning to?
         if isinstance(node.lhs, AstVar):
             if node.type_ann is not None:
-                # new variable declaraion
+                # new variable declaration
                 # make sure it isn't defined in this scope
                 existing_local = state.local_scopes[node].get(node.lhs.var)
                 if existing_local is not None:
@@ -871,6 +871,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # we're going from input_type to output type, and we're going to ignore
             # the coercion rules
             state.expr_converted_types[node_arg] = output_type
+            state.expr_explicit_casts.append(node_arg)
         else:
             for value_expr, arg in zip(node_args, func_args):
                 arg_name, arg_type = arg
@@ -1075,10 +1076,11 @@ class CalculateConstExprValues(Visitor):
             state.err(f"For type {unconverted_type.__name__}: {e}", node)
             return
 
+        explicit_cast = node in state.expr_explicit_casts
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state
+                expr_value, converted_type, node, state, explicit_cast
             )
             if expr_value is None:
                 return
@@ -1228,7 +1230,6 @@ class CalculateConstExprValues(Visitor):
         expr_value = None
 
         # whether the conversion that will happen is due to an explicit cast
-        explicit_cast = False
         if isinstance(func, FpyTypeCtor):
             # actually construct the type
             if issubclass(func.type, StructType):
@@ -1254,7 +1255,6 @@ class CalculateConstExprValues(Visitor):
             # should only be one value. it should be of some numeric type
             # our const convert type func will convert it for us
             expr_value = arg_values[0]
-            explitic_cast = True
         else:
             # don't try to calculate the value of this function call
             # it's something like a cmd or macro
@@ -1267,7 +1267,7 @@ class CalculateConstExprValues(Visitor):
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state, explicit_cast
+                expr_value, converted_type, node, state
             )
             if expr_value is None:
                 return

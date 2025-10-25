@@ -614,6 +614,7 @@ class CompileState:
 
     op_intermediate_types: dict[AstOp, FppType] = field(default_factory=dict)
 
+    expr_explicit_casts: list[AstExpr] = field(default_factory=list)
     expr_converted_types: dict[AstExpr, FppType] = field(default_factory=dict)
     """expr to fprime type it will end up being on the stack after type conversions"""
 

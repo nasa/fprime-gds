@@ -1553,7 +1553,7 @@ exit(1)
     assert_run_success(fprime_test_api, seq)
 
 
-def test_assign_field_with_type_ann_bad(fprime_test_api):
+def test_assign_field_with_type_ann_bad_2(fprime_test_api):
     seq = """
 var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 var.priority: U8 = 123
@@ -2071,6 +2071,13 @@ for i: U64 from 0 to 100:
         continue
     exit(1)
 assert sum == 100
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+def test_downcast_large_literal(fprime_test_api):
+    seq = """
+val: U8 = U8(1231231231243) # this is allowed but suspicious
 """
 
     assert_run_success(fprime_test_api, seq)

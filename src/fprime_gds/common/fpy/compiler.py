@@ -80,6 +80,7 @@ def text_to_ast(text: str):
         tree = parser.parse(text, on_error=handle_lark_error)
     except LarkError as e:
         handle_lark_error(e)
+        return None
     transformed = FpyTransformer().transform(tree)
     return transformed
 
