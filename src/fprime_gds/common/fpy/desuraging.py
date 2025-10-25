@@ -98,7 +98,7 @@ class DesugarForLoops(Transformer):
     ):
         # <node.loop_var> + 1
         # the expression adding one to the lv
-        # will have conv type of lv, unconv type depends what the addition intermediate type is
+        # will have conv type of lv, unconverted type depends what the addition intermediate type is
         # we've already determined the dir
         lhs = self.new(
             state,

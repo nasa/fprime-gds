@@ -88,6 +88,7 @@ DEPRECATEDLIST
 DESER
 Deserial
 deserializes
+desugaring
 dests
 dexc
 DGRAM
@@ -98,6 +99,7 @@ docbook
 docset
 dontinclude
 DOTFONTPATH
+downcasting
 downfiles
 downlinker
 dox
@@ -268,6 +270,7 @@ odl
 OKBLUE
 OKGREEN
 OMG
+oob
 OPREG
 oring
 osexc
@@ -291,6 +294,7 @@ postlex
 preds
 prm
 prmdb
+probs
 procs
 PROGRAMLISTING
 projectbrief
@@ -435,6 +439,7 @@ webified
 webpage
 website
 wikipedia
+wrt
 WSL
 wx
 xapian
