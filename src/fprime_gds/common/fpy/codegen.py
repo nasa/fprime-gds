@@ -124,11 +124,11 @@ class GenerateCode:
             # no const value
             return None
 
-        assert not isinstance(
+        assert not is_instance_compat(
             expr_value, (InternalIntType, InternalStringType, InternalFloatType)
         )
 
-        if isinstance(expr_value, NothingValue):
+        if is_instance_compat(expr_value, NothingValue):
             # nothing type has no value
             return []
 
@@ -161,7 +161,7 @@ class GenerateCode:
         if state.root == node:
             dirs.append(AllocateDirective(state.lvar_array_size_bytes))
         for stmt in node.stmts:
-            if not isinstance(stmt, AstNodeWithSideEffects):
+            if not is_instance_compat(stmt, AstNodeWithSideEffects):
                 # if the stmt can't do anything on its own, ignore it
                 # TODO warn
                 continue
@@ -171,7 +171,7 @@ class GenerateCode:
     def emit_AstBody(self, node: AstBody, state: CompileState):
         dirs = []
         for stmt in node.stmts:
-            if not isinstance(stmt, AstNodeWithSideEffects):
+            if not is_instance_compat(stmt, AstNodeWithSideEffects):
                 # if the stmt can't do anything on its own, ignore it
                 # TODO warn
                 continue
@@ -238,7 +238,7 @@ class GenerateCode:
         # run body
 
         for stmt_idx, stmt in enumerate(node.body.stmts):
-            if not isinstance(stmt, AstNodeWithSideEffects):
+            if not is_instance_compat(stmt, AstNodeWithSideEffects):
                 # if the stmt can't do anything on its own, ignore it
                 continue
             # we're going to manually emit the body's stmts instead
@@ -279,7 +279,7 @@ class GenerateCode:
             return const_dirs
         ref = state.resolved_references[node]
 
-        assert isinstance(ref, FieldReference), ref
+        assert is_instance_compat(ref, FieldReference), ref
 
         # use the unconverted for this expr for now, because we haven't run conversion
         unconverted_type = state.expr_unconverted_types[node]
@@ -354,7 +354,7 @@ class GenerateCode:
 
         ref = state.resolved_references.get(node)
 
-        assert isinstance(ref, FpyVariable), ref
+        assert is_instance_compat(ref, FpyVariable), ref
 
         # already should be in an lvar
         dirs = [LoadDirective(ref.lvar_offset, ref.type.getMaxSize())]
@@ -373,7 +373,7 @@ class GenerateCode:
 
         ref = state.resolved_references.get(node)
 
-        if isinstance(ref, dict):
+        if is_instance_compat(ref, dict):
             # don't generate code for it, it's a ref to a scope and
             # doesn't have a value
             return []
@@ -383,14 +383,14 @@ class GenerateCode:
 
         dirs = []
 
-        if isinstance(ref, ChTemplate):
+        if is_instance_compat(ref, ChTemplate):
             dirs.append(PushTlmValDirective(ref.get_id()))
-        elif isinstance(ref, PrmTemplate):
+        elif is_instance_compat(ref, PrmTemplate):
             dirs.append(PushPrmDirective(ref.get_id()))
-        elif isinstance(ref, FpyVariable):
+        elif is_instance_compat(ref, FpyVariable):
             # already should be in an lvar
             dirs.append(LoadDirective(ref.lvar_offset, ref.type.getMaxSize()))
-        elif isinstance(ref, FieldReference):
+        elif is_instance_compat(ref, FieldReference):
             # okay, put parent dirs in first
             dirs.extend(self.emit(ref.parent_expr, state))
             assert ref.local_offset is not None
@@ -492,7 +492,7 @@ class GenerateCode:
         node_args = node.args if node.args is not None else []
         func = state.resolved_references[node.func]
         dirs = []
-        if isinstance(func, FpyCmd):
+        if is_instance_compat(func, FpyCmd):
             const_args = not any(
                 state.expr_converted_values[arg_node] is None for arg_node in node_args
             )
@@ -518,17 +518,17 @@ class GenerateCode:
                 # now that all args are pushed to the stack, pop them and opcode off the stack
                 # as a command
                 dirs.append(StackCmdDirective(arg_byte_count))
-        elif isinstance(func, FpyMacro):
+        elif is_instance_compat(func, FpyMacro):
             # put all arg values on stack
             for arg_node in node_args:
                 dirs.extend(self.emit(arg_node, state))
 
             dirs.append(func.dir())
-        elif isinstance(func, FpyTypeCtor):
+        elif is_instance_compat(func, FpyTypeCtor):
             # put arg values onto stack in correct order for serialization
             for arg_node in node_args:
                 dirs.extend(self.emit(arg_node, state))
-        elif isinstance(func, FpyCast):
+        elif is_instance_compat(func, FpyCast):
             # just putting the arg value on the stack should be good enough, the
             # conversion will happen below
             dirs.extend(self.emit(node_args[0], state))
@@ -547,12 +547,12 @@ class GenerateCode:
         lhs = state.resolved_references[node.lhs]
 
         const_lvar_offset = -1
-        if isinstance(lhs, FpyVariable):
+        if is_instance_compat(lhs, FpyVariable):
             const_lvar_offset = lhs.lvar_offset
         else:
             # okay now push the lvar arr offset to stack
-            assert isinstance(lhs, FieldReference), lhs
-            assert isinstance(lhs.base_ref, FpyVariable), lhs.base_ref
+            assert is_instance_compat(lhs, FieldReference), lhs
+            assert is_instance_compat(lhs.base_ref, FpyVariable), lhs.base_ref
 
             # is the lvar array offset a constant?
             # okay, are we assigning to a member or an element?
@@ -569,7 +569,7 @@ class GenerateCode:
                 # check if we have a value for it
                 const_idx_expr_value = state.expr_converted_values.get(lhs.idx_expr)
                 if const_idx_expr_value is not None:
-                    assert isinstance(const_idx_expr_value, ArrayIndexType)
+                    assert is_instance_compat(const_idx_expr_value, ArrayIndexType)
                     # okay, so we have an index which might be variable
                     lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
                     const_lvar_offset = (
@@ -673,7 +673,7 @@ class ResolveLabels(IrPass):
         idx = 0
         dirs = []
         for dir in ir:
-            if isinstance(dir, IrLabel):
+            if is_instance_compat(dir, IrLabel):
                 if dir.label in labels:
                     return BackendError(f"Label {dir.label} already exists")
                 labels[dir.label] = idx
@@ -682,16 +682,16 @@ class ResolveLabels(IrPass):
 
         # okay, we have all the labels
         for dir in ir:
-            if isinstance(dir, IrLabel):
+            if is_instance_compat(dir, IrLabel):
                 # drop these from the result
                 continue
-            elif isinstance(dir, IrGoto):
-                label = dir.label.label if isinstance(dir.label, IrLabel) else dir.label
+            elif is_instance_compat(dir, IrGoto):
+                label = dir.label.label if is_instance_compat(dir.label, IrLabel) else dir.label
                 if label not in labels:
                     return BackendError(f"Unknown label {label}")
                 dirs.append(GotoDirective(labels[label]))
-            elif isinstance(dir, IrIf):
-                label = dir.goto_if_false_label.label if isinstance(dir.goto_if_false_label, IrLabel) else dir.goto_if_false_label
+            elif is_instance_compat(dir, IrIf):
+                label = dir.goto_if_false_label.label if is_instance_compat(dir.goto_if_false_label, IrLabel) else dir.goto_if_false_label
                 if label not in labels:
                     return BackendError(f"Unknown label {label}")
                 dirs.append(IfDirective(labels[label]))
@@ -714,6 +714,6 @@ class FinalChecks(IrPass):
 
         for dir in ir:
             # double check we've got rid of all the IR
-            assert isinstance(dir, Directive), dir
+            assert is_instance_compat(dir, Directive), dir
 
         return ir
