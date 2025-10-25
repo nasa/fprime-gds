@@ -127,11 +127,11 @@ class CreateVariables(TopDownVisitor):
     """finds all variable declarations and adds them to the variable scope"""
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        if not isinstance(node.lhs, AstReference):
+        if not is_instance_compat(node.lhs, AstReference):
             state.err("Invalid assignment", node.lhs)
             return
         # okay, what are we assigning to?
-        if isinstance(node.lhs, AstVar):
+        if is_instance_compat(node.lhs, AstVar):
             if node.type_ann is not None:
                 # new variable declaration
                 # make sure it isn't defined in this scope
@@ -210,11 +210,11 @@ class ResolveVarsAndTypes(TopDownVisitor):
 
         def resolve(n: Ast):
 
-            if not isinstance(n, (AstVar, AstGetAttr)):
+            if not is_instance_compat(n, (AstVar, AstGetAttr)):
                 state.err("Unknown type", node)
                 return None
 
-            if isinstance(n, AstVar):
+            if is_instance_compat(n, AstVar):
                 parent_scope = state.types
                 name = n.var
             else:
@@ -225,7 +225,7 @@ class ResolveVarsAndTypes(TopDownVisitor):
                 # error already raised
                 return None
 
-            assert isinstance(parent_scope, dict), parent_scope
+            assert is_instance_compat(parent_scope, dict), parent_scope
 
             node_type = parent_scope.get(name)
             if node_type is None:
@@ -245,10 +245,10 @@ class ResolveVarsAndTypes(TopDownVisitor):
         global_scope_name: str,
         state: CompileState,
     ) -> bool:
-        if not isinstance(node, AstReference):
+        if not is_instance_compat(node, AstReference):
             return True
 
-        if not isinstance(node, AstVar):
+        if not is_instance_compat(node, AstVar):
             return self.resolve_var_in_global_scope(
                 node.parent, global_scope, global_scope_name, state
             )
@@ -322,8 +322,8 @@ class ResolveVarsAndTypes(TopDownVisitor):
             # in the struct
             var = state.resolved_references[node.lhs]
             var_type = state.resolved_references[node.type_ann]
-            assert isinstance(var, FpyVariable), var
-            assert isinstance(var_type, type), var_type
+            assert is_instance_compat(var, FpyVariable), var
+            assert is_instance_compat(var_type, type), var_type
             var.type = var_type
 
         if not self.resolve_var_in_global_scope(
@@ -347,8 +347,8 @@ class ResolveVarsAndTypes(TopDownVisitor):
         # in the struct
         loop_var = state.resolved_references[node.loop_var]
         loop_var_type = state.resolved_references[node.loop_var_type]
-        assert isinstance(loop_var, FpyVariable), loop_var
-        assert isinstance(loop_var_type, type), loop_var_type
+        assert is_instance_compat(loop_var, FpyVariable), loop_var
+        assert is_instance_compat(loop_var_type, type), loop_var_type
         loop_var.type = loop_var_type
 
         if not self.resolve_var_in_global_scope(
@@ -408,7 +408,7 @@ class CheckUseBeforeDeclare(Visitor):
         self.currently_declared_vars: list[FpyVariable] = []
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        if not isinstance(node.lhs, AstVar):
+        if not is_instance_compat(node.lhs, AstVar):
             # definitely not a declaration, it's a field assignment
             return
 
@@ -425,14 +425,14 @@ class CheckUseBeforeDeclare(Visitor):
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         ref = state.resolved_references[node]
-        if not isinstance(ref, FpyVariable):
+        if not is_instance_compat(ref, FpyVariable):
             # not a variable, might be a type name or smth
             return
 
-        if isinstance(ref.declaration, AstFor):
+        if is_instance_compat(ref.declaration, AstFor):
             # this will be handled  by other pass
             return
-        if isinstance(ref.declaration, AstAssign) and ref.declaration.lhs == node:
+        if is_instance_compat(ref.declaration, AstAssign) and ref.declaration.lhs == node:
             # this is the initial name of the variable. don't crash
             return
 
@@ -467,14 +467,14 @@ class CheckUseBeforeDeclareForLoopVariables(TopDownVisitor):
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         ref = state.resolved_references[node]
-        if not isinstance(ref, FpyVariable):
+        if not is_instance_compat(ref, FpyVariable):
             # not a variable, might be a type name or smth
             return
 
-        if isinstance(ref.declaration, AstAssign):
+        if is_instance_compat(ref.declaration, AstAssign):
             # handled by prev pass
             return
-        if isinstance(ref.declaration, AstFor) and ref.declaration.loop_var == node:
+        if is_instance_compat(ref.declaration, AstFor) and ref.declaration.loop_var == node:
             # this is the initial name of the variable. don't crash
             return
 
@@ -642,12 +642,12 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
         parent_ref = state.resolved_references.get(node.parent)
 
-        if isinstance(parent_ref, (type, FpyCallable)):
+        if is_instance_compat(parent_ref, (type, FpyCallable)):
             state.err("Unknown attribute", node)
             return
 
         ref = None
-        if isinstance(parent_ref, dict):
+        if is_instance_compat(parent_ref, dict):
             # getattr of a namespace
             # parent won't actually have a type
             ref = parent_ref.get(node.attr)
@@ -666,14 +666,14 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # you're talking about a field of
             base_ref = (
                 parent_ref
-                if not isinstance(parent_ref, FieldReference)
+                if not is_instance_compat(parent_ref, FieldReference)
                 else parent_ref.base_ref
             )
             # we also calculate a "base offset" wrt. the start of the base_ref type, so you
             # can easily pick out this field from a value of the base ref type
             base_offset = (
                 0
-                if not isinstance(parent_ref, FieldReference)
+                if not is_instance_compat(parent_ref, FieldReference)
                 else parent_ref.base_offset
             )
 
@@ -713,7 +713,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
         parent_ref = state.resolved_references.get(node.parent)
 
-        if isinstance(parent_ref, (type, FpyCallable, dict)):
+        if is_instance_compat(parent_ref, (type, FpyCallable, dict)):
             state.err("Unknown item", node)
             return
 
@@ -738,7 +738,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         base_ref = (
             parent_ref
-            if not isinstance(parent_ref, FieldReference)
+            if not is_instance_compat(parent_ref, FieldReference)
             else parent_ref.base_ref
         )
 
@@ -767,7 +767,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def visit_AstNumber(self, node: AstNumber, state: CompileState):
         # give a best guess as to the final type of this node. we don't actually know
         # its bitwidth or signedness yet
-        if isinstance(node.value, float):
+        if is_instance_compat(node.value, float):
             result_type = InternalFloatType
         else:
             result_type = InternalIntType
@@ -856,7 +856,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             )
             return
 
-        if isinstance(func, FpyCast):
+        if is_instance_compat(func, FpyCast):
             # casts do not follow coercion rules, because casting is the counterpart of coercion!
             # coercion is implicit, casting is explicit. if they say they want to cast, we let them
             node_arg = node_args[0]
@@ -887,17 +887,17 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # should be present in resolved refs because we only let it through if
         # variable is attr, item or var
         lhs_ref = state.resolved_references[node.lhs]
-        if not isinstance(lhs_ref, (FpyVariable, FieldReference)):
+        if not is_instance_compat(lhs_ref, (FpyVariable, FieldReference)):
             state.err("Invalid assignment", node.lhs)
             return
 
         lhs_type = None
-        if isinstance(lhs_ref, FpyVariable):
+        if is_instance_compat(lhs_ref, FpyVariable):
             lhs_type = lhs_ref.type
         else:
             # briefly check that we're only trying
             # to modify an fpy var
-            if not isinstance(lhs_ref.base_ref, FpyVariable):
+            if not is_instance_compat(lhs_ref.base_ref, FpyVariable):
                 state.err("Can only assign variables", node.lhs)
                 return
             assert (
@@ -975,7 +975,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 class AllocateVariables(Visitor):
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         lhs_ref = state.resolved_references[node.lhs]
-        if not isinstance(lhs_ref, FpyVariable):
+        if not is_instance_compat(lhs_ref, FpyVariable):
             # it's a field ref, ignore it. don't need any more space for it
             return
 
@@ -996,7 +996,7 @@ class AllocateVariables(Visitor):
 
         # allocate space for the loop var
         loop_var = loop_info.loop_var
-        assert isinstance(loop_var, FpyVariable)
+        assert is_instance_compat(loop_var, FpyVariable)
         lvar_offset = state.lvar_array_size_bytes
         state.lvar_array_size_bytes += loop_var.type.getMaxSize()
         loop_var.lvar_offset = lvar_offset
@@ -1041,7 +1041,7 @@ class CalculateConstExprValues(Visitor):
                 if not explicit_cast:
                     # if this was a coercion, we can actually perform one additional check
                     # before we convert it: does it fit within bounds?
-                    assert isinstance(from_val, IntegerType), from_val
+                    assert is_instance_compat(from_val, IntegerType), from_val
                     # this is an implicit cast, check that the value can fit in the dest type
                     dest_min, dest_max = to_type.range()
                     if from_val.val < dest_min or from_val.val > dest_max:
@@ -1092,7 +1092,7 @@ class CalculateConstExprValues(Visitor):
         converted_type = state.expr_converted_types[node]
         ref = state.resolved_references[node]
         expr_value = None
-        if isinstance(ref, (type, dict, FpyCallable)):
+        if is_instance_compat(ref, (type, dict, FpyCallable)):
             # these types have no value
             state.expr_converted_values[node] = NothingValue()
             assert unconverted_type == converted_type, (
@@ -1100,13 +1100,13 @@ class CalculateConstExprValues(Visitor):
                 converted_type,
             )
             return
-        elif isinstance(ref, (ChTemplate, PrmTemplate, FpyVariable)):
+        elif is_instance_compat(ref, (ChTemplate, PrmTemplate, FpyVariable)):
             # has a value but won't try to calc at compile time
             state.expr_converted_values[node] = None
             return
-        elif isinstance(ref, FppValue):
+        elif is_instance_compat(ref, FppValue):
             expr_value = ref
-        elif isinstance(ref, FieldReference):
+        elif is_instance_compat(ref, FieldReference):
             parent_value = state.expr_converted_values[node.parent]
             if parent_value is None:
                 # no compile time constant value for our parent here
@@ -1115,9 +1115,9 @@ class CalculateConstExprValues(Visitor):
 
             # we are accessing an attribute of something with an fprime value at compile time
             # we must be getting a member
-            if isinstance(parent_value, StructType):
+            if is_instance_compat(parent_value, StructType):
                 expr_value = parent_value._val[node.attr]
-            elif isinstance(parent_value, TimeType):
+            elif is_instance_compat(parent_value, TimeType):
                 if node.attr == "seconds":
                     expr_value = U32Type(parent_value.seconds)
                 elif node.attr == "useconds":
@@ -1133,7 +1133,7 @@ class CalculateConstExprValues(Visitor):
 
         assert expr_value is not None
 
-        assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
+        assert is_instance_compat(expr_value, unconverted_type), (expr_value, unconverted_type)
 
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
@@ -1146,7 +1146,7 @@ class CalculateConstExprValues(Visitor):
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
         ref = state.resolved_references[node]
         # get item can only be a field reference
-        assert isinstance(ref, FieldReference), ref
+        assert is_instance_compat(ref, FieldReference), ref
 
         parent_value = state.expr_converted_values[node.parent]
 
@@ -1155,7 +1155,7 @@ class CalculateConstExprValues(Visitor):
             state.expr_converted_values[node] = None
             return
 
-        assert isinstance(parent_value, ArrayType), parent_value
+        assert is_instance_compat(parent_value, ArrayType), parent_value
 
         idx = state.expr_converted_values.get(node.item)
         if idx is None:
@@ -1163,12 +1163,12 @@ class CalculateConstExprValues(Visitor):
             state.expr_converted_values[node] = None
             return
 
-        assert isinstance(idx, U64Type)
+        assert is_instance_compat(idx, U64Type)
 
         expr_value = parent_value._val[idx._val]
 
         unconverted_type = state.expr_unconverted_types[node]
-        assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
+        assert is_instance_compat(expr_value, unconverted_type), (expr_value, unconverted_type)
 
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
@@ -1184,7 +1184,7 @@ class CalculateConstExprValues(Visitor):
         converted_type = state.expr_converted_types[node]
         ref = state.resolved_references[node]
         expr_value = None
-        if isinstance(ref, (type, dict, FpyCallable)):
+        if is_instance_compat(ref, (type, dict, FpyCallable)):
             # these types have no value
             state.expr_converted_values[node] = NothingValue()
             assert unconverted_type == converted_type, (
@@ -1192,18 +1192,18 @@ class CalculateConstExprValues(Visitor):
                 converted_type,
             )
             return
-        elif isinstance(ref, (ChTemplate, PrmTemplate, FpyVariable)):
+        elif is_instance_compat(ref, (ChTemplate, PrmTemplate, FpyVariable)):
             # has a value but won't try to calc at compile time
             state.expr_converted_values[node] = None
             return
-        elif isinstance(ref, FppValue):
+        elif is_instance_compat(ref, FppValue):
             expr_value = ref
-        elif isinstance(ref, FieldReference):
+        elif is_instance_compat(ref, FieldReference):
             assert False, ref
 
         assert expr_value is not None
 
-        assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
+        assert is_instance_compat(expr_value, unconverted_type), (expr_value, unconverted_type)
 
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
@@ -1215,7 +1215,7 @@ class CalculateConstExprValues(Visitor):
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references[node.func]
-        assert isinstance(func, FpyCallable)
+        assert is_instance_compat(func, FpyCallable)
         # gather arg values
         arg_values = [
             state.expr_converted_values[e]
@@ -1230,7 +1230,7 @@ class CalculateConstExprValues(Visitor):
         expr_value = None
 
         # whether the conversion that will happen is due to an explicit cast
-        if isinstance(func, FpyTypeCtor):
+        if is_instance_compat(func, FpyTypeCtor):
             # actually construct the type
             if issubclass(func.type, StructType):
                 instance = func.type()
@@ -1251,7 +1251,7 @@ class CalculateConstExprValues(Visitor):
             else:
                 # no other FppTypees have ctors
                 assert False, func.return_type
-        elif isinstance(func, FpyCast):
+        elif is_instance_compat(func, FpyCast):
             # should only be one value. it should be of some numeric type
             # our const convert type func will convert it for us
             expr_value = arg_values[0]
@@ -1262,7 +1262,7 @@ class CalculateConstExprValues(Visitor):
             return
 
         unconverted_type = state.expr_unconverted_types[node]
-        assert isinstance(expr_value, unconverted_type), (expr_value, unconverted_type)
+        assert is_instance_compat(expr_value, unconverted_type), (expr_value, unconverted_type)
 
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
@@ -1285,7 +1285,7 @@ class CalculateConstExprValues(Visitor):
 
         # Both sides are constants, evaluate the operation if the operator is supported
 
-        if not isinstance(lhs_value, ValueType) or not isinstance(rhs_value, ValueType):
+        if not is_instance_compat(lhs_value, ValueType) or not is_instance_compat(rhs_value, ValueType):
             # if one of them isn't a ValueType, assume it must be TimeType
             assert lhs_value == rhs_value and lhs_value == TimeType, (
                 lhs_value,
@@ -1328,7 +1328,7 @@ class CalculateConstExprValues(Visitor):
             folded_value = lhs_value <= rhs_value
         # Equality Checking
         elif node.op == BinaryStackOp.EQUAL:
-            if not isinstance(lhs_value, Number):
+            if not is_instance_compat(lhs_value, Number):
                 # comparing two complex types
                 assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
                 # for now we don't fold this
@@ -1336,7 +1336,7 @@ class CalculateConstExprValues(Visitor):
             else:
                 folded_value = lhs_value == rhs_value
         elif node.op == BinaryStackOp.NOT_EQUAL:
-            if not isinstance(lhs_value, Number):
+            if not is_instance_compat(lhs_value, Number):
                 # comparing two complex types
                 assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
                 # for now we don't fold this
@@ -1379,7 +1379,7 @@ class CalculateConstExprValues(Visitor):
             return
 
         # input is constant, evaluate the operation if the operator is supported
-        assert isinstance(value, ValueType), value
+        assert is_instance_compat(value, ValueType), value
 
         # get the actual pythonic value from the fpp type
         value = value.val
