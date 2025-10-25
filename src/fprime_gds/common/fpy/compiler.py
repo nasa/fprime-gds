@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pathlib import Path
 from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.bool_type import BoolType
