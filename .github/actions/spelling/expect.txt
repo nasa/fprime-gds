@@ -89,7 +89,7 @@ DEPRECATEDLIST
 DESER
 Deserial
 deserializes
-desugaring
+Desugaring
 dests
 dexc
 DGRAM
@@ -291,6 +291,7 @@ pkts
 plainnat
 plantuml
 PNGs
+postlex
 postlexer
 preds
 prm
