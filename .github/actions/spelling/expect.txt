@@ -14,6 +14,7 @@ argdesc
 ARGN
 argname
 argtype
+astassign
 autoapi
 AUTOBRIEF
 autocoded
@@ -290,7 +291,7 @@ pkts
 plainnat
 plantuml
 PNGs
-postlex
+postlexer
 preds
 prm
 prmdb
