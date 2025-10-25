@@ -89,7 +89,6 @@ DEPRECATEDLIST
 DESER
 Deserial
 deserializes
-Desugaring
 dests
 dexc
 DGRAM

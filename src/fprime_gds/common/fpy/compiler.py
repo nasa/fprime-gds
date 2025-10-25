@@ -22,7 +22,7 @@ from fprime_gds.common.fpy.codegen import (
     IrPass,
     ResolveLabels,
 )
-from fprime_gds.common.fpy.desuraging import DesugarForLoops
+from fprime_gds.common.fpy.desugaring import DesugarForLoops
 from fprime_gds.common.fpy.semantics import (
     AllocateVariables,
     AssignIds,
