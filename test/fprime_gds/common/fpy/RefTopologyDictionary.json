@@ -1,8 +1,8 @@
 {
   "metadata" : {
     "deploymentName" : "Ref.Ref",
-    "projectVersion" : "73ee8a3-dirty",
-    "frameworkVersion" : "v4.0.0-55-g67f63d9e5",
+    "projectVersion" : "6581ee4-dirty",
+    "frameworkVersion" : "v4.0.1a1-66-gfa635583a",
     "libraryVersions" : [
     ],
     "dictionarySpecVersion" : "1.0.0"
@@ -10,164 +10,12 @@
   "typeDefinitions" : [
     {
       "kind" : "enum",
-      "qualifiedName" : "Svc.FpySequencer.FileReadStage",
-      "representationType" : {
-        "name" : "I32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : true
-      },
-      "enumeratedConstants" : [
-        {
-          "name" : "HEADER",
-          "value" : 0
-        },
-        {
-          "name" : "BODY",
-          "value" : 1
-        },
-        {
-          "name" : "FOOTER",
-          "value" : 2
-        }
-      ],
-      "default" : "Svc.FpySequencer.FileReadStage.HEADER"
-    },
-    {
-      "kind" : "struct",
-      "qualifiedName" : "Svc.FpySequencer.DebugTelemetry",
-      "members" : {
-        "reachedEndOfFile" : {
-          "type" : {
-            "name" : "bool",
-            "kind" : "bool",
-            "size" : 8
-          },
-          "index" : 0,
-          "annotation" : "true if there are no statements remaining in the sequence file"
-        },
-        "nextStatementReadSuccess" : {
-          "type" : {
-            "name" : "bool",
-            "kind" : "bool",
-            "size" : 8
-          },
-          "index" : 1,
-          "annotation" : "true if we were able to deserialize the next statement successfully"
-        },
-        "nextStatementOpcode" : {
-          "type" : {
-            "name" : "U8",
-            "kind" : "integer",
-            "size" : 8,
-            "signed" : false
-          },
-          "index" : 2,
-          "annotation" : "the opcode of the next statement to dispatch."
-        },
-        "nextCmdOpcode" : {
-          "type" : {
-            "name" : "FwOpcodeType",
-            "kind" : "qualifiedIdentifier"
-          },
-          "index" : 3,
-          "annotation" : "if the next statement is a cmd directive, the opcode of that cmd"
-        }
-      },
-      "default" : {
-        "reachedEndOfFile" : false,
-        "nextStatementReadSuccess" : false,
-        "nextStatementOpcode" : 0,
-        "nextCmdOpcode" : 0
-      }
-    },
-    {
-      "kind" : "struct",
-      "qualifiedName" : "Ref.SignalPair",
-      "members" : {
-        "time" : {
-          "type" : {
-            "name" : "F32",
-            "kind" : "float",
-            "size" : 32
-          },
-          "index" : 0,
-          "format" : "{f}"
-        },
-        "value" : {
-          "type" : {
-            "name" : "F32",
-            "kind" : "float",
-            "size" : 32
-          },
-          "index" : 1,
-          "format" : "{f}"
-        }
-      },
-      "default" : {
-        "time" : 0.0,
-        "value" : 0.0
-      }
-    },
-    {
-      "kind" : "alias",
-      "qualifiedName" : "FwTlmPacketizeIdType",
-      "type" : {
-        "name" : "U16",
-        "kind" : "integer",
-        "size" : 16,
-        "signed" : false
-      },
-      "underlyingType" : {
-        "name" : "U16",
-        "kind" : "integer",
-        "size" : 16,
-        "signed" : false
-      },
-      "annotation" : "The type of a telemetry packet identifier"
-    },
-    {
-      "kind" : "array",
-      "qualifiedName" : "Ref.TooManyChoices",
-      "size" : 2,
-      "elementType" : {
-        "name" : "Ref.ManyChoices",
-        "kind" : "qualifiedIdentifier"
-      },
-      "default" : [
-        [
-          "Ref.Choice.ONE",
-          "Ref.Choice.ONE"
-        ],
-        [
-          "Ref.Choice.ONE",
-          "Ref.Choice.ONE"
-        ]
-      ],
-      "annotation" : "Array of array"
-    },
-    {
-      "kind" : "alias",
-      "qualifiedName" : "Ref.DpDemo.BoolAlias",
-      "type" : {
-        "name" : "bool",
-        "kind" : "bool",
-        "size" : 8
-      },
-      "underlyingType" : {
-        "name" : "bool",
-        "kind" : "bool",
-        "size" : 8
-      }
-    },
-    {
-      "kind" : "enum",
       "qualifiedName" : "Svc.VersionType",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
@@ -198,6 +46,104 @@
       ],
       "default" : "Svc.VersionType.PROJECT",
       "annotation" : "An enumeration for Version Type"
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Svc.PrmDb.Merge",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "MERGE",
+          "value" : 0
+        },
+        {
+          "name" : "RESET",
+          "value" : 1
+        }
+      ],
+      "default" : "Svc.PrmDb.Merge.MERGE"
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Fw.DpCfg.ProcType",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "PROC_TYPE_ZERO",
+          "value" : 1,
+          "annotation" : "Processing type 0"
+        },
+        {
+          "name" : "PROC_TYPE_ONE",
+          "value" : 2,
+          "annotation" : "Processing type 1"
+        },
+        {
+          "name" : "PROC_TYPE_TWO",
+          "value" : 4,
+          "annotation" : "Processing type 2"
+        }
+      ],
+      "default" : "Fw.DpCfg.ProcType.PROC_TYPE_ZERO",
+      "annotation" : "A bit mask for selecting the type of processing to perform on\na container before writing it to disk."
+    },
+    {
+      "kind" : "alias",
+      "qualifiedName" : "FwTlmPacketizeIdType",
+      "type" : {
+        "name" : "U16",
+        "kind" : "integer",
+        "size" : 16,
+        "signed" : false
+      },
+      "underlyingType" : {
+        "name" : "U16",
+        "kind" : "integer",
+        "size" : 16,
+        "signed" : false
+      },
+      "annotation" : "The type of a telemetry packet identifier"
+    },
+    {
+      "kind" : "alias",
+      "qualifiedName" : "FwPacketDescriptorType",
+      "type" : {
+        "name" : "U16",
+        "kind" : "integer",
+        "size" : 16,
+        "signed" : false
+      },
+      "underlyingType" : {
+        "name" : "U16",
+        "kind" : "integer",
+        "size" : 16,
+        "signed" : false
+      },
+      "annotation" : "The width of packet descriptors when they are serialized by the framework"
+    },
+    {
+      "kind" : "alias",
+      "qualifiedName" : "Ref.DpDemo.BoolAlias",
+      "type" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      },
+      "underlyingType" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      }
     },
     {
       "kind" : "alias",
@@ -515,47 +461,25 @@
     },
     {
       "kind" : "enum",
-      "qualifiedName" : "Fw.CmdResponse",
+      "qualifiedName" : "Svc.QueueType",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
-          "name" : "OK",
-          "value" : 0,
-          "annotation" : "Command successfully executed"
+          "name" : "COM_QUEUE",
+          "value" : 0
         },
         {
-          "name" : "INVALID_OPCODE",
-          "value" : 1,
-          "annotation" : "Invalid opcode dispatched"
-        },
-        {
-          "name" : "VALIDATION_ERROR",
-          "value" : 2,
-          "annotation" : "Command failed validation"
-        },
-        {
-          "name" : "FORMAT_ERROR",
-          "value" : 3,
-          "annotation" : "Command failed to deserialize"
-        },
-        {
-          "name" : "EXECUTION_ERROR",
-          "value" : 4,
-          "annotation" : "Command had execution error"
-        },
-        {
-          "name" : "BUSY",
-          "value" : 5,
-          "annotation" : "Component busy"
+          "name" : "BUFFER_QUEUE",
+          "value" : 1
         }
       ],
-      "default" : "Fw.CmdResponse.OK",
-      "annotation" : "Enum representing a command response"
+      "default" : "Svc.QueueType.COM_QUEUE",
+      "annotation" : "An enumeration of queue data types"
     },
     {
       "kind" : "array",
@@ -575,21 +499,6 @@
         0
       ],
       "annotation" : "Array of integers"
-    },
-    {
-      "kind" : "alias",
-      "qualifiedName" : "FwPacketDescriptorType",
-      "type" : {
-        "name" : "FwIdType",
-        "kind" : "qualifiedIdentifier"
-      },
-      "underlyingType" : {
-        "name" : "U32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : false
-      },
-      "annotation" : "The type of a com packet descriptor"
     },
     {
       "kind" : "enum",
@@ -694,27 +603,32 @@
     },
     {
       "kind" : "enum",
-      "qualifiedName" : "Svc.VersionStatus",
+      "qualifiedName" : "Svc.PrmDb.PrmLoadAction",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
-          "name" : "OK",
-          "value" : 0,
-          "annotation" : "Version was good"
+          "name" : "SET_PARAMETER",
+          "value" : 0
         },
         {
-          "name" : "FAILURE",
-          "value" : 1,
-          "annotation" : "Failure to get version"
+          "name" : "SAVE_FILE_COMMAND",
+          "value" : 1
+        },
+        {
+          "name" : "LOAD_FILE_COMMAND",
+          "value" : 2
+        },
+        {
+          "name" : "COMMIT_STAGED_COMMAND",
+          "value" : 3
         }
       ],
-      "default" : "Svc.VersionStatus.OK",
-      "annotation" : "An enumeration for version status"
+      "default" : "Svc.PrmDb.PrmLoadAction.SET_PARAMETER"
     },
     {
       "kind" : "alias",
@@ -749,24 +663,137 @@
     },
     {
       "kind" : "enum",
-      "qualifiedName" : "Svc.FpySequencer.BlockState",
+      "qualifiedName" : "Svc.Fpy.DirectiveErrorCode",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
-          "name" : "BLOCK",
+          "name" : "NO_ERROR",
           "value" : 0
         },
         {
-          "name" : "NO_BLOCK",
+          "name" : "STMT_OUT_OF_BOUNDS",
           "value" : 1
+        },
+        {
+          "name" : "TLM_GET_NOT_CONNECTED",
+          "value" : 2
+        },
+        {
+          "name" : "TLM_CHAN_NOT_FOUND",
+          "value" : 3
+        },
+        {
+          "name" : "PRM_GET_NOT_CONNECTED",
+          "value" : 4
+        },
+        {
+          "name" : "PRM_NOT_FOUND",
+          "value" : 5
+        },
+        {
+          "name" : "CMD_SERIALIZE_FAILURE",
+          "value" : 6
+        },
+        {
+          "name" : "EXIT_WITH_ERROR",
+          "value" : 7
+        },
+        {
+          "name" : "STACK_ACCESS_OUT_OF_BOUNDS",
+          "value" : 8
+        },
+        {
+          "name" : "STACK_OVERFLOW",
+          "value" : 9
+        },
+        {
+          "name" : "DOMAIN_ERROR",
+          "value" : 10
+        },
+        {
+          "name" : "FLAG_IDX_OUT_OF_BOUNDS",
+          "value" : 11
+        },
+        {
+          "name" : "ASSERTION_FAILED",
+          "value" : 12
         }
       ],
-      "default" : "Svc.FpySequencer.BlockState.BLOCK"
+      "default" : "Svc.Fpy.DirectiveErrorCode.NO_ERROR"
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Svc.FpySequencer.FileReadStage",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "HEADER",
+          "value" : 0
+        },
+        {
+          "name" : "BODY",
+          "value" : 1
+        },
+        {
+          "name" : "FOOTER",
+          "value" : 2
+        }
+      ],
+      "default" : "Svc.FpySequencer.FileReadStage.HEADER"
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Svc.EventManager.FilterSeverity",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "WARNING_HI",
+          "value" : 0,
+          "annotation" : "Filter WARNING_HI events"
+        },
+        {
+          "name" : "WARNING_LO",
+          "value" : 1,
+          "annotation" : "Filter WARNING_LO events"
+        },
+        {
+          "name" : "COMMAND",
+          "value" : 2,
+          "annotation" : "Filter COMMAND events"
+        },
+        {
+          "name" : "ACTIVITY_HI",
+          "value" : 3,
+          "annotation" : "Filter ACTIVITY_HI events"
+        },
+        {
+          "name" : "ACTIVITY_LO",
+          "value" : 4,
+          "annotation" : "Filter ACTIVITY_LO events"
+        },
+        {
+          "name" : "DIAGNOSTIC",
+          "value" : 5,
+          "annotation" : "Filter DIAGNOSTIC events"
+        }
+      ],
+      "default" : "Svc.EventManager.FilterSeverity.WARNING_HI",
+      "annotation" : "Severity level for event filtering\nSimilar to Fw::LogSeverity, but no FATAL event"
     },
     {
       "kind" : "array",
@@ -817,36 +844,6 @@
       }
     },
     {
-      "kind" : "enum",
-      "qualifiedName" : "Fw.ParamValid",
-      "representationType" : {
-        "name" : "I32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : true
-      },
-      "enumeratedConstants" : [
-        {
-          "name" : "UNINIT",
-          "value" : 0
-        },
-        {
-          "name" : "VALID",
-          "value" : 1
-        },
-        {
-          "name" : "INVALID",
-          "value" : 2
-        },
-        {
-          "name" : "DEFAULT",
-          "value" : 3
-        }
-      ],
-      "default" : "Fw.ParamValid.UNINIT",
-      "annotation" : "Enum representing parameter validity"
-    },
-    {
       "kind" : "alias",
       "qualifiedName" : "FwChanIdType",
       "type" : {
@@ -863,27 +860,33 @@
     },
     {
       "kind" : "enum",
-      "qualifiedName" : "Svc.VersionEnabled",
+      "qualifiedName" : "Svc.SendFileStatus",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
-          "name" : "DISABLED",
-          "value" : 0,
-          "annotation" : "verbosity disabled"
+          "name" : "STATUS_OK",
+          "value" : 0
         },
         {
-          "name" : "ENABLED",
-          "value" : 1,
-          "annotation" : "verbosity enabled"
+          "name" : "STATUS_ERROR",
+          "value" : 1
+        },
+        {
+          "name" : "STATUS_INVALID",
+          "value" : 2
+        },
+        {
+          "name" : "STATUS_BUSY",
+          "value" : 3
         }
       ],
-      "default" : "Svc.VersionEnabled.DISABLED",
-      "annotation" : "Tracks versions for project, framework and user defined versions etc"
+      "default" : "Svc.SendFileStatus.STATUS_OK",
+      "annotation" : "Send file status enum"
     },
     {
       "kind" : "alias",
@@ -903,33 +906,28 @@
       "annotation" : "The type used to serialize a time context value"
     },
     {
-      "kind" : "array",
-      "qualifiedName" : "Ref.DpDemo.StringArray",
-      "size" : 2,
-      "elementType" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 80
+      "kind" : "enum",
+      "qualifiedName" : "Svc.VersionEnabled",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
       },
-      "default" : [
-        "",
-        ""
+      "enumeratedConstants" : [
+        {
+          "name" : "DISABLED",
+          "value" : 0,
+          "annotation" : "verbosity disabled"
+        },
+        {
+          "name" : "ENABLED",
+          "value" : 1,
+          "annotation" : "verbosity enabled"
+        }
       ],
-      "annotation" : "Array of strings"
-    },
-    {
-      "kind" : "alias",
-      "qualifiedName" : "Ref.DpDemo.StringAlias",
-      "type" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 80
-      },
-      "underlyingType" : {
-        "name" : "string",
-        "kind" : "string",
-        "size" : 80
-      }
+      "default" : "Svc.VersionEnabled.DISABLED",
+      "annotation" : "Tracks versions for project, framework and user defined versions etc"
     },
     {
       "kind" : "struct",
@@ -1007,48 +1005,33 @@
       "annotation" : "Data structure representing a data product."
     },
     {
-      "kind" : "enum",
-      "qualifiedName" : "Svc.EventManager.FilterSeverity",
-      "representationType" : {
-        "name" : "I32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+      "kind" : "array",
+      "qualifiedName" : "Ref.DpDemo.StringArray",
+      "size" : 2,
+      "elementType" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 80
       },
-      "enumeratedConstants" : [
-        {
-          "name" : "WARNING_HI",
-          "value" : 0,
-          "annotation" : "Filter WARNING_HI events"
-        },
-        {
-          "name" : "WARNING_LO",
-          "value" : 1,
-          "annotation" : "Filter WARNING_LO events"
-        },
-        {
-          "name" : "COMMAND",
-          "value" : 2,
-          "annotation" : "Filter COMMAND events"
-        },
-        {
-          "name" : "ACTIVITY_HI",
-          "value" : 3,
-          "annotation" : "Filter ACTIVITY_HI events"
-        },
-        {
-          "name" : "ACTIVITY_LO",
-          "value" : 4,
-          "annotation" : "Filter ACTIVITY_LO events"
-        },
-        {
-          "name" : "DIAGNOSTIC",
-          "value" : 5,
-          "annotation" : "Filter DIAGNOSTIC events"
-        }
+      "default" : [
+        "",
+        ""
       ],
-      "default" : "Svc.EventManager.FilterSeverity.WARNING_HI",
-      "annotation" : "Severity level for event filtering\nSimilar to Fw::LogSeverity, but no FATAL event"
+      "annotation" : "Array of strings"
+    },
+    {
+      "kind" : "alias",
+      "qualifiedName" : "Ref.DpDemo.StringAlias",
+      "type" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 80
+      },
+      "underlyingType" : {
+        "name" : "string",
+        "kind" : "string",
+        "size" : 80
+      }
     },
     {
       "kind" : "enum",
@@ -1161,59 +1144,105 @@
     },
     {
       "kind" : "enum",
-      "qualifiedName" : "Svc.SendFileStatus",
+      "qualifiedName" : "Svc.FpySequencer.BlockState",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
-          "name" : "STATUS_OK",
+          "name" : "BLOCK",
           "value" : 0
         },
         {
-          "name" : "STATUS_ERROR",
+          "name" : "NO_BLOCK",
           "value" : 1
-        },
-        {
-          "name" : "STATUS_INVALID",
-          "value" : 2
-        },
-        {
-          "name" : "STATUS_BUSY",
-          "value" : 3
         }
       ],
-      "default" : "Svc.SendFileStatus.STATUS_OK",
-      "annotation" : "Send file status enum"
+      "default" : "Svc.FpySequencer.BlockState.BLOCK"
     },
     {
-      "kind" : "alias",
-      "qualifiedName" : "FwIdType",
-      "type" : {
-        "name" : "U32",
+      "kind" : "enum",
+      "qualifiedName" : "Fw.CmdResponse",
+      "representationType" : {
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
+        "size" : 8,
         "signed" : false
       },
-      "underlyingType" : {
-        "name" : "U32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : false
+      "enumeratedConstants" : [
+        {
+          "name" : "OK",
+          "value" : 0,
+          "annotation" : "Command successfully executed"
+        },
+        {
+          "name" : "INVALID_OPCODE",
+          "value" : 1,
+          "annotation" : "Invalid opcode dispatched"
+        },
+        {
+          "name" : "VALIDATION_ERROR",
+          "value" : 2,
+          "annotation" : "Command failed validation"
+        },
+        {
+          "name" : "FORMAT_ERROR",
+          "value" : 3,
+          "annotation" : "Command failed to deserialize"
+        },
+        {
+          "name" : "EXECUTION_ERROR",
+          "value" : 4,
+          "annotation" : "Command had execution error"
+        },
+        {
+          "name" : "BUSY",
+          "value" : 5,
+          "annotation" : "Component busy"
+        }
+      ],
+      "default" : "Fw.CmdResponse.OK",
+      "annotation" : "Enum representing a command response"
+    },
+    {
+      "kind" : "struct",
+      "qualifiedName" : "Ref.SignalPair",
+      "members" : {
+        "time" : {
+          "type" : {
+            "name" : "F32",
+            "kind" : "float",
+            "size" : 32
+          },
+          "index" : 0,
+          "format" : "{f}"
+        },
+        "value" : {
+          "type" : {
+            "name" : "F32",
+            "kind" : "float",
+            "size" : 32
+          },
+          "index" : 1,
+          "format" : "{f}"
+        }
       },
-      "annotation" : "The id type."
+      "default" : {
+        "time" : 0.0,
+        "value" : 0.0
+      }
     },
     {
       "kind" : "enum",
       "qualifiedName" : "Svc.PrmDb.PrmReadError",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
@@ -1265,6 +1294,90 @@
       "annotation" : "Parameter read error"
     },
     {
+      "kind" : "alias",
+      "qualifiedName" : "FwIdType",
+      "type" : {
+        "name" : "U32",
+        "kind" : "integer",
+        "size" : 32,
+        "signed" : false
+      },
+      "underlyingType" : {
+        "name" : "U32",
+        "kind" : "integer",
+        "size" : 32,
+        "signed" : false
+      },
+      "annotation" : "The id type."
+    },
+    {
+      "kind" : "alias",
+      "qualifiedName" : "FwEnumStoreType",
+      "type" : {
+        "name" : "I32",
+        "kind" : "integer",
+        "size" : 32,
+        "signed" : true
+      },
+      "underlyingType" : {
+        "name" : "I32",
+        "kind" : "integer",
+        "size" : 32,
+        "signed" : true
+      },
+      "annotation" : "The type used to serialize a C++ enumeration constant\nFPP enumerations are serialized according to their representation types"
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Svc.PrmDb.PrmWriteError",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "OPEN",
+          "value" : 0
+        },
+        {
+          "name" : "DELIMITER",
+          "value" : 1
+        },
+        {
+          "name" : "DELIMITER_SIZE",
+          "value" : 2
+        },
+        {
+          "name" : "RECORD_SIZE",
+          "value" : 3
+        },
+        {
+          "name" : "RECORD_SIZE_SIZE",
+          "value" : 4
+        },
+        {
+          "name" : "PARAMETER_ID",
+          "value" : 5
+        },
+        {
+          "name" : "PARAMETER_ID_SIZE",
+          "value" : 6
+        },
+        {
+          "name" : "PARAMETER_VALUE",
+          "value" : 7
+        },
+        {
+          "name" : "PARAMETER_VALUE_SIZE",
+          "value" : 8
+        }
+      ],
+      "default" : "Svc.PrmDb.PrmWriteError.OPEN",
+      "annotation" : "Parameter write error"
+    },
+    {
       "kind" : "array",
       "qualifiedName" : "Ref.ManyChoices",
       "size" : 2,
@@ -1277,6 +1390,30 @@
         "Ref.Choice.ONE"
       ],
       "annotation" : "Enumeration array"
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Svc.EventManager.Enabled",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "ENABLED",
+          "value" : 0,
+          "annotation" : "Enabled state"
+        },
+        {
+          "name" : "DISABLED",
+          "value" : 1,
+          "annotation" : "Disabled state"
+        }
+      ],
+      "default" : "Svc.EventManager.Enabled.ENABLED",
+      "annotation" : "Enabled and disabled state"
     },
     {
       "kind" : "alias",
@@ -1293,92 +1430,6 @@
         "size" : 32,
         "signed" : true
       }
-    },
-    {
-      "kind" : "enum",
-      "qualifiedName" : "Fw.DpCfg.ProcType",
-      "representationType" : {
-        "name" : "U8",
-        "kind" : "integer",
-        "size" : 8,
-        "signed" : false
-      },
-      "enumeratedConstants" : [
-        {
-          "name" : "PROC_TYPE_ZERO",
-          "value" : 1,
-          "annotation" : "Processing type 0"
-        },
-        {
-          "name" : "PROC_TYPE_ONE",
-          "value" : 2,
-          "annotation" : "Processing type 1"
-        },
-        {
-          "name" : "PROC_TYPE_TWO",
-          "value" : 4,
-          "annotation" : "Processing type 2"
-        }
-      ],
-      "default" : "Fw.DpCfg.ProcType.PROC_TYPE_ZERO",
-      "annotation" : "A bit mask for selecting the type of processing to perform on\na container before writing it to disk."
-    },
-    {
-      "kind" : "enum",
-      "qualifiedName" : "Svc.FpySequencer.DirectiveErrorCode",
-      "representationType" : {
-        "name" : "I32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : true
-      },
-      "enumeratedConstants" : [
-        {
-          "name" : "NO_ERROR",
-          "value" : 0
-        },
-        {
-          "name" : "STMT_OUT_OF_BOUNDS",
-          "value" : 1
-        },
-        {
-          "name" : "TLM_GET_NOT_CONNECTED",
-          "value" : 2
-        },
-        {
-          "name" : "TLM_CHAN_NOT_FOUND",
-          "value" : 3
-        },
-        {
-          "name" : "PRM_GET_NOT_CONNECTED",
-          "value" : 4
-        },
-        {
-          "name" : "PRM_NOT_FOUND",
-          "value" : 5
-        },
-        {
-          "name" : "CMD_SERIALIZE_FAILURE",
-          "value" : 6
-        },
-        {
-          "name" : "DELIBERATE_FAILURE",
-          "value" : 7
-        },
-        {
-          "name" : "STACK_ACCESS_OUT_OF_BOUNDS",
-          "value" : 8
-        },
-        {
-          "name" : "STACK_OVERFLOW",
-          "value" : 9
-        },
-        {
-          "name" : "DOMAIN_ERROR",
-          "value" : 10
-        }
-      ],
-      "default" : "Svc.FpySequencer.DirectiveErrorCode.NO_ERROR"
     },
     {
       "kind" : "alias",
@@ -1424,25 +1475,24 @@
     },
     {
       "kind" : "enum",
-      "qualifiedName" : "Svc.QueueType",
+      "qualifiedName" : "Svc.SystemResourceEnabled",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
-          "name" : "COM_QUEUE",
+          "name" : "DISABLED",
           "value" : 0
         },
         {
-          "name" : "BUFFER_QUEUE",
+          "name" : "ENABLED",
           "value" : 1
         }
       ],
-      "default" : "Svc.QueueType.COM_QUEUE",
-      "annotation" : "An enumeration of queue data types"
+      "default" : "Svc.SystemResourceEnabled.DISABLED"
     },
     {
       "kind" : "struct",
@@ -1564,36 +1614,6 @@
       "annotation" : "Structure of enums (with an multi-dimensional array and structure)"
     },
     {
-      "kind" : "enum",
-      "qualifiedName" : "Svc.DpHdrField",
-      "representationType" : {
-        "name" : "I32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : true
-      },
-      "enumeratedConstants" : [
-        {
-          "name" : "DESCRIPTOR",
-          "value" : 0
-        },
-        {
-          "name" : "ID",
-          "value" : 1
-        },
-        {
-          "name" : "PRIORITY",
-          "value" : 2
-        },
-        {
-          "name" : "CRC",
-          "value" : 3
-        }
-      ],
-      "default" : "Svc.DpHdrField.DESCRIPTOR",
-      "annotation" : "Header validation error"
-    },
-    {
       "kind" : "array",
       "qualifiedName" : "Ref.FloatSet",
       "size" : 3,
@@ -1623,30 +1643,6 @@
         "signed" : false
       },
       "annotation" : "The unsigned type of larger sizes internal to the software,\ne.g., memory buffer sizes, file sizes. Must be unsigned."
-    },
-    {
-      "kind" : "enum",
-      "qualifiedName" : "Svc.EventManager.Enabled",
-      "representationType" : {
-        "name" : "I32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : true
-      },
-      "enumeratedConstants" : [
-        {
-          "name" : "ENABLED",
-          "value" : 0,
-          "annotation" : "Enabled state"
-        },
-        {
-          "name" : "DISABLED",
-          "value" : 1,
-          "annotation" : "Disabled state"
-        }
-      ],
-      "default" : "Svc.EventManager.Enabled.ENABLED",
-      "annotation" : "Enabled and disabled state"
     },
     {
       "kind" : "struct",
@@ -1783,6 +1779,21 @@
       "annotation" : "All scalar inputs"
     },
     {
+      "kind" : "array",
+      "qualifiedName" : "Ref.DpDemo.BooleanArray",
+      "size" : 2,
+      "elementType" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      },
+      "default" : [
+        false,
+        false
+      ],
+      "annotation" : "Array of booleans"
+    },
+    {
       "kind" : "alias",
       "qualifiedName" : "FwSizeStoreType",
       "type" : {
@@ -1801,68 +1812,53 @@
     },
     {
       "kind" : "enum",
-      "qualifiedName" : "Svc.PrmDb.PrmWriteError",
+      "qualifiedName" : "Svc.PrmDb.PrmDbFileLoadState",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
-          "name" : "OPEN",
+          "name" : "IDLE",
           "value" : 0
         },
         {
-          "name" : "DELIMITER",
+          "name" : "LOADING_FILE_UPDATES",
           "value" : 1
         },
         {
-          "name" : "DELIMITER_SIZE",
+          "name" : "FILE_UPDATES_STAGED",
           "value" : 2
-        },
-        {
-          "name" : "RECORD_SIZE",
-          "value" : 3
-        },
-        {
-          "name" : "RECORD_SIZE_SIZE",
-          "value" : 4
-        },
-        {
-          "name" : "PARAMETER_ID",
-          "value" : 5
-        },
-        {
-          "name" : "PARAMETER_ID_SIZE",
-          "value" : 6
-        },
-        {
-          "name" : "PARAMETER_VALUE",
-          "value" : 7
-        },
-        {
-          "name" : "PARAMETER_VALUE_SIZE",
-          "value" : 8
         }
       ],
-      "default" : "Svc.PrmDb.PrmWriteError.OPEN",
-      "annotation" : "Parameter write error"
+      "default" : "Svc.PrmDb.PrmDbFileLoadState.IDLE",
+      "annotation" : "State of parameter DB file load operations"
     },
     {
-      "kind" : "array",
-      "qualifiedName" : "Ref.DpDemo.BooleanArray",
-      "size" : 2,
-      "elementType" : {
-        "name" : "bool",
-        "kind" : "bool",
-        "size" : 8
+      "kind" : "enum",
+      "qualifiedName" : "Svc.VersionStatus",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
       },
-      "default" : [
-        false,
-        false
+      "enumeratedConstants" : [
+        {
+          "name" : "OK",
+          "value" : 0,
+          "annotation" : "Version was good"
+        },
+        {
+          "name" : "FAILURE",
+          "value" : 1,
+          "annotation" : "Failure to get version"
+        }
       ],
-      "annotation" : "Array of booleans"
+      "default" : "Svc.VersionStatus.OK",
+      "annotation" : "An enumeration for version status"
     },
     {
       "kind" : "enum",
@@ -1926,24 +1922,312 @@
     },
     {
       "kind" : "enum",
-      "qualifiedName" : "Svc.SystemResourceEnabled",
+      "qualifiedName" : "Svc.Fpy.DirectiveId",
       "representationType" : {
-        "name" : "I32",
+        "name" : "U8",
         "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "size" : 8,
+        "signed" : false
       },
       "enumeratedConstants" : [
         {
-          "name" : "DISABLED",
+          "name" : "INVALID",
           "value" : 0
         },
         {
-          "name" : "ENABLED",
+          "name" : "WAIT_REL",
           "value" : 1
+        },
+        {
+          "name" : "WAIT_ABS",
+          "value" : 2
+        },
+        {
+          "name" : "GOTO",
+          "value" : 4
+        },
+        {
+          "name" : "IF",
+          "value" : 5
+        },
+        {
+          "name" : "NO_OP",
+          "value" : 6
+        },
+        {
+          "name" : "PUSH_TLM_VAL",
+          "value" : 7
+        },
+        {
+          "name" : "PUSH_PRM",
+          "value" : 8
+        },
+        {
+          "name" : "CONST_CMD",
+          "value" : 9
+        },
+        {
+          "name" : "OR",
+          "value" : 10
+        },
+        {
+          "name" : "AND",
+          "value" : 11
+        },
+        {
+          "name" : "IEQ",
+          "value" : 12
+        },
+        {
+          "name" : "INE",
+          "value" : 13
+        },
+        {
+          "name" : "ULT",
+          "value" : 14
+        },
+        {
+          "name" : "ULE",
+          "value" : 15
+        },
+        {
+          "name" : "UGT",
+          "value" : 16
+        },
+        {
+          "name" : "UGE",
+          "value" : 17
+        },
+        {
+          "name" : "SLT",
+          "value" : 18
+        },
+        {
+          "name" : "SLE",
+          "value" : 19
+        },
+        {
+          "name" : "SGT",
+          "value" : 20
+        },
+        {
+          "name" : "SGE",
+          "value" : 21
+        },
+        {
+          "name" : "FEQ",
+          "value" : 22
+        },
+        {
+          "name" : "FNE",
+          "value" : 23
+        },
+        {
+          "name" : "FLT",
+          "value" : 24
+        },
+        {
+          "name" : "FLE",
+          "value" : 25
+        },
+        {
+          "name" : "FGT",
+          "value" : 26
+        },
+        {
+          "name" : "FGE",
+          "value" : 27
+        },
+        {
+          "name" : "NOT",
+          "value" : 28
+        },
+        {
+          "name" : "FPTOSI",
+          "value" : 29
+        },
+        {
+          "name" : "FPTOUI",
+          "value" : 30
+        },
+        {
+          "name" : "SITOFP",
+          "value" : 31
+        },
+        {
+          "name" : "UITOFP",
+          "value" : 32
+        },
+        {
+          "name" : "IADD",
+          "value" : 33
+        },
+        {
+          "name" : "ISUB",
+          "value" : 34
+        },
+        {
+          "name" : "IMUL",
+          "value" : 35
+        },
+        {
+          "name" : "UDIV",
+          "value" : 36
+        },
+        {
+          "name" : "SDIV",
+          "value" : 37
+        },
+        {
+          "name" : "UMOD",
+          "value" : 38
+        },
+        {
+          "name" : "SMOD",
+          "value" : 39
+        },
+        {
+          "name" : "FADD",
+          "value" : 40
+        },
+        {
+          "name" : "FSUB",
+          "value" : 41
+        },
+        {
+          "name" : "FMUL",
+          "value" : 42
+        },
+        {
+          "name" : "FDIV",
+          "value" : 43
+        },
+        {
+          "name" : "FLOAT_FLOOR_DIV",
+          "value" : 44
+        },
+        {
+          "name" : "FPOW",
+          "value" : 45
+        },
+        {
+          "name" : "FLOG",
+          "value" : 46
+        },
+        {
+          "name" : "FMOD",
+          "value" : 47
+        },
+        {
+          "name" : "FPEXT",
+          "value" : 48
+        },
+        {
+          "name" : "FPTRUNC",
+          "value" : 49
+        },
+        {
+          "name" : "SIEXT_8_64",
+          "value" : 50
+        },
+        {
+          "name" : "SIEXT_16_64",
+          "value" : 51
+        },
+        {
+          "name" : "SIEXT_32_64",
+          "value" : 52
+        },
+        {
+          "name" : "ZIEXT_8_64",
+          "value" : 53
+        },
+        {
+          "name" : "ZIEXT_16_64",
+          "value" : 54
+        },
+        {
+          "name" : "ZIEXT_32_64",
+          "value" : 55
+        },
+        {
+          "name" : "ITRUNC_64_8",
+          "value" : 56
+        },
+        {
+          "name" : "ITRUNC_64_16",
+          "value" : 57
+        },
+        {
+          "name" : "ITRUNC_64_32",
+          "value" : 58
+        },
+        {
+          "name" : "EXIT",
+          "value" : 59
+        },
+        {
+          "name" : "ALLOCATE",
+          "value" : 60
+        },
+        {
+          "name" : "STORE_CONST_OFFSET",
+          "value" : 61
+        },
+        {
+          "name" : "LOAD",
+          "value" : 62
+        },
+        {
+          "name" : "PUSH_VAL",
+          "value" : 63
+        },
+        {
+          "name" : "DISCARD",
+          "value" : 64
+        },
+        {
+          "name" : "MEMCMP",
+          "value" : 65
+        },
+        {
+          "name" : "STACK_CMD",
+          "value" : 66
+        },
+        {
+          "name" : "PUSH_TLM_VAL_AND_TIME",
+          "value" : 67
+        },
+        {
+          "name" : "PUSH_TIME",
+          "value" : 68
+        },
+        {
+          "name" : "SET_FLAG",
+          "value" : 69
+        },
+        {
+          "name" : "GET_FLAG",
+          "value" : 70
+        },
+        {
+          "name" : "GET_FIELD",
+          "value" : 71
+        },
+        {
+          "name" : "DUPLICATE",
+          "value" : 72
+        },
+        {
+          "name" : "ASSERT",
+          "value" : 73
+        },
+        {
+          "name" : "STORE",
+          "value" : 74
         }
       ],
-      "default" : "Svc.SystemResourceEnabled.DISABLED"
+      "default" : "Svc.Fpy.DirectiveId.INVALID"
     },
     {
       "kind" : "enum",
@@ -1968,6 +2252,36 @@
       ],
       "default" : "Fw.Wait.WAIT",
       "annotation" : "Wait or don't wait for something"
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Svc.DpHdrField",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "DESCRIPTOR",
+          "value" : 0
+        },
+        {
+          "name" : "ID",
+          "value" : 1
+        },
+        {
+          "name" : "PRIORITY",
+          "value" : 2
+        },
+        {
+          "name" : "CRC",
+          "value" : 3
+        }
+      ],
+      "default" : "Svc.DpHdrField.DESCRIPTOR",
+      "annotation" : "Header validation error"
     },
     {
       "kind" : "struct",
@@ -2049,6 +2363,44 @@
     },
     {
       "kind" : "array",
+      "qualifiedName" : "Ref.TooManyChoices",
+      "size" : 2,
+      "elementType" : {
+        "name" : "Ref.ManyChoices",
+        "kind" : "qualifiedIdentifier"
+      },
+      "default" : [
+        [
+          "Ref.Choice.ONE",
+          "Ref.Choice.ONE"
+        ],
+        [
+          "Ref.Choice.ONE",
+          "Ref.Choice.ONE"
+        ]
+      ],
+      "annotation" : "Array of array"
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Svc.Fpy.FlagId",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "EXIT_ON_CMD_FAIL",
+          "value" : 0,
+          "annotation" : "if true, the sequence will exit with an error if a command fails"
+        }
+      ],
+      "default" : "Svc.Fpy.FlagId.EXIT_ON_CMD_FAIL"
+    },
+    {
+      "kind" : "array",
       "qualifiedName" : "Ref.DpDemo.ArrayOfStringArray",
       "size" : 3,
       "elementType" : {
@@ -2124,6 +2476,36 @@
           }
         ]
       }
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Fw.ParamValid",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "UNINIT",
+          "value" : 0
+        },
+        {
+          "name" : "VALID",
+          "value" : 1
+        },
+        {
+          "name" : "INVALID",
+          "value" : 2
+        },
+        {
+          "name" : "DEFAULT",
+          "value" : 3
+        }
+      ],
+      "default" : "Fw.ParamValid.UNINIT",
+      "annotation" : "Enum representing parameter validity"
     },
     {
       "kind" : "alias",
@@ -2697,7 +3079,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The directory to create"
@@ -2716,7 +3098,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The source file name"
@@ -2726,7 +3108,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The destination file name"
@@ -2745,7 +3127,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The directory to remove"
@@ -2764,7 +3146,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The file to remove"
@@ -2803,7 +3185,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the log file"
@@ -2822,7 +3204,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file to take content from"
@@ -2832,7 +3214,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file to append to"
@@ -2851,13 +3233,32 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The file to get the size of"
         }
       ],
       "queueFullBehavior" : "assert"
+    },
+    {
+      "name" : "FileHandling.fileManager.ListDirectory",
+      "commandKind" : "async",
+      "opcode" : 83894279,
+      "formalParams" : [
+        {
+          "name" : "dirName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The directory to list"
+        }
+      ],
+      "queueFullBehavior" : "assert",
+      "annotation" : "List the contents of a directory"
     },
     {
       "name" : "FileHandling.prmDb.PRM_SAVE_FILE",
@@ -2867,6 +3268,43 @@
       ],
       "queueFullBehavior" : "assert",
       "annotation" : "Command to save parameter image to file. Uses file name passed to constructor"
+    },
+    {
+      "name" : "FileHandling.prmDb.PRM_LOAD_FILE",
+      "commandKind" : "async",
+      "opcode" : 83898369,
+      "formalParams" : [
+        {
+          "name" : "fileName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The name of the on-board file to set parameters from"
+        },
+        {
+          "name" : "merge",
+          "type" : {
+            "name" : "Svc.PrmDb.Merge",
+            "kind" : "qualifiedIdentifier"
+          },
+          "ref" : false,
+          "annotation" : "Whether to merge or fully reset the parameter database from the file contents"
+        }
+      ],
+      "queueFullBehavior" : "assert",
+      "annotation" : "Loads a file from storage into the staging database. The file could have selective IDs and not the whole set."
+    },
+    {
+      "name" : "FileHandling.prmDb.PRM_COMMIT_STAGED",
+      "commandKind" : "async",
+      "opcode" : 83898370,
+      "formalParams" : [
+      ],
+      "queueFullBehavior" : "assert",
+      "annotation" : "Commits the backup database to become the prime (active) database"
     },
     {
       "name" : "Ref.pingRcvr.PR_StopPings",
@@ -3349,7 +3787,7 @@
       "annotation" : "Cancels a running or validated sequence. After running CANCEL, the sequencer\nshould return to IDLE"
     },
     {
-      "name" : "Ref.cmdSeq.DEBUG_SET_BREAKPOINT",
+      "name" : "Ref.cmdSeq.SET_BREAKPOINT",
       "commandKind" : "async",
       "opcode" : 268460036,
       "formalParams" : [
@@ -3362,7 +3800,7 @@
             "signed" : false
           },
           "ref" : false,
-          "annotation" : "The statement index to pause execution before."
+          "annotation" : "The directive index to pause execution before."
         },
         {
           "name" : "breakOnce",
@@ -3377,52 +3815,79 @@
       ],
       "priority" : 7,
       "queueFullBehavior" : "assert",
-      "annotation" : "Sets the debugging breakpoint which will pause the execution of the sequencer when\nreached, until unpaused by the DEBUG_CONTINUE command. Will pause just before\ndispatching the specified statement. This command is valid in all states. Debug\nsettings are cleared after a sequence ends execution."
+      "annotation" : "Sets the breakpoint which will pause the execution of the sequencer when\nreached, until unpaused by the CONTINUE command. Will pause just before\ndispatching the specified directive. This command is valid in all states. Breakpoint\nsettings are cleared after a sequence ends execution."
     },
     {
-      "name" : "Ref.cmdSeq.DEBUG_BREAK",
+      "name" : "Ref.cmdSeq.BREAK",
       "commandKind" : "async",
       "opcode" : 268460037,
       "formalParams" : [
-        {
-          "name" : "breakOnce",
-          "type" : {
-            "name" : "bool",
-            "kind" : "bool",
-            "size" : 8
-          },
-          "ref" : false,
-          "annotation" : "Whether or not to break only once at this breakpoint"
-        }
       ],
       "priority" : 7,
       "queueFullBehavior" : "assert",
-      "annotation" : "Pauses the execution of the sequencer, just before it is about to dispatch the next statement,\nuntil unpaused by the DEBUG_CONTINUE command. This command is only valid in the RUNNING state.\nDebug settings are cleared after a sequence ends execution."
+      "annotation" : "Pauses the execution of the sequencer, just before it is about to dispatch the next directive,\nuntil unpaused by the CONTINUE command, or stepped by the STEP command. This command is only valid\nsubstates of the RUNNING state that are not RUNNING.PAUSED."
     },
     {
-      "name" : "Ref.cmdSeq.DEBUG_CONTINUE",
+      "name" : "Ref.cmdSeq.CONTINUE",
       "commandKind" : "async",
       "opcode" : 268460038,
       "formalParams" : [
       ],
       "priority" : 7,
       "queueFullBehavior" : "assert",
-      "annotation" : "Continues the execution of the sequence after it has been paused by a debug break. This command\nis only valid in the RUNNING.DEBUG_BROKEN state."
+      "annotation" : "Continues the automatic execution of the sequence after it has been paused. If a breakpoint is still\nset, it may pause again on that breakpoint. This command is only valid in the RUNNING.PAUSED state."
     },
     {
-      "name" : "Ref.cmdSeq.DEBUG_CLEAR_BREAKPOINT",
+      "name" : "Ref.cmdSeq.CLEAR_BREAKPOINT",
       "commandKind" : "async",
       "opcode" : 268460039,
       "formalParams" : [
       ],
       "priority" : 7,
       "queueFullBehavior" : "assert",
-      "annotation" : "Clears the debugging breakpoint, but does not continue executing the sequence. This command\nis valid in all states. This happens automatically when a sequence ends execution."
+      "annotation" : "Clears the breakpoint, but does not continue executing the sequence. This command\nis valid in all states. This happens automatically when a sequence ends execution."
+    },
+    {
+      "name" : "Ref.cmdSeq.STEP",
+      "commandKind" : "async",
+      "opcode" : 268460040,
+      "formalParams" : [
+      ],
+      "priority" : 7,
+      "queueFullBehavior" : "assert",
+      "annotation" : "Dispatches and awaits the result of the next directive, or ends the sequence if no more directives remain. Returns\nto the RUNNING.PAUSED state if the directive executes successfully. This command is only valid in the RUNNING.PAUSED state."
+    },
+    {
+      "name" : "Ref.cmdSeq.SET_FLAG",
+      "commandKind" : "async",
+      "opcode" : 268460041,
+      "formalParams" : [
+        {
+          "name" : "flag",
+          "type" : {
+            "name" : "Svc.Fpy.FlagId",
+            "kind" : "qualifiedIdentifier"
+          },
+          "ref" : false
+        },
+        {
+          "name" : "value",
+          "type" : {
+            "name" : "bool",
+            "kind" : "bool",
+            "size" : 8
+          },
+          "ref" : false
+        }
+      ],
+      "priority" : 7,
+      "queueFullBehavior" : "assert",
+      "annotation" : "Sets the value of a flag. See Fpy.FlagId docstrings for info on each flag.\nThis command is only valid in the RUNNING state."
     },
     {
       "name" : "Ref.cmdSeq.STATEMENT_TIMEOUT_SECS_PRM_SET",
       "commandKind" : "set",
-      "opcode" : 268460040,
+      "opcode" : 268460042,
       "formalParams" : [
         {
           "name" : "val",
@@ -3439,10 +3904,35 @@
     {
       "name" : "Ref.cmdSeq.STATEMENT_TIMEOUT_SECS_PRM_SAVE",
       "commandKind" : "save",
-      "opcode" : 268460041,
+      "opcode" : 268460043,
       "formalParams" : [
       ],
       "annotation" : "the number of seconds to wait before giving up\non a directive or command. if <= 0 or greater than U32 max, never time out.\naccuracy of this timeout is determined by the rate group driving this\ncomponent. it will be rounded up"
+    },
+    {
+      "name" : "Ref.cmdSeq.FLAG_DEFAULT_EXIT_ON_CMD_FAIL_PRM_SET",
+      "commandKind" : "set",
+      "opcode" : 268460044,
+      "formalParams" : [
+        {
+          "name" : "val",
+          "type" : {
+            "name" : "bool",
+            "kind" : "bool",
+            "size" : 8
+          },
+          "ref" : false
+        }
+      ],
+      "annotation" : "the default value of the EXIT_ON_CMD_FAIL sequence flag"
+    },
+    {
+      "name" : "Ref.cmdSeq.FLAG_DEFAULT_EXIT_ON_CMD_FAIL_PRM_SAVE",
+      "commandKind" : "save",
+      "opcode" : 268460045,
+      "formalParams" : [
+      ],
+      "annotation" : "the default value of the EXIT_ON_CMD_FAIL sequence flag"
     },
     {
       "name" : "Ref.sendBuffComp.SB_START_PKTS",
@@ -4258,6 +4748,17 @@
       "annotation" : "the number of seconds to wait before giving up\non a directive or command. if <= 0 or greater than U32 max, never time out.\naccuracy of this timeout is determined by the rate group driving this\ncomponent. it will be rounded up"
     },
     {
+      "name" : "Ref.cmdSeq.FLAG_DEFAULT_EXIT_ON_CMD_FAIL",
+      "type" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      },
+      "id" : 268460033,
+      "default" : false,
+      "annotation" : "the default value of the EXIT_ON_CMD_FAIL sequence flag"
+    },
+    {
       "name" : "Ref.sendBuffComp.parameter3",
       "type" : {
         "name" : "U8",
@@ -4701,6 +5202,39 @@
       "id" : 16777226,
       "format" : "Opcode 0x{x} is already registered to port {}",
       "annotation" : "Op code reregistered event"
+    },
+    {
+      "name" : "CdhCore.cmdDisp.CommandDroppedQueueOverflow",
+      "severity" : "WARNING_HI",
+      "formalParams" : [
+        {
+          "name" : "OpCode",
+          "type" : {
+            "name" : "FwOpcodeType",
+            "kind" : "qualifiedIdentifier"
+          },
+          "ref" : false,
+          "annotation" : "The command opcode dropped"
+        },
+        {
+          "name" : "Context",
+          "type" : {
+            "name" : "U32",
+            "kind" : "integer",
+            "size" : 32,
+            "signed" : false
+          },
+          "ref" : false,
+          "annotation" : "The call order"
+        }
+      ],
+      "id" : 16777227,
+      "format" : "Opcode 0x{x} was dropped due to buffer overflow and not processed. Context {}",
+      "annotation" : "This log event reports the Command Sequence Buffer port queue has overflowed.",
+      "throttle" : {
+        "count" : 5,
+        "every" : null
+      }
     },
     {
       "name" : "CdhCore.events.SEVERITY_FILTER_STATE",
@@ -5622,6 +6156,23 @@
       "annotation" : "An error occurred while deserializing a packet"
     },
     {
+      "name" : "ComCcsds.frameAccumulator.FrameDetectionSizeError",
+      "severity" : "WARNING_HI",
+      "formalParams" : [
+        {
+          "name" : "size_out",
+          "type" : {
+            "name" : "FwSizeType",
+            "kind" : "qualifiedIdentifier"
+          },
+          "ref" : false
+        }
+      ],
+      "id" : 33558529,
+      "format" : "Reported size_out={} exceeds accumulation buffer capacity",
+      "annotation" : "A frame was detected whose size exceeds the internal accumulation buffer\ncapacity. No choice but to drop the frame."
+    },
+    {
       "name" : "ComCcsds.commsBufferManager.NoBuffsAvailable",
       "severity" : "WARNING_HI",
       "formalParams" : [
@@ -5638,7 +6189,10 @@
       "id" : 33562624,
       "format" : "No available buffers of size {}",
       "annotation" : "The BufferManager was unable to allocate a requested buffer",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "ComCcsds.commsBufferManager.NullEmptyBuffer",
@@ -5648,7 +6202,10 @@
       "id" : 33562625,
       "format" : "Received null pointer and zero size buffer",
       "annotation" : "The buffer manager received a null pointer and zero-sized buffer as a return. Probably undetected failed buffer allocation",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "ComCcsds.fprimeRouter.SerializationError",
@@ -5715,7 +6272,7 @@
           "ref" : false
         }
       ],
-      "id" : 33574912,
+      "id" : 33570816,
       "format" : "Invalid Spacecraft ID Received. Received: {} | Deframer configured with: {}",
       "annotation" : "Deframing received an invalid SCID"
     },
@@ -5742,7 +6299,7 @@
           "ref" : false
         }
       ],
-      "id" : 33574913,
+      "id" : 33570817,
       "format" : "Not enough data received. Header length specified: {} | Received data length: {}",
       "annotation" : "Deframing received an invalid frame length"
     },
@@ -5771,7 +6328,7 @@
           "ref" : false
         }
       ],
-      "id" : 33574914,
+      "id" : 33570818,
       "format" : "Invalid Virtual Channel ID Received. Header token specified: {} | Deframer configured with: {}",
       "annotation" : "Deframing received an invalid VCID"
     },
@@ -5800,7 +6357,7 @@
           "ref" : false
         }
       ],
-      "id" : 33574915,
+      "id" : 33570819,
       "format" : "Invalid checksum received. Trailer specified: {} | Computed on board: {}",
       "annotation" : "Deframing received an invalid checksum"
     },
@@ -5827,7 +6384,7 @@
           "ref" : false
         }
       ],
-      "id" : 33579008,
+      "id" : 33574912,
       "format" : "Invalid length received. Header specified packet byte size of {} | Actual received data length: {}",
       "annotation" : "Deframing received an invalid frame length"
     },
@@ -6125,7 +6682,10 @@
       "id" : 67108884,
       "format" : "DpCatalog not initialized!",
       "annotation" : "Component not initialized error",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.ComponentNoMemory",
@@ -6135,7 +6695,10 @@
       "id" : 67108885,
       "format" : "DpCatalog couldn't get memory",
       "annotation" : "Component didn't get memory error",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.CatalogFull",
@@ -6155,7 +6718,10 @@
       "id" : 67108886,
       "format" : "DpCatalog full during directory {}",
       "annotation" : "Catalog is full",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.FileOpenError",
@@ -6186,7 +6752,10 @@
       "id" : 67108887,
       "format" : "Unable to open DP file {} status {}",
       "annotation" : "Error opening file",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.FileReadError",
@@ -6217,7 +6786,10 @@
       "id" : 67108888,
       "format" : "Error reading DP file {} status {}",
       "annotation" : "Error opening file",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.FileHdrError",
@@ -6268,7 +6840,10 @@
       "id" : 67108889,
       "format" : "Error reading DP {} header {} field. Expected: {} Actual: {}",
       "annotation" : "Error reading header data from DP file",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.FileHdrDesError",
@@ -6298,7 +6873,10 @@
       "id" : 67108890,
       "format" : "Error deserializing DP {} header stat: {}",
       "annotation" : "Error deserializing header data",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.DpInsertError",
@@ -6317,7 +6895,10 @@
       "id" : 67108891,
       "format" : "Error deserializing DP {}",
       "annotation" : "Error inserting entry into list",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.DpDuplicate",
@@ -6336,7 +6917,10 @@
       "id" : 67108892,
       "format" : "DP {} already in catalog",
       "annotation" : "Error inserting entry into list",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.DpCatalogFull",
@@ -6355,7 +6939,10 @@
       "id" : 67108893,
       "format" : "Catalog full trying to insert DP {}",
       "annotation" : "Error inserting entry into list",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.DpXmitInProgress",
@@ -6365,7 +6952,10 @@
       "id" : 67108894,
       "format" : "Cannot build new catalog while DPs are being transmitted",
       "annotation" : "Tried to build catalog while downlink process active",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.FileSizeError",
@@ -6395,7 +6985,10 @@
       "id" : 67108895,
       "format" : "Error getting file {} size. stat: {}",
       "annotation" : "Error getting file size",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.NoDpMemory",
@@ -6604,7 +7197,10 @@
       ],
       "id" : 67108905,
       "format" : "Error transmitting DP file {}, stat {}. Halting xmit.",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpCat.DpFileSendError",
@@ -6631,7 +7227,10 @@
       ],
       "id" : 67108906,
       "format" : "Error sending DP file {}, stat {}. Halting xmit.",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpMgr.BufferAllocationFailed",
@@ -6650,7 +7249,10 @@
       "id" : 67112960,
       "format" : "Buffer allocation failed for container id {}",
       "annotation" : "Buffer allocation failed",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpWriter.InvalidBuffer",
@@ -6660,7 +7262,10 @@
       "id" : 67117056,
       "format" : "Received buffer is invalid",
       "annotation" : "Received buffer is invalid",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpWriter.BufferTooSmallForPacket",
@@ -6690,7 +7295,10 @@
       "id" : 67117057,
       "format" : "Received buffer has size {}; minimum required size is {}",
       "annotation" : "Received buffer is too small to hold a data product packet",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpWriter.InvalidHeaderHash",
@@ -6731,7 +7339,10 @@
       "id" : 67117058,
       "format" : "Received a buffer of size {} with an invalid header hash (stored {x}, computed {x})",
       "annotation" : "The received buffer has an invalid header hash",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpWriter.InvalidHeader",
@@ -6761,7 +7372,10 @@
       "id" : 67117059,
       "format" : "Received buffer of size {}; deserialization of packet header failed with error code {}",
       "annotation" : "Error occurred when deserializing the packet header",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpWriter.BufferTooSmallForData",
@@ -6791,7 +7405,10 @@
       "id" : 67117060,
       "format" : "Received buffer has size {}; minimum required size is {}",
       "annotation" : "Received buffer is too small to hold the data specified in the header",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpWriter.FileOpenError",
@@ -6822,7 +7439,10 @@
       "id" : 67117061,
       "format" : "Error {} opening file {}",
       "annotation" : "An error occurred when opening a file",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpWriter.FileWriteError",
@@ -6875,7 +7495,10 @@
       "id" : 67117062,
       "format" : "Error {} while writing {} of {} bytes to {}",
       "annotation" : "An error occurred when writing to a file",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpWriter.FileWritten",
@@ -6924,7 +7547,10 @@
       "id" : 67121152,
       "format" : "No available buffers of size {}",
       "annotation" : "The BufferManager was unable to allocate a requested buffer",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "DataProducts.dpBufferManager.NullEmptyBuffer",
@@ -6934,7 +7560,10 @@
       "id" : 67121153,
       "format" : "Received null pointer and zero size buffer",
       "annotation" : "The buffer manager received a null pointer and zero-sized buffer as a return. Probably undetected failed buffer allocation",
-      "throttle" : 10
+      "throttle" : {
+        "count" : 10,
+        "every" : null
+      }
     },
     {
       "name" : "FileHandling.fileUplink.BadChecksum",
@@ -7033,7 +7662,10 @@
       "id" : 83886083,
       "format" : "Could not write to file {}",
       "annotation" : "An error occurred writing to a file",
-      "throttle" : 5
+      "throttle" : {
+        "count" : 5,
+        "every" : null
+      }
     },
     {
       "name" : "FileHandling.fileUplink.InvalidReceiveMode",
@@ -7063,7 +7695,10 @@
       "id" : 83886084,
       "format" : "Packet type {} received in mode {}",
       "annotation" : "The File Uplink component received a packet with a type that was invalid for the current receive mode",
-      "throttle" : 5
+      "throttle" : {
+        "count" : 5,
+        "every" : null
+      }
     },
     {
       "name" : "FileHandling.fileUplink.PacketOutOfBounds",
@@ -7094,7 +7729,10 @@
       "id" : 83886085,
       "format" : "Packet {} out of bounds for file {}",
       "annotation" : "During receipt of a file, the File Uplink component encountered a packet with offset and size out of bounds for the current file",
-      "throttle" : 5
+      "throttle" : {
+        "count" : 5,
+        "every" : null
+      }
     },
     {
       "name" : "FileHandling.fileUplink.PacketOutOfOrder",
@@ -7126,7 +7764,10 @@
       "id" : 83886086,
       "format" : "Received packet {} after packet {}",
       "annotation" : "The File Uplink component encountered an out-of-order packet during file receipt",
-      "throttle" : 20
+      "throttle" : {
+        "count" : 20,
+        "every" : null
+      }
     },
     {
       "name" : "FileHandling.fileUplink.PacketDuplicate",
@@ -7147,7 +7788,10 @@
       "id" : 83886087,
       "format" : "Received a duplicate of packet {}",
       "annotation" : "The File Uplink component encountered a duplicate packet during file receipt",
-      "throttle" : 20
+      "throttle" : {
+        "count" : 20,
+        "every" : null
+      }
     },
     {
       "name" : "FileHandling.fileUplink.UplinkCanceled",
@@ -7524,7 +8168,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the directory"
@@ -7554,7 +8198,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the directory"
@@ -7584,7 +8228,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the source file"
@@ -7594,7 +8238,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the destination file"
@@ -7624,7 +8268,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file"
@@ -7684,7 +8328,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file being read from"
@@ -7694,7 +8338,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file to append to"
@@ -7724,7 +8368,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file being read from"
@@ -7734,7 +8378,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file to append to"
@@ -7753,7 +8397,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The command string"
@@ -7772,7 +8416,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the directory"
@@ -7791,7 +8435,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the directory"
@@ -7810,7 +8454,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the source file"
@@ -7820,7 +8464,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the destination file"
@@ -7839,7 +8483,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file"
@@ -7858,7 +8502,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file being read from"
@@ -7868,7 +8512,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file to append to"
@@ -7906,7 +8550,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the directory"
@@ -7925,7 +8569,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the directory"
@@ -7944,7 +8588,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the source file"
@@ -7954,7 +8598,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the destination file"
@@ -7973,7 +8617,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file"
@@ -7992,7 +8636,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file"
@@ -8000,10 +8644,8 @@
         {
           "name" : "size",
           "type" : {
-            "name" : "U64",
-            "kind" : "integer",
-            "size" : 64,
-            "signed" : false
+            "name" : "FwSizeType",
+            "kind" : "qualifiedIdentifier"
           },
           "ref" : false,
           "annotation" : "The size of the file in bytes"
@@ -8022,7 +8664,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file"
@@ -8052,7 +8694,7 @@
           "type" : {
             "name" : "string",
             "kind" : "string",
-            "size" : 256
+            "size" : 200
           },
           "ref" : false,
           "annotation" : "The name of the file"
@@ -8061,6 +8703,152 @@
       "id" : 83894292,
       "format" : "Checking size of file {}...",
       "annotation" : "Checking file size"
+    },
+    {
+      "name" : "FileHandling.fileManager.ListDirectoryStarted",
+      "severity" : "ACTIVITY_HI",
+      "formalParams" : [
+        {
+          "name" : "dirName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The name of the directory"
+        }
+      ],
+      "id" : 83894293,
+      "format" : "Listing contents of directory {}...",
+      "annotation" : "Starting directory listing"
+    },
+    {
+      "name" : "FileHandling.fileManager.ListDirectorySucceeded",
+      "severity" : "ACTIVITY_HI",
+      "formalParams" : [
+        {
+          "name" : "dirName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The name of the directory"
+        },
+        {
+          "name" : "fileCount",
+          "type" : {
+            "name" : "U32",
+            "kind" : "integer",
+            "size" : 32,
+            "signed" : false
+          },
+          "ref" : false,
+          "annotation" : "The number of files found"
+        }
+      ],
+      "id" : 83894294,
+      "format" : "Directory {} contains {} files",
+      "annotation" : "Directory listing completed successfully"
+    },
+    {
+      "name" : "FileHandling.fileManager.ListDirectoryError",
+      "severity" : "WARNING_HI",
+      "formalParams" : [
+        {
+          "name" : "dirName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The name of the directory"
+        },
+        {
+          "name" : "status",
+          "type" : {
+            "name" : "U32",
+            "kind" : "integer",
+            "size" : 32,
+            "signed" : false
+          },
+          "ref" : false,
+          "annotation" : "The error status"
+        }
+      ],
+      "id" : 83894295,
+      "format" : "Failed to list directory {}, returned status {}",
+      "annotation" : "Failed to list directory"
+    },
+    {
+      "name" : "FileHandling.fileManager.DirectoryListing",
+      "severity" : "ACTIVITY_HI",
+      "formalParams" : [
+        {
+          "name" : "dirName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The name of the directory"
+        },
+        {
+          "name" : "fileName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The name of the file"
+        },
+        {
+          "name" : "fileSize",
+          "type" : {
+            "name" : "FwSizeType",
+            "kind" : "qualifiedIdentifier"
+          },
+          "ref" : false,
+          "annotation" : "The size of the file in bytes"
+        }
+      ],
+      "id" : 83894296,
+      "format" : "Directory {}: {} ({} bytes)",
+      "annotation" : "Directory listing file entry"
+    },
+    {
+      "name" : "FileHandling.fileManager.DirectoryListingSubdir",
+      "severity" : "ACTIVITY_HI",
+      "formalParams" : [
+        {
+          "name" : "dirName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The name of the directory"
+        },
+        {
+          "name" : "subdirName",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 200
+          },
+          "ref" : false,
+          "annotation" : "The name of the subdirectory"
+        }
+      ],
+      "id" : 83894297,
+      "format" : "Directory {}: {}",
+      "annotation" : "Directory listing subdirectory entry"
     },
     {
       "name" : "FileHandling.prmDb.PrmIdNotFound",
@@ -8079,7 +8867,10 @@
       "id" : 83898368,
       "format" : "Parameter ID 0x{x} not found",
       "annotation" : "Parameter ID not found in database.",
-      "throttle" : 5
+      "throttle" : {
+        "count" : 5,
+        "every" : null
+      }
     },
     {
       "name" : "FileHandling.prmDb.PrmIdUpdated",
@@ -8101,7 +8892,7 @@
     },
     {
       "name" : "FileHandling.prmDb.PrmDbFull",
-      "severity" : "FATAL",
+      "severity" : "WARNING_HI",
       "formalParams" : [
         {
           "name" : "Id",
@@ -8240,7 +9031,17 @@
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
-          "name" : "records",
+          "name" : "databaseString",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 80
+          },
+          "ref" : false,
+          "annotation" : "The database string"
+        },
+        {
+          "name" : "recordsTotal",
           "type" : {
             "name" : "U32",
             "kind" : "integer",
@@ -8248,12 +9049,108 @@
             "signed" : false
           },
           "ref" : false,
-          "annotation" : "The number of records loaded"
+          "annotation" : "The number of records total"
+        },
+        {
+          "name" : "recordsAdded",
+          "type" : {
+            "name" : "U32",
+            "kind" : "integer",
+            "size" : 32,
+            "signed" : false
+          },
+          "ref" : false,
+          "annotation" : "The number of new records added"
+        },
+        {
+          "name" : "recordsUpdated",
+          "type" : {
+            "name" : "U32",
+            "kind" : "integer",
+            "size" : 32,
+            "signed" : false
+          },
+          "ref" : false,
+          "annotation" : "The number of records updated"
         }
       ],
       "id" : 83898375,
-      "format" : "Parameter file load completed. Read {} records.",
+      "format" : "Parameter file load completed. Database: {}, Records: {} ({} added and {} updated).",
       "annotation" : "Load of parameter file completed"
+    },
+    {
+      "name" : "FileHandling.prmDb.PrmDbCommitComplete",
+      "severity" : "ACTIVITY_HI",
+      "formalParams" : [
+      ],
+      "id" : 83898376,
+      "format" : "Parameter DB commit complete, staged updates are now active.",
+      "annotation" : "Committed staged parameter updates"
+    },
+    {
+      "name" : "FileHandling.prmDb.PrmDbCopyAllComplete",
+      "severity" : "ACTIVITY_HI",
+      "formalParams" : [
+        {
+          "name" : "databaseStringSrc",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 80
+          },
+          "ref" : false,
+          "annotation" : "The src database string"
+        },
+        {
+          "name" : "databaseStringDest",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 80
+          },
+          "ref" : false,
+          "annotation" : "The dest database string"
+        }
+      ],
+      "id" : 83898377,
+      "format" : "All parameters copied. Source database: {}, Destination database: {}.",
+      "annotation" : "All parameters Copied from one DB to another"
+    },
+    {
+      "name" : "FileHandling.prmDb.PrmDbFileLoadFailed",
+      "severity" : "WARNING_HI",
+      "formalParams" : [
+      ],
+      "id" : 83898378,
+      "format" : "Parameter file load failed. Clearing staging database and abandoning parameter file load.",
+      "annotation" : "Parameter file load failed, not staging any update"
+    },
+    {
+      "name" : "FileHandling.prmDb.PrmDbFileLoadInvalidAction",
+      "severity" : "WARNING_LO",
+      "formalParams" : [
+        {
+          "name" : "currentState",
+          "type" : {
+            "name" : "Svc.PrmDb.PrmDbFileLoadState",
+            "kind" : "qualifiedIdentifier"
+          },
+          "ref" : false,
+          "annotation" : "The current state"
+        },
+        {
+          "name" : "attemptedAction",
+          "type" : {
+            "name" : "Svc.PrmDb.PrmLoadAction",
+            "kind" : "qualifiedIdentifier"
+          },
+          "ref" : false,
+          "annotation" : "The invalid action attempted"
+        }
+      ],
+      "id" : 83898379,
+      "format" : "Invalid action during parameter file load. Current state: {}, Action (Invalid for current state): {}.",
+      "annotation" : "Invalid Action during parameter file load"
     },
     {
       "name" : "Ref.rateGroup1Comp.RateGroupStarted",
@@ -8883,10 +9780,8 @@
         {
           "name" : "remaining",
           "type" : {
-            "name" : "U32",
-            "kind" : "integer",
-            "size" : 32,
-            "signed" : false
+            "name" : "FwSizeType",
+            "kind" : "qualifiedIdentifier"
           },
           "ref" : false
         }
@@ -8999,6 +9894,60 @@
       "format" : "Cancelled sequence file {}"
     },
     {
+      "name" : "Ref.cmdSeq.SequenceExitedWithError",
+      "severity" : "WARNING_HI",
+      "formalParams" : [
+        {
+          "name" : "filePath",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 80
+          },
+          "ref" : false
+        },
+        {
+          "name" : "errorCode",
+          "type" : {
+            "name" : "U8",
+            "kind" : "integer",
+            "size" : 8,
+            "signed" : false
+          },
+          "ref" : false
+        }
+      ],
+      "id" : 268460045,
+      "format" : "Sequence {} exited with error code {}"
+    },
+    {
+      "name" : "Ref.cmdSeq.SequenceAsserted",
+      "severity" : "WARNING_HI",
+      "formalParams" : [
+        {
+          "name" : "filePath",
+          "type" : {
+            "name" : "string",
+            "kind" : "string",
+            "size" : 80
+          },
+          "ref" : false
+        },
+        {
+          "name" : "errorCode",
+          "type" : {
+            "name" : "U8",
+            "kind" : "integer",
+            "size" : 8,
+            "signed" : false
+          },
+          "ref" : false
+        }
+      ],
+      "id" : 268460046,
+      "format" : "Sequence {} failed an assertion with error code {}"
+    },
+    {
       "name" : "Ref.cmdSeq.UnknownSequencerDirective",
       "severity" : "WARNING_HI",
       "formalParams" : [
@@ -9032,7 +9981,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460045,
+      "id" : 268460047,
       "format" : "Unknown sequencer directive id {} at index {} in file {}"
     },
     {
@@ -9066,7 +10015,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460046,
+      "id" : 268460048,
       "format" : "Received a command response while not running a sequence (was in state {} opcode was {} response code {})"
     },
     {
@@ -9110,7 +10059,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460047,
+      "id" : 268460049,
       "format" : "Received a response from cmd opcode {} (response {}), but it was from a previous sequence, not the current one (old idx: {}, current idx: {})"
     },
     {
@@ -9134,7 +10083,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460048,
+      "id" : 268460050,
       "format" : "Received a response from cmd opcode {} (response {}) from this sequence, but was not awaiting a response"
     },
     {
@@ -9168,7 +10117,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460049,
+      "id" : 268460051,
       "format" : "Received a response from cmd opcode {} (response {}) from this sequence, but was awaiting directive opcode {}"
     },
     {
@@ -9200,7 +10149,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460050,
+      "id" : 268460052,
       "format" : "Received a response from cmd opcode {} (response {}) from this sequence, but was expecting a response from command opcode {}"
     },
     {
@@ -9244,7 +10193,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460051,
+      "id" : 268460053,
       "format" : "Received a response from the correct cmd (opcode {} response {}), but it was for a different instance of that opcode in the same sequence (actual idx {} expected {})"
     },
     {
@@ -9302,7 +10251,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460052,
+      "id" : 268460054,
       "format" : "Deserialize error encountered while reading directive opcode {} at index {}: {} ({} bytes left out of {})"
     },
     {
@@ -9330,7 +10279,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460053,
+      "id" : 268460055,
       "format" : "getTime() time base was {}, but tried to operate on it with time base {}"
     },
     {
@@ -9358,7 +10307,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460054,
+      "id" : 268460056,
       "format" : "getTime() time context was {}, but tried to operate on it with time context {}"
     },
     {
@@ -9393,7 +10342,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460055,
+      "id" : 268460057,
       "format" : "A command opcode {} at index {} timed out in sequence {}, causing the sequence to fail"
     },
     {
@@ -9430,7 +10379,7 @@
           "ref" : false
         }
       ],
-      "id" : 268460056,
+      "id" : 268460058,
       "format" : "A directive opcode {} at index {} timed out in sequence {}, causing the sequence to fail"
     },
     {
@@ -9458,11 +10407,11 @@
           "ref" : false
         }
       ],
-      "id" : 268460057,
+      "id" : 268460059,
       "format" : "A sequence specified it had {} args but the max was {}"
     },
     {
-      "name" : "Ref.cmdSeq.TooManySequenceStatements",
+      "name" : "Ref.cmdSeq.TooManySequenceDirectives",
       "severity" : "WARNING_HI",
       "formalParams" : [
         {
@@ -9486,11 +10435,11 @@
           "ref" : false
         }
       ],
-      "id" : 268460058,
-      "format" : "A sequence specified it had {} statements but the max was {}"
+      "id" : 268460060,
+      "format" : "A sequence specified it had {} directives but the max was {}"
     },
     {
-      "name" : "Ref.cmdSeq.DebugBroken",
+      "name" : "Ref.cmdSeq.SequencePaused",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -9502,22 +10451,13 @@
             "signed" : false
           },
           "ref" : false
-        },
-        {
-          "name" : "breakOnce",
-          "type" : {
-            "name" : "bool",
-            "kind" : "bool",
-            "size" : 8
-          },
-          "ref" : false
         }
       ],
-      "id" : 268460059,
-      "format" : "Debug breakpoint reached before dispatching statement index {}. Will break once: {}"
+      "id" : 268460061,
+      "format" : "Sequence paused before dispatching directive index {}"
     },
     {
-      "name" : "Ref.cmdSeq.DebugBreakpointSet",
+      "name" : "Ref.cmdSeq.BreakpointSet",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
         {
@@ -9540,16 +10480,16 @@
           "ref" : false
         }
       ],
-      "id" : 268460060,
-      "format" : "Debug breakpoint set before statement index {}. Will break once: {}"
+      "id" : 268460062,
+      "format" : "Breakpoint set before directive index {}. Will break once: {}"
     },
     {
-      "name" : "Ref.cmdSeq.DebugBreakpointCleared",
+      "name" : "Ref.cmdSeq.BreakpointCleared",
       "severity" : "ACTIVITY_HI",
       "formalParams" : [
       ],
-      "id" : 268460061,
-      "format" : "Debug breakpoint cleared"
+      "id" : 268460063,
+      "format" : "Breakpoint cleared"
     },
     {
       "name" : "Ref.sendBuffComp.FirstPacketSent",
@@ -10635,6 +11575,18 @@
       "annotation" : "Number of command errors"
     },
     {
+      "name" : "CdhCore.cmdDisp.CommandsDropped",
+      "type" : {
+        "name" : "U32",
+        "kind" : "integer",
+        "size" : 32,
+        "signed" : false
+      },
+      "id" : 16777218,
+      "telemetryUpdate" : "on change",
+      "annotation" : "Number of commands drooped due to buffer overflow"
+    },
+    {
       "name" : "CdhCore.health.PingLateWarnings",
       "type" : {
         "name" : "U32",
@@ -11571,10 +12523,8 @@
     {
       "name" : "Ref.cmdSeq.State",
       "type" : {
-        "name" : "I32",
-        "kind" : "integer",
-        "size" : 32,
-        "signed" : true
+        "name" : "FwEnumStoreType",
+        "kind" : "qualifiedIdentifier"
       },
       "id" : 268460032,
       "telemetryUpdate" : "on change",
@@ -11643,12 +12593,34 @@
     {
       "name" : "Ref.cmdSeq.LastDirectiveError",
       "type" : {
-        "name" : "Svc.FpySequencer.DirectiveErrorCode",
+        "name" : "Svc.Fpy.DirectiveErrorCode",
         "kind" : "qualifiedIdentifier"
       },
       "id" : 268460038,
       "telemetryUpdate" : "on change",
       "annotation" : "the error code of the last directive that ran"
+    },
+    {
+      "name" : "Ref.cmdSeq.DirectiveErrorIndex",
+      "type" : {
+        "name" : "U64",
+        "kind" : "integer",
+        "size" : 64,
+        "signed" : false
+      },
+      "id" : 268460039,
+      "telemetryUpdate" : "on change",
+      "annotation" : "the index of the last directive to error"
+    },
+    {
+      "name" : "Ref.cmdSeq.DirectiveErrorId",
+      "type" : {
+        "name" : "Svc.Fpy.DirectiveId",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 268460040,
+      "telemetryUpdate" : "on change",
+      "annotation" : "the id of the last directive to error"
     },
     {
       "name" : "Ref.cmdSeq.SeqPath",
@@ -11657,31 +12629,98 @@
         "kind" : "string",
         "size" : 200
       },
-      "id" : 268460039,
+      "id" : 268460041,
       "telemetryUpdate" : "on change",
       "annotation" : "the currently running sequence"
     },
     {
-      "name" : "Ref.cmdSeq.DebugBreakpointIdx",
+      "name" : "Ref.cmdSeq.Debug_ReachedEndOfFile",
+      "type" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      },
+      "id" : 268460042,
+      "telemetryUpdate" : "always",
+      "annotation" : "true if there are no statements remaining in the sequence file"
+    },
+    {
+      "name" : "Ref.cmdSeq.Debug_NextStatementReadSuccess",
+      "type" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      },
+      "id" : 268460043,
+      "telemetryUpdate" : "always",
+      "annotation" : "true if we were able to deserialize the next statement successfully"
+    },
+    {
+      "name" : "Ref.cmdSeq.Debug_NextStatementOpcode",
+      "type" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "id" : 268460044,
+      "telemetryUpdate" : "on change",
+      "annotation" : "the opcode of the next statement to dispatch."
+    },
+    {
+      "name" : "Ref.cmdSeq.Debug_NextCmdOpcode",
+      "type" : {
+        "name" : "FwOpcodeType",
+        "kind" : "qualifiedIdentifier"
+      },
+      "id" : 268460045,
+      "telemetryUpdate" : "on change",
+      "annotation" : "if the next statement is a cmd directive, the opcode of that cmd"
+    },
+    {
+      "name" : "Ref.cmdSeq.BreakpointInUse",
+      "type" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      },
+      "id" : 268460046,
+      "telemetryUpdate" : "always",
+      "annotation" : "whether or not to break at the breakpoint index"
+    },
+    {
+      "name" : "Ref.cmdSeq.BreakpointIndex",
       "type" : {
         "name" : "U32",
         "kind" : "integer",
         "size" : 32,
         "signed" : false
       },
-      "id" : 268460040,
+      "id" : 268460047,
       "telemetryUpdate" : "on change",
-      "annotation" : "the current debug breakpoint index"
+      "annotation" : "the current breakpoint index. The sequence will break at this point\njust before dispatching the directive at this index"
     },
     {
-      "name" : "Ref.cmdSeq.Debug",
+      "name" : "Ref.cmdSeq.BreakOnlyOnceOnBreakpoint",
       "type" : {
-        "name" : "Svc.FpySequencer.DebugTelemetry",
-        "kind" : "qualifiedIdentifier"
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
       },
-      "id" : 268460041,
-      "telemetryUpdate" : "on change",
-      "annotation" : "debug-only telemetry\nonly updated in the RUNNING.DEBUG_BROKEN state"
+      "id" : 268460048,
+      "telemetryUpdate" : "always",
+      "annotation" : "whether or not to remove the breakpoint after breaking on it"
+    },
+    {
+      "name" : "Ref.cmdSeq.BreakBeforeNextLine",
+      "type" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      },
+      "id" : 268460049,
+      "telemetryUpdate" : "always",
+      "annotation" : "whether or not to break before dispatching the next line,\nindependent of what line it is.\ncan be used in combination with breakpointIndex"
     },
     {
       "name" : "Ref.cmdSeq.PRM_STATEMENT_TIMEOUT_SECS",
@@ -11690,9 +12729,20 @@
         "kind" : "float",
         "size" : 32
       },
-      "id" : 268460042,
+      "id" : 268460050,
       "telemetryUpdate" : "on change",
       "annotation" : "value of prm STATEMENT_TIMEOUT_SECS"
+    },
+    {
+      "name" : "Ref.cmdSeq.PRM_FLAG_DEFAULT_EXIT_ON_CMD_FAIL",
+      "type" : {
+        "name" : "bool",
+        "kind" : "bool",
+        "size" : 8
+      },
+      "id" : 268460051,
+      "telemetryUpdate" : "always",
+      "annotation" : "value of prm FLAG_DEFAULT_EXIT_ON_CMD_FAIL"
     },
     {
       "name" : "Ref.sendBuffComp.PacketsSent",
@@ -12759,416 +13809,5 @@
     }
   ],
   "telemetryPacketSets" : [
-    {
-      "name" : "RefPackets",
-      "members" : [
-        {
-          "name" : "SystemRes1",
-          "id" : 5,
-          "group" : 2,
-          "members" : [
-            "Ref.systemResources.MEMORY_TOTAL",
-            "Ref.systemResources.MEMORY_USED",
-            "Ref.systemResources.NON_VOLATILE_TOTAL",
-            "Ref.systemResources.NON_VOLATILE_FREE"
-          ]
-        },
-        {
-          "name" : "SigGen1Info",
-          "id" : 10,
-          "group" : 2,
-          "members" : [
-            "Ref.SG1.Info"
-          ]
-        },
-        {
-          "name" : "SigGen5Info",
-          "id" : 14,
-          "group" : 2,
-          "members" : [
-            "Ref.SG5.Info"
-          ]
-        },
-        {
-          "name" : "CDH",
-          "id" : 1,
-          "group" : 1,
-          "members" : [
-            "CdhCore.cmdDisp.CommandsDispatched",
-            "FileHandling.fileUplink.FilesReceived",
-            "FileHandling.fileUplink.PacketsReceived",
-            "FileHandling.fileDownlink.FilesSent",
-            "FileHandling.fileDownlink.PacketsSent",
-            "FileHandling.fileManager.CommandsExecuted",
-            "Ref.cmdSeq.State",
-            "Ref.cmdSeq.SequencesSucceeded",
-            "Ref.cmdSeq.SequencesFailed",
-            "Ref.cmdSeq.SequencesCancelled",
-            "Ref.cmdSeq.StatementsDispatched",
-            "Ref.cmdSeq.StatementsFailed",
-            "Ref.cmdSeq.LastDirectiveError",
-            "Ref.cmdSeq.SeqPath",
-            "Ref.cmdSeq.DebugBreakpointIdx",
-            "Ref.cmdSeq.Debug",
-            "Ref.cmdSeq.PRM_STATEMENT_TIMEOUT_SECS",
-            "ComCcsds.comQueue.comQueueDepth",
-            "ComCcsds.comQueue.buffQueueDepth",
-            "ComCcsds.commsBufferManager.TotalBuffs",
-            "ComCcsds.commsBufferManager.CurrBuffs",
-            "ComCcsds.commsBufferManager.HiBuffs",
-            "Ref.rateGroup1Comp.RgMaxTime",
-            "Ref.rateGroup2Comp.RgMaxTime",
-            "Ref.rateGroup3Comp.RgMaxTime"
-          ]
-        },
-        {
-          "name" : "SystemRes3",
-          "id" : 6,
-          "group" : 2,
-          "members" : [
-            "Ref.systemResources.CPU",
-            "Ref.systemResources.CPU_00",
-            "Ref.systemResources.CPU_01",
-            "Ref.systemResources.CPU_02",
-            "Ref.systemResources.CPU_03",
-            "Ref.systemResources.CPU_04",
-            "Ref.systemResources.CPU_05",
-            "Ref.systemResources.CPU_06",
-            "Ref.systemResources.CPU_07",
-            "Ref.systemResources.CPU_08",
-            "Ref.systemResources.CPU_09",
-            "Ref.systemResources.CPU_10",
-            "Ref.systemResources.CPU_11",
-            "Ref.systemResources.CPU_12",
-            "Ref.systemResources.CPU_13",
-            "Ref.systemResources.CPU_14",
-            "Ref.systemResources.CPU_15"
-          ]
-        },
-        {
-          "name" : "SigGen4Info",
-          "id" : 13,
-          "group" : 2,
-          "members" : [
-            "Ref.SG4.Info"
-          ]
-        },
-        {
-          "name" : "CDHErrors",
-          "id" : 2,
-          "group" : 1,
-          "members" : [
-            "CdhCore.health.PingLateWarnings",
-            "FileHandling.fileUplink.Warnings",
-            "FileHandling.fileDownlink.Warnings",
-            "FileHandling.fileManager.Errors",
-            "ComCcsds.commsBufferManager.NoBuffs",
-            "ComCcsds.commsBufferManager.EmptyBuffs",
-            "Ref.rateGroup1Comp.RgCycleSlips",
-            "Ref.rateGroup2Comp.RgCycleSlips",
-            "Ref.rateGroup3Comp.RgCycleSlips"
-          ]
-        },
-        {
-          "name" : "SigGen3Info",
-          "id" : 12,
-          "group" : 2,
-          "members" : [
-            "Ref.SG3.Info"
-          ]
-        },
-        {
-          "name" : "SigGen4",
-          "id" : 18,
-          "group" : 3,
-          "members" : [
-            "Ref.SG4.PairOutput",
-            "Ref.SG4.History",
-            "Ref.SG4.PairHistory",
-            "Ref.SG4.DpBytes",
-            "Ref.SG4.DpRecords"
-          ]
-        },
-        {
-          "name" : "SigGen2Info",
-          "id" : 11,
-          "group" : 2,
-          "members" : [
-            "Ref.SG2.Info"
-          ]
-        },
-        {
-          "name" : "SigGenSum",
-          "id" : 4,
-          "group" : 1,
-          "members" : [
-            "Ref.SG1.Output",
-            "Ref.SG1.Type",
-            "Ref.SG2.Output",
-            "Ref.SG2.Type",
-            "Ref.SG3.Output",
-            "Ref.SG3.Type",
-            "Ref.SG4.Output",
-            "Ref.SG4.Type",
-            "Ref.SG5.Output",
-            "Ref.SG5.Type"
-          ]
-        },
-        {
-          "name" : "SigGen1",
-          "id" : 15,
-          "group" : 3,
-          "members" : [
-            "Ref.SG1.PairOutput",
-            "Ref.SG1.History",
-            "Ref.SG1.PairHistory",
-            "Ref.SG1.DpBytes",
-            "Ref.SG1.DpRecords"
-          ]
-        },
-        {
-          "name" : "Version_Library2",
-          "id" : 24,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.LibraryVersion03",
-            "CdhCore.version.LibraryVersion04"
-          ]
-        },
-        {
-          "name" : "Version_Custom10",
-          "id" : 37,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion10"
-          ]
-        },
-        {
-          "name" : "Version_Library3",
-          "id" : 25,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.LibraryVersion05",
-            "CdhCore.version.LibraryVersion06"
-          ]
-        },
-        {
-          "name" : "TypeDemo",
-          "id" : 20,
-          "group" : 3,
-          "members" : [
-            "Ref.typeDemo.ChoiceCh",
-            "Ref.typeDemo.ChoicesCh",
-            "Ref.typeDemo.ExtraChoicesCh",
-            "Ref.typeDemo.ChoicePairCh",
-            "Ref.typeDemo.ChoiceSlurryCh",
-            "Ref.typeDemo.Float1Ch",
-            "Ref.typeDemo.Float2Ch",
-            "Ref.typeDemo.Float3Ch",
-            "Ref.typeDemo.FloatSet",
-            "Ref.typeDemo.ScalarStructCh",
-            "Ref.typeDemo.ScalarU8Ch",
-            "Ref.typeDemo.ScalarU16Ch",
-            "Ref.typeDemo.ScalarU32Ch",
-            "Ref.typeDemo.ScalarU64Ch",
-            "Ref.typeDemo.ScalarI8Ch",
-            "Ref.typeDemo.ScalarI16Ch",
-            "Ref.typeDemo.ScalarI32Ch",
-            "Ref.typeDemo.ScalarI64Ch",
-            "Ref.typeDemo.ScalarF32Ch",
-            "Ref.typeDemo.ScalarF64Ch"
-          ]
-        },
-        {
-          "name" : "Version_Custom2",
-          "id" : 29,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion02"
-          ]
-        },
-        {
-          "name" : "Version_Custom1",
-          "id" : 28,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion01"
-          ]
-        },
-        {
-          "name" : "DataProducts",
-          "id" : 21,
-          "group" : 3,
-          "members" : [
-            "DataProducts.dpCat.CatalogDps",
-            "DataProducts.dpCat.DpsSent",
-            "DataProducts.dpMgr.NumSuccessfulAllocations",
-            "DataProducts.dpMgr.NumFailedAllocations",
-            "DataProducts.dpMgr.NumDataProducts",
-            "DataProducts.dpMgr.NumBytes",
-            "DataProducts.dpWriter.NumBuffersReceived",
-            "DataProducts.dpWriter.NumBytesWritten",
-            "DataProducts.dpWriter.NumSuccessfulWrites",
-            "DataProducts.dpWriter.NumFailedWrites",
-            "DataProducts.dpWriter.NumErrors",
-            "DataProducts.dpBufferManager.TotalBuffs",
-            "DataProducts.dpBufferManager.CurrBuffs",
-            "DataProducts.dpBufferManager.HiBuffs",
-            "DataProducts.dpBufferManager.NoBuffs",
-            "DataProducts.dpBufferManager.EmptyBuffs"
-          ]
-        },
-        {
-          "name" : "Version_Custom6",
-          "id" : 33,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion06"
-          ]
-        },
-        {
-          "name" : "SigGen3",
-          "id" : 17,
-          "group" : 3,
-          "members" : [
-            "Ref.SG3.PairOutput",
-            "Ref.SG3.History",
-            "Ref.SG3.PairHistory",
-            "Ref.SG3.DpBytes",
-            "Ref.SG3.DpRecords"
-          ]
-        },
-        {
-          "name" : "Version_Custom5",
-          "id" : 32,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion05"
-          ]
-        },
-        {
-          "name" : "Version_Custom7",
-          "id" : 34,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion07"
-          ]
-        },
-        {
-          "name" : "Version1",
-          "id" : 22,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.FrameworkVersion",
-            "CdhCore.version.ProjectVersion"
-          ]
-        },
-        {
-          "name" : "Version_Library5",
-          "id" : 27,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.LibraryVersion09",
-            "CdhCore.version.LibraryVersion10"
-          ]
-        },
-        {
-          "name" : "DriveTlm",
-          "id" : 3,
-          "group" : 1,
-          "members" : [
-            "Ref.pingRcvr.PR_NumPings",
-            "Ref.sendBuffComp.PacketsSent",
-            "Ref.sendBuffComp.NumErrorsInjected",
-            "Ref.sendBuffComp.Parameter3",
-            "Ref.sendBuffComp.Parameter4",
-            "Ref.sendBuffComp.SendState",
-            "Ref.recvBuffComp.PktState",
-            "Ref.recvBuffComp.Sensor1",
-            "Ref.recvBuffComp.Sensor2",
-            "Ref.recvBuffComp.Parameter1",
-            "Ref.recvBuffComp.Parameter2",
-            "Ref.blockDrv.BD_Cycles"
-          ]
-        },
-        {
-          "name" : "Version_Custom8",
-          "id" : 35,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion08"
-          ]
-        },
-        {
-          "name" : "SigGen2",
-          "id" : 16,
-          "group" : 3,
-          "members" : [
-            "Ref.SG2.PairOutput",
-            "Ref.SG2.History",
-            "Ref.SG2.PairHistory",
-            "Ref.SG2.DpBytes",
-            "Ref.SG2.DpRecords"
-          ]
-        },
-        {
-          "name" : "Version_Custom4",
-          "id" : 31,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion04"
-          ]
-        },
-        {
-          "name" : "Version_Library4",
-          "id" : 26,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.LibraryVersion07",
-            "CdhCore.version.LibraryVersion08"
-          ]
-        },
-        {
-          "name" : "Version_Library1",
-          "id" : 23,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.LibraryVersion01",
-            "CdhCore.version.LibraryVersion02"
-          ]
-        },
-        {
-          "name" : "Version_Custom9",
-          "id" : 36,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion09"
-          ]
-        },
-        {
-          "name" : "Version_Custom3",
-          "id" : 30,
-          "group" : 2,
-          "members" : [
-            "CdhCore.version.CustomVersion03"
-          ]
-        },
-        {
-          "name" : "SigGen5",
-          "id" : 19,
-          "group" : 3,
-          "members" : [
-            "Ref.SG5.PairOutput",
-            "Ref.SG5.History",
-            "Ref.SG5.PairHistory",
-            "Ref.SG5.DpBytes",
-            "Ref.SG5.DpRecords"
-          ]
-        }
-      ],
-      "omitted" : [
-        "CdhCore.cmdDisp.CommandErrors"
-      ]
-    }
   ]
 }
