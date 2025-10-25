@@ -24,7 +24,6 @@ def parse(text: str):
         maybe_placeholders=True,
     )
 
-    print(text)
     tree = parser.parse(text)
     transformed = FpyBcTransformer().transform(tree)
     return transformed

@@ -37,7 +37,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ConstCmdDirective,
     DuplicateDirective,
     FloatMultiplyDirective,
-    GetMemberDirective,
+    GetFieldDirective,
     IntAddDirective,
     IntMultiplyDirective,
     LoadDirective,
@@ -329,11 +329,13 @@ class GenerateCode:
         dirs.append(IntMultiplyDirective())
 
         # okay now we have the offset on the stack
+        # have to truncate to 32 bits
+        dirs.append(IntegerTruncate64To32Directive())
 
         # get the member from the stack at this offset, discard the rest of
         # the parent
         dirs.append(
-            GetMemberDirective(
+            GetFieldDirective(
                 parent_type.getMaxSize(), parent_type.MEMBER_TYPE.getMaxSize()
             )
         )
@@ -395,9 +397,9 @@ class GenerateCode:
             # use the converted type of parent
             parent_type = state.expr_converted_types[ref.parent_expr]
             # push the offset to the stack
-            dirs.append(PushValDirective(U64Type(ref.local_offset).serialize()))
+            dirs.append(PushValDirective(U32Type(ref.local_offset).serialize()))
             dirs.append(
-                GetMemberDirective(
+                GetFieldDirective(
                     parent_type.getMaxSize(), unconverted_type.getMaxSize()
                 )
             )

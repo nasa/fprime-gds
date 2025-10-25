@@ -79,7 +79,6 @@ from fprime_gds.common.fpy.syntax import (
     AstGetAttr,
     AstGetItem,
     AstNumber,
-    AstOp,
     AstReference,
     AstScopedBody,
     AstStmtWithExpr,

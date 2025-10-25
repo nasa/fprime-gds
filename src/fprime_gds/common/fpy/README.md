@@ -49,6 +49,7 @@ If you have a lower-bitwidth numerical type and want to turn it into a higher-bi
 ```py
 low_bitwidth: U8 = 123
 high_bitwidth: U32 = low_bitwidth
+# high_bitwidth == 123
 ```
 
 However, the opposite produces a compiler error:
@@ -59,10 +60,11 @@ low_bitwidth: U8 = high_bitwidth # compiler error
 
 If you are sure you want to do this, you can manually cast the type to the lower-bitwidth type:
 ```py
-high_bitwidth: U32 = 25565
+high_bitwidth: U32 = 16383
 low_bitwidth: U8 = U8(high_bitwidth) # no more error!
+# low_bitwidth == 255
 ```
-This is called downcasting
+This is called downcasting.
 
 
 ## 4. Dictionary Types

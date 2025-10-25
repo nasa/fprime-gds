@@ -76,7 +76,7 @@ def run_seq(
     if tlm is None:
         tlm = {}
 
-    # fprime_test_api.send_and_assert_command("Ref.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
+    # fprime_test_api.send_and_assert_command("Ref.cmdSeq.RUN", [file_name, "BLOCK"], timeout=4)
     # return
 
     dictionary = default_dictionary  # fprime_test_api.pipeline.dictionary_path
@@ -130,7 +130,7 @@ def assert_run_failure(fprime_test_api, seq: str):
     compiled_file = compile_seq(fprime_test_api, seq)
     try:
         run_seq(fprime_test_api, compiled_file)
-    except RuntimeError as e:
+    except (RuntimeError, AssertionError) as e:
         print(e)
         return
 

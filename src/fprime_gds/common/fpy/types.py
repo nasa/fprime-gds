@@ -809,7 +809,10 @@ class TopDownVisitor(Visitor):
         _descend(start)
 
 
-SCHEMA_VERSION = 2
+MAJOR_VERSION = 0
+MINOR_VERSION = 3
+PATCH_VERSION = 0
+SCHEMA_VERSION = 3
 
 HEADER_FORMAT = "!BBBBBHI"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
@@ -863,7 +866,6 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
 
 
 def serialize_directives(dirs: list[Directive]) -> tuple[bytes, int]:
-    print(dirs)
     output_bytes = bytes()
 
     for dir in dirs:
@@ -877,7 +879,7 @@ def serialize_directives(dirs: list[Directive]) -> tuple[bytes, int]:
             exit(1)
         output_bytes += dir_bytes
 
-    header = Header(0, 0, 0, SCHEMA_VERSION, 0, len(dirs), len(output_bytes))
+    header = Header(MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION, SCHEMA_VERSION, 0, len(dirs), len(output_bytes))
     output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
 
     crc = zlib.crc32(output_bytes) % (1 << 32)

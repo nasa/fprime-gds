@@ -1,5 +1,4 @@
 from pathlib import Path
-import pprint
 from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.bool_type import BoolType
 from fprime.common.models.serialize.enum_type import EnumType

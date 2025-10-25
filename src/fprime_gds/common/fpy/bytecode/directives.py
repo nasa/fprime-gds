@@ -69,7 +69,8 @@ class DirectiveId(Enum):
     PUSH_PRM = 8
     CONST_CMD = 9
     # stack op directives
-    # all of these are handled at the CPP level by one StackOpDirective
+    # all of these are handled at the CPP level by one StackOpDirective to save boilerplate
+    # you MUST keep them all in between OR and ITRUNC_64_32 inclusive
     # boolean ops
     OR = 10
     AND = 11
@@ -138,17 +139,20 @@ class DirectiveId(Enum):
 
     EXIT = 59
     ALLOCATE = 60
-    STORE = 61
+    STORE_CONST_OFFSET = 61
     LOAD = 62
     PUSH_VAL = 63
     DISCARD = 64
     MEMCMP = 65
     STACK_CMD = 66
-    GET_MEMBER = 67
-    DUPLICATE = 68
-    ASSERT = 69
-    STORE_CONST_OFFSET = 70
-    PUSH_TIME = 71
+    PUSH_TLM_VAL_AND_TIME = 67
+    PUSH_TIME = 68
+    SET_FLAG = 69
+    GET_FLAG = 70
+    GET_FIELD = 71
+    DUPLICATE = 72
+    ASSERT = 73
+    STORE = 74
 
 
 class Directive:
@@ -700,8 +704,8 @@ class ExitDirective(Directive):
 
 
 @dataclass
-class GetMemberDirective(Directive):
-    opcode: ClassVar[DirectiveId] = DirectiveId.GET_MEMBER
+class GetFieldDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.GET_FIELD
     # pops an offset off the stack
     parent_size: U32Type
     member_size: U32Type
@@ -716,10 +720,13 @@ class DuplicateDirective(Directive):
 @dataclass
 class AssertDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.ASSERT
+    # pops two u8s off stack
+
 
 @dataclass
 class PushTimeDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.PUSH_TIME
+
 
 for cls in Directive.__subclasses__():
     cls.__old_repr__ = cls.__repr__
