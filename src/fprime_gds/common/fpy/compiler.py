@@ -36,7 +36,7 @@ from fprime_gds.common.fpy.semantics import (
     ResolveVarsAndTypes,
     SetEnclosingLoops,
 )
-from fprime_gds.common.fpy.syntax import AstScopedBody, FpyTransformer
+from fprime_gds.common.fpy.syntax import AstScopedBody, FpyTransformer, PythonIndenter
 from fprime_gds.common.fpy.types import (
     MACROS,
     MAX_DIRECTIVES_COUNT,
@@ -57,7 +57,6 @@ from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from pathlib import Path
 from lark import Lark, LarkError
-from lark.indenter import PythonIndenter
 
 from fprime_gds.common.fpy.error import BackendError, CompileError, handle_lark_error
 import fprime_gds.common.fpy.error

@@ -1,12 +1,79 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Literal as TypingLiteral, Union
-from lark import Lark, LarkError, Transformer, v_args
+from typing import Iterator, List, Literal as TypingLiteral, Union
+from lark import Token, Transformer, v_args
 from lark.tree import Meta
+from lark.lark import PostLex
+from lark.indenter import DedentError
 
-from fprime_gds.common.fpy.error import handle_lark_error
+class PythonIndenter(PostLex):
+    # from lark, but slightly modified to fix a bug
+    """This is a postlexer that "injects" indent/dedent tokens based on indentation.
 
+    It keeps track of the current indentation, as well as the current level of parentheses.
+    Inside parentheses, the indentation is ignored, and no indent/dedent tokens get generated.
+    See also: the ``postlex`` option in `Lark`.
+    """
+    paren_level: int
+    indent_level: List[int]
+    NL_type = '_NEWLINE'
+    OPEN_PAREN_types = ['LPAR', 'LSQB', 'LBRACE']
+    CLOSE_PAREN_types = ['RPAR', 'RSQB', 'RBRACE']
+    INDENT_type = '_INDENT'
+    DEDENT_type = '_DEDENT'
+    tab_len = 8
+
+    def __init__(self) -> None:
+        self.paren_level = 0
+        self.indent_level = [0]
+        assert self.tab_len > 0
+
+    def handle_NL(self, token: Token) -> Iterator[Token]:
+        if self.paren_level > 0:
+            return
+
+        yield token
+
+        if not '\n' in token:
+            return
+
+        indent_str = token.rsplit('\n', 1)[1] # Tabs and spaces
+        indent = indent_str.count(' ') + indent_str.count('\t') * self.tab_len
+
+        if indent > self.indent_level[-1]:
+            self.indent_level.append(indent)
+            yield Token.new_borrow_pos(self.INDENT_type, indent_str, token)
+        else:
+            while indent < self.indent_level[-1]:
+                self.indent_level.pop()
+                yield Token.new_borrow_pos(self.DEDENT_type, indent_str, token)
+
+            if indent != self.indent_level[-1]:
+                raise DedentError('Unexpected dedent to column %s. Expected dedent to %s' % (indent, self.indent_level[-1]))
+
+    def _process(self, stream):
+        for token in stream:
+            if token.type == self.NL_type:
+                yield from self.handle_NL(token)
+            else:
+                yield token
+
+            if token.type in self.OPEN_PAREN_types:
+                self.paren_level += 1
+            elif token.type in self.CLOSE_PAREN_types:
+                self.paren_level -= 1
+                assert self.paren_level >= 0
+
+        while len(self.indent_level) > 1:
+            self.indent_level.pop()
+            yield Token(self.DEDENT_type, '')
+
+        assert self.indent_level == [0], self.indent_level
+
+    def process(self, stream):
+        self.paren_level = 0
+        self.indent_level = [0]
+        return self._process(stream)
 
 
 @dataclass
