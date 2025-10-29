@@ -357,6 +357,8 @@ class FpySequencerModel:
         useconds = self.pop(size=4)
         seconds = self.pop(size=4)
 
+        assert useconds < 1000000, useconds
+
         print("wait rel", seconds, useconds)
 
     def handle_wait_abs(self, dir: WaitAbsDirective):
@@ -366,6 +368,8 @@ class FpySequencerModel:
         seconds = self.pop(size=4)
         time_context = self.pop(size=1)
         time_base = self.pop(size=2)
+
+        assert useconds < 1000000, useconds
 
         print("wait abs", time_context, time_base, seconds, useconds)
 

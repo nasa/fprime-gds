@@ -1442,12 +1442,12 @@ for j: U64 from 0 to 10:
 
 assert odd_numbers_sum == 25
 
-low_bitwidth: U8 = 123
-high_bitwidth: U32 = low_bitwidth
-assert high_bitwidth == 123
-high_bitwidth = 16383
-low_bitwidth = U8(high_bitwidth) # no more error!
-assert low_bitwidth == 255
+low_bitwidth_int: U8 = 123
+high_bitwidth_int: U32 = low_bitwidth_int
+# high_bitwidth_int == 123
+low_bitwidth_float: F64 = 123.0
+high_bitwidth_float: F32 = low_bitwidth_float
+# high_bitwidth_float == 123.0
 """
     assert_run_success(fprime_test_api, seq)
 

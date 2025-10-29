@@ -1050,6 +1050,7 @@ class CalculateConstExprValues(Visitor):
                             node,
                         )
                         return None
+                # downcasting
                 # handle narrowing, if necessary
                 value = int(from_val.val)
                 mask = (1 << to_type.get_bits()) - 1

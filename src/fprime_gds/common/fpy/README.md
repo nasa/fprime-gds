@@ -47,9 +47,12 @@ Note there is currently no built-in `string` type. See [Strings](#15-strings).
 ## 3. Type coercion and casting
 If you have a lower-bitwidth numerical type and want to turn it into a higher-bitwidth type, this happens automatically:
 ```py
-low_bitwidth: U8 = 123
-high_bitwidth: U32 = low_bitwidth
-# high_bitwidth == 123
+low_bitwidth_int: U8 = 123
+high_bitwidth_int: U32 = low_bitwidth_int
+# high_bitwidth_int == 123
+low_bitwidth_float: F64 = 123.0
+high_bitwidth_float: F32 = low_bitwidth_float
+# high_bitwidth_float == 123.0
 ```
 
 However, the opposite produces a compiler error:
@@ -64,7 +67,21 @@ high_bitwidth: U32 = 16383
 low_bitwidth: U8 = U8(high_bitwidth) # no more error!
 # low_bitwidth == 255
 ```
-This is called downcasting.
+This is called downcasting. It has the following behavior:
+* 64-bit floats are downcasted to 32-bit floats as if by `static_cast<F32>(f64_value)` in C++
+* Unsigned integers are truncated to the desired length
+* Signed integers are first converted to unsigned, then truncated. Then, if the sign bit of the resulting number is set, `2 ** dest_type_bits` is subtracted from the resulting number.
+
+   value = int(from_val.val)
+                mask = (1 << to_type.get_bits()) - 1
+                value &= mask
+                if to_type in SIGNED_INTEGER_TYPES:
+                    sign_bit = 1 << (to_type.get_bits() - 1)
+                    if value & sign_bit:
+                        # the sign bit is set, the result should be negative
+                        # subtract the max value as this is how two's complement works
+                        value -= 1 << to_type.get_bits()
+                return to_type(value)
 
 
 ## 4. Dictionary Types
