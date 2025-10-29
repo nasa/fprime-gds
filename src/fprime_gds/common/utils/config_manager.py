@@ -45,7 +45,7 @@ class ConfigBadTypeException(Exception):
 
 class ConfigManager(configparser.ConfigParser):
     """
-    This class provides a single entrypoint for all configurable properties,
+    This class provides a single entrypoint for all configurable properties of the GDS
     """
 
     __instance = None
@@ -67,19 +67,6 @@ class ConfigManager(configparser.ConfigParser):
         # Set default properties
         self.__prop = {}
         self._set_defaults()
-        self.file_path = None
-
-    def set_configs(self, f):
-        """
-        Sets the configuration values to those in the given file
-
-        Will raise an exception if the file does not exist.
-
-        Args:
-            f (string): Path to a file object to read
-        """
-        self.file_path = f
-        self.read_file(open(f))
 
     @staticmethod
     def get_instance():
@@ -95,7 +82,7 @@ class ConfigManager(configparser.ConfigParser):
 
     def get_type(self, name):
         """
-        Retrieve a type from the config file for parsing
+        Retrieve a type from the config for parsing
 
         It is assumed the setting is in the types section
 
@@ -131,14 +118,6 @@ class ConfigManager(configparser.ConfigParser):
         # These are types for parsing, so they need to be number types
         # Other types can be added later
         raise ConfigBadTypeException(name, type_str)
-
-    def get_file_path(self):
-        """
-        Return file loaded for this configuration
-
-        :return: file path
-        """
-        return self.file_path
 
     def _set_defaults(self):
         """
