@@ -14,7 +14,6 @@ Based on the ConfigManager class written by Len Reder in the fprime Gse
 @license Copyright 2018, California Institute of Technology.
          ALL RIGHTS RESERVED. U.S. Government Sponsorship acknowledged.
 """
-import configparser
 
 # Custom type modules
 from fprime.common.models.serialize.numerical_types import (
@@ -28,6 +27,7 @@ from fprime.common.models.serialize.numerical_types import (
     U16Type,
     U32Type,
     U64Type,
+    ValueType,
 )
 
 
@@ -40,16 +40,18 @@ class ConfigBadTypeException(Exception):
             config_name (string): Name of the config containing the bad type
             type_str (string): Bad type string that caused the error
         """
-        super().__init__(f"Invalid type string {type_str} read in configuration {config_name}")
+        super().__init__(
+            f"Invalid type string {type_str} read in configuration {config_name}"
+        )
 
 
-class ConfigManager(configparser.ConfigParser):
+class ConfigManager:
     """
     This class provides a single entrypoint for all configurable properties of the GDS
     """
 
     __instance = None
-    __prop = None
+    __prop: dict = dict()
 
     def __init__(self):
         """
@@ -61,11 +63,8 @@ class ConfigManager(configparser.ConfigParser):
             An instance of the ConfigManager class. Default configurations
             will be used until the set_configs method is called!
         """
-        # Cannot use super() function since ConfigParser is an old-style class
-        configparser.ConfigParser.__init__(self)
-
         # Set default properties
-        self.__prop = {}
+        self.__prop = dict()
         self._set_defaults()
 
     @staticmethod
@@ -80,11 +79,10 @@ class ConfigManager(configparser.ConfigParser):
             ConfigManager.__instance = ConfigManager()
         return ConfigManager.__instance
 
-    def get_type(self, name):
+    def get_type(self, name: str) -> ValueType:
         """
-        Retrieve a type from the config for parsing
-
-        It is assumed the setting is in the types section
+        Retrieve a type from the config for parsing by returning an instance
+        of the associated type.
 
         Args:
             name (string): Name of the type to retrieve
@@ -93,31 +91,11 @@ class ConfigManager(configparser.ConfigParser):
             If the name is valid, returns an object of a type derived from
             TypeBase. Otherwise, raises ConfigBadTypeException
         """
-        type_str = self.get("types", name)
-
-        if type_str == "U8":
-            return U8Type()
-        if type_str == "U16":
-            return U16Type()
-        if type_str == "U32":
-            return U32Type()
-        if type_str == "U64":
-            return U64Type()
-        if type_str == "I8":
-            return I8Type()
-        if type_str == "I16":
-            return I16Type()
-        if type_str == "I32":
-            return I32Type()
-        if type_str == "I64":
-            return I64Type()
-        if type_str == "F32":
-            return F32Type()
-        if type_str == "F64":
-            return F64Type()
-        # These are types for parsing, so they need to be number types
-        # Other types can be added later
-        raise ConfigBadTypeException(name, type_str)
+        type_class = self.__prop.get(name, None)
+        if type_class is None:
+            raise ConfigBadTypeException(name, "Unknown type name")
+        # Return an instance of the type
+        return type_class()
 
     def _set_defaults(self):
         """
@@ -130,41 +108,27 @@ class ConfigManager(configparser.ConfigParser):
         ########################## TYPES ###########################
         # These configs give the types of fields in the binary data
 
-        self.__prop["types"] = {
-            "msg_len": "U32",
-            "FwPacketDescriptorType": "U32",
-            "FwChanIdType": "U32",
-            "FwEventIdType": "U32",
-            "FwOpcodeType": "U32",
-            "FwTlmPacketizeIdType": "U16",
-            "key_val": "U16",
-        }
-        self._set_section_defaults("types")
+        self.__prop.update(
+            {
+                "msg_len": U32Type,
+                "FwPacketDescriptorType": U32Type,
+                "FwChanIdType": U32Type,
+                "FwEventIdType": U32Type,
+                "FwOpcodeType": U32Type,
+                "FwTlmPacketizeIdType": U16Type,
+            }
+        )
 
-        ######################### COLORS ###########################
-        # Colors are hex codes in BGR format
-
-        self.__prop["colors"] = {
-            "warning_lo": "0x00BCED",
-            "warning_hi": "0x0073E5",
-            "fatal": "0x0000FF",
-            "command": "0xFF0000",
-            "red": "0x0000FF",
-            "orange": "0x0073E5",
-            "yellow": "0x00BCED",
-        }
-        self._set_section_defaults("colors")
-
-        self.__prop["framing"] = {"use_key": "False", "key_val": "0x0"}
-        self._set_section_defaults("framing")
-
-    def _set_section_defaults(self, section):
+    def set_type(self, name: str, type_class: ValueType):
         """
-        For a section set up the default values.
+        Set a type in the config for parsing by associating a name with
+        a type class.
 
         Args:
-            section: Section to set all the defaults config values for
+            name (string): Name of the type to set
+            type_class (TypeBase): Class of the type to associate with the name
+
+        Returns:
+            None
         """
-        self.add_section(section)
-        for (key, value) in self.__prop[section].items():
-            self.set(section, key, str(value))
+        self.__prop[name] = type_class

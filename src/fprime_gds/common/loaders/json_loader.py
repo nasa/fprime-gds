@@ -15,7 +15,7 @@ from fprime.common.models.serialize.enum_type import EnumType
 import fprime.common.models.serialize.numerical_types as numerical_types
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.type_base import BaseType
+from fprime.common.models.serialize.type_base import BaseType, DictionaryType
 
 from fprime_gds.common.utils.string_util import preprocess_fpp_format_str
 from fprime_gds.common.loaders import dict_loader
@@ -41,7 +41,7 @@ class JsonLoader(dict_loader.DictLoader):
     """Class to help load JSON dictionaries"""
 
     # Cache parsed type objects at the class level so they can be reused across subclasses
-    parsed_types: dict = {}
+    parsed_types: dict[str, DictionaryType] = {}
 
     def __init__(self, json_file: str):
         """
@@ -84,6 +84,11 @@ class JsonLoader(dict_loader.DictLoader):
         return self.json_dict["metadata"]
 
     def parse_type(self, type_dict: dict) -> BaseType:
+        """Parses a type entry in the dictionary (e.g. argument of an event) into a BaseType object.
+        This method handles primitive types, strings, and references to type definitions.
+
+        For parsing a typeDefinition entry, use parse_type_definition().
+        """
         type_name: str = type_dict.get("name", None)
 
         if type_name is None:
@@ -104,30 +109,62 @@ class JsonLoader(dict_loader.DictLoader):
             return self.parsed_types[type_name]
 
         # Parse new enum/array/serializable types
-        qualified_type = None
+        this_type_def = None
         for type_def in self.json_dict.get("typeDefinitions", []):
             if type_name == type_def.get("qualifiedName"):
-                qualified_type = type_def
+                this_type_def = type_def
                 break
         else:
             raise GdsDictionaryParsingException(
                 f"Dictionary type name has no corresponding type definition: {type_name}"
             )
+        return self.parse_type_definition(this_type_def)
 
-        if qualified_type.get("kind") == "alias":
-            return self.parse_type(qualified_type.get("underlyingType"))
-        
-        if qualified_type.get("kind") == "array":
-            return self.construct_array_type(type_name, qualified_type)
+    def parse_type_definition(self, type_def: dict) -> DictionaryType:
+        """
+        Parse a type definition dictionary into a DictionaryType object.
+        This method processes type definitions from the dictionary and constructs the appropriate
+        DictionaryType subclass based on the type's kind (alias, array, enum, or struct).
+        The key difference with parse_type() is that this method processes complete type definitions
+        with metadata (qualifiedName, kind, members, etc.), while parse_type() handles type references
+        and simpler type specifications that may not include full definition details.
+        Args:
+            type_def (dict): A dictionary containing the type definition with fields like:
+                - qualifiedName: The fully qualified name of the type
+                - kind: The type kind (alias, array, enum, struct)
+                - Additional fields specific to each kind
+        Returns:
+            BaseType: An instance of the appropriate BaseType subclass (ArrayType, EnumType,
+                      SerializableType, or a referenced type for aliases)
+        Raises:
+            GdsDictionaryParsingException: If the type definition is missing required fields
+                                           (qualifiedName) or has an unknown/unsupported kind
+        """
 
-        if qualified_type.get("kind") == "enum":
-            return self.construct_enum_type(type_name, qualified_type)
+        type_name: str = type_def.get("qualifiedName", None)
 
-        if qualified_type.get("kind") == "struct":
-            return self.construct_serializable_type(type_name, qualified_type)
+        if type_name is None:
+            raise GdsDictionaryParsingException(
+                f"Type definition has no `qualifiedName` field: {str(type_def)}"
+            )
+
+        if type_name in self.parsed_types:
+            return self.parsed_types[type_name]
+
+        if type_def.get("kind") == "alias":
+            return self.parse_type(type_def.get("underlyingType"))
+
+        if type_def.get("kind") == "array":
+            return self.construct_array_type(type_name, type_def)
+
+        if type_def.get("kind") == "enum":
+            return self.construct_enum_type(type_name, type_def)
+
+        if type_def.get("kind") == "struct":
+            return self.construct_serializable_type(type_name, type_def)
 
         raise GdsDictionaryParsingException(
-            f"Dictionary entry has unknown type {str(type_dict)}"
+            f"Type definition has unknown kind {str(type_def)}"
         )
 
     def construct_enum_type(self, type_name: str, qualified_type: dict) -> EnumType:

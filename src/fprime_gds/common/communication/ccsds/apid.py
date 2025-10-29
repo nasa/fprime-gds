@@ -15,7 +15,9 @@ class APID(object):
         return data_type.value
 
     @classmethod
-    def from_data(cls, data, packet_descriptor_type: NumericalType):
+    def from_data(
+        cls, data, packet_descriptor_type: NumericalType
+    ):  # packet_descriptor_type should be removed an pulled from APID enum
         """Map from data bytes to APID"""
         packet_descriptor_type.deserialize(data, offset=0)
         return cls.from_type(DataDescType(packet_descriptor_type.val))

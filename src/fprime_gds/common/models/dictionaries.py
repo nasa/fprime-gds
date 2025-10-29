@@ -23,6 +23,7 @@ import fprime_gds.common.loaders.ch_json_loader
 import fprime_gds.common.loaders.cmd_json_loader
 import fprime_gds.common.loaders.event_json_loader
 
+
 class Dictionaries:
     """
     Dictionaries class to encapsulate the many different dictionaries used in the system. This includes the following
@@ -87,8 +88,10 @@ class Dictionaries:
             self._channel_name_dict = json_channel_loader.get_name_dict(None)
             self._channel_id_dict = json_channel_loader.get_id_dict(None)
             # Fw Types
-            fw_types_loader = fprime_gds.common.loaders.fw_type_json_loader.FwTypeJsonLoader(
-                dictionary
+            fw_types_loader = (
+                fprime_gds.common.loaders.fw_type_json_loader.FwTypeJsonLoader(
+                    dictionary
+                )
             )
             self._fw_type_name_dict = fw_types_loader.get_name_dict(None)
             # Metadata
@@ -144,14 +147,18 @@ class Dictionaries:
             )
         # Otherwise use JSON dictionary to attempt automatic packet loading
         elif self._metadata["dictionary_type"] == "json":
-            packet_loader = fprime_gds.common.loaders.pkt_json_loader.PktJsonLoader(dictionary)
+            packet_loader = fprime_gds.common.loaders.pkt_json_loader.PktJsonLoader(
+                dictionary
+            )
             if packet_set_name is None:
                 names = packet_loader.get_packet_set_names(None)
                 if len(names) == 0:
                     self._packet_dict = None
                     return
                 elif len(names) > 1:
-                    raise Exception("[ERROR] Multiple packet sets, must set --packet-set-name")
+                    raise Exception(
+                        "[ERROR] Multiple packet sets, must set --packet-set-name"
+                    )
                 packet_set_name = names[0]
             self._packet_dict = packet_loader.get_id_dict(
                 None, packet_set_name, self._channel_name_dict
@@ -188,7 +195,7 @@ class Dictionaries:
     def channel_name(self):
         """Channel dictionary by name"""
         return self._channel_name_dict
-    
+
     @property
     def fw_type_name(self):
         """Fw type name dictionary by name"""
@@ -214,17 +221,17 @@ class Dictionaries:
 
     @property
     def dictionary_path(self):
-        """ Dictionary Path """
+        """Dictionary Path"""
         return self._dictionary_path
 
     @property
     def packet_spec_path(self):
-        """ Dictionary Path """
+        """Dictionary Path"""
         return self._packet_spec_path
-    
+
     @property
     def packet_set_name(self):
-        """ Dictionary Path """
+        """Dictionary Path"""
         return self._packet_set_name
 
     @property

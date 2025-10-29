@@ -1040,7 +1040,8 @@ class DictionaryParser(DetectionParser):
         # Update config to use Fw types defined in the JSON dictionary
         if dictionaries.fw_type_name:
             for fw_type_name, fw_type in dictionaries.fw_type_name.items():
-                config.set("types", fw_type_name, fw_type)
+                config.set_type(fw_type_name, fw_type)
+        # TODO: pull APID config here?
         args.dictionaries = dictionaries
         return args
 

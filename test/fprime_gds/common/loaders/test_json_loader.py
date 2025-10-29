@@ -20,33 +20,40 @@ from fprime_gds.common.templates.event_template import EventTemplate
 from fprime_gds.common.templates.pkt_template import PktTemplate
 
 
-REF_JSON_DICTIONARY = (
+REF_JSON_DICTIONARY = str(
     Path(__file__).resolve().parent / "resources" / "RefTopologyDictionary.json"
 )
+
 
 @pytest.fixture
 def loader():
     return JsonLoader(REF_JSON_DICTIONARY)
 
+
 @pytest.fixture
 def cmd_loader():
     return CmdJsonLoader(REF_JSON_DICTIONARY)
+
 
 @pytest.fixture
 def event_loader():
     return EventJsonLoader(REF_JSON_DICTIONARY)
 
+
 @pytest.fixture
 def ch_loader():
     return ChJsonLoader(REF_JSON_DICTIONARY)
+
 
 @pytest.fixture
 def pkt_loader():
     return PktJsonLoader(REF_JSON_DICTIONARY)
 
+
 @pytest.fixture
 def fw_type_loader():
     return FwTypeJsonLoader(REF_JSON_DICTIONARY)
+
 
 @pytest.fixture
 def json_dict_obj():
@@ -68,23 +75,25 @@ def test_construct_enum_type(loader):
     }
     assert ref_signal_type.REP_TYPE == "I32"
 
+
 def test_construct_alias_type(loader):
     ref_alias_frequency_type = loader.parse_type(
-        {"name" : "Ref.SignalGen.FrequencyType", "kind" : "qualifiedIdentifier"}
+        {"name": "Ref.SignalGen.FrequencyType", "kind": "qualifiedIdentifier"}
     )
     assert ref_alias_frequency_type == numerical_types.U32Type
     ref_alias_phase_type = loader.parse_type(
-        {"name" : "Ref.SignalGen.PhaseType", "kind" : "qualifiedIdentifier"}
+        {"name": "Ref.SignalGen.PhaseType", "kind": "qualifiedIdentifier"}
     )
     assert ref_alias_phase_type == numerical_types.F32Type
     ref_alias_buff_recv_type = loader.parse_type(
-        {"name" : "Ref.BuffRecvType", "kind" : "qualifiedIdentifier"}
+        {"name": "Ref.BuffRecvType", "kind": "qualifiedIdentifier"}
     )
     assert ref_alias_buff_recv_type == numerical_types.U32Type
     ref_alias_u32_type = loader.parse_type(
-        {"name" : "Ref.AliasU32", "kind" : "qualifiedIdentifier"}
+        {"name": "Ref.AliasU32", "kind": "qualifiedIdentifier"}
     )
     assert ref_alias_u32_type == numerical_types.U32Type
+
 
 def test_construct_array_type(loader):
     ref_many_choices = loader.parse_type(
@@ -178,7 +187,6 @@ def test_construct_event_dict(event_loader, json_dict_obj):
     assert event_choice.get_format_str() == "Choice: {}"
 
 
-
 def test_construct_ch_dict(ch_loader, json_dict_obj):
     id_dict, name_dict, versions = ch_loader.construct_dicts(None)
     assert len(id_dict) == len(name_dict) == len(json_dict_obj["telemetryChannels"])
@@ -218,8 +226,9 @@ def test_construct_pkt_dict(ch_loader, pkt_loader):
 
 def test_construct_fw_types(fw_type_loader):
     _, name_dict, _ = fw_type_loader.construct_dicts(None)
-    assert name_dict["FwPacketDescriptorType"] == "U8" # as per specified in RefTopologyDictionary.json
-    assert name_dict["FwChanIdType"] == "U32"
-    assert name_dict["FwEventIdType"] == "U32"
-    assert name_dict["FwOpcodeType"] == "U32"
-    assert name_dict["FwTlmPacketizeIdType"] == "U16"
+    # Test values as per specified in ./resources/RefTopologyDictionary.json (non-default values)
+    assert name_dict["FwPacketDescriptorType"] == numerical_types.U8Type
+    assert name_dict["FwChanIdType"] == numerical_types.U32Type
+    assert name_dict["FwEventIdType"] == numerical_types.U32Type
+    assert name_dict["FwOpcodeType"] == numerical_types.U32Type
+    assert name_dict["FwTlmPacketizeIdType"] == numerical_types.U16Type

@@ -52,12 +52,6 @@ class Distributor(DataHandler):
 
         # Internal buffer for un distributed data
         self.__buf = bytearray(b"")
-        # Setup key framing
-        self.key_frame = None
-        tmp_frame = config.get("framing", "use_key", fallback="false")
-        if tmp_frame.lower() == "true":
-            self.key_frame = int(config.get("framing", "key_val"), 16)
-        self.key_obj = config.get_type("key_val")
         self.len_obj = config.get_type("msg_len")
         self.desc_obj = config.get_type("FwPacketDescriptorType")
 
@@ -95,22 +89,6 @@ class Distributor(DataHandler):
         raw_msgs = []
         # Keep parsing and then break when you can't parse no more
         while True:
-            # Search data looking for key-frame
-            if self.key_frame is not None:
-                while True:
-                    # Check if we have enough data to parse a key
-                    # if not, bail on the function
-                    if len(data_left) < self.key_obj.getSize():
-                        return data_left, raw_msgs
-                    # Check leading key size bytes to see if it is the key
-                    self.key_obj.deserialize(data_left, 0)
-                    if self.key_obj.val != self.key_frame:
-                        del data_left[0]
-                        continue
-                    # Key found break
-                    del data_left[: self.key_obj.getSize()]
-                    break
-
             # Check if we have enough data to parse a length
             if len(data_left) < self.len_obj.getSize():
                 break
