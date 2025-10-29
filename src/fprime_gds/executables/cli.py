@@ -374,6 +374,8 @@ class ConfigDrivenParser(ParserBase):
     def flatten_options(configured_options):
         """Flatten options down to arguments"""
         flattened = []
+        if not configured_options:
+            return flattened
         for option, value in configured_options.items():
             flattened.append(f"--{option}")
             if value is not None:
