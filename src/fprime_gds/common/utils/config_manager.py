@@ -15,20 +15,11 @@ Based on the ConfigManager class written by Len Reder in the fprime Gse
          ALL RIGHTS RESERVED. U.S. Government Sponsorship acknowledged.
 """
 
-# Custom type modules
 from fprime.common.models.serialize.numerical_types import (
-    F32Type,
-    F64Type,
-    I8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    U8Type,
     U16Type,
     U32Type,
-    U64Type,
-    ValueType,
 )
+from fprime.common.models.serialize.type_base import BaseType
 
 
 class ConfigBadTypeException(Exception):
@@ -79,7 +70,7 @@ class ConfigManager:
             ConfigManager.__instance = ConfigManager()
         return ConfigManager.__instance
 
-    def get_type(self, name: str) -> ValueType:
+    def get_type(self, name: str) -> BaseType:
         """
         Retrieve a type from the config for parsing by returning an instance
         of the associated type.
@@ -119,14 +110,14 @@ class ConfigManager:
             }
         )
 
-    def set_type(self, name: str, type_class: ValueType):
+    def set_type(self, name: str, type_class: type[BaseType]):
         """
         Set a type in the config for parsing by associating a name with
         a type class.
 
         Args:
             name (string): Name of the type to set
-            type_class (TypeBase): Class of the type to associate with the name
+            type_class (type[TypeBase]): Class of (**not** instance of) the type to associate with the name
 
         Returns:
             None

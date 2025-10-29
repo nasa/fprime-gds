@@ -5,7 +5,6 @@ Created on Jul 10, 2020
 @author: Joseph Paetz, hpaulson
 """
 
-
 from fprime.common.models.serialize.numerical_types import U16Type, U32Type
 from fprime.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.ch_data import ChData
@@ -19,10 +18,10 @@ def test_ch_encoder():
     Tests the encoding of the channel encoder
     """
     config = ConfigManager()
-    config.set("types", "msg_len", "U16")
+    config.set_type("msg_len", U16Type)
 
     # Required to set the global config for UTs to meet expected values
-    ConfigManager.get_instance().set("types", "msg_len", "U32")
+    ConfigManager.get_instance().set_type("msg_len", U32Type)
     enc = ChEncoder()
     enc_config = ChEncoder(config)
 
