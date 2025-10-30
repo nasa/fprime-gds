@@ -12,6 +12,8 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 class MetaDescType(type):
     """Metaclass for DataDescType to allow dynamically loading enum values"""
 
+    ENUM_TYPE_NAME: str = "DataDescType"
+
     LOADED: bool = False
     UNDERLYING_ENUM: type[Enum] = Enum(
         "DataDescType",
@@ -39,27 +41,36 @@ class MetaDescType(type):
     )
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
+        """Enables instantiation of the enum members with EnumClass(value)"""
         self.load_guard()
         return self.UNDERLYING_ENUM(*args, **kwds)
 
     def __getitem__(self, item: Any) -> Any:
+        """Enables instantiation of the enum members with EnumClass['name']"""
         self.load_guard()
         return self.UNDERLYING_ENUM[item]
 
     def __iter__(self):
+        """Allows for looping over Enum values"""
         self.load_guard()
         return iter(self.UNDERLYING_ENUM)
 
     @classmethod
     def load_guard(cls):
+        """Loads the enum values from the ConfigManager if not already loaded"""
         if not cls.LOADED:
             cls.LOADED = True
             # Load the enum values from the config manager
-            apid_type = ConfigManager.get_instance().get_type("ComCfg.Apid")
-            if apid_type is not None:
+            apid_type = ConfigManager.get_instance().get_type(cls.ENUM_TYPE_NAME)
+            if apid_type is not None and hasattr(apid_type, "ENUM_DICT"):
                 cls.UNDERLYING_ENUM = Enum(
                     "DataDescType",
                     apid_type.ENUM_DICT,
+                )
+            else:
+                print(
+                    f"[WARNING] Dictionary does not contain a {cls.ENUM_TYPE_NAME} "
+                    "enumeration. Using default values for Packet Descriptors."
                 )
 
 
