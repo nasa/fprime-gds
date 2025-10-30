@@ -13,7 +13,6 @@ import datetime
 import errno
 import functools
 import getpass
-import inspect
 import itertools
 import os
 import platform

@@ -15,7 +15,7 @@ from fprime.common.models.serialize.enum_type import EnumType
 import fprime.common.models.serialize.numerical_types as numerical_types
 from fprime.common.models.serialize.serializable_type import SerializableType
 from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.type_base import BaseType, DictionaryType
+from fprime.common.models.serialize.type_base import DictionaryType
 
 from fprime_gds.common.utils.string_util import preprocess_fpp_format_str
 from fprime_gds.common.loaders import dict_loader

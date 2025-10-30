@@ -9,8 +9,7 @@ from spacepackets.ccsds.spacepacket import SpacePacketHeader, PacketType, SpaceP
 
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin
-from fprime_gds.common.utils.data_desc_type import DataDescType, ApidType
-from fprime_gds.common.utils.config_manager import ConfigManager
+from fprime_gds.common.utils.data_desc_type import ApidType
 
 import logging
 

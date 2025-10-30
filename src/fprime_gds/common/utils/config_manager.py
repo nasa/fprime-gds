@@ -20,7 +20,6 @@ from fprime.common.models.serialize.numerical_types import (
     U32Type,
 )
 from fprime.common.models.serialize.type_base import BaseType
-from enum import Enum
 
 
 class ConfigBadTypeException(Exception):
@@ -42,7 +41,9 @@ class ConfigManager:
     This class provides a single entrypoint for all configurable properties of the GDS
     """
 
+    # Singleton instance
     __instance = None
+    # Dictionary holding all config properties
     __prop: dict
 
     def __init__(self):
