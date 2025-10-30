@@ -10,7 +10,7 @@ from fprime_gds.common.loaders.json_loader import JsonLoader
 from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
 
 
-class FwTypeJsonLoader(JsonLoader):
+class TypeJsonLoader(JsonLoader):
     """Class to load Python objects representing types from the JSON dictionary
 
     While most types will be parsed from being referenced in other dictionary entries

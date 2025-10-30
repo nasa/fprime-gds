@@ -12,7 +12,7 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 class MetaDescType(type):
     """Metaclass for DataDescType to allow dynamically loading enum values"""
 
-    ENUM_TYPE_NAME: str = "DataDescType"
+    ENUM_TYPE_NAME: str = "ComCfg.Apid"
 
     LOADED: bool = False
     UNDERLYING_ENUM: type[Enum] = Enum(
@@ -75,9 +75,16 @@ class MetaDescType(type):
 
 
 class DataDescType(metaclass=MetaDescType):
-    """DEPRECATED: Use ConfigManager.get_data_desc_type() instead
+    """DataDescType is a class whose purpose is to behave like an Enum, but the values
+    are dynamically loaded from the ConfigManager the first time it is accessed.
+    This allows for values to be configured through the items from the dictionary."""
 
-    DataDescType is a class whose purpose is to behave like an Enum, but the values
+    value: int
+    name: str
+
+
+class ApidType(metaclass=MetaDescType):
+    """ApidType is a class whose purpose is to behave like an Enum, but the values
     are dynamically loaded from the ConfigManager the first time it is accessed.
     This allows for values to be configured through the items from the dictionary.
     """

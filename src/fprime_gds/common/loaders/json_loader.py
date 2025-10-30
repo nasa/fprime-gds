@@ -124,19 +124,20 @@ class JsonLoader(dict_loader.DictLoader):
     def parse_type_definition(self, type_def: dict) -> DictionaryType:
         """
         Parse a type definition dictionary into a DictionaryType object.
-        This method processes type definitions from the dictionary and constructs the appropriate
-        DictionaryType subclass based on the type's kind (alias, array, enum, or struct).
-        The key difference with parse_type() is that this method processes complete type definitions
-        with metadata (qualifiedName, kind, members, etc.), while parse_type() handles type references
-        and simpler type specifications that may not include full definition details.
+
+        This method constructs DictionaryType based on a type definition JSON entry.
+        The key difference with parse_type() is that this method processes complete type
+        definitions from the 'typeDefinitions' section, while parse_type() handles type
+        references from other parts of the dictionary (e.g. command arguments fields).
+
         Args:
-            type_def (dict): A dictionary containing the type definition with fields like:
+            type_def (dict): A dictionary containing the type definition with fields:
                 - qualifiedName: The fully qualified name of the type
                 - kind: The type kind (alias, array, enum, struct)
                 - Additional fields specific to each kind
         Returns:
-            BaseType: An instance of the appropriate BaseType subclass (ArrayType, EnumType,
-                      SerializableType, or a referenced type for aliases)
+            DictionaryType: An instance of the appropriate DictionaryType subclass
+                (ArrayType, EnumType, SerializableType, etc.)
         Raises:
             GdsDictionaryParsingException: If the type definition is missing required fields
                                            (qualifiedName) or has an unknown/unsupported kind

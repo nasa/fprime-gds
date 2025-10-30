@@ -3,7 +3,7 @@ from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.event_json_loader import EventJsonLoader
 from fprime_gds.common.loaders.pkt_json_loader import PktJsonLoader
-from fprime_gds.common.loaders.fw_type_json_loader import FwTypeJsonLoader
+from fprime_gds.common.loaders.type_json_loader import TypeJsonLoader
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.enum_type import EnumType
 import fprime.common.models.serialize.numerical_types as numerical_types
@@ -52,7 +52,7 @@ def pkt_loader():
 
 @pytest.fixture
 def fw_type_loader():
-    return FwTypeJsonLoader(REF_JSON_DICTIONARY)
+    return TypeJsonLoader(REF_JSON_DICTIONARY)
 
 
 @pytest.fixture

@@ -14,14 +14,15 @@ from pathlib import Path
 import fprime_gds.common.loaders.ch_xml_loader
 import fprime_gds.common.loaders.cmd_xml_loader
 import fprime_gds.common.loaders.event_xml_loader
-import fprime_gds.common.loaders.fw_type_json_loader
+import fprime_gds.common.loaders.type_json_loader
 import fprime_gds.common.loaders.pkt_json_loader
 import fprime_gds.common.loaders.pkt_xml_loader
 
 # JSON Loaders
-import fprime_gds.common.loaders.ch_json_loader
-import fprime_gds.common.loaders.cmd_json_loader
-import fprime_gds.common.loaders.event_json_loader
+from fprime_gds.common.loaders import ch_json_loader
+from fprime_gds.common.loaders import cmd_json_loader
+from fprime_gds.common.loaders import event_json_loader
+from fprime_gds.common.loaders import type_json_loader
 
 
 class Dictionaries:
@@ -70,29 +71,19 @@ class Dictionaries:
 
         if Path(dictionary).is_file() and ".json" in Path(dictionary).suffixes:
             # Events
-            json_event_loader = (
-                fprime_gds.common.loaders.event_json_loader.EventJsonLoader(dictionary)
-            )
+            json_event_loader = event_json_loader.EventJsonLoader(dictionary)
             self._event_name_dict = json_event_loader.get_name_dict(None)
             self._event_id_dict = json_event_loader.get_id_dict(None)
             # Commands
-            json_command_loader = (
-                fprime_gds.common.loaders.cmd_json_loader.CmdJsonLoader(dictionary)
-            )
+            json_command_loader = cmd_json_loader.CmdJsonLoader(dictionary)
             self._command_name_dict = json_command_loader.get_name_dict(None)
             self._command_id_dict = json_command_loader.get_id_dict(None)
             # Channels
-            json_channel_loader = fprime_gds.common.loaders.ch_json_loader.ChJsonLoader(
-                dictionary
-            )
+            json_channel_loader = ch_json_loader.ChJsonLoader(dictionary)
             self._channel_name_dict = json_channel_loader.get_name_dict(None)
             self._channel_id_dict = json_channel_loader.get_id_dict(None)
-            # Fw Types
-            fw_types_loader = (
-                fprime_gds.common.loaders.fw_type_json_loader.FwTypeJsonLoader(
-                    dictionary
-                )
-            )
+            # Load all type definitions to retrieve config types not used elsewhere
+            fw_types_loader = type_json_loader.TypeJsonLoader(dictionary)
             self._fw_type_name_dict = fw_types_loader.get_name_dict(None)
             # Metadata
             self._versions = json_event_loader.get_versions()
