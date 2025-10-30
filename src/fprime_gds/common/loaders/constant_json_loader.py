@@ -1,9 +1,10 @@
 """
-fw_type_json_loader.py:
+constant_json_loader.py:
 
-Loads flight dictionary (JSON) and returns name based Python dictionaries of Fw types
+Loads flight dictionary (JSON) and returns dictionaries of all constants
+defined in the dictionary.
 
-@author jawest
+@author thomas-bc
 """
 
 from fprime_gds.common.loaders.json_loader import JsonLoader
