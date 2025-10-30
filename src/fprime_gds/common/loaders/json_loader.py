@@ -83,13 +83,14 @@ class JsonLoader(dict_loader.DictLoader):
             )
         return self.json_dict["metadata"]
 
-    def parse_type(self, type_dict: dict) -> BaseType:
+    def parse_type(self, type_dict: dict) -> DictionaryType:
         """Parses a type entry in the dictionary (e.g. argument of an event) into a BaseType object.
         This method handles primitive types, strings, and references to type definitions.
+        Uses a cache to avoid re-parsing types that have already been processed.
 
         For parsing a typeDefinition entry, use parse_type_definition().
         """
-        type_name: str = type_dict.get("name", None)
+        type_name: str | None = type_dict.get("name", None)
 
         if type_name is None:
             raise GdsDictionaryParsingException(
@@ -141,7 +142,7 @@ class JsonLoader(dict_loader.DictLoader):
                                            (qualifiedName) or has an unknown/unsupported kind
         """
 
-        type_name: str = type_def.get("qualifiedName", None)
+        type_name: str | None = type_def.get("qualifiedName", None)
 
         if type_name is None:
             raise GdsDictionaryParsingException(

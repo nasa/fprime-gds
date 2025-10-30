@@ -20,6 +20,7 @@ from fprime.common.models.serialize.numerical_types import (
     U32Type,
 )
 from fprime.common.models.serialize.type_base import BaseType
+from enum import Enum
 
 
 class ConfigBadTypeException(Exception):
@@ -88,28 +89,6 @@ class ConfigManager:
         # Return an instance of the type
         return type_class()
 
-    def _set_defaults(self):
-        """
-        Used by the constructor to set all ConfigParser defaults
-
-        Establishes a dictionary of sections and then a dictionary of keyword,
-        value association for each section.
-        """
-
-        ########################## TYPES ###########################
-        # These configs give the types of fields in the binary data
-
-        self.__prop.update(
-            {
-                "msg_len": U32Type,
-                "FwPacketDescriptorType": U32Type,
-                "FwChanIdType": U32Type,
-                "FwEventIdType": U32Type,
-                "FwOpcodeType": U32Type,
-                "FwTlmPacketizeIdType": U16Type,
-            }
-        )
-
     def set_type(self, name: str, type_class: type[BaseType]):
         """
         Set a type in the config for parsing by associating a name with
@@ -123,3 +102,26 @@ class ConfigManager:
             None
         """
         self.__prop[name] = type_class
+
+    def _set_defaults(self):
+        """
+        Used by the constructor to set all ConfigParser defaults
+
+        Establishes a dictionary of sections and then a dictionary of keyword,
+        value association for each section.
+        """
+        self.__prop.update(
+            {
+                # msg_len is an internal type used within the GDS only
+                "msg_len": U32Type,
+                "FwPacketDescriptorType": U32Type,
+                "FwChanIdType": U32Type,
+                "FwEventIdType": U32Type,
+                "FwOpcodeType": U32Type,
+                "FwTlmPacketizeIdType": U16Type,
+            }
+        )
+
+    def get_data_desc_type(self) -> type[Enum]:
+        DataDescType = Enum("DataDescType", self.get_type("ComCfg.Apid").ENUM_DICT)
+        return DataDescType

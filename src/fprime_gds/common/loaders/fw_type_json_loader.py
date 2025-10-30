@@ -11,7 +11,14 @@ from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingExceptio
 
 
 class FwTypeJsonLoader(JsonLoader):
-    """Class to load python based Fw type dictionaries"""
+    """Class to load Python objects representing types from the JSON dictionary
+
+    While most types will be parsed from being referenced in other dictionary entries
+    (e.g. an event argument that references a type definition), this loader specifically
+    loops through all typeDefinitions entries in the dictionary. This allows for types
+    that are not referenced elsewhere to still be loaded and available. This is needed
+    for example for base Fw types and config types (Fw_Types, ComCfg)
+    """
 
     TYPE_DEFINITIONS_FIELD = "typeDefinitions"
 
