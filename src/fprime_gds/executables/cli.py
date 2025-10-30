@@ -1037,11 +1037,10 @@ class DictionaryParser(DetectionParser):
             args.dictionary, args.packet_spec, args.packet_set_name
         )
         config = ConfigManager.get_instance()
-        # Update config to use Fw types defined in the JSON dictionary
-        if dictionaries.fw_type_name:
-            for fw_type_name, fw_type in dictionaries.fw_type_name.items():
-                config.set_type(fw_type_name, fw_type)
-        # TODO: pull APID config here?
+        # Update config to use type definitions defined in the JSON dictionary
+        if dictionaries.typedefs_name:
+            for type_name, type_dict in dictionaries.typedefs_name.items():
+                config.set_type(type_name, type_dict)
         args.dictionaries = dictionaries
         return args
 

@@ -9,10 +9,9 @@ from spacepackets.ccsds.spacepacket import SpacePacketHeader, PacketType, SpaceP
 
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin
-from fprime_gds.common.utils.data_desc_type import DataDescType
+from fprime_gds.common.utils.data_desc_type import DataDescType, ApidType
 from fprime_gds.common.utils.config_manager import ConfigManager
 
-from .apid import APID
 import logging
 
 LOGGER = logging.getLogger("framing")
@@ -32,11 +31,8 @@ class SpacePacketFramerDeframer(FramerDeframer):
     def __init__(self):
         # Map APID to sequence counts
         self.apid_to_sequence_count_map = dict()
-        for key in DataDescType:
+        for key in ApidType:
             self.apid_to_sequence_count_map[key.value] = 0
-        self.packet_descriptor_type = ConfigManager.get_instance().get_type(
-            "FwPacketDescriptorType"
-        )
 
     def frame(self, data):
         """Frame the supplied data in Space Packet"""
@@ -44,11 +40,11 @@ class SpacePacketFramerDeframer(FramerDeframer):
         data_length_token = len(data) - 1
         # Extract the APID from the data
         # F' has the packet descriptor (= APID currently) as first n bytes of the data
-        apid = APID.from_data(data, self.packet_descriptor_type)
+        apid = ApidType.from_data(data)
         space_header = SpacePacketHeader(
             packet_type=PacketType.TC,
-            apid=apid,
-            seq_count=self.get_sequence_count(apid),
+            apid=apid.value,
+            seq_count=self.get_sequence_count(apid.value),
             data_len=data_length_token,
         )
         space_packet = SpacePacket(space_header, sec_header=None, user_data=data)

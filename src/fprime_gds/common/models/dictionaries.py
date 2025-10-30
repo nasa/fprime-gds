@@ -48,7 +48,7 @@ class Dictionaries:
         self._event_name_dict = None
         self._channel_name_dict = None
         self._packet_dict = None
-        self._fw_type_name_dict = None
+        self._typedefs_name_dict = None
         self._versions = None
         self._metadata = None
         self._dictionary_path = None
@@ -83,8 +83,8 @@ class Dictionaries:
             self._channel_name_dict = json_channel_loader.get_name_dict(None)
             self._channel_id_dict = json_channel_loader.get_id_dict(None)
             # Load all type definitions to retrieve config types not used elsewhere
-            fw_types_loader = type_json_loader.TypeJsonLoader(dictionary)
-            self._fw_type_name_dict = fw_types_loader.get_name_dict(None)
+            types_loader = type_json_loader.TypeJsonLoader(dictionary)
+            self._typedefs_name_dict = types_loader.get_name_dict(None)
             # Metadata
             self._versions = json_event_loader.get_versions()
             self._metadata = json_event_loader.get_metadata().copy()
@@ -188,9 +188,9 @@ class Dictionaries:
         return self._channel_name_dict
 
     @property
-    def fw_type_name(self):
-        """Fw type name dictionary by name"""
-        return self._fw_type_name_dict
+    def typedefs_name(self):
+        """Type definitions dictionary by name"""
+        return self._typedefs_name_dict
 
     @property
     def project_version(self):

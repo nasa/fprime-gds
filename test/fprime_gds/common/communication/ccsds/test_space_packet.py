@@ -8,8 +8,8 @@ def framer_deframer():
 
 def test_frame_valid_data(framer_deframer):
     """Test framing valid data (if applicable)."""
-    # Prefix with 4 bytes corresponding to the APID
-    data = b"\x00\x00\x00\x01test_payload"
+    # Prefix with 2 bytes corresponding to the ApidType=DataDescType
+    data = b"\x00\x01test_payload"
     framed_data = framer_deframer.frame(data)
     header = SpacePacketHeader.unpack(framed_data)
     assert header.packet_type == PacketType.TC
@@ -20,8 +20,8 @@ def test_frame_valid_data(framer_deframer):
 
 def test_frame_invalid_data(framer_deframer):
     """Test framing valid data with an incorrect DataDescType prefixed."""
-    # Prefix with 4 bytes corresponding to the DataDescType
-    data = b"\xff\xff\xff\xff" + b"test_payload"
+    # Prefix with 2 bytes corresponding to the DataDescType (FF FF not valid)
+    data = b"\xff\xff" + b"test_payload"
     # Invalid DataDescType, should raise ValueError
     with pytest.raises(ValueError):
         framer_deframer.frame(data)
