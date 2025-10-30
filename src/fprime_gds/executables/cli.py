@@ -1041,6 +1041,9 @@ class DictionaryParser(DetectionParser):
         if dictionaries.typedefs_name:
             for type_name, type_dict in dictionaries.typedefs_name.items():
                 config.set_type(type_name, type_dict)
+        if dictionaries.constant_name:
+            for name, value in dictionaries.constant_name.items():
+                config.set_constant(name, value)
         args.dictionaries = dictionaries
         return args
 

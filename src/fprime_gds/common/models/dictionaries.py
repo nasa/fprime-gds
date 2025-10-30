@@ -14,7 +14,6 @@ from pathlib import Path
 import fprime_gds.common.loaders.ch_xml_loader
 import fprime_gds.common.loaders.cmd_xml_loader
 import fprime_gds.common.loaders.event_xml_loader
-import fprime_gds.common.loaders.type_json_loader
 import fprime_gds.common.loaders.pkt_json_loader
 import fprime_gds.common.loaders.pkt_xml_loader
 
@@ -23,6 +22,7 @@ from fprime_gds.common.loaders import ch_json_loader
 from fprime_gds.common.loaders import cmd_json_loader
 from fprime_gds.common.loaders import event_json_loader
 from fprime_gds.common.loaders import type_json_loader
+from fprime_gds.common.loaders import constant_json_loader
 
 
 class Dictionaries:
@@ -49,6 +49,7 @@ class Dictionaries:
         self._channel_name_dict = None
         self._packet_dict = None
         self._typedefs_name_dict = None
+        self._constant_name_dict = None
         self._versions = None
         self._metadata = None
         self._dictionary_path = None
@@ -85,6 +86,9 @@ class Dictionaries:
             # Load all type definitions to retrieve config types not used elsewhere
             types_loader = type_json_loader.TypeJsonLoader(dictionary)
             self._typedefs_name_dict = types_loader.get_name_dict(None)
+            # Load all constant definitions
+            constant_loader = constant_json_loader.ConstantJsonLoader(dictionary)
+            self._constant_name_dict = constant_loader.get_name_dict(None)
             # Metadata
             self._versions = json_event_loader.get_versions()
             self._metadata = json_event_loader.get_metadata().copy()
@@ -189,8 +193,20 @@ class Dictionaries:
 
     @property
     def typedefs_name(self):
-        """Type definitions dictionary by name"""
+        """Type definitions dictionary by name
+        Returns:
+            dict[str, DictionaryType]
+        """
         return self._typedefs_name_dict
+
+    @property
+    def constant_name(self):
+        """Constants dictionary by name. Constants do not carry type information in FPP
+        and are simply name to int mappings in Python.
+        Returns:
+            dict[str, int]
+        """
+        return self._constant_name_dict
 
     @property
     def project_version(self):

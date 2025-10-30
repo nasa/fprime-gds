@@ -43,7 +43,7 @@ class ConfigManager:
     """
 
     __instance = None
-    __prop: dict = dict()
+    __prop: dict
 
     def __init__(self):
         """
@@ -56,7 +56,7 @@ class ConfigManager:
             will be used until the set_configs method is called!
         """
         # Set default properties
-        self.__prop = dict()
+        self.__prop = {"types": {}, "constants": {}}
         self._set_defaults()
 
     @staticmethod
@@ -83,7 +83,7 @@ class ConfigManager:
             If the name is valid, returns an object of a type derived from
             TypeBase. Otherwise, raises ConfigBadTypeException
         """
-        type_class = self.__prop.get(name, None)
+        type_class = self.__prop["types"].get(name, None)
         if type_class is None:
             raise ConfigBadTypeException(name, "Unknown type name")
         # Return an instance of the type
@@ -101,7 +101,39 @@ class ConfigManager:
         Returns:
             None
         """
-        self.__prop[name] = type_class
+        self.__prop["types"][name] = type_class
+
+    def get_constant(self, name: str) -> int:
+        """
+        Retrieve a constant from the config for parsing by returning an instance
+        of the associated constant.
+
+        Args:
+            name (string): Name of the constant to retrieve
+
+        Returns:
+            If the name is known, returns the value of the constant.
+            Otherwise, raises ConfigBadTypeException
+        """
+        constant_value = self.__prop["constants"].get(name, None)
+        if constant_value is None:
+            raise ConfigBadTypeException(name, "Unknown constant name")
+        # Return an instance of the constant
+        return constant_value
+
+    def set_constant(self, name: str, value: int):
+        """
+        Set a constant in the config for parsing by associating a name with
+        a constant class.
+
+        Args:
+            name (string): Name of the constant to set
+            value (int): Value of the constant to associate with the name
+
+        Returns:
+            None
+        """
+        self.__prop["constants"][name] = value
 
     def _set_defaults(self):
         """
@@ -110,18 +142,14 @@ class ConfigManager:
         Establishes a dictionary of sections and then a dictionary of keyword,
         value association for each section.
         """
-        self.__prop.update(
+        self.__prop["types"].update(
             {
                 # msg_len is an internal type used within the GDS only
                 "msg_len": U32Type,
-                "FwPacketDescriptorType": U32Type,
+                "FwPacketDescriptorType": U16Type,
                 "FwChanIdType": U32Type,
                 "FwEventIdType": U32Type,
                 "FwOpcodeType": U32Type,
                 "FwTlmPacketizeIdType": U16Type,
             }
         )
-
-    def get_data_desc_type(self) -> type[Enum]:
-        DataDescType = Enum("DataDescType", self.get_type("ComCfg.Apid").ENUM_DICT)
-        return DataDescType

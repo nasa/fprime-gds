@@ -1,8 +1,10 @@
 """F Prime Framer/Deframer Implementation of the CCSDS Space Data Link (TC/TM) Protocols"""
+
 import sys
 import struct
 import copy
 
+from fprime_gds.common.utils.config_manager import ConfigBadTypeException, ConfigManager
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.plugin.definitions import gds_plugin_implementation
 
@@ -20,6 +22,9 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     TM_TRAILER_SIZE = 2
     TC_TRAILER_SIZE = 2
 
+    FALLBACK_SCID = 0x44
+    FALLBACK_FRAME_SIZE = 1024
+
     # As per CCSDS standard, use CRC-16 CCITT config with init value
     # all 1s and final XOR value of 0x0000
     CRC_CCITT_CONFIG = crc.Configuration(
@@ -31,11 +36,24 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     CRC_CALCULATOR = crc.Calculator(CRC_CCITT_CONFIG)
 
     def __init__(self, scid, vcid, frame_size):
-        """ """
-        self.scid = scid
-        self.vcid = vcid
-        self.frame_size = frame_size
+        """Initialize with the given spacecraft id, virtual channel id, and frame size.
+        If scid or frame_size are None, they will be pulled from ConfigManager constants
+        if present, or use fallback values."""
+        dict_scid = None
+        dict_frame_size = None
+        try:
+            dict_scid = ConfigManager.get_instance().get_constant("ComCfg.SpacecraftId")
+            dict_frame_size = ConfigManager.get_instance().get_constant(
+                "ComCfg.TmFrameFixedSize"
+            )
+        except ConfigBadTypeException:
+            pass
+
         self.sequence_number = 0
+        self.vcid = vcid
+        # Priority order: command line arg > dictionary value > fallback value
+        self.scid = scid or dict_scid or self.FALLBACK_SCID
+        self.frame_size = frame_size or dict_frame_size or self.FALLBACK_FRAME_SIZE
 
     def frame(self, data):
         """Frame the supplied data in a TC frame"""
@@ -59,20 +77,21 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
 
         # First 16 bits:
         header_val1_u16 = (
-            (0 << 14) |  # TF version number (2 bits)
-            (1 << 13) |  # Bypass FARM (1 bit)
-            (0 << 12) |  # Type-D (1 bit)
-            (0 << 10) |  # Reserved (2 bits)
-            ((self.scid & 0x3FF))  # SCID (10 bits)
+            (0 << 14)  # TF version number (2 bits)
+            | (1 << 13)  # Bypass FARM (1 bit)
+            | (0 << 12)  # Type-D (1 bit)
+            | (0 << 10)  # Reserved (2 bits)
+            | ((self.scid & 0x3FF))  # SCID (10 bits)
         )
         # Second 16 bits:
-        header_val2_u16 = (
-            ((self.vcid & 0x3F) << 10) |  # VCID (6 bits)
-            (length & 0x3FF)              # Frame length (10 bits)
-        )
+        header_val2_u16 = ((self.vcid & 0x3F) << 10) | (  # VCID (6 bits)
+            length & 0x3FF
+        )  # Frame length (10 bits)
         # 8 bit sequence number - always 0 in bypass FARM mode
         header_val3_u8 = 0
-        header_bytes = struct.pack(">HHB", header_val1_u16, header_val2_u16, header_val3_u8)
+        header_bytes = struct.pack(
+            ">HHB", header_val1_u16, header_val2_u16, header_val3_u8
+        )
         full_bytes_no_crc = header_bytes + space_packet_bytes
         assert (
             len(header_bytes) == self.TC_HEADER_SIZE
@@ -121,9 +140,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             if transmitted_crc == self.CRC_CALCULATOR.checksum(data[:crc_offset]):
                 # CRC is valid, so we return the deframed data
                 deframed_data_len = (
-                    self.frame_size
-                    - self.TM_TRAILER_SIZE
-                    - self.TM_HEADER_SIZE
+                    self.frame_size - self.TM_TRAILER_SIZE - self.TM_HEADER_SIZE
                 )
                 deframed = struct.unpack_from(
                     f">{deframed_data_len}s", data, self.TM_HEADER_SIZE
@@ -148,8 +165,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         return {
             ("--scid",): {
                 "type": lambda input_arg: int(input_arg, 0),
-                "help": "Spacecraft ID",
-                "default": 0x44,
+                "help": "Spacecraft ID (if specified, overrides dictionary ComCfg value)",
                 "required": False,
             },
             ("--vcid",): {
@@ -160,8 +176,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             },
             ("--frame-size",): {
                 "type": lambda input_arg: int(input_arg, 0),
-                "help": "Fixed Size of TM Frames",
-                "default": 1024,
+                "help": "Fixed Size of TM Frames (if specified, overrides dictionary ComCfg value)",
                 "required": False,
             },
         }
@@ -176,12 +191,11 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             scid: spacecraft id
             vcid: virtual channel id
         """
-        if scid is None:
-            raise TypeError(f"Spacecraft ID not specified")
-        if scid < 0:
-            raise TypeError(f"Spacecraft ID {scid} is negative")
-        if scid > 0x3FF:
-            raise TypeError(f"Spacecraft ID {scid} is larger than {0x3FF}")
+        if scid is not None:
+            if scid < 0:
+                raise TypeError(f"Spacecraft ID {scid} is negative")
+            if scid > 0x3FF:
+                raise TypeError(f"Spacecraft ID {scid} is larger than {0x3FF}")
 
         if vcid is None:
             raise TypeError(f"Virtual Channel ID not specified")
@@ -190,7 +204,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         if vcid > 0x3F:
             raise TypeError(f"Virtual Channel ID {vcid} is larger than {0x3FF}")
 
-        if frame_size < 0:
+        if frame_size is not None and frame_size < 0:
             raise TypeError(f"TM Fixed Frame size {frame_size} is negative")
 
     @classmethod
