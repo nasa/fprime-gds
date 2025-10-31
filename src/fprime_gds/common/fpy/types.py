@@ -47,8 +47,6 @@ from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime.common.models.serialize.time_type import TimeType
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
@@ -167,7 +165,12 @@ SPECIFIC_FLOAT_TYPES = (
     F64Type,
 )
 
+FwSizeType = U64Type
+FwChanIdType = U32Type
+FwPrmIdType = U32Type
+FwOpcodeType = U32Type
 ArrayIndexType = U64Type
+StackSizeType = U32Type
 
 
 def is_instance_compat(obj, cls):

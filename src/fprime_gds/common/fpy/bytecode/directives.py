@@ -2,6 +2,8 @@ from __future__ import annotations
 import typing
 from typing import Any
 
+from fprime_gds.common.fpy.types import FwChanIdType, FwOpcodeType, FwPrmIdType, StackSizeType
+
 # This makes the code forward-compatible. In Python 3.10+, the `|` operator
 # creates a types.UnionType. In 3.9, only typing.Union exists.
 try:
@@ -50,12 +52,6 @@ def get_union_members(type_hint: type) -> list[type]:
 
     # Not a Union, so return the type itself
     return [type_hint]
-
-
-FwSizeType = U64Type
-FwChanIdType = U32Type
-FwPrmIdType = U32Type
-FwOpcodeType = U32Type
 
 
 class DirectiveId(Enum):
@@ -150,7 +146,7 @@ class DirectiveId(Enum):
     SET_FLAG = 69
     GET_FLAG = 70
     GET_FIELD = 71
-    DUPLICATE = 72
+    PEEK = 72
     ASSERT = 73
     STORE = 74
 
@@ -277,21 +273,21 @@ class StackOpDirective(Directive):
 class StackCmdDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STACK_CMD
 
-    args_size: Union[int, U32Type]
+    args_size: Union[int, StackSizeType]
 
 
 @dataclass
 class MemCompareDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.MEMCMP
-    size: Union[int, U32Type]
+    size: Union[int, StackSizeType]
 
 
 @dataclass
 class LoadDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.LOAD
 
-    lvar_offset: Union[int, U32Type]
-    size: Union[int, U32Type]
+    lvar_offset: Union[int, StackSizeType]
+    size: Union[int, StackSizeType]
 
 
 @dataclass
@@ -352,29 +348,29 @@ class IntegerTruncate64To32Directive(StackOpDirective):
 class AllocateDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.ALLOCATE
 
-    size: Union[int, U32Type]
+    size: Union[int, StackSizeType]
 
 
 @dataclass
 class StoreDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE
 
-    size: Union[int, U32Type]
+    size: Union[int, StackSizeType]
 
 
 @dataclass
 class StoreConstOffsetDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.STORE_CONST_OFFSET
 
-    lvar_offset: Union[int, U32Type]
-    size: Union[int, U32Type]
+    lvar_offset: Union[int, StackSizeType]
+    size: Union[int, StackSizeType]
 
 
 @dataclass
 class DiscardDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.DISCARD
 
-    size: Union[int, U32Type]
+    size: Union[int, StackSizeType]
 
 
 @dataclass
@@ -707,14 +703,13 @@ class ExitDirective(Directive):
 class GetFieldDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.GET_FIELD
     # pops an offset off the stack
-    parent_size: U32Type
-    member_size: U32Type
+    parent_size: StackSizeType
+    member_size: StackSizeType
 
 
 @dataclass
-class DuplicateDirective(Directive):
-    opcode: ClassVar[DirectiveId] = DirectiveId.DUPLICATE
-    size: U32Type
+class PeekDirective(Directive):
+    opcode: ClassVar[DirectiveId] = DirectiveId.PEEK
 
 
 @dataclass

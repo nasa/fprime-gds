@@ -18,10 +18,12 @@ from fprime_gds.common.fpy.types import (
     FpyMacro,
     FpyTypeCtor,
     FpyVariable,
+    FwOpcodeType,
     InternalFloatType,
     InternalIntType,
     InternalStringType,
     NothingValue,
+    StackSizeType,
     TopDownVisitor,
     Visitor,
     convert_numeric_type,
@@ -35,7 +37,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     AssertDirective,
     BinaryStackOp,
     ConstCmdDirective,
-    DuplicateDirective,
+    PeekDirective,
     FloatMultiplyDirective,
     GetFieldDirective,
     IntAddDirective,
@@ -61,7 +63,6 @@ from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime.common.models.serialize.array_type import ArrayType
 from fprime.common.models.serialize.numerical_types import (
-    U32Type,
     U64Type,
     U8Type,
     I64Type,
@@ -74,8 +75,6 @@ from fprime_gds.common.fpy.syntax import (
     AstBody,
     AstBreak,
     AstContinue,
-    AstElif,
-    AstElifs,
     AstExpr,
     AstFor,
     AstGetAttr,
@@ -302,9 +301,14 @@ class GenerateCode:
         # push the index (must be U64) to the stack
         dirs.extend(self.emit(node.item, state))
         # okay now let's do an array oob check
+        # duplicate the index
+        # byte count
+        dirs.append(PushValDirective())
+        # offset
+        dirs.append(PushValDirective())
         dirs.append(
-            DuplicateDirective(ArrayIndexType.getMaxSize())
-        )  # duplicate the index
+            PeekDirective(ArrayIndexType.getMaxSize())
+        )  
         # convert idx to u64
         dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
         dirs.append(
@@ -397,7 +401,7 @@ class GenerateCode:
             # use the converted type of parent
             parent_type = state.expr_converted_types[ref.parent_expr]
             # push the offset to the stack
-            dirs.append(PushValDirective(U32Type(ref.local_offset).serialize()))
+            dirs.append(PushValDirective(StackSizeType(ref.local_offset).serialize()))
             dirs.append(
                 GetFieldDirective(
                     parent_type.getMaxSize(), unconverted_type.getMaxSize()
@@ -513,7 +517,7 @@ class GenerateCode:
                     arg_byte_count += arg_converted_type.getMaxSize()
                 # then push cmd opcode to stack as u32
                 dirs.append(
-                    PushValDirective(U32Type(func.cmd.get_op_code()).serialize())
+                    PushValDirective(FwOpcodeType(func.cmd.get_op_code()).serialize())
                 )
                 # now that all args are pushed to the stack, pop them and opcode off the stack
                 # as a command
@@ -600,7 +604,7 @@ class GenerateCode:
             dirs.extend(self.emit(lhs.idx_expr, state))
             # okay now let's do an array oob check
             dirs.append(
-                DuplicateDirective(ArrayIndexType.getMaxSize())
+                PeekDirective(ArrayIndexType.getMaxSize())
             )  # duplicate the index
             # convert idx to u64
             dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
@@ -630,8 +634,8 @@ class GenerateCode:
             # add them
             dirs.append(IntAddDirective())
 
-            # and now convert the u64 back into the U32 that store expects
-            dirs.append(IntegerTruncate64To32Directive())
+            # and now convert the u64 back into the StackSizeType that store expects
+            dirs.extend(convert_numeric_type(U64Type, StackSizeType))
 
             # now that lvar array offset is pushed, use it to store in lvar array
             dirs.append(StoreDirective(lhs.type.getMaxSize()))

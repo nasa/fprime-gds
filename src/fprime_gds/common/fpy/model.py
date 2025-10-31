@@ -10,7 +10,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     AssertDirective,
     ConstCmdDirective,
     Directive,
-    DuplicateDirective,
+    PeekDirective,
     ExitDirective,
     FloatAddDirective,
     FloatDivideDirective,
@@ -857,13 +857,22 @@ class FpySequencerModel:
 
         self.push(member)
 
-    def handle_duplicate(self, dir: DuplicateDirective):
-        if len(self.stack) < dir.size:
+    def handle_peek(self, dir: PeekDirective):
+        if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
-        if len(self.stack) + dir.size > self.max_stack_size:
+        offset = self.pop(size=4, signed=False)
+        if offset > len(self.stack):
+            return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
+        byte_count = self.pop(size=4, signed=False)
+        if self.max_stack_size - len(self.stack) < byte_count:
             return DirectiveErrorCode.STACK_OVERFLOW
+        if len(self.stack) < byte_count + offset:
+            return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
 
-        self.push(self.stack[-dir.size:])
+        start = len(self.stack) - offset - byte_count
+        stop = len(self.stack) - offset
+        bytes = self.stack[start:stop]
+        self.push(bytes)
 
     def handle_assert(self, dir: AssertDirective):
         if len(self.stack) < 2:

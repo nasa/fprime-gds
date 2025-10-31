@@ -554,7 +554,6 @@ Pops a byte off the stack. If the byte == 0, end sequence as if it had finished 
 |----------|----------|--------|-------------|
 | success    | U8      | stack  | 0 if should exit without error |
 
-
 ## ALLOCATE (60)
 Pushes a hard-coded count of 0x00-bytes to the stack.
 | Arg Name | Arg Type | Source     | Description |
@@ -569,7 +568,6 @@ Pushes a hard-coded count of 0x00-bytes to the stack.
 Pops a hard-coded number of bytes off the stack, and writes them to the local variable array at a hard-coded offset.
 | Arg Name    | Arg Type | Source     | Description |
 |-------------|----------|------------|-------------|
-| lvar_offset | U32      | hardcoded  | Local variable offset |
 | size        | U32      | hardcoded  | Number of bytes |
 | value       | bytes    | stack      | Value to store |
 
