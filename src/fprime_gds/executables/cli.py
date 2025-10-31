@@ -983,12 +983,17 @@ class MiddleWareParser(ParserBase):
 
 
 class DictionaryParser(DetectionParser):
-    """Parser for deployments"""
+    """Parser for locating and loading dictionary information
+
+    This parser loads all dictionary elements and make them available for later use.
+    It also updates the global ConfigManager with all type and constant definitions found
+    in the dictionary.
+    """
 
     DESCRIPTION = "Dictionary options"
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """Arguments to handle deployments"""
+        """Arguments to handle dictionary."""
         return {
             **super().get_arguments(),
             **{

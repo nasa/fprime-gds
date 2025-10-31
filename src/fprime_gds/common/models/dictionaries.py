@@ -142,18 +142,14 @@ class Dictionaries:
             )
         # Otherwise use JSON dictionary to attempt automatic packet loading
         elif self._metadata["dictionary_type"] == "json":
-            packet_loader = fprime_gds.common.loaders.pkt_json_loader.PktJsonLoader(
-                dictionary
-            )
+            packet_loader = fprime_gds.common.loaders.pkt_json_loader.PktJsonLoader(dictionary)
             if packet_set_name is None:
                 names = packet_loader.get_packet_set_names(None)
                 if len(names) == 0:
                     self._packet_dict = None
                     return
                 elif len(names) > 1:
-                    raise Exception(
-                        "[ERROR] Multiple packet sets, must set --packet-set-name"
-                    )
+                    raise Exception("[ERROR] Multiple packet sets, must set --packet-set-name")
                 packet_set_name = names[0]
             self._packet_dict = packet_loader.get_id_dict(
                 None, packet_set_name, self._channel_name_dict

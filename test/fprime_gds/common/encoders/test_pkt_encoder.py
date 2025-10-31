@@ -5,7 +5,7 @@ Created on Jul 10, 2020
 @author: Joseph Paetz, hpaulson
 """
 
-
+import copy
 from fprime.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
 from fprime.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.ch_data import ChData
@@ -25,6 +25,11 @@ def test_pkt_encoder():
 
     # Required to set the global config for UTs to meet expected values
     ConfigManager.get_instance().set_type("msg_len", U32Type)
+
+    # Tests written assuming FwPacketDescriptorType is U32Type so override default here
+    config.set_type("FwPacketDescriptorType", U32Type)
+    ConfigManager.get_instance().set_type("FwPacketDescriptorType", U32Type)
+
     enc = PktEncoder()
     enc_config = PktEncoder(config)
 
@@ -45,7 +50,7 @@ def test_pkt_encoder():
     desc_bin = b"\x00\x00\x00\x04"
     id_bin = b"\x00\x40"
     time_bin = b"\x00\x02\x00\x5b\x6b\x4c\xa5\x00\x01\xe2\x40"
-    ch_bin = b"\x00\x00\x05\x4c\x8F\x05\xe5"
+    ch_bin = b"\x00\x00\x05\x4c\x8f\x05\xe5"
     long_len_bin = b"\x00\x00\x00\x18"
     short_len_bin = b"\x00\x18"
 

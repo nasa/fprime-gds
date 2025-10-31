@@ -5,6 +5,7 @@ Created on Jul 10, 2020
 @author: Joseph Paetz, hpaulson
 """
 
+import copy
 from fprime.common.models.serialize.numerical_types import U16Type, U32Type
 from fprime.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.ch_data import ChData
@@ -22,6 +23,11 @@ def test_ch_encoder():
 
     # Required to set the global config for UTs to meet expected values
     ConfigManager.get_instance().set_type("msg_len", U32Type)
+
+    # Tests written assuming FwPacketDescriptorType is U32Type so override default here
+    config.set_type("FwPacketDescriptorType", U32Type)
+    ConfigManager.get_instance().set_type("FwPacketDescriptorType", U32Type)
+
     enc = ChEncoder()
     enc_config = ChEncoder(config)
 

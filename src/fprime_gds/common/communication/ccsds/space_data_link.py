@@ -43,9 +43,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         dict_frame_size = None
         try:
             dict_scid = ConfigManager.get_instance().get_constant("ComCfg.SpacecraftId")
-            dict_frame_size = ConfigManager.get_instance().get_constant(
-                "ComCfg.TmFrameFixedSize"
-            )
+            dict_frame_size = ConfigManager.get_instance().get_constant("ComCfg.TmFrameFixedSize")
         except ConfigBadTypeException:
             pass
 
@@ -77,21 +75,20 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
 
         # First 16 bits:
         header_val1_u16 = (
-            (0 << 14)  # TF version number (2 bits)
-            | (1 << 13)  # Bypass FARM (1 bit)
-            | (0 << 12)  # Type-D (1 bit)
-            | (0 << 10)  # Reserved (2 bits)
-            | ((self.scid & 0x3FF))  # SCID (10 bits)
+            (0 << 14) |  # TF version number (2 bits)
+            (1 << 13) |  # Bypass FARM (1 bit)
+            (0 << 12) |  # Type-D (1 bit)
+            (0 << 10) |  # Reserved (2 bits)
+            ((self.scid & 0x3FF))  # SCID (10 bits)
         )
         # Second 16 bits:
-        header_val2_u16 = ((self.vcid & 0x3F) << 10) | (  # VCID (6 bits)
-            length & 0x3FF
-        )  # Frame length (10 bits)
+        header_val2_u16 = (
+            ((self.vcid & 0x3F) << 10) |  # VCID (6 bits)
+            (length & 0x3FF)              # Frame length (10 bits)
+        )
         # 8 bit sequence number - always 0 in bypass FARM mode
         header_val3_u8 = 0
-        header_bytes = struct.pack(
-            ">HHB", header_val1_u16, header_val2_u16, header_val3_u8
-        )
+        header_bytes = struct.pack(">HHB", header_val1_u16, header_val2_u16, header_val3_u8)
         full_bytes_no_crc = header_bytes + space_packet_bytes
         assert (
             len(header_bytes) == self.TC_HEADER_SIZE
@@ -140,7 +137,9 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             if transmitted_crc == self.CRC_CALCULATOR.checksum(data[:crc_offset]):
                 # CRC is valid, so we return the deframed data
                 deframed_data_len = (
-                    self.frame_size - self.TM_TRAILER_SIZE - self.TM_HEADER_SIZE
+                    self.frame_size
+                    - self.TM_TRAILER_SIZE
+                    - self.TM_HEADER_SIZE
                 )
                 deframed = struct.unpack_from(
                     f">{deframed_data_len}s", data, self.TM_HEADER_SIZE
