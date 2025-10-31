@@ -130,6 +130,26 @@ class FpySequencerModel:
         self.tlm_db: dict[int, bytearray] = {}
         self.prm_db: dict[int, bytearray] = {}
 
+        self.handlers: dict[type[Directive], typing.Callable] = {}
+        self.find_handlers()
+
+    def find_handlers(self):
+        for name, func in inspect.getmembers(type(self), inspect.isfunction):
+            if not name.startswith("handle_"):
+                # not a dir handler
+                continue
+            signature = inspect.signature(func)
+            params = list(signature.parameters.values())
+            if len(params) != 2:
+                continue
+
+            annotations = typing.get_type_hints(func)
+            param_name = params[1].name
+            if param_name in annotations:
+                param_type = annotations[param_name]
+                if inspect.isclass(param_type) and issubclass(param_type, Directive):
+                    self.handlers[param_type] = func
+
     def reset(self):
         self.stack = bytearray()
         self.stack_frame_start = 0
@@ -143,20 +163,7 @@ class FpySequencerModel:
         opcode = dir.opcode
         opcode_name = opcode.name
 
-        handler_fn = None
-        for name, func in inspect.getmembers(type(self), inspect.isfunction):
-            if not name.startswith("handle"):
-                # not a dir handler
-                continue
-            signature = inspect.signature(func)
-            params = list(signature.parameters.values())
-            assert len(params) == 2
-            assert params[1].annotation is not None
-            annotations = typing.get_type_hints(func)
-            param_type = annotations[params[1].name]
-            if isinstance(dir, param_type):
-                handler_fn = func
-                break
+        handler_fn = self.handlers.get(type(dir))
 
         if handler_fn is None:
             raise NotImplementedError(opcode_name + " not implemented")

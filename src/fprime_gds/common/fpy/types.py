@@ -7,7 +7,7 @@ from pathlib import Path
 import struct
 import traceback
 import typing
-from typing import Iterable, Union, get_args, get_origin
+from typing import Callable, Iterable, Union, get_args, get_origin
 import zlib
 
 from fprime_gds.common.fpy.error import CompileError
@@ -665,7 +665,12 @@ class Visitor:
     """visits each class, calling a custom visit function, if one is defined, for each
     node type"""
 
-    def _find_custom_visit_func(self, node: Ast):
+    def __init__(self):
+        self.visitors: dict[type[Ast], Callable] = {}
+        """dict of node type to handler function"""
+        self.build_visitor_dict()
+
+    def build_visitor_dict(self):
         for name, func in inspect.getmembers(type(self), inspect.isfunction):
             if not name.startswith("visit") or name == "visit_default":
                 # not a visitor, or the default visit func
@@ -676,13 +681,18 @@ class Visitor:
             assert params[1].annotation is not None
             annotations = typing.get_type_hints(func)
             param_type = annotations[params[1].name]
-            if is_instance_compat(node, param_type):
-                return getattr(self, name)
-        # call the default
-        return self.visit_default
+
+            origin = get_origin(param_type)
+            if origin in UNION_TYPES:
+                # It's a Union type, so get its arguments.
+                for t in get_args(param_type):
+                    self.visitors[t] = getattr(self, name)
+            else:
+                # It's not a Union, so it's a regular type
+                self.visitors[param_type] = getattr(self, name)
 
     def _visit(self, node: Ast, state: CompileState):
-        visit_func = self._find_custom_visit_func(node)
+        visit_func = self.visitors.get(type(node), self.visit_default)
         return visit_func(node, state)
 
     def visit_default(self, node: Ast, state: CompileState):

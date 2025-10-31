@@ -1,8 +1,17 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import inspect
-from typing import Union
+from typing import Callable, Union, get_args, get_origin
 import typing
+
+# In Python 3.10+, the `|` operator creates a `types.UnionType`.
+# We need to handle this for forward compatibility, but it won't exist in 3.9.
+try:
+    from types import UnionType
+
+    UNION_TYPES = (Union, UnionType)
+except ImportError:
+    UNION_TYPES = (Union,)
 
 from fprime_gds.common.fpy.error import BackendError, CompileError
 from fprime_gds.common.fpy.model import DirectiveErrorCode
@@ -112,6 +121,11 @@ class IrIf(Ir):
 
 class GenerateCode:
 
+    def __init__(self):
+        self.emitters: dict[type[Ast], Callable] = {}
+        """dict of node type to handler function"""
+        self.build_emitter_dict()
+
     def try_emit_expr_as_const(
         self, node: AstExpr, state: CompileState
     ) -> Union[list[Directive | Ir], None]:
@@ -135,10 +149,7 @@ class GenerateCode:
         # push it to the stack
         return [PushValDirective(serialized_expr_value)]
 
-    def emit(self, node: Ast, state: CompileState) -> list[Directive | Ir]:
-        # if node is an expr, emit the code to push the expr to the stack, accounting
-        # for type conversions
-
+    def build_emitter_dict(self):
         for name, func in inspect.getmembers(type(self), inspect.isfunction):
             if not name.startswith("emit_"):
                 # not a visitor, or the default visit func
@@ -149,9 +160,18 @@ class GenerateCode:
             assert params[1].annotation is not None
             annotations = typing.get_type_hints(func)
             param_type = annotations[params[1].name]
-            if is_instance_compat(node, param_type):
-                return getattr(self, name)(node, state)
-        raise NotImplementedError(node)
+
+            origin = get_origin(param_type)
+            if origin in UNION_TYPES:
+                # It's a Union type, so get its arguments.
+                for t in get_args(param_type):
+                    self.emitters[t] = getattr(self, name)
+            else:
+                # It's not a Union, so it's a regular type
+                self.emitters[param_type] = getattr(self, name)
+
+    def emit(self, node: Ast, state: CompileState) -> list[Directive | Ir]:
+        return self.emitters[type(node)](node, state)
 
     def emit_AstScopedBody(self, node: AstScopedBody, state: CompileState):
         dirs = []

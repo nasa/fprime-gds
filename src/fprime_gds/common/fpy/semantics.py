@@ -106,6 +106,7 @@ class AssignIds(TopDownVisitor):
 
 class SetLocalScope(Visitor):
     def __init__(self, scope: FpyScope):
+        super().__init__()
         self.scope = scope
 
     def visit_default(self, node: Ast, state: CompileState):
@@ -181,6 +182,7 @@ class CreateVariables(TopDownVisitor):
 
 class SetEnclosingLoops(Visitor):
     def __init__(self, loop: Union[AstFor, AstWhile]):
+        super().__init__()
         self.loop = loop
 
     def visit_AstBreak_AstContinue(
@@ -405,6 +407,7 @@ class ResolveVarsAndTypes(TopDownVisitor):
 class CheckUseBeforeDeclare(Visitor):
 
     def __init__(self):
+        super().__init__()
         self.currently_declared_vars: list[FpyVariable] = []
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
@@ -443,6 +446,7 @@ class CheckUseBeforeDeclare(Visitor):
 
 class CheckVariableNotReferenced(Visitor):
     def __init__(self, var: FpyVariable):
+        super().__init__()
         self.var = var
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
@@ -455,6 +459,7 @@ class CheckVariableNotReferenced(Visitor):
 class CheckUseBeforeDeclareForLoopVariables(TopDownVisitor):
 
     def __init__(self):
+        super().__init__()
         self.currently_declared_vars: list[FpyVariable] = []
 
     def visit_AstFor(self, node: AstFor, state: CompileState):

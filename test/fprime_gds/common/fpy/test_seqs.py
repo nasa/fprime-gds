@@ -1382,7 +1382,7 @@ def test_dir_too_large(fprime_test_api):
     assert_compile_failure(fprime_test_api, seq)
 
 
-def test_readme_examples(fprime_test_api):
+def test_readme_examples(fprime_test_api, benchmark):
     seq = """
 Ref.sendBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
 param4: F32 = 15.0
