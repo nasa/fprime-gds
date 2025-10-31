@@ -114,7 +114,7 @@ class GenerateCode:
 
     def try_emit_expr_as_const(
         self, node: AstExpr, state: CompileState
-    ) -> Union[list[Directive|Ir], None]:
+    ) -> Union[list[Directive | Ir], None]:
         expr_value = state.expr_converted_values.get(node)
 
         if expr_value is None:
@@ -135,7 +135,7 @@ class GenerateCode:
         # push it to the stack
         return [PushValDirective(serialized_expr_value)]
 
-    def emit(self, node: Ast, state: CompileState) -> list[Directive|Ir]:
+    def emit(self, node: Ast, state: CompileState) -> list[Directive | Ir]:
         # if node is an expr, emit the code to push the expr to the stack, accounting
         # for type conversions
 
@@ -243,7 +243,10 @@ class GenerateCode:
             # and B) we need the index of the last statement in the body
             # if we're a for loop, because that's where the continue stmt
             # needs to go
-            if stmt_idx == len(node.body.stmts) - 1 and for_loop_increment_label is not None:
+            if (
+                stmt_idx == len(node.body.stmts) - 1
+                and for_loop_increment_label is not None
+            ):
                 # last stmt, it must be the inc stmt, add the label before it
                 dirs.append(for_loop_increment_label)
             dirs.extend(self.emit(stmt, state))
@@ -301,12 +304,12 @@ class GenerateCode:
         # okay now let's do an array oob check
         # duplicate the index
         # byte count
-        dirs.append(PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize()))
+        dirs.append(
+            PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize())
+        )
         # offset
         dirs.append(PushValDirective(StackSizeType(0).serialize()))
-        dirs.append(
-            PeekDirective()
-        )  
+        dirs.append(PeekDirective())
         # convert idx to u64
         dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
         dirs.append(
@@ -602,12 +605,12 @@ class GenerateCode:
             dirs.extend(self.emit(lhs.idx_expr, state))
             # okay now let's do an array oob check
             # byte count
-            dirs.append(PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize()))
+            dirs.append(
+                PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize())
+            )
             # offset
             dirs.append(PushValDirective(StackSizeType(0).serialize()))
-            dirs.append(
-                PeekDirective()
-            )  # duplicate the index
+            dirs.append(PeekDirective())  # duplicate the index
             # convert idx to u64
             dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
             lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
@@ -692,12 +695,20 @@ class ResolveLabels(IrPass):
                 # drop these from the result
                 continue
             elif is_instance_compat(dir, IrGoto):
-                label = dir.label.label if is_instance_compat(dir.label, IrLabel) else dir.label
+                label = (
+                    dir.label.label
+                    if is_instance_compat(dir.label, IrLabel)
+                    else dir.label
+                )
                 if label not in labels:
                     return BackendError(f"Unknown label {label}")
                 dirs.append(GotoDirective(labels[label]))
             elif is_instance_compat(dir, IrIf):
-                label = dir.goto_if_false_label.label if is_instance_compat(dir.goto_if_false_label, IrLabel) else dir.goto_if_false_label
+                label = (
+                    dir.goto_if_false_label.label
+                    if is_instance_compat(dir.goto_if_false_label, IrLabel)
+                    else dir.goto_if_false_label
+                )
                 if label not in labels:
                     return BackendError(f"Unknown label {label}")
                 dirs.append(IfDirective(labels[label]))
