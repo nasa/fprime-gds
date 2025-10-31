@@ -8,7 +8,7 @@ Created on Jul 10, 2020
 
 from fprime_gds.common.distributor.distributor import Distributor
 from fprime_gds.common.utils import config_manager
-from fprime.common.models.serialize.numerical_types import U16Type
+from fprime.common.models.serialize.numerical_types import U16Type, U32Type
 
 def test_distributor():
     """
@@ -16,6 +16,7 @@ def test_distributor():
     """
     config = config_manager.ConfigManager.get_instance()
     config.set_type("msg_len", U16Type)
+    config.set_type("FwPacketDescriptorType", U32Type)
 
     dist = Distributor(config)
 
