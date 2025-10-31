@@ -5,7 +5,6 @@ Created on Jul 10, 2020
 @author: Joseph Paetz, hpaulson
 """
 
-import copy
 from fprime.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
 from fprime.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.ch_data import ChData
