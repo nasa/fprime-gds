@@ -6,7 +6,6 @@ from fprime_gds.common.fpy.types import (
     SIGNED_INTEGER_TYPES,
     SPECIFIC_NUMERIC_TYPES,
     UNSIGNED_INTEGER_TYPES,
-    ArrayIndexType,
     CompileState,
     FieldReference,
     ForLoopAnalysis,
@@ -16,9 +15,9 @@ from fprime_gds.common.fpy.types import (
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
-    InternalFloatType,
-    InternalIntType,
-    InternalStringType,
+    InternalFloatValue,
+    InternalIntValue,
+    InternalStringValue,
     NothingValue,
     TopDownVisitor,
     Visitor,
@@ -41,6 +40,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     BOOLEAN_OPERATORS,
     NUMERIC_OPERATORS,
     UNARY_STACK_OPS,
+    ArrayIndexType,
     BinaryStackOp,
     MemCompareDirective,
     UnaryStackOp,
@@ -503,7 +503,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def can_coerce_type(self, type: FppType, to_type: FppType) -> bool:
         if type == to_type:
             return True
-        if type == InternalStringType and issubclass(to_type, StringType):
+        if type == InternalStringValue and issubclass(to_type, StringType):
             # we can convert the internal String type to any string type
             return True
         if not issubclass(type, NumericalType) or not issubclass(to_type, NumericalType):
@@ -523,19 +523,19 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # we'll allow interpreting this as any integer, regardless of dest bitwidth
 
             # i think this should be impossible rn
-            assert to_type != InternalIntType
-            return type == InternalIntType or type.get_bits() <= to_type.get_bits()
+            assert to_type != InternalIntValue
+            return type == InternalIntValue or type.get_bits() <= to_type.get_bits()
         if issubclass(type, FloatType):
             if not issubclass(to_type, FloatType):
                 # definitely will fail, cannot coerce float into non float
                 return False
-            if type == InternalFloatType:
+            if type == InternalFloatValue:
                 # can convert the internal float type into any float type
                 return True
             # otherwise we're going from a specific float type
 
             # i think this should be impossible rn
-            assert to_type != InternalFloatType
+            assert to_type != InternalFloatValue
 
             return type.get_bits() <= to_type.get_bits()
         return False
@@ -562,7 +562,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             return None
 
         arbitrary_precision = all(
-            t == InternalIntType or t == InternalFloatType for t in arg_types
+            t == InternalIntValue or t == InternalFloatValue for t in arg_types
         )
         float = any(issubclass(t, FloatType) for t in arg_types)
 
@@ -571,12 +571,12 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # the return value should be arbitrary precision
             if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
                 # always do true division over floats, python style
-                return InternalFloatType
+                return InternalFloatValue
             if float:
                 # at least one arg is a float
-                return InternalFloatType
+                return InternalFloatValue
             # no args are floats
-            return InternalIntType
+            return InternalIntValue
 
         unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
 
@@ -768,9 +768,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # give a best guess as to the final type of this node. we don't actually know
         # its bitwidth or signedness yet
         if is_instance_compat(node.value, float):
-            result_type = InternalFloatType
+            result_type = InternalFloatValue
         else:
-            result_type = InternalIntType
+            result_type = InternalIntValue
 
         state.expr_unconverted_types[node] = result_type
         state.expr_converted_types[node] = result_type
@@ -824,8 +824,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_converted_types[node] = result_type
 
     def visit_AstString(self, node: AstString, state: CompileState):
-        state.expr_unconverted_types[node] = InternalStringType
-        state.expr_converted_types[node] = InternalStringType
+        state.expr_unconverted_types[node] = InternalStringValue
+        state.expr_converted_types[node] = InternalStringValue
 
     def visit_AstBoolean(self, node: AstBoolean, state: CompileState):
         state.expr_unconverted_types[node] = BoolType
@@ -1029,7 +1029,7 @@ class CalculateConstExprValues(Visitor):
             if type(from_val) == to_type:
                 return from_val
             if issubclass(to_type, StringType):
-                assert type(from_val) == InternalStringType, type(from_val)
+                assert type(from_val) == InternalStringValue, type(from_val)
                 return to_type(from_val.val)
             if issubclass(to_type, FloatType):
                 assert issubclass(type(from_val), NumericalType), type(from_val)
@@ -1354,9 +1354,9 @@ class CalculateConstExprValues(Visitor):
             return
 
         if type(folded_value) == int:
-            folded_value = InternalIntType(folded_value)
+            folded_value = InternalIntValue(folded_value)
         elif type(folded_value) == float:
-            folded_value = InternalFloatType(folded_value)
+            folded_value = InternalFloatValue(folded_value)
         elif type(folded_value) == bool:
             folded_value = BoolType(folded_value)
         else:
@@ -1399,9 +1399,9 @@ class CalculateConstExprValues(Visitor):
         assert folded_value is not None
 
         if type(folded_value) == int:
-            folded_value = InternalIntType(folded_value)
+            folded_value = InternalIntValue(folded_value)
         elif type(folded_value) == float:
-            folded_value = InternalFloatType(folded_value)
+            folded_value = InternalFloatValue(folded_value)
         elif type(folded_value) == bool:
             folded_value = BoolType(folded_value)
         else:

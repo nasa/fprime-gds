@@ -50,8 +50,8 @@ If you have a lower-bitwidth numerical type and want to turn it into a higher-bi
 low_bitwidth_int: U8 = 123
 high_bitwidth_int: U32 = low_bitwidth_int
 # high_bitwidth_int == 123
-low_bitwidth_float: F64 = 123.0
-high_bitwidth_float: F32 = low_bitwidth_float
+low_bitwidth_float: F32 = 123.0
+high_bitwidth_float: F64 = low_bitwidth_float
 # high_bitwidth_float == 123.0
 ```
 

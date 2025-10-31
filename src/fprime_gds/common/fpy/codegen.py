@@ -10,7 +10,6 @@ from fprime_gds.common.fpy.types import (
     MAX_DIRECTIVES_COUNT,
     MAX_STACK_SIZE,
     SPECIFIC_NUMERIC_TYPES,
-    ArrayIndexType,
     CompileState,
     FieldReference,
     FpyCast,
@@ -18,14 +17,10 @@ from fprime_gds.common.fpy.types import (
     FpyMacro,
     FpyTypeCtor,
     FpyVariable,
-    FwOpcodeType,
-    InternalFloatType,
-    InternalIntType,
-    InternalStringType,
+    InternalFloatValue,
+    InternalIntValue,
+    InternalStringValue,
     NothingValue,
-    StackSizeType,
-    TopDownVisitor,
-    Visitor,
     convert_numeric_type,
     is_instance_compat,
 )
@@ -34,9 +29,11 @@ from fprime_gds.common.fpy.bytecode.directives import (
     BINARY_STACK_OPS,
     UNARY_STACK_OPS,
     AllocateDirective,
+    ArrayIndexType,
     AssertDirective,
     BinaryStackOp,
     ConstCmdDirective,
+    FwOpcodeType,
     PeekDirective,
     FloatMultiplyDirective,
     GetFieldDirective,
@@ -52,6 +49,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IfDirective,
     NotDirective,
     PushValDirective,
+    StackSizeType,
     StoreConstOffsetDirective,
     StoreDirective,
     PushPrmDirective,
@@ -124,7 +122,7 @@ class GenerateCode:
             return None
 
         assert not is_instance_compat(
-            expr_value, (InternalIntType, InternalStringType, InternalFloatType)
+            expr_value, (InternalIntValue, InternalStringValue, InternalFloatValue)
         )
 
         if is_instance_compat(expr_value, NothingValue):
@@ -303,11 +301,11 @@ class GenerateCode:
         # okay now let's do an array oob check
         # duplicate the index
         # byte count
-        dirs.append(PushValDirective())
+        dirs.append(PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize()))
         # offset
-        dirs.append(PushValDirective())
+        dirs.append(PushValDirective(StackSizeType(0).serialize()))
         dirs.append(
-            PeekDirective(ArrayIndexType.getMaxSize())
+            PeekDirective()
         )  
         # convert idx to u64
         dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
@@ -603,8 +601,12 @@ class GenerateCode:
             # push the index to the stack, do a bounds check,
             dirs.extend(self.emit(lhs.idx_expr, state))
             # okay now let's do an array oob check
+            # byte count
+            dirs.append(PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize()))
+            # offset
+            dirs.append(PushValDirective(StackSizeType(0).serialize()))
             dirs.append(
-                PeekDirective(ArrayIndexType.getMaxSize())
+                PeekDirective()
             )  # duplicate the index
             # convert idx to u64
             dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))

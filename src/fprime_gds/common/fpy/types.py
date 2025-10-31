@@ -35,7 +35,6 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerZeroExtend8To64Directive,
     PushTimeDirective,
     SignedIntToFloatDirective,
-    StackOpDirective,
     FloatLogDirective,
     Directive,
     ExitDirective,
@@ -87,7 +86,7 @@ COMPILER_MAX_STRING_SIZE = 128
 
 # this is the "internal" integer type that integer literals have by
 # default. it is arbitrary precision
-class InternalIntType(IntegerType):
+class InternalIntValue(IntegerType):
     @classmethod
     def range(cls):
         raise NotImplementedError()
@@ -108,7 +107,7 @@ class InternalIntType(IntegerType):
 
 # this is the "internal" float type that float literals have by
 # default.
-class InternalFloatType(FloatType):
+class InternalFloatValue(FloatType):
     @staticmethod
     def get_serialize_format():
         raise NotImplementedError()
@@ -122,8 +121,28 @@ class InternalFloatType(FloatType):
         if not isinstance(val, (float, int)):
             raise RuntimeError()
 
+class RangeValue(FppValue):
+    def serialize(self):
+        raise NotImplementedError()
 
-InternalStringType = StringType.construct_type("InternalStringType", None)
+    def deserialize(self, data, offset):
+        raise NotImplementedError()
+
+    def getSize(self):
+        raise NotImplementedError()
+
+    @classmethod
+    def getMaxSize(cls):
+        raise NotImplementedError()
+
+    def __repr__(self):
+        return self.__class__.__name__
+
+    def to_jsonable(self):
+        raise NotImplementedError()
+
+
+InternalStringValue = StringType.construct_type("InternalStringType", None)
 
 
 SPECIFIC_NUMERIC_TYPES = (
@@ -164,13 +183,6 @@ SPECIFIC_FLOAT_TYPES = (
     F32Type,
     F64Type,
 )
-
-FwSizeType = U64Type
-FwChanIdType = U32Type
-FwPrmIdType = U32Type
-FwOpcodeType = U32Type
-ArrayIndexType = U64Type
-StackSizeType = U32Type
 
 
 def is_instance_compat(obj, cls):

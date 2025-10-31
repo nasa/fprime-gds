@@ -1445,8 +1445,8 @@ assert odd_numbers_sum == 25
 low_bitwidth_int: U8 = 123
 high_bitwidth_int: U32 = low_bitwidth_int
 # high_bitwidth_int == 123
-low_bitwidth_float: F64 = 123.0
-high_bitwidth_float: F32 = low_bitwidth_float
+low_bitwidth_float: F32 = 123.0
+high_bitwidth_float: F64 = low_bitwidth_float
 # high_bitwidth_float == 123.0
 """
     assert_run_success(fprime_test_api, seq)

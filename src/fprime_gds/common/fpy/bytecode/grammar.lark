@@ -18,7 +18,7 @@ goto_tag: NAME ":"
   | "push_prm" _int
   | "store_const_offset" _uint _uint
   | "get_field" _uint _uint
-  | "duplicate" _uint
+  | "peek"
 
 !op_with_no_args: "no_op"
   | "siext_8_64"

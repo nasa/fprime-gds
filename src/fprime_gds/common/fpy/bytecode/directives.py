@@ -2,8 +2,6 @@ from __future__ import annotations
 import typing
 from typing import Any
 
-from fprime_gds.common.fpy.types import FwChanIdType, FwOpcodeType, FwPrmIdType, StackSizeType
-
 # This makes the code forward-compatible. In Python 3.10+, the `|` operator
 # creates a types.UnionType. In 3.9, only typing.Union exists.
 try:
@@ -13,13 +11,11 @@ try:
 except ImportError:
     UNION_TYPES = (typing.Union,)
 
-from dataclasses import dataclass, fields, astuple
+from dataclasses import dataclass, fields
 from typing import ClassVar
 import typing
 from typing import Union
-from pathlib import Path
 import struct
-import zlib
 from fprime.common.models.serialize.type_base import BaseType
 from fprime.common.models.serialize.numerical_types import (
     U32Type,
@@ -35,6 +31,13 @@ from fprime.common.models.serialize.numerical_types import (
 )
 from fprime.common.models.serialize.bool_type import BoolType
 from enum import Enum
+
+FwSizeType = U64Type
+FwChanIdType = U32Type
+FwPrmIdType = U32Type
+FwOpcodeType = U32Type
+ArrayIndexType = U64Type
+StackSizeType = U32Type
 
 
 def get_union_members(type_hint: type) -> list[type]:
