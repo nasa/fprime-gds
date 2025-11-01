@@ -80,9 +80,12 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         try:
             self.close()
             self.serial = serial.Serial(self.device, self.baud)
+            self.warning_throttled = self.serial is None # Clear the throttle when the port opened
             return self.serial is not None
         except serial.serialutil.SerialException as exc:
-            LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
+            if not self.warning_throttled:
+                LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
+                self.warning_throttled = True
             self.close()
             return False
 
@@ -111,7 +114,9 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 assert written == len(frame)
                 return True
         except serial.serialutil.SerialException as exc:
-            LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
+            if not self.warning_throttled:
+                LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
+                self.warning_throttled = True
             self.close()
         return False
 
@@ -136,7 +141,9 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                         self.serial.in_waiting
                     )  # Drain the incoming data queue
         except serial.serialutil.SerialException as exc:
-            LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
+            if not self.warning_throttled:
+                LOGGER.warning("Serial exception caught: %s. Reconnecting.", (str(exc)))
+                self.warning_throttled = True
             self.close()
         return data
 
