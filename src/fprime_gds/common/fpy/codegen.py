@@ -42,6 +42,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     AssertDirective,
     BinaryStackOp,
     ConstCmdDirective,
+    DiscardDirective,
     FwOpcodeType,
     PeekDirective,
     FloatMultiplyDirective,
@@ -129,6 +130,7 @@ class GenerateCode:
     def try_emit_expr_as_const(
         self, node: AstExpr, state: CompileState
     ) -> Union[list[Directive | Ir], None]:
+        """if the expr has a compile time const value, emit that as a PUSH_VAL"""
         expr_value = state.expr_converted_values.get(node)
 
         if expr_value is None:
@@ -148,6 +150,20 @@ class GenerateCode:
 
         # push it to the stack
         return [PushValDirective(serialized_expr_value)]
+
+    def discard_expr_result(self, node: Ast, state: CompileState) -> list[Directive]:
+        """if the node is an expr, generate code to discard its stack value"""
+        if not is_instance_compat(node, AstExpr):
+            # nothing to discard
+            return []
+
+        result_type = state.expr_converted_types[node]
+        if result_type == NothingValue:
+            return []
+        if result_type.getMaxSize() > 0:
+            return [DiscardDirective(result_type.getMaxSize())]
+        return []
+        
 
     def build_emitter_dict(self):
         for name, func in inspect.getmembers(type(self), inspect.isfunction):
@@ -190,6 +206,8 @@ class GenerateCode:
                 # TODO warn
                 continue
             dirs.extend(self.emit(stmt, state))
+            # discard stack value if it was an expr
+            dirs.extend(self.discard_expr_result(stmt, state))
         return dirs
 
     def emit_AstBody(self, node: AstBody, state: CompileState):
@@ -200,6 +218,8 @@ class GenerateCode:
                 # TODO warn
                 continue
             dirs.extend(self.emit(stmt, state))
+            # discard stack value if it was an expr
+            dirs.extend(self.discard_expr_result(stmt, state))
         return dirs
 
     def emit_AstIf(self, node: AstIf, state: CompileState):
@@ -277,6 +297,8 @@ class GenerateCode:
                 # last stmt, it must be the inc stmt, add the label before it
                 dirs.append(for_loop_increment_label)
             dirs.extend(self.emit(stmt, state))
+            # discard stack value if it was an expr
+            dirs.extend(self.discard_expr_result(stmt, state))
         # go back to condition check
         dirs.append(IrGoto(while_start_label))
         dirs.append(while_end_label)

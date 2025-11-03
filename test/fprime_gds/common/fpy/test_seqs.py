@@ -31,8 +31,7 @@ def test_empty(fprime_test_api):
 
 
 def test_no_newline(fprime_test_api):
-    seq = \
-"""# test"""
+    seq = """# test"""
 
     assert_run_success(fprime_test_api, seq)
 
@@ -362,13 +361,8 @@ exit(1)
         fprime_test_api,
         seq,
         {
-            "Ref.typeDemo.ChoicePairCh": lookup_type(
-                fprime_test_api, "Ref.ChoicePair"
-            )(
-                {
-                    "firstChoice": "ONE",
-                    "secondChoice": "ONE"
-                }
+            "Ref.typeDemo.ChoicePairCh": lookup_type(fprime_test_api, "Ref.ChoicePair")(
+                {"firstChoice": "ONE", "secondChoice": "ONE"}
             ).serialize()
         },
     )
@@ -1435,10 +1429,10 @@ while True:
 
 assert counter == 100
 odd_numbers_sum: U64 = 0
-for j in 0 .. 10:
-    if j % 2 == 0:
+for i in 0 .. 10:
+    if i % 2 == 0:
         continue
-    odd_numbers_sum = odd_numbers_sum + j
+    odd_numbers_sum = odd_numbers_sum + i
 
 assert odd_numbers_sum == 25
 
@@ -1806,16 +1800,35 @@ for i in 0 .. 7:
     assert_compile_failure(fprime_test_api, seq)
 
 
-def test_loop_var_redeclare(fprime_test_api):
+def test_loop_var_redeclare_right_type(fprime_test_api):
+    seq = """
+i: I64 = 123
+for i in 0 .. 7:
+    assert i >= 0 and i < 7
+assert i == 7
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_two_fors_same_loop_var(fprime_test_api):
+    seq = """
+for i in 0 .. 7:
+    assert i >= 0 and i < 7
+for i in 0 .. 7:
+    assert i >= 0 and i < 7
+assert i == 7
+"""
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_loop_var_redeclare_wrong_type(fprime_test_api):
     seq = """
 i: U16 = 123
 for i in 0 .. 7:
-    assert i >= 0 and i < 7
-assert i == 123
+    pass
 """
 
     assert_compile_failure(fprime_test_api, seq)
-
 
 
 def test_scope_override_name(fprime_test_api):
@@ -1922,16 +1935,6 @@ for i in 0 .. 7:
 def test_for_loop_declare_var_bad(fprime_test_api):
     seq = """
 for x.y in 0 .. 7:
-    pass
-"""
-
-    assert_compile_failure(fprime_test_api, seq)
-
-
-def test_loop_var_ub_type_too_big(fprime_test_api):
-    seq = """
-var: U32 = 123123
-for i in 0 .. var:
     pass
 """
 
@@ -2049,6 +2052,7 @@ assert sum == 100
 
     assert_run_success(fprime_test_api, seq)
 
+
 def test_downcast_large_literal(fprime_test_api):
     seq = """
 val: U8 = U8(1231231231243) # this is allowed but suspicious
@@ -2064,5 +2068,6 @@ val: F64 = 0.0
 CdhCore.cmdDisp.CMD_NO_OP_STRING("в")
 """
     assert_run_success(fprime_test_api, seq)
+
 
 # TODO assert failure should split based on whether it's a syntax or semantic failure

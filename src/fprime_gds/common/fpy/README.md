@@ -229,7 +229,7 @@ for i in 0 .. 5:
 
 # sum == 10
 ```
-The loop variable, in this case `i`, is always of type `I64`. There is currently no support for a step size other than 1.
+The loop variable, in this case `i`, is always of type `I64`. If a variable with the same name as the loop variable already exists, it can be reused as long as it is an `I64`. There is currently no support for a step size other than 1.
 
 While inside of a loop, you can break out of the loop:
 ```py

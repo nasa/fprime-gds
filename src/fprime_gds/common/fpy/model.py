@@ -10,6 +10,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     AssertDirective,
     ConstCmdDirective,
     Directive,
+    FwOpcodeType,
     PeekDirective,
     ExitDirective,
     FloatAddDirective,
@@ -301,7 +302,7 @@ class FpySequencerModel:
         pass
 
     def handle_pop_discard(self, dir: DiscardDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < dir.size:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         self.pop(size=dir.size, type=bytes)
 
@@ -385,15 +386,15 @@ class FpySequencerModel:
         # always push CmdResponse.OK
         if not self.validate_cmd(dir.cmd_opcode, dir.args):
             raise RuntimeError("Invalid cmd")
-        self.push(0, size=4)
+        self.push(0, size=1)
 
     def handle_stack_cmd(self, dir: StackCmdDirective):
-        if len(self.stack) < dir.args_size + 4:
+        if len(self.stack) < dir.args_size + FwOpcodeType.getMaxSize():
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
 
-        cmd = self.stack[-(dir.args_size + 4) :]
-        self.stack = self.stack[: -(dir.args_size + 4)]
-        opcode = int.from_bytes(cmd[-4:], signed=False, byteorder="big")
+        cmd = self.stack[-(dir.args_size + FwOpcodeType.getMaxSize()) :]
+        self.stack = self.stack[: -(dir.args_size + FwOpcodeType.getMaxSize())]
+        opcode = int.from_bytes(cmd[-FwOpcodeType.getMaxSize():], signed=False, byteorder="big")
 
         print(
             "cmd opcode",
@@ -401,10 +402,10 @@ class FpySequencerModel:
             "args",
             cmd[:-4],
         )
-        if not self.validate_cmd(opcode, cmd[:-4]):
+        if not self.validate_cmd(opcode, cmd[:-FwOpcodeType.getMaxSize()]):
             raise RuntimeError("Invalid cmd")
         # always push CmdResponse.OK
-        self.push(0, size=4)
+        self.push(0, size=1)
 
     def handle_goto(self, dir: GotoDirective):
         if dir.dir_idx > len(self.dirs):

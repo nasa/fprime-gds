@@ -75,7 +75,6 @@ from fprime_gds.common.fpy.syntax import (
     AstBoolean,
     AstBreak,
     AstContinue,
-    AstDiscard,
     AstElif,
     AstExpr,
     AstFor,
@@ -99,7 +98,6 @@ from fprime_gds.common.fpy.syntax import (
 )
 from fprime.common.models.serialize.type_base import BaseType as FppValue
 
-DISCARD_VAR = "_"
 
 class AssignIds(TopDownVisitor):
     """assigns a unique id to each node to allow it to be indexed in a dict"""
@@ -147,15 +145,6 @@ class CreateVariables(TopDownVisitor):
             # otherwise we good
             return
 
-        # okay, what are we assigning to?
-        if node.lhs.var == DISCARD_VAR:
-            # discarding a value
-            if node.type_ann is not None:
-                state.err("Cannot specify a type annotation for a discarded value", node.type_ann)
-                return
-            # don't declare a new var. also don't have a reference
-            return
-
         if node.type_ann is not None:
             # new variable declaration
             # make sure it isn't defined in this scope
@@ -183,17 +172,39 @@ class CreateVariables(TopDownVisitor):
                 return
             # okay, we were able to resolve it
 
-
     def visit_AstFor(self, node: AstFor, state: CompileState):
         # for loops have an implicit loop variable that they can declare
         # if it isn't already declared in the local scope
         loop_var = state.local_scopes[node].get(node.loop_var.var)
 
+        reuse_existing_loop_var = False
         if loop_var is not None:
             # this is okay as long as the variable is of the same type
-            if loop_var.type != LoopVarType:
-                state.err(f"'{node.loop_var.var}' has already been declared as an {loop_var.type.__name__}, but for loops require {LoopVarType.__name__}", node)
+
+            # what follows is a bit of a hack
+            # there are two cases: either loop_var has been declared before but we only know the type expr (if it was an AstAssign decl)
+            # or loop_var has been declared before and we only know the type, but have no type expr
+
+            # case 1 is easy, just check the type == LoopVarType
+            # case 2 is harder, we have to check if the type expr is an AstVar (assuming that LoopVarType is expressible thru an AstVar)
+            # and that the var name is the canonical name of the LoopVarType
+
+            # the alternative to this is that we do some primitive type resolution in the same pass as variable creation
+            # i'm doing this hack because we're going to switch to type inference for variables later and that will make this go away
+
+            if (loop_var.type_ref is None and loop_var.type != LoopVarType) or (
+                loop_var.type is None
+                and not (
+                    isinstance(loop_var.type_ref, AstVar)
+                    and loop_var.type_ref.var == LoopVarType.get_canonical_name()
+                )
+            ):
+                state.err(
+                    f"'{node.loop_var.var}' has already been declared as a type other than {LoopVarType.__name__}",
+                    node,
+                )
                 return
+            reuse_existing_loop_var = True
         else:
             # new var. put it in the table under this scope
             loop_var = FpyVariable(node.loop_var.var, None, node, LoopVarType)
@@ -206,7 +217,7 @@ class CreateVariables(TopDownVisitor):
             state.new_anonymous_variable_name(), None, node, LoopVarType
         )
         state.variables.append(upper_bound_var)
-        analysis = ForLoopAnalysis(loop_var, upper_bound_var)
+        analysis = ForLoopAnalysis(loop_var, upper_bound_var, reuse_existing_loop_var)
         state.for_loops[node] = analysis
 
 

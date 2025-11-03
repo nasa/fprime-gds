@@ -319,6 +319,7 @@ class FpyVariable:
 class ForLoopAnalysis:
     loop_var: FpyVariable
     upper_bound_var: FpyVariable
+    reuse_existing_loop_var: bool
 
 
 # a scope
