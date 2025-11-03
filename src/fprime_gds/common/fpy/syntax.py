@@ -6,6 +6,7 @@ from lark.tree import Meta
 from lark.lark import PostLex
 from lark.indenter import DedentError
 
+
 class PythonIndenter(PostLex):
     # from lark, but slightly modified to fix a bug
     """This is a postlexer that "injects" indent/dedent tokens based on indentation.
@@ -16,11 +17,11 @@ class PythonIndenter(PostLex):
     """
     paren_level: int
     indent_level: List[int]
-    NL_type = '_NEWLINE'
-    OPEN_PAREN_types = ['LPAR', 'LSQB', 'LBRACE']
-    CLOSE_PAREN_types = ['RPAR', 'RSQB', 'RBRACE']
-    INDENT_type = '_INDENT'
-    DEDENT_type = '_DEDENT'
+    NL_type = "_NEWLINE"
+    OPEN_PAREN_types = ["LPAR", "LSQB", "LBRACE"]
+    CLOSE_PAREN_types = ["RPAR", "RSQB", "RBRACE"]
+    INDENT_type = "_INDENT"
+    DEDENT_type = "_DEDENT"
     tab_len = 8
 
     def __init__(self) -> None:
@@ -34,11 +35,11 @@ class PythonIndenter(PostLex):
 
         yield token
 
-        if not '\n' in token:
+        if not "\n" in token:
             return
 
-        indent_str = token.rsplit('\n', 1)[1] # Tabs and spaces
-        indent = indent_str.count(' ') + indent_str.count('\t') * self.tab_len
+        indent_str = token.rsplit("\n", 1)[1]  # Tabs and spaces
+        indent = indent_str.count(" ") + indent_str.count("\t") * self.tab_len
 
         if indent > self.indent_level[-1]:
             self.indent_level.append(indent)
@@ -49,7 +50,10 @@ class PythonIndenter(PostLex):
                 yield Token.new_borrow_pos(self.DEDENT_type, indent_str, token)
 
             if indent != self.indent_level[-1]:
-                raise DedentError('Unexpected dedent to column %s. Expected dedent to %s' % (indent, self.indent_level[-1]))
+                raise DedentError(
+                    "Unexpected dedent to column %s. Expected dedent to %s"
+                    % (indent, self.indent_level[-1])
+                )
 
     def _process(self, stream):
         for token in stream:
@@ -66,7 +70,7 @@ class PythonIndenter(PostLex):
 
         while len(self.indent_level) > 1:
             self.indent_level.pop()
-            yield Token(self.DEDENT_type, '')
+            yield Token(self.DEDENT_type, "")
 
         assert self.indent_level == [0], self.indent_level
 
@@ -134,11 +138,11 @@ class AstFuncCall(Ast):
 
 @dataclass
 class AstPass(Ast):
-    pass # ha ha
+    pass  # ha ha
 
 
 @dataclass
-class AstEllipsis(Ast): ... # this is my way of being funny
+class AstEllipsis(Ast): ...  # this is my way of being funny
 
 
 @dataclass
@@ -154,10 +158,17 @@ class AstUnaryOp(Ast):
     val: AstExpr
 
 
+@dataclass
+class AstRange(Ast):
+    lower_bound: AstExpr
+    op: str
+    upper_bound: AstExpr
+
+
 AstOp = Union[AstBinaryOp, AstUnaryOp]
 
 AstReference = Union[AstGetAttr, AstGetItem, AstVar]
-AstExpr = Union[AstFuncCall, AstLiteral, AstReference, AstOp]
+AstExpr = Union[AstFuncCall, AstLiteral, AstReference, AstOp, AstRange]
 
 
 @dataclass
@@ -185,41 +196,61 @@ class AstIf(Ast):
     elifs: AstElifs | None
     els: Union["AstBody", None]
 
-@dataclass
-class AstRange(Ast):
-    lower_bound: AstExpr
-    op: str
-    upper_bound: AstExpr
-
 
 @dataclass
 class AstFor(Ast):
     loop_var: AstVar
-    loop_var_type: AstExpr
     range: AstExpr
     body: AstBody
+
 
 @dataclass
 class AstWhile(Ast):
     condition: AstExpr
     body: AstBody
 
+
 @dataclass
 class AstAssert(Ast):
     condition: AstExpr
     exit_code: Union[AstExpr, None]
 
+
 @dataclass
 class AstBreak(Ast):
     pass
+
 
 @dataclass
 class AstContinue(Ast):
     pass
 
-AstStmt = Union[AstExpr, AstAssign, AstPass, AstIf, AstElif, AstFor, AstBreak, AstContinue, AstWhile, AstAssert, AstEllipsis]
+
+AstStmt = Union[
+    AstExpr,
+    AstAssign,
+    AstPass,
+    AstIf,
+    AstElif,
+    AstFor,
+    AstBreak,
+    AstContinue,
+    AstWhile,
+    AstAssert,
+    AstEllipsis,
+]
 AstStmtWithExpr = Union[AstExpr, AstAssign, AstIf, AstElif, AstFor, AstWhile, AstAssert]
-AstNodeWithSideEffects = Union[AstFuncCall, AstAssign, AstIf, AstElif, AstFor, AstWhile, AstAssert, AstBreak, AstContinue]
+AstNodeWithSideEffects = Union[
+    AstFuncCall,
+    AstAssign,
+    AstIf,
+    AstElif,
+    AstFor,
+    AstWhile,
+    AstAssert,
+    AstBreak,
+    AstContinue,
+]
 
 
 @dataclass
@@ -280,6 +311,7 @@ def handle_assign(meta, args):
     else:
         type = None
     return AstAssign(meta, var, type, value)
+
 
 def handle_assert(meta, args):
     condition = args[0]

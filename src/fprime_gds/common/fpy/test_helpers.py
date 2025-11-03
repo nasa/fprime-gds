@@ -3,7 +3,7 @@ import tempfile
 import traceback
 from fprime_gds.common.fpy.types import deserialize_directives
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
-from fprime_gds.common.fpy.bytecode.directives import Directive
+from fprime_gds.common.fpy.bytecode.directives import AllocateDirective, Directive
 from fprime_gds.common.fpy.main import assemble_main, compile_main, disassemble_main
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -99,6 +99,10 @@ def run_seq(
     ret = model.run(deserialized_dirs, tlm_db)
     if ret != DirectiveErrorCode.NO_ERROR:
         raise RuntimeError("Sequence returned", ret)
+    if len(deserialized_dirs) > 0 and isinstance(deserialized_dirs[0], AllocateDirective):
+        # check that the start and end sizes are the same
+        if len(model.stack) != deserialized_dirs[0].size:
+            raise RuntimeError(f"Sequence leaked {len(model.stack) - deserialized_dirs[0].size} bytes")
 
 
 def assert_compile_success(fprime_test_api, seq: str):

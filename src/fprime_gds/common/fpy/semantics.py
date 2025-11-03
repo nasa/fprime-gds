@@ -18,6 +18,7 @@ from fprime_gds.common.fpy.types import (
     InternalFloatValue,
     InternalIntValue,
     InternalStringValue,
+    LoopVarType,
     NothingValue,
     RangeValue,
     TopDownVisitor,
@@ -74,6 +75,7 @@ from fprime_gds.common.fpy.syntax import (
     AstBoolean,
     AstBreak,
     AstContinue,
+    AstDiscard,
     AstElif,
     AstExpr,
     AstFor,
@@ -97,6 +99,7 @@ from fprime_gds.common.fpy.syntax import (
 )
 from fprime.common.models.serialize.type_base import BaseType as FppValue
 
+DISCARD_VAR = "_"
 
 class AssignIds(TopDownVisitor):
     """assigns a unique id to each node to allow it to be indexed in a dict"""
@@ -133,52 +136,77 @@ class CreateVariables(TopDownVisitor):
         if not is_instance_compat(node.lhs, AstReference):
             state.err("Invalid assignment", node.lhs)
             return
-        # okay, what are we assigning to?
-        if is_instance_compat(node.lhs, AstVar):
-            if node.type_ann is not None:
-                # new variable declaration
-                # make sure it isn't defined in this scope
-                existing_local = state.local_scopes[node].get(node.lhs.var)
-                if existing_local is not None:
-                    # redeclaring an existing variable
-                    state.err(f"'{node.lhs.var}' has already been declared", node)
-                    return
-                # okay, declare the var
-                var = FpyVariable(node.lhs.var, node.type_ann, node)
-                # new var. put it in the table under this scope
-                state.local_scopes[node][node.lhs.var] = var
-            else:
-                # otherwise, it's a reference to an existing var
-                resolved = resolve_var(node, node.lhs.var, state)
-                if resolved is None:
-                    # unable to find this symbol
-                    state.err(
-                        f"'{node.lhs.var}' has not been declared",
-                        node.lhs,
-                    )
-                    return
-                # okay, we were able to resolve it
 
-        else:
+        if not is_instance_compat(node.lhs, AstVar):
             # assigning to a member or array element. don't need to make a new variable,
             # space already exists
             if node.type_ann is not None:
                 # type annotation on a field assignment... it already has a type!
                 state.err("Cannot specify a type annotation for a field", node.type_ann)
                 return
-
-    def visit_AstFor(self, node: AstFor, state: CompileState):
-        # for loops have an implicit loop variable that they declare
-        existing = state.local_scopes[node].get(node.loop_var.var)
-
-        if existing:
-            state.err(f"'{node.loop_var.var}' has already been declared", node)
+            # otherwise we good
             return
 
-        var = FpyVariable(node.loop_var.var, node.loop_var_type, node)
-        # new var. put it in the table under this scope
-        state.local_scopes[node][node.loop_var.var] = var
-        analysis = ForLoopAnalysis(var)
+        # okay, what are we assigning to?
+        if node.lhs.var == DISCARD_VAR:
+            # discarding a value
+            if node.type_ann is not None:
+                state.err("Cannot specify a type annotation for a discarded value", node.type_ann)
+                return
+            # don't declare a new var. also don't have a reference
+            return
+
+        if node.type_ann is not None:
+            # new variable declaration
+            # make sure it isn't defined in this scope
+            # TODO shadowing check
+            existing_local = state.local_scopes[node].get(node.lhs.var)
+            if existing_local is not None:
+                # redeclaring an existing variable
+                state.err(f"'{node.lhs.var}' has already been declared", node)
+                return
+            # okay, declare the var
+            var = FpyVariable(node.lhs.var, node.type_ann, node)
+            # new var. put it in the table under this scope
+            state.local_scopes[node][node.lhs.var] = var
+            # also put it in the big list
+            state.variables.append(var)
+        else:
+            # otherwise, it's a reference to an existing var
+            resolved = resolve_var(node, node.lhs.var, state)
+            if resolved is None:
+                # unable to find this symbol
+                state.err(
+                    f"'{node.lhs.var}' has not been declared",
+                    node.lhs,
+                )
+                return
+            # okay, we were able to resolve it
+
+
+    def visit_AstFor(self, node: AstFor, state: CompileState):
+        # for loops have an implicit loop variable that they can declare
+        # if it isn't already declared in the local scope
+        loop_var = state.local_scopes[node].get(node.loop_var.var)
+
+        if loop_var is not None:
+            # this is okay as long as the variable is of the same type
+            if loop_var.type != LoopVarType:
+                state.err(f"'{node.loop_var.var}' has already been declared as an {loop_var.type.__name__}, but for loops require {LoopVarType.__name__}", node)
+                return
+        else:
+            # new var. put it in the table under this scope
+            loop_var = FpyVariable(node.loop_var.var, None, node, LoopVarType)
+            state.local_scopes[node][node.loop_var.var] = loop_var
+            state.variables.append(loop_var)
+
+        # each loop also declares an implicit ub variable
+        # type of ub var is same as loop var type
+        upper_bound_var = FpyVariable(
+            state.new_anonymous_variable_name(), None, node, LoopVarType
+        )
+        state.variables.append(upper_bound_var)
+        analysis = ForLoopAnalysis(loop_var, upper_bound_var)
         state.for_loops[node] = analysis
 
 
@@ -340,21 +368,9 @@ class ResolveVarsAndTypes(TopDownVisitor):
             node.loop_var, state.runtime_values, "value", state
         ):
             return
-        if not self.resolve_var_in_global_scope(
-            node.loop_var_type, state.types, "type", state
-        ):
-            return
-        # in this pass, we also go ahead and finish up the types because they're easy
-        if not self.resolve_type_reference(node.loop_var_type, state):
-            return
-        # okay, we know the var, we know the type, let's update the var type
-        # in the struct
-        loop_var = state.resolved_references[node.loop_var]
-        loop_var_type = state.resolved_references[node.loop_var_type]
-        assert is_instance_compat(loop_var, FpyVariable), loop_var
-        assert is_instance_compat(loop_var_type, type), loop_var_type
-        loop_var.type = loop_var_type
 
+        # this really shouldn't be possible to be a var right now
+        # but this is future proof
         if not self.resolve_var_in_global_scope(
             node.range, state.runtime_values, "value", state
         ):
@@ -388,6 +404,16 @@ class ResolveVarsAndTypes(TopDownVisitor):
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
         if not self.resolve_var_in_global_scope(
             node.item, state.runtime_values, "value", state
+        ):
+            return
+
+    def visit_AstRange(self, node: AstRange, state: CompileState):
+        if not self.resolve_var_in_global_scope(
+            node.lower_bound, state.runtime_values, "value", state
+        ):
+            return
+        if not self.resolve_var_in_global_scope(
+            node.upper_bound, state.runtime_values, "value", state
         ):
             return
 
@@ -433,7 +459,10 @@ class CheckUseBeforeDeclare(Visitor):
         if is_instance_compat(ref.declaration, AstFor):
             # this will be handled  by other pass
             return
-        if is_instance_compat(ref.declaration, AstAssign) and ref.declaration.lhs == node:
+        if (
+            is_instance_compat(ref.declaration, AstAssign)
+            and ref.declaration.lhs == node
+        ):
             # this is the initial name of the variable. don't crash
             return
 
@@ -442,7 +471,7 @@ class CheckUseBeforeDeclare(Visitor):
             return
 
 
-class CheckVariableNotReferenced(Visitor):
+class EnsureVariableNotReferenced(Visitor):
     def __init__(self, var: FpyVariable):
         super().__init__()
         self.var = var
@@ -464,8 +493,8 @@ class CheckUseBeforeDeclareForLoopVariables(TopDownVisitor):
         var = state.resolved_references[node.loop_var]
 
         self.currently_declared_vars.append(var)
-        # also double check that the vars aren't referenced in the ub and lb
-        CheckVariableNotReferenced(var).run(node.range, state)
+        # also double check that the loop var isn't referenced in the range
+        EnsureVariableNotReferenced(var).run(node.range, state)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         ref = state.resolved_references[node]
@@ -476,7 +505,10 @@ class CheckUseBeforeDeclareForLoopVariables(TopDownVisitor):
         if is_instance_compat(ref.declaration, AstAssign):
             # handled by prev pass
             return
-        if is_instance_compat(ref.declaration, AstFor) and ref.declaration.loop_var == node:
+        if (
+            is_instance_compat(ref.declaration, AstFor)
+            and ref.declaration.loop_var == node
+        ):
             # this is the initial name of the variable. don't crash
             return
 
@@ -508,7 +540,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if type == InternalStringValue and issubclass(to_type, StringType):
             # we can convert the internal String type to any string type
             return True
-        if not issubclass(type, NumericalType) or not issubclass(to_type, NumericalType):
+        if not issubclass(type, NumericalType) or not issubclass(
+            to_type, NumericalType
+        ):
             # if one of the src or dest aren't numerical, we can't coerce
             return False
         # for numeric types
@@ -885,6 +919,15 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_unconverted_types[node] = func.return_type
         state.expr_converted_types[node] = func.return_type
 
+    def visit_AstRange(self, node: AstRange, state: CompileState):
+        if not self.coerce_expr_type(node.lower_bound, LoopVarType, state):
+            return
+        if not self.coerce_expr_type(node.upper_bound, LoopVarType, state):
+            return
+
+        state.expr_unconverted_types[node] = RangeValue
+        state.expr_converted_types[node] = RangeValue
+
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
         # should be present in resolved refs because we only let it through if
         # variable is attr, item or var
@@ -920,65 +963,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
                 return
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
-        # okay we have three types, but lb gets converted to lv, so we just have lv and ub
-        # so we're going to be comparing lv to ub type, so find an intermediate
-
-        loop_info = state.for_loops[node]
-        loop_var = loop_info.loop_var
-        loop_var_type = loop_var.type
-
-        # handle the loop condition check
-        # find intermediate type. we compare two variables of loop_var_type
-        cmp_intermediate_type = self.pick_intermediate_type(
-            [loop_var_type, loop_var_type], BinaryStackOp.LESS_THAN
-        )
-
-        if cmp_intermediate_type is None or issubclass(
-            cmp_intermediate_type, FloatType
-        ):
-            state.err(
-                f"Loop variable type must be a signed or unsigned integer type",
-                node,
-            )
-            return
-
-        loop_info.cmp_intermediate_type = cmp_intermediate_type
-        assert cmp_intermediate_type is not None and not issubclass(
-            cmp_intermediate_type, FloatType
-        ), cmp_intermediate_type
-
         # range must coerce to a range!
         if not self.coerce_expr_type(node.range, RangeValue, state):
             return
-
-        # handle increment loop var
-        # this looks like:
-        # loop_var = loop_var + 1
-        inc_intermediate_type = self.pick_intermediate_type(
-            [loop_var_type, loop_var_type], BinaryStackOp.ADD
-        )
-        loop_info.inc_intermediate_type = inc_intermediate_type
-
-    def visit_AstRange(self, node: AstRange, state: CompileState):
-        # lb and ub must coerce to intermediate type
-        # pick intermediate type
-        cmp_intermediate_type = self.pick_intermediate_type(
-            [loop_var_type, loop_var_type], BinaryStackOp.LESS_THAN
-        )
-
-        if cmp_intermediate_type is None or issubclass(
-            cmp_intermediate_type, FloatType
-        ):
-            state.err(
-                f"Loop variable type must be a signed or unsigned integer type",
-                node,
-            )
-            return
-
-        loop_info.cmp_intermediate_type = cmp_intermediate_type
-        assert cmp_intermediate_type is not None and not issubclass(
-            cmp_intermediate_type, FloatType
-        ), cmp_intermediate_type
 
     def visit_AstWhile(self, node: AstWhile, state: CompileState):
         if not self.coerce_expr_type(node.condition, BoolType, state):
@@ -991,47 +978,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def visit_default(self, node, state):
         # coding error, missed an expr
         assert not is_instance_compat(node, AstStmtWithExpr), node
-
-
-class AllocateVariables(Visitor):
-    def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        lhs_ref = state.resolved_references[node.lhs]
-        if not is_instance_compat(lhs_ref, FpyVariable):
-            # it's a field ref, ignore it. don't need any more space for it
-            return
-
-        assert lhs_ref is not None
-        assert lhs_ref.type is not None
-
-        value_size = lhs_ref.type.getMaxSize()
-
-        if lhs_ref.lvar_offset is None:
-            # doesn't have an lvar idx, allocate one
-            lvar_offset = state.lvar_array_size_bytes
-            state.lvar_array_size_bytes += value_size
-            lhs_ref.lvar_offset = lvar_offset
-
-    def visit_AstFor(self, node: AstFor, state: CompileState):
-
-        loop_info = state.for_loops[node]
-
-        # allocate space for the loop var
-        loop_var = loop_info.loop_var
-        assert is_instance_compat(loop_var, FpyVariable)
-        lvar_offset = state.lvar_array_size_bytes
-        state.lvar_array_size_bytes += loop_var.type.getMaxSize()
-        loop_var.lvar_offset = lvar_offset
-
-        # allocate space for the upper bound var
-        # type of ub var is same as loop var type
-        lvar_offset = state.lvar_array_size_bytes
-        upper_bound_var = FpyVariable(
-            state.new_anonymous_variable_name(), None, node, loop_var.type, lvar_offset
-        )
-        state.lvar_array_size_bytes += upper_bound_var.type.getMaxSize()
-        upper_bound_var.lvar_offset = lvar_offset
-        # store ub var in a dict for later
-        loop_info.upper_bound_var = upper_bound_var
 
 
 class CalculateConstExprValues(Visitor):
@@ -1155,7 +1101,10 @@ class CalculateConstExprValues(Visitor):
 
         assert expr_value is not None
 
-        assert is_instance_compat(expr_value, unconverted_type), (expr_value, unconverted_type)
+        assert is_instance_compat(expr_value, unconverted_type), (
+            expr_value,
+            unconverted_type,
+        )
 
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
@@ -1190,7 +1139,10 @@ class CalculateConstExprValues(Visitor):
         expr_value = parent_value._val[idx._val]
 
         unconverted_type = state.expr_unconverted_types[node]
-        assert is_instance_compat(expr_value, unconverted_type), (expr_value, unconverted_type)
+        assert is_instance_compat(expr_value, unconverted_type), (
+            expr_value,
+            unconverted_type,
+        )
 
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
@@ -1225,7 +1177,10 @@ class CalculateConstExprValues(Visitor):
 
         assert expr_value is not None
 
-        assert is_instance_compat(expr_value, unconverted_type), (expr_value, unconverted_type)
+        assert is_instance_compat(expr_value, unconverted_type), (
+            expr_value,
+            unconverted_type,
+        )
 
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
@@ -1284,7 +1239,10 @@ class CalculateConstExprValues(Visitor):
             return
 
         unconverted_type = state.expr_unconverted_types[node]
-        assert is_instance_compat(expr_value, unconverted_type), (expr_value, unconverted_type)
+        assert is_instance_compat(expr_value, unconverted_type), (
+            expr_value,
+            unconverted_type,
+        )
 
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
@@ -1307,7 +1265,9 @@ class CalculateConstExprValues(Visitor):
 
         # Both sides are constants, evaluate the operation if the operator is supported
 
-        if not is_instance_compat(lhs_value, ValueType) or not is_instance_compat(rhs_value, ValueType):
+        if not is_instance_compat(lhs_value, ValueType) or not is_instance_compat(
+            rhs_value, ValueType
+        ):
             # if one of them isn't a ValueType, assume it must be TimeType
             assert lhs_value == rhs_value and lhs_value == TimeType, (
                 lhs_value,
@@ -1437,6 +1397,10 @@ class CalculateConstExprValues(Visitor):
             if folded_value is None:
                 return
         state.expr_converted_values[node] = folded_value
+
+    def visit_AstRange(self, node: AstRange, state: CompileState):
+        # ranges don't really end up having a value, they kinda just exist as a type
+        state.expr_converted_values[node] = None
 
     def visit_default(self, node, state):
         # coding error, missed an expr

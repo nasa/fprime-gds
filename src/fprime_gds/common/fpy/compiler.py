@@ -24,7 +24,6 @@ from fprime_gds.common.fpy.codegen import (
 )
 from fprime_gds.common.fpy.desugaring import DesugarForLoops
 from fprime_gds.common.fpy.semantics import (
-    AllocateVariables,
     AssignIds,
     AssignLocalScopes,
     CalculateConstExprValues,
@@ -121,7 +120,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
                     enum_const_name
                 )
 
-    # insert the implicit types into the dict
+    # insert the builtin types into the dict
     type_name_dict["Fw.Time"] = TimeType
     for typ in SPECIFIC_NUMERIC_TYPES:
         type_name_dict[typ.get_canonical_name()] = typ
@@ -204,8 +203,6 @@ def ast_to_directives(
         CheckUseBeforeDeclareForLoopVariables(),
         # this pass resolves all attributes and items, as well as determines the type of expressions
         PickTypesAndResolveAttrsAndItems(),
-        # now that expr types have been narrowed down, we can allocate lvar space for variables
-        AllocateVariables(),
         # okay, now that we're sure we're passing in all the right args to each func,
         # we can calculate values of type ctors etc etc
         CalculateConstExprValues(),

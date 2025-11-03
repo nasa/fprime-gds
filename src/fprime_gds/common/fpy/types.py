@@ -83,6 +83,7 @@ MAX_STACK_SIZE = 1024
 
 COMPILER_MAX_STRING_SIZE = 128
 
+LoopVarType = I64Type
 
 # this is the "internal" integer type that integer literals have by
 # default. it is arbitrary precision
@@ -317,9 +318,7 @@ class FpyVariable:
 @dataclass
 class ForLoopAnalysis:
     loop_var: FpyVariable
-    cmp_intermediate_type: FppType = None
-    inc_intermediate_type: FppType = None
-    upper_bound_var: FpyVariable = None
+    upper_bound_var: FpyVariable
 
 
 # a scope
@@ -606,6 +605,8 @@ class CompileState:
 
     next_node_id: int = 0
     root: AstScopedBody = None
+    variables: list[FpyVariable] = field(default_factory=list)
+    """a list of all variables, including ones that are anonymous, unlike the scope dict"""
     scope_parents: dict[AstScopedBody, AstScopedBody | None] = field(
         default_factory=dict, repr=False
     )

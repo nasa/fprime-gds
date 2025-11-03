@@ -1382,7 +1382,7 @@ def test_dir_too_large(fprime_test_api):
     assert_compile_failure(fprime_test_api, seq)
 
 
-def test_readme_examples(fprime_test_api, benchmark):
+def test_readme_examples(fprime_test_api):
     seq = """
 Ref.sendBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
 param4: F32 = 15.0
@@ -1423,7 +1423,7 @@ while counter < 100:
 assert counter == 100
 sum: U64 = 0
 # loop i from 0 inclusive to 5 exclusive
-for i: I8 from 0 to 5:
+for i in 0 .. 5:
     sum = sum + i
 
 assert sum == 10
@@ -1435,7 +1435,7 @@ while True:
 
 assert counter == 100
 odd_numbers_sum: U64 = 0
-for j: U64 from 0 to 10:
+for j in 0 .. 10:
     if j % 2 == 0:
         continue
     odd_numbers_sum = odd_numbers_sum + j
@@ -1713,7 +1713,7 @@ continue
 
 def test_simple_for(fprime_test_api):
     seq = """
-for i: U8 in 0 .. 2:
+for i in 0 .. 2:
     pass
 """
 
@@ -1722,7 +1722,7 @@ for i: U8 in 0 .. 2:
 
 def test_for_loop_break(fprime_test_api):
     seq = """
-for i: U32 from 0 to 10:
+for i in 0 .. 10:
     break
 assert i == 0
 """
@@ -1731,7 +1731,7 @@ assert i == 0
 
 def test_for_loop_continue(fprime_test_api):
     seq = """
-for i: U32 from 0 to 10:
+for i in 0 .. 10:
     continue
 assert i == 10 # will be equal to the ending index
 """
@@ -1740,7 +1740,7 @@ assert i == 10 # will be equal to the ending index
 
 def test_nested_for_while_break(fprime_test_api):
     seq = """
-for i: U32 from 0 to 10:
+for i in 0 .. 10:
     while True:
         break
 assert i == 10
@@ -1750,8 +1750,8 @@ assert i == 10
 
 def test_nested_for_loops_break_inner(fprime_test_api):
     seq = """
-for i: U32 from 0 to 10:
-    for j: U32 from 0 to 5:
+for i in 0 .. 10:
+    for j in 0 .. 5:
         break
 assert i == 10 and j == 0
 """
@@ -1760,8 +1760,8 @@ assert i == 10 and j == 0
 
 def test_nested_for_loops_break_outer(fprime_test_api):
     seq = """
-for i: U32 from 0 to 10:
-    for j: U32 from 0 to 5:
+for i in 0 .. 10:
+    for j in 0 .. 5:
         break
     break
 """
@@ -1771,7 +1771,7 @@ for i: U32 from 0 to 10:
 def test_slightly_more_complex_for(fprime_test_api):
     seq = """
 counter: U8 = 0
-for i: U8 from 0 to 2:
+for i in 0 .. 2:
     if i > 2:
         exit(1)
     counter = U8(counter + 1)
@@ -1785,7 +1785,7 @@ assert counter == 2
 
 def test_loop_var_outside_loop_after(fprime_test_api):
     seq = """
-for i: U8 from 0 to 7:
+for i in 0 .. 7:
     pass
 assert i == 7
 # succeeds because i is declared in the scope of for
@@ -1799,7 +1799,7 @@ assert i == 123
 def test_loop_var_outside_loop_before(fprime_test_api):
     seq = """
 i = 123
-for i: U8 from 0 to 7:
+for i in 0 .. 7:
     pass
 """
 
@@ -1809,21 +1809,13 @@ for i: U8 from 0 to 7:
 def test_loop_var_redeclare(fprime_test_api):
     seq = """
 i: U16 = 123
-for i: U8 from 0 to 7:
+for i in 0 .. 7:
     assert i >= 0 and i < 7
 assert i == 123
 """
 
     assert_compile_failure(fprime_test_api, seq)
 
-
-def test_loop_var_bad_type(fprime_test_api):
-    seq = """
-for i: bool from 0 to 7:
-    pass
-"""
-
-    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_scope_override_name(fprime_test_api):
@@ -1894,7 +1886,7 @@ assert True, True
 
 def test_redeclare_after_scope(fprime_test_api):
     seq = """
-for i: U8 from 0 to 7:
+for i in 0 .. 7:
     pass
 i: U16 = 0
 assert i == 0
@@ -1906,8 +1898,8 @@ assert i == 0
 def test_nested_for_loops(fprime_test_api):
     seq = """
 z: U8 = 123
-for i: U8 from 0 to 7:
-    for y: U8 from 20 to 30:
+for i in 0 .. 7:
+    for y in 20 .. 30:
         assert i < 8
         assert y >= 20 and y < 30
         assert z == 123
@@ -1919,8 +1911,8 @@ for i: U8 from 0 to 7:
 def test_redeclare_in_nested_scopes(fprime_test_api):
     seq = """
 z: U8 = 123
-for i: U8 from 0 to 7:
-    for z: U8 from 0 to 7:
+for i in 0 .. 7:
+    for z in 0 .. 7:
         assert z < 8
 """
 
@@ -1929,25 +1921,7 @@ for i: U8 from 0 to 7:
 
 def test_for_loop_declare_var_bad(fprime_test_api):
     seq = """
-for x.y: U8 from 0 to 7:
-    pass
-"""
-
-    assert_compile_failure(fprime_test_api, seq)
-
-
-def test_loop_var_almost_overflow(fprime_test_api):
-    seq = """
-for x: U8 from 0 to 255:
-    assert x < 255
-"""
-
-    assert_run_success(fprime_test_api, seq)
-
-
-def test_loop_var_overflow(fprime_test_api):
-    seq = """
-for x: U8 from 0 to 256:
+for x.y in 0 .. 7:
     pass
 """
 
@@ -1957,7 +1931,7 @@ for x: U8 from 0 to 256:
 def test_loop_var_ub_type_too_big(fprime_test_api):
     seq = """
 var: U32 = 123123
-for i: U8 from 0 to var:
+for i in 0 .. var:
     pass
 """
 
@@ -1966,7 +1940,7 @@ for i: U8 from 0 to var:
 
 def test_use_loop_var_in_bounds(fprime_test_api):
     seq = """
-for i: U8 from i to 8:
+for i in i .. 8:
     pass
 """
 
@@ -2040,7 +2014,7 @@ while True:
 
 def test_for_break_in_if(fprime_test_api):
     seq = """
-for i: U64 from 0 to 100:
+for i in 0 .. 100:
     if True:
         break
     exit(1)
@@ -2065,7 +2039,7 @@ while i < 2:
 def test_for_continue_in_if(fprime_test_api):
     seq = """
 sum: U64 = 0
-for i: U64 from 0 to 100:
+for i in 0 .. 100:
     sum = sum + 1
     if True:
         continue
@@ -2090,3 +2064,5 @@ val: F64 = 0.0
 CdhCore.cmdDisp.CMD_NO_OP_STRING("в")
 """
     assert_run_success(fprime_test_api, seq)
+
+# TODO assert failure should split based on whether it's a syntax or semantic failure

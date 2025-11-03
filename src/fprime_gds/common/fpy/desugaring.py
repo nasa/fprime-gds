@@ -6,6 +6,7 @@ from fprime_gds.common.fpy.syntax import (
     AstBinaryOp,
     AstFor,
     AstNumber,
+    AstRange,
     AstVar,
     AstWhile,
 )
@@ -15,6 +16,7 @@ from fprime_gds.common.fpy.types import (
     FppType,
     FpyReference,
     InternalIntValue,
+    LoopVarType,
     Transformer,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppValue
@@ -49,13 +51,22 @@ class DesugarForLoops(Transformer):
     def declare_loop_var(
         self, state: CompileState, loop_node: AstFor, loop_info: ForLoopAnalysis
     ) -> Ast:
-        # 1 <node.loop_var>: <node.loop_var_type> = <node.lower_bound>
+        # 1 <node.loop_var>: LoopVarType = <node.range.lower_bound>
+
+        loop_var_type_name = LoopVarType.get_canonical_name()
+        # create a new node for the type_ann
+        loop_var_type_var = self.new(state, AstVar(None, loop_var_type_name),
+                                     expr_converted_type=None,
+                                     expr_unconverted_type=None,
+                                     expr_converted_value=None,
+                                     op_intermediate_type=None,
+                                     resolved_reference=LoopVarType)
+
         lhs = loop_node.loop_var
-        type_ann = loop_node.loop_var_type
-        rhs = loop_node.lower_bound
+        rhs = loop_node.range.lower_bound
         return self.new(
             state,
-            AstAssign(None, lhs, type_ann, rhs),
+            AstAssign(None, lhs, loop_var_type_var, rhs),
             expr_converted_type=None,
             expr_unconverted_type=None,
             expr_converted_value=None,
@@ -66,9 +77,11 @@ class DesugarForLoops(Transformer):
     def declare_upper_bound_var(
         self, state: CompileState, loop_node: AstFor, loop_info: ForLoopAnalysis
     ) -> Ast:
+        # 2 $upper_bound_var: LoopVarType = <node.range.upper_bound>
+
         # ub var for use in assignment
-        # type is gonna be the loop var type
-        # gonna be used in the astassign lhs, no need to generate a type
+        # type is gonna be loop var type
+        # gonna be used in the astassign lhs, no need assign a type in the dict
         upper_bound_var: AstVar = self.new(
             state,
             AstVar(None, loop_info.upper_bound_var.name),
@@ -79,12 +92,21 @@ class DesugarForLoops(Transformer):
             resolved_reference=loop_info.upper_bound_var,
         )
 
+        loop_var_type_name = LoopVarType.get_canonical_name()
+        # create a new node for the type_ann
+        loop_var_type_var = self.new(state, AstVar(None, loop_var_type_name),
+                                     expr_converted_type=None,
+                                     expr_unconverted_type=None,
+                                     expr_converted_value=None,
+                                     op_intermediate_type=None,
+                                     resolved_reference=LoopVarType)
+
         # assign ub to ub var
         # not an expr, not a ref
         return self.new(
             state,
             AstAssign(
-                None, upper_bound_var, loop_node.loop_var_type, loop_node.upper_bound
+                None, upper_bound_var, loop_var_type_var, loop_node.range.upper_bound
             ),
             expr_converted_type=None,
             expr_unconverted_type=None,
@@ -103,8 +125,8 @@ class DesugarForLoops(Transformer):
         lhs = self.new(
             state,
             AstVar(None, loop_info.loop_var.name),
-            expr_converted_type=loop_info.inc_intermediate_type,
-            expr_unconverted_type=loop_info.loop_var.type,
+            expr_converted_type=LoopVarType,
+            expr_unconverted_type=LoopVarType,
             expr_converted_value=None,
             op_intermediate_type=None,
             resolved_reference=loop_info.loop_var,
@@ -112,9 +134,9 @@ class DesugarForLoops(Transformer):
         rhs = self.new(
             state,
             AstNumber(None, 1),
-            expr_converted_type=loop_info.inc_intermediate_type,
+            expr_converted_type=LoopVarType,
             expr_unconverted_type=InternalIntValue,
-            expr_converted_value=loop_info.inc_intermediate_type(1),
+            expr_converted_value=LoopVarType(1),
             op_intermediate_type=None,
             resolved_reference=None,
         )
@@ -122,10 +144,10 @@ class DesugarForLoops(Transformer):
         return self.new(
             state,
             AstBinaryOp(None, lhs, BinaryStackOp.ADD, rhs),
-            expr_converted_type=loop_info.loop_var.type,
-            expr_unconverted_type=loop_info.inc_intermediate_type,
+            expr_converted_type=LoopVarType,
+            expr_unconverted_type=LoopVarType,
             expr_converted_value=None,
-            op_intermediate_type=loop_info.inc_intermediate_type,
+            op_intermediate_type=LoopVarType,
             resolved_reference=None,
         )
 
@@ -165,8 +187,8 @@ class DesugarForLoops(Transformer):
         lhs = self.new(
             state,
             AstVar(None, loop_info.loop_var.name),
-            expr_converted_type=loop_info.cmp_intermediate_type,
-            expr_unconverted_type=loop_info.loop_var.type,
+            expr_converted_type=LoopVarType,
+            expr_unconverted_type=LoopVarType,
             expr_converted_value=None,
             op_intermediate_type=None,
             resolved_reference=loop_info.loop_var,
@@ -174,8 +196,8 @@ class DesugarForLoops(Transformer):
         rhs = self.new(
             state,
             AstVar(None, loop_info.upper_bound_var.name),
-            expr_converted_type=loop_info.cmp_intermediate_type,
-            expr_unconverted_type=loop_info.upper_bound_var.type,
+            expr_converted_type=LoopVarType,
+            expr_unconverted_type=LoopVarType,
             expr_converted_value=None,
             op_intermediate_type=None,
             resolved_reference=loop_info.upper_bound_var,
@@ -187,7 +209,7 @@ class DesugarForLoops(Transformer):
             expr_converted_type=BoolType,
             expr_unconverted_type=BoolType,
             expr_converted_value=None,
-            op_intermediate_type=loop_info.cmp_intermediate_type,
+            op_intermediate_type=LoopVarType,
             resolved_reference=None,
         )
 
@@ -216,16 +238,17 @@ class DesugarForLoops(Transformer):
         )
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
+        assert isinstance(node.range, AstRange), node.range
 
         # transform this:
 
-        # for <node.loop_var>: <node.loop_var_type> from <node.lower_bound> to <node.upper_bound>:
+        # for <node.loop_var> in <node.range>:
         #     <node.body>
 
         # to:
 
-        # 1 <node.loop_var>: <node.loop_var_type> = <node.lower_bound>
-        # 2 $upper_bound_var: <node.loop_var_type> = <node.upper_bound>
+        # 1 <node.loop_var>: LoopVarType = <node.range.lower_bound>
+        # 2 $upper_bound_var: LoopVarType = <node.range.upper_bound>
         # 3 while <node.loop_var> < $upper_bound_var:
         #      <node.body>
         #      <node.loop_var> = <node.loop_var> + 1

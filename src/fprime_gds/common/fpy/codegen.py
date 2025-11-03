@@ -176,6 +176,13 @@ class GenerateCode:
     def emit_AstScopedBody(self, node: AstScopedBody, state: CompileState):
         dirs = []
         if state.root == node:
+            # calculate lvar array size bytes, also assign lvar offsets
+            for var in state.variables:
+                # doesn't have an lvar idx, allocate one
+                lvar_offset = state.lvar_array_size_bytes
+                state.lvar_array_size_bytes += var.type.getMaxSize()
+                var.lvar_offset = lvar_offset
+
             dirs.append(AllocateDirective(state.lvar_array_size_bytes))
         for stmt in node.stmts:
             if not is_instance_compat(stmt, AstNodeWithSideEffects):

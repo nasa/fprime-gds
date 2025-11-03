@@ -22,7 +22,7 @@ assign: _expr [":" _expr] "=" _expr
 
 
 # loops
-for_stmt.1: "for" var ":" _expr "in" _expr ":" body
+for_stmt.1: "for" var "in" _expr ":" body
 while_stmt: "while" _expr ":" body
 
 # branching
