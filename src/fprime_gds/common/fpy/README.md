@@ -224,12 +224,19 @@ You can also loop over a range of integers:
 ```py
 sum: U64 = 0
 # loop i from 0 inclusive to 5 exclusive
-for i in 0 .. 5:
+for i in 0..5:
     sum = sum + i
 
 # sum == 10
 ```
-The loop variable, in this case `i`, is always of type `I64`. If a variable with the same name as the loop variable already exists, it can be reused as long as it is an `I64`. There is currently no support for a step size other than 1.
+The loop variable, in this case `i`, is always of type `I64`. If a variable with the same name as the loop variable already exists, it can be reused as long as it is an `I64`:
+```py
+i: I64 = 123
+for i in 0..5: # okay: reuse of `i`
+    sum = sum + i
+```
+
+There is currently no support for a step size other than 1.
 
 While inside of a loop, you can break out of the loop:
 ```py
@@ -245,7 +252,7 @@ while True:
 You can also continue on to the next iteration of the loop, skipping the remainder of the loop body:
 ```py
 odd_numbers_sum: U64 = 0
-for i in 0 .. 10:
+for i in 0..10:
     if i % 2 == 0:
         continue
     odd_numbers_sum = odd_numbers_sum + i

@@ -69,7 +69,7 @@ where `_SPECIAL_DEC`, `_EXP` and `DECIMAL` are defined as:
 ```
 _SPECIAL_DEC: "0".."9" ("_"?  "0".."9")*
 _EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
-DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
+DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC
 ```
 
 A `FLOAT_NUMBER` can be any string of digits suffixed with an exponent, like these:
@@ -80,12 +80,11 @@ A `FLOAT_NUMBER` can be any string of digits suffixed with an exponent, like the
 
 or it can be a `DECIMAL` optionally suffixed by an exponent, like these:
 ```
-1.
 2.123
 100.5e+10
 ```
 
-Float literals are of type `F64`.
+Float literals have a internal type *Float*, which is not directly referenceable by the user. The *Float* type supports integers of arbitrary size.
 
 ## String literals
 String literals are strings matching:
@@ -178,7 +177,9 @@ Normal type coercion rules apply to the result, of course. Once the operator has
 
 ## For loops
 
-* The lower and upper bounds must be coercible to the type of the loop variable
+```
+for_stmt: "for" var "in" _expr ":" body
+```
 * 
 
 # Macros

@@ -47,7 +47,7 @@ def compile_main(args: list[str] = None):
         "--bytecode",
         action="store_true",
         default=False,
-        help="Whether to output human-readable bytecode instead of binary",
+        help="Whether to output human-readable bytecode to stdout instead of binary",
     )
     arg_parser.add_argument(
         "--debug",
@@ -83,14 +83,10 @@ def compile_main(args: list[str] = None):
 
     output = args.output
     if output is None:
-        if args.bytecode:
-            output = args.input.with_suffix(".fpybc")
-        else:
-            output = args.input.with_suffix(".bin")
+        output = args.input.with_suffix(".bin")
     if args.bytecode:
         fpybc = directives_to_fpybc(directives)
-        output.write_text(fpybc)
-        print(f"{output}")
+        print(fpybc)
     else:
         output_bytes, crc = serialize_directives(directives)
         output.write_bytes(output_bytes)
