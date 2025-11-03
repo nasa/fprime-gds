@@ -22,7 +22,7 @@ assign: _expr [":" _expr] "=" _expr
 
 
 # loops
-for_stmt.1: "for" var ":" _expr "from" _expr "to" _expr ":" body
+for_stmt.1: "for" var ":" _expr "in" _expr ":" body
 while_stmt: "while" _expr ":" body
 
 # branching
@@ -49,8 +49,11 @@ _test: or_test
           | comparison
 
 # all comparisons have same precedence
-?comparison: comparison COMPARISON_OP sum -> binary_op
-           | sum
+?comparison: comparison COMPARISON_OP range -> binary_op
+           | range
+
+?range: sum RANGE_OPERATOR sum
+      | sum
 
 ?sum: sum ADD_OP term -> binary_op
     | sum SUB_OP term -> binary_op
@@ -85,6 +88,8 @@ var: name
 
 # not used in grammar, but may appear in "node" passed from Parser to Compiler
 encoding_decl: name
+
+RANGE_OPERATOR: ".."
 
 number: DEC_NUMBER | FLOAT_NUMBER
 string: STRING

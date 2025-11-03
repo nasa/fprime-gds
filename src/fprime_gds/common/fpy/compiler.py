@@ -35,12 +35,10 @@ from fprime_gds.common.fpy.semantics import (
     CreateVariables,
     PickTypesAndResolveAttrsAndItems,
     ResolveVarsAndTypes,
-    SetEnclosingLoops,
 )
 from fprime_gds.common.fpy.syntax import AstScopedBody, FpyTransformer, PythonIndenter
 from fprime_gds.common.fpy.types import (
     MACROS,
-    MAX_DIRECTIVES_COUNT,
     SPECIFIC_NUMERIC_TYPES,
     CompileState,
     FppType,

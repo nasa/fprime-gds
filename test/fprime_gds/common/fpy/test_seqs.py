@@ -1713,7 +1713,7 @@ continue
 
 def test_simple_for(fprime_test_api):
     seq = """
-for i: U8 from 0 to 2:
+for i: U8 in 0 .. 2:
     pass
 """
 
@@ -2080,4 +2080,13 @@ def test_downcast_large_literal(fprime_test_api):
 val: U8 = U8(1231231231243) # this is allowed but suspicious
 """
 
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_non_utf_8(fprime_test_api):
+    seq = """
+val: F64 = 0.0 
+
+CdhCore.cmdDisp.CMD_NO_OP_STRING("в")
+"""
     assert_run_success(fprime_test_api, seq)

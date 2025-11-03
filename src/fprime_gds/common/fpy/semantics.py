@@ -19,6 +19,7 @@ from fprime_gds.common.fpy.types import (
     InternalIntValue,
     InternalStringValue,
     NothingValue,
+    RangeValue,
     TopDownVisitor,
     Visitor,
     get_ref_fpp_type_class,
@@ -79,6 +80,7 @@ from fprime_gds.common.fpy.syntax import (
     AstGetAttr,
     AstGetItem,
     AstNumber,
+    AstRange,
     AstReference,
     AstScopedBody,
     AstStmtWithExpr,
@@ -354,11 +356,7 @@ class ResolveVarsAndTypes(TopDownVisitor):
         loop_var.type = loop_var_type
 
         if not self.resolve_var_in_global_scope(
-            node.lower_bound, state.runtime_values, "value", state
-        ):
-            return
-        if not self.resolve_var_in_global_scope(
-            node.upper_bound, state.runtime_values, "value", state
+            node.range, state.runtime_values, "value", state
         ):
             return
 
@@ -467,8 +465,7 @@ class CheckUseBeforeDeclareForLoopVariables(TopDownVisitor):
 
         self.currently_declared_vars.append(var)
         # also double check that the vars aren't referenced in the ub and lb
-        CheckVariableNotReferenced(var).run(node.lower_bound, state)
-        CheckVariableNotReferenced(var).run(node.upper_bound, state)
+        CheckVariableNotReferenced(var).run(node.range, state)
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         ref = state.resolved_references[node]
@@ -950,10 +947,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             cmp_intermediate_type, FloatType
         ), cmp_intermediate_type
 
-        # upper and lower bounds must be coercible to loop variable type
-        if not self.coerce_expr_type(node.lower_bound, loop_var_type, state):
-            return
-        if not self.coerce_expr_type(node.upper_bound, loop_var_type, state):
+        # range must coerce to a range!
+        if not self.coerce_expr_type(node.range, RangeValue, state):
             return
 
         # handle increment loop var
@@ -963,6 +958,27 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             [loop_var_type, loop_var_type], BinaryStackOp.ADD
         )
         loop_info.inc_intermediate_type = inc_intermediate_type
+
+    def visit_AstRange(self, node: AstRange, state: CompileState):
+        # lb and ub must coerce to intermediate type
+        # pick intermediate type
+        cmp_intermediate_type = self.pick_intermediate_type(
+            [loop_var_type, loop_var_type], BinaryStackOp.LESS_THAN
+        )
+
+        if cmp_intermediate_type is None or issubclass(
+            cmp_intermediate_type, FloatType
+        ):
+            state.err(
+                f"Loop variable type must be a signed or unsigned integer type",
+                node,
+            )
+            return
+
+        loop_info.cmp_intermediate_type = cmp_intermediate_type
+        assert cmp_intermediate_type is not None and not issubclass(
+            cmp_intermediate_type, FloatType
+        ), cmp_intermediate_type
 
     def visit_AstWhile(self, node: AstWhile, state: CompileState):
         if not self.coerce_expr_type(node.condition, BoolType, state):

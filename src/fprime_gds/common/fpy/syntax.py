@@ -185,13 +185,18 @@ class AstIf(Ast):
     elifs: AstElifs | None
     els: Union["AstBody", None]
 
+@dataclass
+class AstRange(Ast):
+    lower_bound: AstExpr
+    op: str
+    upper_bound: AstExpr
+
 
 @dataclass
 class AstFor(Ast):
     loop_var: AstVar
     loop_var_type: AstExpr
-    lower_bound: AstExpr
-    upper_bound: AstExpr
+    range: AstExpr
     body: AstBody
 
 @dataclass
@@ -318,11 +323,13 @@ class FpyTransformer(Transformer):
     get_item = AstGetItem
     var = AstVar
     ellipsis = AstEllipsis
+    range = AstRange
 
     NAME = str
     DEC_NUMBER = int
     FLOAT_NUMBER = float
     COMPARISON_OP = str
+    RANGE_OP = str
     STRING = handle_str
     CONST_TRUE = lambda a, b: True
     CONST_FALSE = lambda a, b: False
