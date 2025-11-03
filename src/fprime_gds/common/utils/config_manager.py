@@ -106,8 +106,7 @@ class ConfigManager:
 
     def get_constant(self, name: str) -> int:
         """
-        Retrieve a constant from the config for parsing by returning an instance
-        of the associated constant.
+        Get constant from the config, returning the associated integer value
 
         Args:
             name (string): Name of the constant to retrieve
@@ -119,13 +118,12 @@ class ConfigManager:
         constant_value = self.__prop["constants"].get(name, None)
         if constant_value is None:
             raise ConfigBadTypeException(name, "Unknown constant name")
-        # Return an instance of the constant
         return constant_value
 
     def set_constant(self, name: str, value: int):
         """
         Set a constant in the config for parsing by associating a name with
-        a constant class.
+        an integer value.
 
         Args:
             name (string): Name of the constant to set

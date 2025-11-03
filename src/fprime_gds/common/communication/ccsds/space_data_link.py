@@ -15,15 +15,12 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     """CCSDS Framer/Deframer Implementation for the TC (uplink / framing) and TM (downlink / deframing)
     protocols. This FramerDeframer is used for framing TC data for uplink and deframing TM data for downlink.
     """
-
+    # As per CCSDS standard
     SEQUENCE_NUMBER_MAXIMUM = 256
     TC_HEADER_SIZE = 5
     TM_HEADER_SIZE = 6
     TM_TRAILER_SIZE = 2
     TC_TRAILER_SIZE = 2
-
-    FALLBACK_SCID = 0x44
-    FALLBACK_FRAME_SIZE = 1024
 
     # As per CCSDS standard, use CRC-16 CCITT config with init value
     # all 1s and final XOR value of 0x0000
@@ -34,6 +31,11 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         final_xor_value=0x0000,
     )
     CRC_CALCULATOR = crc.Calculator(CRC_CCITT_CONFIG)
+
+    # For backwards compatibility if not found in dictionary (loaded by ConfigManager)
+    FALLBACK_SCID = 0x44
+    FALLBACK_FRAME_SIZE = 1024
+
 
     def __init__(self, scid, vcid, frame_size):
         """Initialize with the given spacecraft id, virtual channel id, and frame size.

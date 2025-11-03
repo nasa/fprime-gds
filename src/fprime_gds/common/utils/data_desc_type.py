@@ -15,7 +15,7 @@ class MetaDescType(type):
     """Metaclass for DataDescType to allow dynamically loading enum values"""
 
     ENUM_TYPE_NAME: str = "ComCfg.Apid"
-    LOADED: bool = False
+    IS_LOADED: bool = False
 
     TOKEN_TYPE = U16Type
     UNDERLYING_ENUM: type[Enum] = Enum(
@@ -61,8 +61,8 @@ class MetaDescType(type):
     @classmethod
     def load_guard(cls):
         """Loads the enum values from the ConfigManager if not already loaded"""
-        if not cls.LOADED:
-            cls.LOADED = True
+        if not cls.IS_LOADED:
+            cls.IS_LOADED = True
             # Load the enum values from the config manager
             try:
                 apid_type = ConfigManager.get_instance().get_type(cls.ENUM_TYPE_NAME)
@@ -78,7 +78,7 @@ class MetaDescType(type):
             else:
                 print(
                     f"[WARNING] Dictionary does not contain a {cls.ENUM_TYPE_NAME} "
-                    "enumeration. Using default values for Packet Descriptors."
+                    "enumeration. Using default width for Packet Descriptors."
                 )
 
 
