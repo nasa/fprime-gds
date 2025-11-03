@@ -10,9 +10,9 @@ from lark.indenter import DedentError
 file_name = None
 # assigned in compiler_main
 debug = False
-# assigned in parse 
+# assigned in text_to_ast 
 input_text = None
-# assigned in parse 
+# assigned in text_to_ast 
 input_lines = None
 
 

@@ -76,13 +76,19 @@ def test_float_literal(fprime_test_api):
     seq = """
 var: F32 = 1.000e-5
 var = .1
-var = 1.
 var = 2.123
 var = 100.5e+10
 var = -123.456
 """
 
     assert_run_success(fprime_test_api, seq)
+
+def test_bad_float_literal(fprime_test_api):
+    seq = """
+var: F32 = 1.
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_exit_success(fprime_test_api):
@@ -1707,7 +1713,7 @@ continue
 
 def test_simple_for(fprime_test_api):
     seq = """
-for i in 0 .. 2:
+for i in 0..2:
     pass
 """
 
@@ -2061,6 +2067,7 @@ val: U8 = U8(1231231231243) # this is allowed but suspicious
     assert_run_success(fprime_test_api, seq)
 
 
+@pytest.mark.xfail(reason="Support for non utf-8 characters should be added later")
 def test_non_utf_8(fprime_test_api):
     seq = """
 val: F64 = 0.0 

@@ -132,7 +132,7 @@ DEC_NUMBER.-2:   "1".."9"        ("_"?  "0".."9"                       )*
 
 _SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
 
-DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
+DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC
 _EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
 # -1 prio so we resolve the .. syntax in for loop range first
 FLOAT_NUMBER.-1: _SPECIAL_DEC _EXP | DECIMAL _EXP?
