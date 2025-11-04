@@ -157,7 +157,7 @@ def main():
 
     # Parse and handle arguments, including SeqGen options and loading the dictionary into config
     args, _ = ParserBase.parse_args(
-        [SeqGenParser, DictionaryParser],
+        [DictionaryParser, SeqGenParser],
         description="F prime SeqGen layer.",
         client=True,
     )

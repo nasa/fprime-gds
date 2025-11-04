@@ -286,6 +286,7 @@ class GdsStandardApp(GdsApp):
             plugin_composite = CompositeParser([cls.get_cli_parser()] + cls.get_additional_cli_parsers())
 
             parsed_arguments, _ = ParserBase.parse_args(
+                # StandardPipelineParser first as it loads the FSW dictionary into global config
                 [ StandardPipelineParser, PluginArgumentParser, plugin_composite],
                 f"{plugin_name}: a standard app plugin",
                 client=True,
@@ -319,7 +320,7 @@ class CustomDataHandlers(GdsStandardApp):
     A GdsApp plugin, built using the GdsStandardApp helper, that uses the provided standard pipeline to register each
     custom DataHandler plugin as a consumer of the appropriate type.
     """
-    PLUGIN_PARSER = CompositeParser([MiddleWareParser, DictionaryParser])
+    PLUGIN_PARSER = CompositeParser([DictionaryParser, MiddleWareParser])
 
     def __init__(self, namespace, **kwargs):
         """Required __init__ implementation"""

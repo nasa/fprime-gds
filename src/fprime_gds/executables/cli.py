@@ -985,6 +985,10 @@ class MiddleWareParser(ParserBase):
 class DictionaryParser(DetectionParser):
     """Parser for locating and loading dictionary information
 
+    IMPORTANT: Since this parser loads global configuration that other parsers may depend on
+    (only framing plugin at this time), it is recommended to list it first in any CompositeParser
+    Not doing so would mean other parsers don't have access to dictionary config at handle_arguments time.
+
     This parser loads all dictionary elements and make them available for later use.
     It also updates the global ConfigManager with all type and constant definitions found
     in the dictionary.
@@ -1136,10 +1140,10 @@ class CommParser(CompositeParser):
     """Comm Executable Parser"""
 
     CONSTITUENTS = [
+        DictionaryParser,  # needed to get types from dictionary for framing
         CommExtraParser,
         MiddleWareParser,
         LogDeployParser,
-        DictionaryParser,  # needed to get types from dictionary for framing
     ]
 
     def __init__(self):

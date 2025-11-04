@@ -51,6 +51,8 @@ def main():
     Plugins.system(["communication", "framing"])
     args, _ = fprime_gds.executables.cli.ParserBase.parse_args(
         [
+            # CommParser must be first as it includes dictionary/config
+            # loading which feeds into instantiation of the Framers
             fprime_gds.executables.cli.CommParser,
             fprime_gds.executables.cli.PluginArgumentParser,
         ],
