@@ -114,7 +114,6 @@ class DirectiveId(Enum):
     FSUB = 41
     FMUL = 42
     FDIV = 43
-    FLOAT_FLOOR_DIV = 44
     FPOW = 45
     FLOG = 46
     FMOD = 47
@@ -469,12 +468,6 @@ class FloatDivideDirective(StackOpDirective):
 
 
 @dataclass
-class FloatFloorDivideDirective(StackOpDirective):
-    opcode: ClassVar[DirectiveId] = DirectiveId.FLOAT_FLOOR_DIV
-    stack_output_type: ClassVar[type[BaseType]] = F64Type
-
-
-@dataclass
 class FloatLogDirective(StackOpDirective):
     opcode: ClassVar[DirectiveId] = DirectiveId.FLOG
     stack_output_type: ClassVar[type[BaseType]] = F64Type
@@ -809,7 +802,7 @@ BINARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
     BinaryStackOp.FLOOR_DIVIDE: {
         I64Type: SignedIntDivideDirective,
         U64Type: UnsignedIntDivideDirective,
-        F64Type: FloatFloorDivideDirective,
+        # special case for float floor div
     },
     BinaryStackOp.GREATER_THAN: {
         I64Type: SignedGreaterThanDirective,

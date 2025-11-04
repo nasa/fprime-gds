@@ -43,6 +43,8 @@ from fprime_gds.common.fpy.bytecode.directives import (
     ConstCmdDirective,
     DiscardDirective,
     ExitDirective,
+    FloatDivideDirective,
+    FloatToSignedIntDirective,
     FwOpcodeType,
     PeekDirective,
     FloatMultiplyDirective,
@@ -53,6 +55,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     MemCompareDirective,
     NoOpDirective,
     IntegerTruncate64To32Directive,
+    SignedIntToFloatDirective,
     StackCmdDirective,
     Directive,
     GotoDirective,
@@ -483,32 +486,33 @@ class GenerateCode:
         if const_dirs is not None:
             return const_dirs
 
-        # which dir should we use?
-        intermediate_type = state.op_intermediate_types[node]
-        dir = None
-        if (
-            node.op == BinaryStackOp.EQUAL or node.op == BinaryStackOp.NOT_EQUAL
-        ) and intermediate_type not in SPECIFIC_NUMERIC_TYPES:
-            dir = MemCompareDirective
-        else:
-            dir = BINARY_STACK_OPS[node.op][intermediate_type]
-
         # push lhs and rhs to stack
         dirs = self.emit(node.lhs, state)
         dirs.extend(self.emit(node.rhs, state))
-        # generate the actual op itself
-        if dir == MemCompareDirective:
+
+        intermediate_type = state.op_intermediate_types[node]
+
+        if (
+            node.op == BinaryStackOp.EQUAL or node.op == BinaryStackOp.NOT_EQUAL
+        ) and intermediate_type not in SPECIFIC_NUMERIC_TYPES:
             lhs_type = state.expr_converted_types[node.lhs]
             rhs_type = state.expr_converted_types[node.rhs]
             assert lhs_type == rhs_type, (lhs_type, rhs_type)
-            dirs.append(dir(lhs_type.getMaxSize()))
+            dirs.append(MemCompareDirective(lhs_type.getMaxSize()))
             if node.op == BinaryStackOp.NOT_EQUAL:
                 dirs.append(NotDirective())
-        elif dir == NoOpDirective:
-            # don't include no op
-            pass
+        elif node.op == BinaryStackOp.FLOOR_DIVIDE and intermediate_type == F64Type:
+            # for float floor division, do float division, then convert to int, then
+            # back to float
+            dirs.append(FloatDivideDirective())
+            dirs.append(FloatToSignedIntDirective())
+            dirs.append(SignedIntToFloatDirective())
         else:
-            dirs.append(dir())
+
+            dir = BINARY_STACK_OPS[node.op][intermediate_type]
+            if dir != NoOpDirective:
+                # don't include no op
+                dirs.append(dir())
 
         # and convert the result of the op into the desired result of this expr
         unconverted_type = state.expr_unconverted_types[node]

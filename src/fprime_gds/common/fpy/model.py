@@ -15,7 +15,6 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatAddDirective,
     FloatDivideDirective,
     FloatExponentDirective,
-    FloatFloorDivideDirective,
     FloatModuloDirective,
     FloatMultiplyDirective,
     FloatSubtractDirective,
@@ -822,13 +821,6 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         operand = self.pop(type=float)
         self.push(math.log(operand))
-
-    def handle_float_floor_div(self, dir: FloatFloorDivideDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
-            return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
-        rhs = self.pop(type=float)
-        lhs = self.pop(type=float)
-        self.push(lhs // rhs)
 
     def handle_exit(self, dir: ExitDirective):
         if len(self.stack) < 1:
