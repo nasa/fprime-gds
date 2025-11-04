@@ -41,7 +41,7 @@ class ConfigManager:
     """
     This class provides a single entrypoint for all configurable properties of the GDS
 
-    The properties are meant to be stored in 3 sections (subdictionaries):
+    The properties are meant to be stored in 3 sections (sub-dictionaries):
     1. types - typeDefinitions from FSW dictionary (key: qualifiedName, value: Type class)
     2. constants - constants definitions from FSW dictionary (key: qualifiedName, value: int)
     3. config - mapping of config field names to arbitrary values (managed internally)
