@@ -39,10 +39,10 @@ from fprime_gds.common.fpy.bytecode.directives import (
     UNARY_STACK_OPS,
     AllocateDirective,
     ArrayIndexType,
-    AssertDirective,
     BinaryStackOp,
     ConstCmdDirective,
     DiscardDirective,
+    ExitDirective,
     FwOpcodeType,
     PeekDirective,
     FloatMultiplyDirective,
@@ -65,6 +65,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     PushPrmDirective,
     PushTlmValDirective,
     UnaryStackOp,
+    UnsignedGreaterThanOrEqualDirective,
     UnsignedLessThanDirective,
 )
 from fprime_gds.common.templates.ch_template import ChTemplate
@@ -100,14 +101,20 @@ from fprime_gds.common.fpy.syntax import (
 )
 
 
-@dataclass(frozen=True, unsafe_hash=True)
 class Ir:
     pass
 
 
-@dataclass(frozen=True, unsafe_hash=True)
 class IrLabel(Ir):
-    label: str
+    def __init__(self, node: Ast, label: str):
+        super().__init__()
+        self.label = f"{node.id}.{label}"
+
+    def __hash__(self):
+        return hash(self.label)
+    
+    def __eq__(self, value):
+        return isinstance(value, IrLabel) and value.label == self.label
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -233,10 +240,10 @@ class GenerateCode:
             for case in node.elifs.cases:
                 cases.append((case.condition, case.body))
 
-        if_end_label = IrLabel(f"{node.id}.end")
+        if_end_label = IrLabel(node, "end")
 
         for case in cases:
-            case_end_label = IrLabel(f"{case[1].id}.end")
+            case_end_label = IrLabel(case[1], "end")
             case_dirs = []
             # put the conditional on top of stack
             case_dirs.extend(self.emit(case[0], state))
@@ -263,15 +270,15 @@ class GenerateCode:
     def emit_AstWhile(self, node: AstWhile, state: CompileState):
         # start by creating labels. store them in dicts so that break/continue
         # can use them
-        while_start_label = IrLabel(f"{node.id}.start")
-        while_end_label = IrLabel(f"{node.id}.end")
+        while_start_label = IrLabel(node, "start")
+        while_end_label = IrLabel(node, "end")
         for_loop_increment_label = None
         state.while_loop_start_labels[node] = while_start_label
         state.while_loop_end_labels[node] = while_end_label
         # if this used to be a for loop:
         if node in state.desugared_for_loops:
             # there should be at least one stmt in a for loop's body (the inc stmt)
-            for_loop_increment_label = IrLabel(f"{node.id}.increment")
+            for_loop_increment_label = IrLabel(node, "increment")
             state.for_loop_inc_labels[node] = for_loop_increment_label
 
         dirs = [while_start_label]
@@ -366,16 +373,19 @@ class GenerateCode:
         )  # push the length
         # convert len to u64
         dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
-        # check if idx < length
-        dirs.append(UnsignedLessThanDirective())
-        # assert it's true
-        # push the assert error code we should fail with if false
+        # check if idx >= length
+        dirs.append(UnsignedGreaterThanOrEqualDirective())
+        # if true, fail with error code, otherwise go to after check
+        oob_check_end_label = IrLabel(node, "oob_check_end")
+        dirs.append(IrIf(oob_check_end_label))
+        # push the error code we should fail with if false
         dirs.append(
             PushValDirective(
                 U8Type(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
             )
         )
-        dirs.append(AssertDirective())
+        dirs.append(ExitDirective())
+        dirs.append(oob_check_end_label)
         # okay we're good. should still have the idx on the stack
 
         # multiply the index by the member type size
@@ -666,16 +676,19 @@ class GenerateCode:
             dirs.append(
                 PushValDirective(U64Type(lhs_parent_type.LENGTH).serialize())
             )  # push the length as U64
-            # check if idx < length
-            dirs.append(UnsignedLessThanDirective())
-            # assert it's true
-            # push the assert error code we should fail with if false
+            # check if idx >= length
+            dirs.append(UnsignedGreaterThanOrEqualDirective())
+            # if true, fail with error code, otherwise go to after check
+            oob_check_end_label = IrLabel(node, "oob_check_end")
+            dirs.append(IrIf(oob_check_end_label))
+            # push the error code we should fail with if false
             dirs.append(
                 PushValDirective(
                     U8Type(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
                 )
             )
-            dirs.append(AssertDirective())
+            dirs.append(ExitDirective())
+            dirs.append(oob_check_end_label)
             # okay we're good. should still have the idx on the stack
 
             # multiply the index by the member type size
@@ -703,6 +716,10 @@ class GenerateCode:
 
     def emit_AstAssert(self, node: AstAssert, state: CompileState):
         dirs = self.emit(node.condition, state)
+        # invert the condition, we want to continue to exit if fail
+        dirs.append(NotDirective())
+        end_label = IrLabel(node, f"pass")
+        dirs.append(IrIf(end_label))
         # push the error code we should use if false, if one was given
         if node.exit_code is not None:
             dirs.extend(self.emit(node.exit_code, state))
@@ -713,7 +730,8 @@ class GenerateCode:
                     U8Type(DirectiveErrorCode.ASSERTION_FAILURE.value).serialize()
                 )
             )
-        dirs.append(AssertDirective())
+        dirs.append(ExitDirective())
+        dirs.append(end_label)
 
         return dirs
 

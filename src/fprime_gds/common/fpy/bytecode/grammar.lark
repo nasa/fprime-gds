@@ -73,7 +73,6 @@ goto_tag: NAME ":"
   | "fptoui"
   | "uitofp"
   | "exit"
-  | "assert"
   | "push_time"
 
 _uint: [UNARY_IDENTITY] DEC_NUMBER

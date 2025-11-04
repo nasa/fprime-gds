@@ -7,7 +7,6 @@ import typing
 from fprime_gds.common.fpy.bytecode.directives import (
     AllocateDirective,
     AndDirective,
-    AssertDirective,
     ConstCmdDirective,
     Directive,
     FwOpcodeType,
@@ -881,19 +880,6 @@ class FpySequencerModel:
         stop = len(self.stack) - offset
         bytes = self.stack[start:stop]
         self.push(bytes)
-
-    def handle_assert(self, dir: AssertDirective):
-        if len(self.stack) < 2:
-            return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
-
-        error_code = self.pop(size=1, signed=False)
-        condition = self.pop(type=bool, size=1)
-
-        if not condition:
-            error_code_enum = [c for c in DirectiveErrorCode if c.value == error_code]
-            if len(error_code_enum) == 0:
-                return DirectiveErrorCode.ASSERTION_FAILURE
-            return error_code_enum[0]
 
     def handle_push_time(self, dir: PushTimeDirective):
         if len(self.stack) + TimeType.getMaxSize() > self.max_stack_size:

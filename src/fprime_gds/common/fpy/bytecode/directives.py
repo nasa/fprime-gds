@@ -150,8 +150,7 @@ class DirectiveId(Enum):
     GET_FLAG = 70
     GET_FIELD = 71
     PEEK = 72
-    ASSERT = 73
-    STORE = 74
+    STORE = 73
 
 
 class Directive:
@@ -713,12 +712,6 @@ class GetFieldDirective(Directive):
 @dataclass
 class PeekDirective(Directive):
     opcode: ClassVar[DirectiveId] = DirectiveId.PEEK
-
-
-@dataclass
-class AssertDirective(Directive):
-    opcode: ClassVar[DirectiveId] = DirectiveId.ASSERT
-    # pops two u8s off stack
 
 
 @dataclass
