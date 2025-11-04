@@ -35,7 +35,6 @@ class TypeJsonLoader(JsonLoader):
             strings. Note: An empty id dictionary is returned since there
             are no id fields in the Fw type alias JSON dictionary entries.
         """
-        id_dict = {}
         name_dict = {}
 
         if self.TYPE_DEFINITIONS_FIELD not in self.json_dict:
@@ -54,7 +53,7 @@ class TypeJsonLoader(JsonLoader):
                 )
 
         return (
-            dict(sorted(id_dict.items())),
+            {},  # No id for type definitions
             dict(sorted(name_dict.items())),
             self.get_versions(),
         )

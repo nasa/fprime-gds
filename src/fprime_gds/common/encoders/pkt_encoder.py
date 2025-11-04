@@ -60,7 +60,7 @@ class PktEncoder(Encoder):
         """
         super().__init__(config)
 
-        self.len_obj = self.config.get_type("msg_len")
+        self.len_obj = self.config.get_config("msg_len")()
         self.desc_obj = self.config.get_type("FwPacketDescriptorType")
         self.id_obj = self.config.get_type("FwTlmPacketizeIdType")
 

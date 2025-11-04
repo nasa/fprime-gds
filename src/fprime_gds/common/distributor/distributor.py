@@ -52,7 +52,12 @@ class Distributor(DataHandler):
 
         # Internal buffer for un distributed data
         self.__buf = bytearray(b"")
-        self.len_obj = config.get_type("msg_len")
+        # Setup key framing
+        self.key_frame = None
+        if config.get_config("use_key"):
+            self.key_frame = int(config.get_config("key_val"), 16)
+        self.key_obj = config.get_config("key_val")()
+        self.len_obj = config.get_config("msg_len")()
         self.desc_obj = config.get_type("FwPacketDescriptorType")
 
     # NOTE we could use either the type of the object or an enum as the type argument.
@@ -89,6 +94,22 @@ class Distributor(DataHandler):
         raw_msgs = []
         # Keep parsing and then break when you can't parse no more
         while True:
+            # Search data looking for key-frame
+            if self.key_frame is not None:
+                while True:
+                    # Check if we have enough data to parse a key
+                    # if not, bail on the function
+                    if len(data_left) < self.key_obj.getSize():
+                        return data_left, raw_msgs
+                    # Check leading key size bytes to see if it is the key
+                    self.key_obj.deserialize(data_left, 0)
+                    if self.key_obj.val != self.key_frame:
+                        del data_left[0]
+                        continue
+                    # Key found break
+                    del data_left[: self.key_obj.getSize()]
+                    break
+
             # Check if we have enough data to parse a length
             if len(data_left) < self.len_obj.getSize():
                 break

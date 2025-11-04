@@ -15,7 +15,7 @@ def test_distributor():
     Tests the raw messages and leftover data for the distributor
     """
     config = config_manager.ConfigManager.get_instance()
-    config.set_type("msg_len", U16Type)
+    config.set_config("msg_len", U16Type)
     config.set_type("FwPacketDescriptorType", U32Type)
 
     dist = Distributor(config)

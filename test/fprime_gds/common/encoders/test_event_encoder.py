@@ -19,10 +19,10 @@ def test_event_encoder():
     Tests the encoding of the event encoder
     """
     config = ConfigManager()
-    config.set_type("msg_len", U16Type)
+    config.set_config("msg_len", U16Type)
 
     # Required to set the global config for UTs to meet expected values
-    ConfigManager.get_instance().set_type("msg_len", U32Type)
+    ConfigManager.get_instance().set_config("msg_len", U32Type)
 
     # Tests written assuming FwPacketDescriptorType is U32Type so override default here
     config.set_type("FwPacketDescriptorType", U32Type)

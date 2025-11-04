@@ -15,6 +15,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     """CCSDS Framer/Deframer Implementation for the TC (uplink / framing) and TM (downlink / deframing)
     protocols. This FramerDeframer is used for framing TC data for uplink and deframing TM data for downlink.
     """
+
     # As per CCSDS standard
     SEQUENCE_NUMBER_MAXIMUM = 256
     TC_HEADER_SIZE = 5
@@ -36,7 +37,6 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     FALLBACK_SCID = 0x44
     FALLBACK_FRAME_SIZE = 1024
 
-
     def __init__(self, scid, vcid, frame_size):
         """Initialize with the given spacecraft id, virtual channel id, and frame size.
         If scid or frame_size are None, they will be pulled from ConfigManager constants
@@ -46,12 +46,25 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         try:
             dict_scid = ConfigManager.get_instance().get_constant("ComCfg.SpacecraftId")
         except ConfigBadTypeException:
-            pass # Config value not found, move on
+            pass  # Config value not found, move on
         try:
-            dict_frame_size = ConfigManager.get_instance().get_constant("ComCfg.TmFrameFixedSize")
+            dict_frame_size = ConfigManager.get_instance().get_constant(
+                "ComCfg.TmFrameFixedSize"
+            )
         except ConfigBadTypeException:
-            pass # Config value not found, move on
-
+            pass  # Config value not found, move on
+        if scid is not None and dict_scid is not None and scid != dict_scid:
+            print(
+                f"[WARNING] SCID value specified through CLI argument does not match value"
+                f" loaded from the dictionary. CLI={scid}, Dictionary={dict_scid}",
+                file=sys.stderr,
+            )
+        if frame_size is not None and dict_frame_size is not None and frame_size != dict_frame_size:
+            print(
+                f"[WARNING] TM frame size value specified through CLI argument does not match value"
+                f" loaded from the dictionary. CLI={frame_size}, Dictionary={dict_frame_size}",
+                file=sys.stderr,
+            )
         self.sequence_number = 0
         self.vcid = vcid
         # Priority order: command line arg > dictionary value > fallback value

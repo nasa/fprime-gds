@@ -29,13 +29,10 @@ class ConstantJsonLoader(JsonLoader):
             strings. Note: An empty id dictionary is returned since there
             are no id fields in the Fw type alias JSON dictionary entries.
         """
-        id_dict = {}
         name_dict = {}
 
         if self.CONSTANTS_FIELD not in self.json_dict:
-            raise GdsDictionaryParsingException(
-                f"Ground Dictionary missing '{self.CONSTANTS_FIELD}' field: {str(self.json_file)}"
-            )
+            print(f"[WARNING] Ground Dictionary missing 'constants' field, relying on defaults. In: {str(self.json_file)}")
 
         for constant in self.json_dict[self.CONSTANTS_FIELD]:
             try:
@@ -46,7 +43,7 @@ class ConstantJsonLoader(JsonLoader):
                 )
 
         return (
-            dict(sorted(id_dict.items())),
+            {},  # No id for constants
             dict(sorted(name_dict.items())),
             self.get_versions(),
         )

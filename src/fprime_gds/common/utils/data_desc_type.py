@@ -78,7 +78,7 @@ class MetaDescType(type):
             else:
                 print(
                     f"[WARNING] Dictionary does not contain a {cls.ENUM_TYPE_NAME} "
-                    "enumeration. Using default width for Packet Descriptors."
+                    "enumeration. Using default values for Packet Descriptors and APIDs."
                 )
 
 

@@ -20,6 +20,7 @@ from fprime.common.models.serialize.numerical_types import (
     U32Type,
 )
 from fprime.common.models.serialize.type_base import BaseType
+from typing import Any
 
 
 class ConfigBadTypeException(Exception):
@@ -39,6 +40,11 @@ class ConfigBadTypeException(Exception):
 class ConfigManager:
     """
     This class provides a single entrypoint for all configurable properties of the GDS
+
+    The properties are meant to be stored in 3 sections (subdictionaries):
+    1. types - typeDefinitions from FSW dictionary (key: qualifiedName, value: Type class)
+    2. constants - constants definitions from FSW dictionary (key: qualifiedName, value: int)
+    3. config - mapping of config field names to arbitrary values (managed internally)
     """
 
     # Singleton instance
@@ -56,8 +62,9 @@ class ConfigManager:
             An instance of the ConfigManager class. Default configurations
             will be used until the set_configs method is called!
         """
-        # Set default properties
-        self.__prop = {"types": {}, "constants": {}}
+        # `types` and `constants` are meant to be pulled from the FSW dictionary
+        # `config` is for config that is internal to the GDS
+        self.__prop = {"types": {}, "constants": {}, "config": {}}
         self._set_defaults()
 
     @staticmethod
@@ -74,8 +81,7 @@ class ConfigManager:
 
     def get_type(self, name: str) -> BaseType:
         """
-        Retrieve a type from the config for parsing by returning an instance
-        of the associated type.
+        Return an **instance** of the associated type.
 
         Args:
             name (string): Name of the type to retrieve
@@ -134,21 +140,54 @@ class ConfigManager:
         """
         self.__prop["constants"][name] = value
 
+    def get_config(self, name: str) -> Any:
+        """
+        Get config field from the config, returning the associated object
+
+        Args:
+            name (string): Name of the config field to retrieve
+
+        Returns:
+            If the name is known, returns the config field.
+            Otherwise, raises ConfigBadTypeException
+        """
+        config_value = self.__prop["config"].get(name, None)
+        if config_value is None:
+            raise ConfigBadTypeException(name, "Unknown config field name")
+        return config_value
+
+    def set_config(self, name: str, entry: Any):
+        """
+        Set a configuration entry in the config
+
+        Args:
+            name (string): Name of the config to set
+            entry (Any): config to associate with the name
+
+        Returns:
+            None
+        """
+        self.__prop["config"][name] = entry
+
     def _set_defaults(self):
         """
-        Used by the constructor to set all ConfigParser defaults
-
-        Establishes a dictionary of sections and then a dictionary of keyword,
-        value association for each section.
+        Used by the constructor to set all ConfigManager defaults
         """
         self.__prop["types"].update(
             {
-                # msg_len is an internal type used within the GDS only
-                "msg_len": U32Type,
                 "FwPacketDescriptorType": U16Type,
                 "FwChanIdType": U32Type,
                 "FwEventIdType": U32Type,
                 "FwOpcodeType": U32Type,
                 "FwTlmPacketizeIdType": U16Type,
+            }
+        )
+        self.__prop["config"].update(
+            {
+                # msg_len is an internal type used within the GDS only
+                "msg_len": U32Type,
+                # Used for processing logged data from Svc.ComLogger
+                "key_val": U16Type,
+                "use_key": False
             }
         )

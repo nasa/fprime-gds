@@ -94,7 +94,7 @@ class FileEncoder(encoder.Encoder):
             raise Exception(msg)
         descriptor_obj = self.config.get_type("FwPacketDescriptorType")
         descriptor_obj.val = DataDescType["FW_PACKET_FILE"].value
-        length_obj = self.config.get_type("msg_len")
+        length_obj = self.config.get_config("msg_len")()
         length_obj.val = descriptor_obj.getSize() + len(out_data)
         header = (
             U32Type(0x5A5A5A5A).serialize()
