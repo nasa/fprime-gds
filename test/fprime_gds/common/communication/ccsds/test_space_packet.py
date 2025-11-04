@@ -14,7 +14,6 @@ def test_frame_valid_data(framer_deframer):
     test_descriptor = DataDescType["FW_PACKET_UNKNOWN"]
     descriptor = ConfigManager.get_instance().get_type("FwPacketDescriptorType")
     descriptor.val = test_descriptor.value
-
     data = descriptor.serialize() + b"test_payload"
     framed_data = framer_deframer.frame(data)
     header = SpacePacketHeader.unpack(framed_data)
@@ -27,7 +26,9 @@ def test_frame_valid_data(framer_deframer):
 def test_frame_invalid_data(framer_deframer):
     """Test framing valid data with an incorrect DataDescType prefixed."""
     # Prefix with 2 bytes corresponding to the DataDescType (FF FF not valid)
-    data = b"\xff\xff" + b"test_payload"
+    descriptor = ConfigManager.get_instance().get_type("FwPacketDescriptorType")
+    descriptor.val = 0xFFFF # invalid value
+    data = descriptor.serialize() + b"test_payload"
     # Invalid DataDescType, should raise ValueError
     with pytest.raises(ValueError):
         framer_deframer.frame(data)
