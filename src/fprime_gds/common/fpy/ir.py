@@ -1,9 +1,18 @@
 from dataclasses import dataclass
 from typing import Union
-from fprime_gds.common.fpy.bytecode.directives import Directive, GotoDirective, IfDirective
+from fprime_gds.common.fpy.bytecode.directives import (
+    Directive,
+    GotoDirective,
+    IfDirective,
+)
 from fprime_gds.common.fpy.error import BackendError
 from fprime_gds.common.fpy.syntax import Ast
-from fprime_gds.common.fpy.types import MAX_DIRECTIVES_COUNT, MAX_STACK_SIZE, CompileState, is_instance_compat
+from fprime_gds.common.fpy.types import (
+    MAX_DIRECTIVES_COUNT,
+    MAX_STACK_SIZE,
+    CompileState,
+    is_instance_compat,
+)
 
 
 class Ir:
@@ -17,7 +26,7 @@ class IrLabel(Ir):
 
     def __hash__(self):
         return hash(self.label)
-    
+
     def __eq__(self, value):
         return isinstance(value, IrLabel) and value.label == self.label
 
