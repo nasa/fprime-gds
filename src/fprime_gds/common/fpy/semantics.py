@@ -2,6 +2,7 @@ from __future__ import annotations
 from numbers import Number
 from typing import Union
 
+from fprime_gds.common.fpy.error import CompileError
 from fprime_gds.common.fpy.types import (
     SIGNED_INTEGER_TYPES,
     SPECIFIC_NUMERIC_TYPES,
@@ -12,6 +13,7 @@ from fprime_gds.common.fpy.types import (
     FppType,
     FpyCallable,
     FpyCast,
+    FpyOverloadedCallable,
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
@@ -878,31 +880,24 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_unconverted_types[node] = BoolType
         state.expr_converted_types[node] = BoolType
 
-    def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        func = state.resolved_references.get(node.func)
-        if func is None:
-            # if it were a reference to a callable, it would have already been resolved
-            # if it were a ref to smth else, it would have already errored
-            # so it's not even a ref
-            state.err(f"Unknown function", node.func)
-            return
-
+    def check_func_matches(
+        self,
+        node: AstFuncCall,
+        func: FpyCallable,
+        node_args: list[AstExpr],
+        state: CompileState,
+    ) -> CompileError | None:
         func_args = func.args
-        node_args = node.args if node.args else []
-
         if len(node_args) < len(func_args):
-            state.err(
+            return CompileError(
                 f"Missing arguments (expected {len(func_args)} found {len(node_args)})",
                 node,
             )
-            return
         if len(node_args) > len(func_args):
-            state.err(
+            return CompileError(
                 f"Too many arguments (expected {len(func_args)} found {len(node_args)})",
                 node,
             )
-            return
-
         if is_instance_compat(func, FpyCast):
             # casts do not follow coercion rules, because casting is the counterpart of coercion!
             # coercion is implicit, casting is explicit. if they say they want to cast, we let them
@@ -913,8 +908,72 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             assert output_type in SPECIFIC_NUMERIC_TYPES
             if not issubclass(input_type, NumericalType):
                 # cannot convert a non-numeric type to a numeric type
-                state.err(f"Expected a number, found {input_type.__name__}", node_arg)
+                return CompileError(
+                    f"Expected a number, found {input_type.__name__}", node_arg
+                )
+            # no error! looks good to me
+            return
+
+        for value_expr, arg in zip(node_args, func_args):
+            arg_name, arg_type = arg
+
+            unconverted_type = state.expr_unconverted_types[value_expr]
+            if not self.can_coerce_type(unconverted_type, arg_type):
+                return CompileError(
+                    f"Expected {arg_type.__name__}, found {unconverted_type.__name__}",
+                    node,
+                )
+        # all args r good
+        return
+
+    def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
+        func = state.resolved_references.get(node.func)
+        if func is None:
+            # if it were a reference to a callable, it would have already been resolved
+            # if it were a ref to smth else, it would have already errored
+            # so it's not even a ref, just some expr
+            state.err(f"Unknown function", node.func)
+            return
+        func_args = func.args
+        node_args = node.args if node.args else []
+
+        if isinstance(func, FpyOverloadedCallable):
+            # gotta resolve this func. try each possibility
+            found_func = None
+            for f in func.callables:
+                if self.check_func_matches(node, f, node_args, state) is None:
+                    # no compile error. matches!
+                    found_func = f
+                    break
+
+            if found_func is None:
+                # make a nice error msg
+                node_arg_types = []
+                for node_arg in node_args:
+                    node_arg_types.append(state.expr_unconverted_types[node_arg])
+                arg_type_name_list = ", ".join(t.__name__ for t in node_arg_types)
+
+                functions_tried = []
+                for f in func.callables:
+                    f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
+                    functions_tried.append(f"{f_arg_type_name_list}")
+                functions_tried = "\n    ".join(functions_tried)
+                state.err(
+                    f"No function matches the argument list: {arg_type_name_list}\nTried:{functions_tried}",
+                    node,
+                )
                 return
+            func = found_func
+        else:
+            error_or_none = self.check_func_matches(node, func, node_args, state)
+            if is_instance_compat(error_or_none, CompileError):
+                state.errors.append(error_or_none)
+                return
+            # otherwise, no error, we're good!
+
+        if is_instance_compat(func, FpyCast):
+            node_arg = node_args[0]
+            output_type = func.to_type
             # we're going from input_type to output type, and we're going to ignore
             # the coercion rules
             state.expr_converted_types[node_arg] = output_type
@@ -923,8 +982,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             for value_expr, arg in zip(node_args, func_args):
                 arg_name, arg_type = arg
 
-                if not self.coerce_expr_type(value_expr, arg_type, state):
-                    return
+                # should be good 2 go based on the check func above
+                state.expr_converted_types[value_expr] = arg_type
 
         # got thru all args successfully
         state.expr_unconverted_types[node] = func.return_type

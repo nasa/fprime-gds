@@ -3,9 +3,7 @@ from abc import ABC
 import inspect
 from dataclasses import astuple, dataclass, field, fields
 import math
-from pathlib import Path
 import struct
-import traceback
 import typing
 from typing import Callable, Iterable, Union, get_args, get_origin
 import zlib
@@ -33,19 +31,13 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerZeroExtend16To64Directive,
     IntegerZeroExtend32To64Directive,
     IntegerZeroExtend8To64Directive,
-    PushTimeDirective,
     SignedIntToFloatDirective,
-    FloatLogDirective,
     Directive,
-    ExitDirective,
     UnsignedIntToFloatDirective,
-    WaitAbsDirective,
-    WaitRelDirective,
 )
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
-from fprime.common.models.serialize.time_type import TimeType
 from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
@@ -61,7 +53,6 @@ from fprime.common.models.serialize.numerical_types import (
     FloatType,
 )
 from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.syntax import (
     AstBreak,
     AstContinue,
@@ -84,6 +75,7 @@ MAX_STACK_SIZE = 1024
 COMPILER_MAX_STRING_SIZE = 128
 
 LoopVarType = I64Type
+
 
 # this is the "internal" integer type that integer literals have by
 # default. it is arbitrary precision
@@ -121,6 +113,7 @@ class InternalFloatValue(FloatType):
     def validate(cls, val):
         if not isinstance(val, (float, int)):
             raise RuntimeError()
+
 
 class RangeValue(FppValue):
     def serialize(self):
@@ -233,6 +226,11 @@ class FpyCallable:
 
 
 @dataclass
+class FpyOverloadedCallable:
+    callables: list[FpyCallable]
+
+
+@dataclass
 class FpyCmd(FpyCallable):
     cmd: CmdTemplate
 
@@ -241,27 +239,6 @@ class FpyCmd(FpyCallable):
 class FpyMacro(FpyCallable):
     dir: type[Directive]
     """a function which instantiates the macro given the argument exprs"""
-
-
-MACROS: dict[str, FpyMacro] = {
-    "sleep": FpyMacro(
-        NothingValue,
-        [
-            (
-                "seconds",
-                U32Type,
-            ),
-            ("microseconds", U32Type),
-        ],
-        WaitRelDirective,
-    ),
-    "sleep_until": FpyMacro(
-        NothingValue, [("wakeup_time", TimeType)], WaitAbsDirective
-    ),
-    "exit": FpyMacro(NothingValue, [("exit_code", U8Type)], ExitDirective),
-    "log": FpyMacro(F64Type, [("operand", F64Type)], FloatLogDirective),
-    "now": FpyMacro(TimeType, [], PushTimeDirective),
-}
 
 
 @dataclass
@@ -728,6 +705,35 @@ class Visitor:
         self._visit(start, state)
 
 
+class TopDownVisitor(Visitor):
+
+    def run(self, start: Ast, state: CompileState):
+        """runs the visitor, starting at the given node, descending breadth-first"""
+
+        def _descend(node: Ast):
+            if not isinstance(node, Ast):
+                return
+            children = []
+            for field in fields(node):
+                field_val = getattr(node, field.name)
+                if isinstance(field_val, list):
+                    children.extend(field_val)
+                else:
+                    children.append(field_val)
+
+            for child in children:
+                if not isinstance(child, Ast):
+                    continue
+                self._visit(child, state)
+                if len(state.errors) != 0:
+                    break
+                _descend(child)
+                if len(state.errors) != 0:
+                    break
+
+        self._visit(start, state)
+        _descend(start)
+
 class Transformer(Visitor):
 
     class Delete:
@@ -807,35 +813,6 @@ class Transformer(Visitor):
         self._visit(start, state)
 
 
-class TopDownVisitor(Visitor):
-
-    def run(self, start: Ast, state: CompileState):
-        """runs the visitor, starting at the given node, descending breadth-first"""
-
-        def _descend(node: Ast):
-            if not isinstance(node, Ast):
-                return
-            children = []
-            for field in fields(node):
-                field_val = getattr(node, field.name)
-                if isinstance(field_val, list):
-                    children.extend(field_val)
-                else:
-                    children.append(field_val)
-
-            for child in children:
-                if not isinstance(child, Ast):
-                    continue
-                self._visit(child, state)
-                if len(state.errors) != 0:
-                    break
-                _descend(child)
-                if len(state.errors) != 0:
-                    break
-
-        self._visit(start, state)
-        _descend(start)
-
 
 MAJOR_VERSION = 0
 MINOR_VERSION = 3
@@ -907,7 +884,15 @@ def serialize_directives(dirs: list[Directive]) -> tuple[bytes, int]:
             exit(1)
         output_bytes += dir_bytes
 
-    header = Header(MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION, SCHEMA_VERSION, 0, len(dirs), len(output_bytes))
+    header = Header(
+        MAJOR_VERSION,
+        MINOR_VERSION,
+        PATCH_VERSION,
+        SCHEMA_VERSION,
+        0,
+        len(dirs),
+        len(output_bytes),
+    )
     output_bytes = struct.pack(HEADER_FORMAT, *astuple(header)) + output_bytes
 
     crc = zlib.crc32(output_bytes) % (1 << 32)

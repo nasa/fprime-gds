@@ -17,11 +17,9 @@ from fprime.common.models.serialize.type_base import BaseType as FppValue
 from lark import Lark
 from fprime_gds.common.fpy.bytecode.directives import Directive
 from fprime_gds.common.fpy.codegen import (
-    FinalChecks,
     GenerateCode,
-    IrPass,
-    ResolveLabels,
 )
+from fprime_gds.common.fpy.ir import FinalChecks, IrPass, ResolveLabels
 from fprime_gds.common.fpy.desugaring import DesugarForLoops
 from fprime_gds.common.fpy.semantics import (
     AssignIds,
@@ -36,8 +34,8 @@ from fprime_gds.common.fpy.semantics import (
     ResolveVarsAndTypes,
 )
 from fprime_gds.common.fpy.syntax import AstScopedBody, FpyTransformer, PythonIndenter
+from fprime_gds.common.fpy.macros import MACROS
 from fprime_gds.common.fpy.types import (
-    MACROS,
     SPECIFIC_NUMERIC_TYPES,
     CompileState,
     FppType,
