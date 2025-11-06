@@ -148,7 +148,7 @@ prm_3: U8 = Ref.sendBuffComp.parameter3
 
 A significant limitation of this is that it will only return the value most recently saved to the parameter database. This means you must command `_PRM_SAVE` before the sequence will see the new value.
 
-#### Note:  If a telemetry channel and parameter have the same fully-qualified name, the fully-qualified name will get the value of the telemetry channel
+> Note:  If a telemetry channel and parameter have the same fully-qualified name, the fully-qualified name will get the value of the telemetry channel
 ## 8. Conditionals
 Fpy supports comparison operators:
 ```py
