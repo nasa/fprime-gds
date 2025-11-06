@@ -58,6 +58,7 @@ from fprime_gds.common.fpy.syntax import (
     AstContinue,
     AstExpr,
     AstFor,
+    AstFuncCall,
     AstOp,
     AstReference,
     Ast,
@@ -237,8 +238,8 @@ class FpyCmd(FpyCallable):
 
 @dataclass
 class FpyMacro(FpyCallable):
-    dir: type[Directive]
-    """a function which instantiates the macro given the argument exprs"""
+    generate: Callable[[AstFuncCall], list[Directive]]
+    """a function which instantiates the macro given the calling node"""
 
 
 @dataclass
@@ -399,6 +400,7 @@ FpyReference = typing.Union[
     PrmTemplate,
     FppValue,
     FpyCallable,
+    FpyOverloadedCallable,
     FppType,
     FpyVariable,
     FieldReference,

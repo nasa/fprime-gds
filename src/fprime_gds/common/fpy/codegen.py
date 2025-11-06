@@ -565,7 +565,7 @@ class GenerateCode:
             for arg_node in node_args:
                 dirs.extend(self.emit(arg_node, state))
 
-            dirs.append(func.dir())
+            dirs.extend(func.generate(node))
         elif is_instance_compat(func, FpyTypeCtor):
             # put arg values onto stack in correct order for serialization
             for arg_node in node_args:

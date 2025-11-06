@@ -939,31 +939,42 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         if isinstance(func, FpyOverloadedCallable):
             # gotta resolve this func. try each possibility
-            found_func = None
+            matching_funcs = []
             for f in func.callables:
                 if self.check_func_matches(node, f, node_args, state) is None:
                     # no compile error. matches!
-                    found_func = f
-                    break
+                    matching_funcs.append(f)
 
-            if found_func is None:
+            if len(matching_funcs) != 1:
                 # make a nice error msg
                 node_arg_types = []
                 for node_arg in node_args:
                     node_arg_types.append(state.expr_unconverted_types[node_arg])
                 arg_type_name_list = ", ".join(t.__name__ for t in node_arg_types)
 
-                functions_tried = []
-                for f in func.callables:
+                if len(matching_funcs) == 0:
+                    functions_tried = []
+                    for f in func.callables:
+                        f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
+                        functions_tried.append(f"{f_arg_type_name_list}")
+                    functions_tried = "\n    ".join(functions_tried)
+                    state.err(
+                        f"No function matches the argument list: {arg_type_name_list}\nTried:{functions_tried}",
+                        node,
+                    )
+                    return
+
+                matching_funcs_strs = []
+                for f in matching_funcs:
                     f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
-                    functions_tried.append(f"{f_arg_type_name_list}")
-                functions_tried = "\n    ".join(functions_tried)
+                    matching_funcs_strs.append(f"{f_arg_type_name_list}")
+                matching_funcs_strs = "\n    ".join(matching_funcs_strs)
                 state.err(
-                    f"No function matches the argument list: {arg_type_name_list}\nTried:{functions_tried}",
+                    f"Multiple functions match the argument list: {arg_type_name_list}\nMatches:{matching_funcs_strs}",
                     node,
                 )
                 return
-            func = found_func
+            func = matching_funcs[0]
         else:
             error_or_none = self.check_func_matches(node, func, node_args, state)
             if is_instance_compat(error_or_none, CompileError):
