@@ -95,10 +95,12 @@ STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 They have a internal type *String*, which is not directly referenceable by the user. The *String* type supports strings of arbitrary length.
 
 # Functions
-Functions have arguments and a return type. You can call a function like:
+Functions have a name, argument types and a return type. Functions can be You can call a function like:
 ```
-function_name(arg_1, arg_2, arg_3)
+function_name(arg_0, arg_1, ..., arg_x)
 ```
+
+where `function_name` is the name of the function, and `arg_x` are the argument expressions at index `x`. Argument expressions will be evaluated once, in order from lowest index to highest index. Once the function is done executing, a value of its return type will be pushed to the 
 
 ## Commands
 

@@ -83,6 +83,7 @@ var = -123.456
 
     assert_run_success(fprime_test_api, seq)
 
+
 def test_bad_float_literal(fprime_test_api):
     seq = """
 var: F32 = 1.
@@ -2009,6 +2010,207 @@ assert F64(-987654321.25) == -987654321.25
     assert_run_success(fprime_test_api, seq)
 
 
+def test_float_to_signed_int_const_casts(fprime_test_api):
+    seq = """
+assert I8(-128.0) == -128
+assert I8(127.0) == 127
+assert I16(-32768.0) == -32768
+assert I16(32767.0) == 32767
+assert I32(-2147483648.0) == -2147483648
+assert I32(2147483647.0) == 2147483647
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_float_to_unsigned_int_const_casts(fprime_test_api):
+    seq = """
+assert U8(0.0) == 0
+assert U8(255.0) == 255
+assert U16(65535.0) == 65535
+assert U32(4294967295.0) == 4294967295
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_signed_int_to_float_const_casts(fprime_test_api):
+    seq = """
+assert F32(-128) == -128.0
+assert F64(-128) == -128.0
+assert F32(32767) == 32767.0
+assert F64(32767) == 32767.0
+assert F64(-2147483648) == -2147483648.0
+assert F64(2147483647) == 2147483647.0
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_unsigned_int_to_float_const_casts(fprime_test_api):
+    seq = """
+assert F32(U32(0)) == 0.0
+assert F64(U32(0)) == 0.0
+assert F32(U32(65535)) == 65535.0
+assert F64(U32(65535)) == 65535.0
+assert F64(U64(4294967295)) == 4294967295.0
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_signed_int_runtime_casts(fprime_test_api):
+    seq = """
+src: I64 = -256
+assert I8(src) == 0
+
+src = -129
+assert I8(src) == 127
+
+src = -65536
+assert I16(src) == 0
+
+src = -32769
+assert I16(src) == 32767
+
+src = -4294967296
+assert I32(src) == 0
+
+src = -2147483649
+assert I32(src) == 2147483647
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_unsigned_int_runtime_casts(fprime_test_api):
+    seq = """
+signed_src: I64 = -1
+assert U8(signed_src) == 255
+assert U16(signed_src) == 65535
+assert U32(signed_src) == 4294967295
+assert U64(signed_src) == 18446744073709551615
+
+unsigned_src: U64 = 256
+assert U8(unsigned_src) == 0
+
+unsigned_src = 65536
+assert U16(unsigned_src) == 0
+
+unsigned_src = 4294967296
+assert U32(unsigned_src) == 0
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_float_runtime_casts(fprime_test_api):
+    seq = """
+wide_src: F64 = 0.5
+assert F32(wide_src) == 0.5
+
+wide_src = -0.75
+assert F32(wide_src) == -0.75
+
+wide_src = 1024.0
+assert F32(wide_src) == 1024.0
+
+wide_src = -2048.0
+assert F32(wide_src) == -2048.0
+
+narrow_src: F32 = 0.5
+assert F64(narrow_src) == 0.5
+
+narrow_src = -0.75
+assert F64(narrow_src) == -0.75
+
+narrow_src = 123.5
+assert F64(narrow_src) == 123.5
+
+narrow_src = -987.25
+assert F64(narrow_src) == -987.25
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_float_to_signed_int_runtime_casts(fprime_test_api):
+    seq = """
+f_src: F64 = -128.0
+assert I8(f_src) == -128
+
+# f_src = 127.0
+# assert I8(f_src) == 127
+
+# f_src = -32768.0
+# assert I16(f_src) == -32768
+
+# f_src = 32767.0
+# assert I16(f_src) == 32767
+
+# f_src = -2147483648.0
+# assert I32(f_src) == -2147483648
+
+# f_src = 2147483647.0
+# assert I32(f_src) == 2147483647
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_float_to_unsigned_int_runtime_casts(fprime_test_api):
+    seq = """
+f_src: F64 = 0.0
+assert U8(f_src) == 0
+
+f_src = 255.0
+assert U8(f_src) == 255
+
+f_src = 65535.0
+assert U16(f_src) == 65535
+
+f_src = 4294967295.0
+assert U32(f_src) == 4294967295
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_signed_int_to_float_runtime_casts(fprime_test_api):
+    seq = """
+i_src: I32 = -128
+assert F32(i_src) == -128.0
+assert F64(i_src) == -128.0
+
+i_src = 32767
+assert F32(i_src) == 32767.0
+assert F64(i_src) == 32767.0
+
+wide_src: I64 = -2147483648
+assert F64(wide_src) == -2147483648.0
+
+wide_src = 2147483647
+assert F64(wide_src) == 2147483647.0
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_unsigned_int_to_float_runtime_casts(fprime_test_api):
+    seq = """
+u_src: U32 = 0
+assert F32(u_src) == 0.0
+assert F64(u_src) == 0.0
+
+u_src = 65535
+assert F32(u_src) == 65535.0
+assert F64(u_src) == 65535.0
+
+wide_src: U64 = 4294967295
+assert F64(wide_src) == 4294967295.0
+"""
+
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_downcast(fprime_test_api):
@@ -2139,6 +2341,7 @@ assert abs(I64(-2**63)) == 2**63
 
     assert_run_success(fprime_test_api, seq)
 
+
 def test_abs_u64(fprime_test_api):
     seq = """
 assert abs(U64(1)) == 1
@@ -2146,6 +2349,7 @@ assert abs(U64(0)) == 0
 """
 
     assert_run_success(fprime_test_api, seq)
+
 
 def test_i64_casts(fprime_test_api):
     seq = """

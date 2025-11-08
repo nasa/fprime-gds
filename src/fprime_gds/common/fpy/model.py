@@ -82,9 +82,8 @@ from fprime.common.models.serialize.time_type import TimeType
 
 debug = True
 
-WORD_SIZE = 8
 # store return addr and prev stack frame offset in stack frame header
-STACK_FRAME_HEADER_SIZE = 2 * WORD_SIZE
+STACK_FRAME_HEADER_SIZE = 16
 MAX_INT64 = 2**63 - 1
 MIN_INT64 = -(2**63)
 MASK_64_BIT = 2**64 - 1
@@ -226,7 +225,7 @@ class FpySequencerModel:
         return ">" + fmt_char
 
     def push(
-        self, val: int | float | bytes | bytearray | bool, signed=True, size=WORD_SIZE
+        self, val: int | float | bytes | bytearray | bool, signed=True, size=8
     ):
         if isinstance(val, (bytes, bytearray)):
             self.stack += val
@@ -248,7 +247,7 @@ class FpySequencerModel:
             bits = bits[-(size * 8) :]
             self.stack += int(bits, 2).to_bytes(size, byteorder="big", signed=False)
 
-    def pop(self, type=int, signed=True, size=WORD_SIZE) -> int | float | bytearray:
+    def pop(self, type=int, signed=True, size=8) -> int | float | bytearray:
         """pops one word off the stack and interprets it as an int or float, of
         the specified signedness (if applicable) and bit width (if applicable)"""
         value = self.stack[-size:]
@@ -352,7 +351,7 @@ class FpySequencerModel:
             self.stack[dir.lvar_offset + self.stack_frame_start + i] = value[i]
 
     def handle_push_val(self, dir: PushValDirective):
-        if len(self.stack) + WORD_SIZE > self.max_stack_size:
+        if len(self.stack) + 8 > self.max_stack_size:
             return DirectiveErrorCode.STACK_OVERFLOW
         self.push(dir.val)
 
@@ -454,73 +453,73 @@ class FpySequencerModel:
         self.push(lhs and rhs)
 
     def handle_ieq(self, dir: IntEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         self.push(self.pop() == self.pop())
 
     def handle_ine(self, dir: IntNotEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         self.push(self.pop() != self.pop())
 
     def handle_ult(self, dir: UnsignedLessThanDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(signed=False)
         lhs = self.pop(signed=False)
         self.push(lhs < rhs)
 
     def handle_ule(self, dir: UnsignedLessThanOrEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(signed=False)
         lhs = self.pop(signed=False)
         self.push(lhs <= rhs)
 
     def handle_ugt(self, dir: UnsignedGreaterThanDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(signed=False)
         lhs = self.pop(signed=False)
         self.push(lhs > rhs)
 
     def handle_uge(self, dir: UnsignedGreaterThanOrEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(signed=False)
         lhs = self.pop(signed=False)
         self.push(lhs >= rhs)
 
     def handle_slt(self, dir: SignedLessThanDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop()
         lhs = self.pop()
         self.push(lhs < rhs)
 
     def handle_sle(self, dir: SignedLessThanOrEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop()
         lhs = self.pop()
         self.push(lhs <= rhs)
 
     def handle_sgt(self, dir: SignedGreaterThanDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop()
         lhs = self.pop()
         self.push(lhs > rhs)
 
     def handle_sge(self, dir: SignedGreaterThanOrEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop()
         lhs = self.pop()
         self.push(lhs >= rhs)
 
     def handle_feq(self, dir: FloatEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
@@ -528,33 +527,33 @@ class FpySequencerModel:
         self.push(lhs == rhs)
 
     def handle_fne(self, dir: FloatNotEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         self.push(self.pop(type=float) != self.pop(type=float))
 
     def handle_flt(self, dir: FloatLessThanDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs < rhs)
 
     def handle_fle(self, dir: FloatLessThanOrEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs <= rhs)
 
     def handle_fgt(self, dir: FloatGreaterThanDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs > rhs)
 
     def handle_fge(self, dir: FloatGreaterThanOrEqualDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
@@ -645,7 +644,7 @@ class FpySequencerModel:
         self.push(val, signed=False, size=8)
 
     def handle_fptrunc(self, dir: FloatTruncateDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         val_64 = self.pop(type=float)
         val_32_bytes = struct.pack(">f", val_64)
@@ -676,52 +675,52 @@ class FpySequencerModel:
         self.push(val)
 
     def handle_fptosi(self, dir: FloatToSignedIntDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         val = self.pop(type=float)
-        self.push(val)
+        self.push(int(val))
 
     def handle_fptoui(self, dir: FloatToUnsignedIntDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         val = self.pop(type=float)
-        self.push(val)
+        self.push(int(val), signed=False)
 
     def handle_sitofp(self, dir: SignedIntToFloatDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         val = self.pop()
         self.push(float(val))
 
     def handle_uitofp(self, dir: UnsignedIntToFloatDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         val = self.pop(signed=False)
         self.push(float(val))
 
     def handle_iadd(self, dir: IntAddDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop()
         lhs = self.pop()
         self.push(overflow_check(lhs + rhs))
 
     def handle_isub(self, dir: IntSubtractDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop()
         lhs = self.pop()
         self.push(overflow_check(lhs - rhs))
 
     def handle_imul(self, dir: IntMultiplyDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop()
         lhs = self.pop()
         self.push(overflow_check(lhs * rhs))
 
     def handle_udiv(self, dir: UnsignedIntDivideDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(signed=False)
         lhs = self.pop(signed=False)
@@ -740,7 +739,7 @@ class FpySequencerModel:
         self.push(python_quotient)
 
     def handle_sdiv(self, dir: SignedIntDivideDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(signed=True)
         lhs = self.pop(signed=True)
@@ -761,63 +760,63 @@ class FpySequencerModel:
         self.push(python_quotient)
 
     def handle_fadd(self, dir: FloatAddDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs + rhs)
 
     def handle_fsub(self, dir: FloatSubtractDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs - rhs)
 
     def handle_fmul(self, dir: FloatMultiplyDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs * rhs)
 
     def handle_fdiv(self, dir: FloatDivideDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs / rhs)
 
     def handle_smod(self, dir: SignedModuloDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(signed=True)
         lhs = self.pop(signed=True)
         self.push(lhs % rhs, signed=True)
 
     def handle_umod(self, dir: UnsignedModuloDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(signed=False)
         lhs = self.pop(signed=False)
         self.push(lhs % rhs, signed=False)
 
     def handle_fmod(self, dir: FloatModuloDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs % rhs)
 
     def handle_fpow(self, dir: FloatExponentDirective):
-        if len(self.stack) < 2 * WORD_SIZE:
+        if len(self.stack) < 16:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
         self.push(lhs**rhs)
 
     def handle_log(self, dir: FloatLogDirective):
-        if len(self.stack) < WORD_SIZE:
+        if len(self.stack) < 8:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         operand = self.pop(type=float)
         self.push(math.log(operand))

@@ -50,6 +50,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     FloatDivideDirective,
     FloatExtendDirective,
     FloatToSignedIntDirective,
+    FloatToUnsignedIntDirective,
     FloatTruncateDirective,
     FwOpcodeType,
     IntegerSignedExtend16To64Directive,
@@ -166,6 +167,7 @@ class GenerateCode:
         return []
 
     def get_64_bit_numeric_type(self, type: FppType) -> FppType:
+        """return the 64 bit version of the input numeric type"""
         assert type in SPECIFIC_NUMERIC_TYPES, type
         return (
             I64Type
@@ -176,19 +178,14 @@ class GenerateCode:
     def convert_numeric_type(
         self, from_type: FppType, to_type: FppType
     ) -> list[Directive]:
+        """
+        return a list of dirs needed to convert a numeric stack value of from_type to a stack value of to_type"""
         if from_type == to_type:
             return []
 
         # only valid runtime type conversion is between two numeric types
         assert (
             from_type in SPECIFIC_NUMERIC_TYPES and to_type in SPECIFIC_NUMERIC_TYPES
-        ), (
-            from_type,
-            to_type,
-        )
-        # also invalid to convert from a float to an integer at runtime due to loss of precision
-        assert not (
-            from_type in SPECIFIC_FLOAT_TYPES and to_type in SPECIFIC_INTEGER_TYPES
         ), (
             from_type,
             to_type,
@@ -200,7 +197,7 @@ class GenerateCode:
         from_64_bit = self.get_64_bit_numeric_type(from_type)
         to_64_bit = self.get_64_bit_numeric_type(to_type)
 
-        # now convert from int to float if necessary
+        # now convert between int and float if necessary
         if from_64_bit == U64Type and to_64_bit == F64Type:
             dirs.append(UnsignedIntToFloatDirective())
             from_64_bit = F64Type
@@ -211,6 +208,12 @@ class GenerateCode:
             assert to_64_bit == U64Type or to_64_bit == I64Type
             # conversion from signed to unsigned int is implicit, doesn't need code gen
             from_64_bit = to_64_bit
+        elif from_64_bit == F64Type and to_64_bit == I64Type:
+            dirs.append(FloatToSignedIntDirective())
+            from_64_bit = I64Type
+        elif from_64_bit == F64Type and to_64_bit == U64Type:
+            dirs.append(FloatToUnsignedIntDirective())
+            from_64_bit = U64Type
 
         assert from_64_bit == to_64_bit, (from_64_bit, to_64_bit)
 
