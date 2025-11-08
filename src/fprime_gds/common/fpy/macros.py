@@ -62,7 +62,7 @@ def generate_abs_float(node: Ast) -> list[Directive | Ir]:
     return dirs
 
 
-MACRO_ABS_FLOAT = FpyMacro(F64Type, [("value", F64Type)], generate_abs_float)
+MACRO_ABS_FLOAT = FpyMacro("abs", F64Type, [("value", F64Type)], generate_abs_float)
 
 
 def generate_abs_signed_int(node: Ast) -> list[Directive | Ir]:
@@ -74,12 +74,12 @@ def generate_abs_signed_int(node: Ast) -> list[Directive | Ir]:
         PushValDirective(StackSizeType(0).serialize()),
         PeekDirective(),
         # push 0
-        PushValDirective(I64Type(0.0).serialize()),
+        PushValDirective(I64Type(0).serialize()),
         # check <
         SignedLessThanDirective(),
         IrIf(leave_unmodified),
         # push -1
-        PushValDirective(I64Type(-1.0).serialize()),
+        PushValDirective(I64Type(-1).serialize()),
         # and multiply
         IntMultiplyDirective(),
         # otherwise do nothing
@@ -88,7 +88,7 @@ def generate_abs_signed_int(node: Ast) -> list[Directive | Ir]:
     return dirs
 
 
-MACRO_ABS_SIGNED_INT = FpyMacro(I64Type, [("value", I64Type)], generate_abs_signed_int)
+MACRO_ABS_SIGNED_INT = FpyMacro("abs", I64Type, [("value", I64Type)], generate_abs_signed_int)
 
 
 def generate_abs_unsigned_int(node: Ast) -> list[Directive | Ir]:
@@ -97,7 +97,7 @@ def generate_abs_unsigned_int(node: Ast) -> list[Directive | Ir]:
 
 
 MACRO_ABS_UNSIGNED_INT = FpyMacro(
-    U64Type, [("value", U64Type)], generate_abs_unsigned_int
+    "abs", U64Type, [("value", U64Type)], generate_abs_unsigned_int
 )
 
 MACRO_ABS = FpyOverloadedCallable(
@@ -105,7 +105,7 @@ MACRO_ABS = FpyOverloadedCallable(
 )
 
 
-MACRO_SLEEP_SECONDS_USECONDS = FpyMacro(
+MACRO_SLEEP_SECONDS_USECONDS = FpyMacro("sleep",
     NothingValue,
     [
         (
@@ -151,7 +151,7 @@ def generate_sleep_float(node: Ast) -> list[Directive | Ir]:
     return dirs
 
 
-MACRO_SLEEP_FLOAT = FpyMacro(NothingValue, [("seconds", F64Type)], generate_sleep_float)
+MACRO_SLEEP_FLOAT = FpyMacro("sleep", NothingValue, [("seconds", F64Type)], generate_sleep_float)
 
 MACRO_SLEEP = FpyOverloadedCallable([MACRO_SLEEP_FLOAT, MACRO_SLEEP_SECONDS_USECONDS])
 
@@ -164,11 +164,11 @@ def generate_log_signed_int(node: Ast) -> list[Directive|Ir]:
 
 MACROS: dict[str, FpyMacro | FpyOverloadedCallable] = {
     "sleep": MACRO_SLEEP,
-    "sleep_until": FpyMacro(
+    "sleep_until": FpyMacro("sleep_until",
         NothingValue, [("wakeup_time", TimeType)], lambda n: [WaitAbsDirective()]
     ),
-    "exit": FpyMacro(NothingValue, [("exit_code", U8Type)], lambda n: [ExitDirective()]),
-    "log": FpyMacro(F64Type, [("operand", F64Type)], lambda n: [FloatLogDirective()]),
-    "now": FpyMacro(TimeType, [], lambda n: [PushTimeDirective()]),
+    "exit": FpyMacro("exit", NothingValue, [("exit_code", U8Type)], lambda n: [ExitDirective()]),
+    "log": FpyMacro("log", F64Type, [("operand", F64Type)], lambda n: [FloatLogDirective()]),
+    "now": FpyMacro("now", TimeType, [], lambda n: [PushTimeDirective()]),
     "abs": MACRO_ABS,
 }

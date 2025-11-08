@@ -111,9 +111,11 @@ Fpy supports the following math operations:
 * Modulo: `%`
 * Exponentiation: `**`
 * Floor division: `//`
-* Natural logarithm: `log(x)`
+* Natural logarithm: `log(F64)`
+* Absolute value: `abs(F64), abs(I64), abs(U64)`
 
-The behavior of these operators is designed to mimic Python. Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
+The behavior of these operators is designed to mimic Python. 
+> Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
 
 ## 6. Variable Arguments to Commands, Macros and Constructors
 
@@ -126,7 +128,7 @@ param4: F32 = 15.0
 Ref.sendBuffComp.PARAMETER4_PRM_SET(param4)
 ```
 
-You can also pass variable arguments to the [`sleep`](#12-relative-and-absolute-sleep), [`exit`](#13-exit-macro), and `log` macros, as well as to constructors.
+You can also pass variable arguments to the [`sleep`](#12-relative-and-absolute-sleep), [`exit`](#13-exit-macro), `abs` and `log` macros, as well as to constructors.
 
 There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#15-strings).
 

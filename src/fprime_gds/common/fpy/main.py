@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 import sys
@@ -8,7 +10,11 @@ from fprime_gds.common.fpy.bytecode.assembler import (
     parse as fpybc_parse,
 )
 import fprime_gds.common.fpy.error
-from fprime_gds.common.fpy.types import deserialize_directives, serialize_directives
+from fprime_gds.common.fpy.types import (
+    CompileArg,
+    deserialize_directives,
+    serialize_directives,
+)
 import fprime_gds.common.fpy.model
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
 from fprime_gds.common.fpy.compiler import text_to_ast, ast_to_directives
@@ -22,6 +28,54 @@ def human_readable_size(size_bytes):
         unit_idx += 1
     size_bytes = int(size_bytes)
     return f"{size_bytes} {units[unit_idx]}"
+
+
+_TRUE_STRINGS = {"1", "true", "yes", "on"}
+_FALSE_STRINGS = {"0", "false", "no", "off", ""}
+
+
+def _coerce_flag_value(raw_value: str | None) -> object:
+    if raw_value is None:
+        return True
+    normalized = raw_value.strip().lower()
+    if normalized in _TRUE_STRINGS:
+        return True
+    if normalized in _FALSE_STRINGS:
+        return False
+    return raw_value
+
+
+def _normalize_flag_name(name: str) -> CompileArg | str:
+    candidate = name.strip()
+    if candidate == "":
+        raise ValueError("Compile flag name cannot be empty")
+    candidate_normalized = candidate.replace("-", "_")
+    try:
+        return CompileArg[candidate_normalized]
+    except KeyError:
+        try:
+            return CompileArg[candidate_normalized.upper()]
+        except KeyError:
+            try:
+                return CompileArg(candidate_normalized)
+            except ValueError:
+                return candidate
+
+
+def _build_compile_args(entries: list[str] | None) -> dict:
+    compile_args = {}
+    if not entries:
+        return compile_args
+
+    for entry in entries:
+        name, value = entry, None
+        if "=" in entry:
+            name, value = entry.split("=", 1)
+        normalized_flag = _normalize_flag_name(name)
+        coerced_value = _coerce_flag_value(value)
+        compile_args[normalized_flag] = coerced_value
+
+    return compile_args
 
 
 def compile_main(args: list[str] = None):
@@ -55,22 +109,35 @@ def compile_main(args: list[str] = None):
         default=False,
         help="Pass this to print out compiler debugging information",
     )
+    arg_parser.add_argument(
+        "--flag",
+        metavar="NAME[=VALUE]",
+        action="append",
+        default=[],
+        help="Set a compiler flag (repeatable). Recognized: NO_OPERATOR_CONST_FOLDING.",
+    )
 
     if args is not None:
-        args = arg_parser.parse_args(args)
+        parsed_args = arg_parser.parse_args(args)
     else:
-        args = arg_parser.parse_args()
+        parsed_args = arg_parser.parse_args()
 
-    if args.debug:
+    if parsed_args.debug:
         fprime_gds.common.fpy.error.debug = True
 
-    if not args.input.exists():
-        print(f"Input file {args.input} does not exist")
+    if not parsed_args.input.exists():
+        print(f"Input file {parsed_args.input} does not exist")
         sys.exit(-1)
 
-    fprime_gds.common.fpy.error.file_name = str(args.input)
-    body = text_to_ast(args.input.read_text())
-    directives = ast_to_directives(body, args.dictionary)
+    try:
+        compile_args = _build_compile_args(parsed_args.flag)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        sys.exit(2)
+
+    fprime_gds.common.fpy.error.file_name = str(parsed_args.input)
+    body = text_to_ast(parsed_args.input.read_text())
+    directives = ast_to_directives(body, parsed_args.dictionary, compile_args)
     if isinstance(
         directives,
         (
@@ -81,10 +148,10 @@ def compile_main(args: list[str] = None):
         print(directives)  # directives is an error
         sys.exit(1)
 
-    output = args.output
+    output = parsed_args.output
     if output is None:
-        output = args.input.with_suffix(".bin")
-    if args.bytecode:
+        output = parsed_args.input.with_suffix(".bin")
+    if parsed_args.bytecode:
         fpybc = directives_to_fpybc(directives)
         print(fpybc)
     else:

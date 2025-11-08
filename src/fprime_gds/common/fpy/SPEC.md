@@ -9,7 +9,7 @@ The following types are built into Fpy, and the developer can directly refer to 
 
 In addition, the developer can directly refer to any displayable type defined in FPP via its fully-qualified name. This includes user-defined structs, arrays and enums.
 
-There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These are the internal *Int*, and *String* types. See [literals](#literals).
+There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These are the internal *Float*, *Int*, and *String* types. See [literals](#literals).
 
 ## Structs
 You can instantiate a new struct at runtime by calling its constructor. A struct's constructor is a function with the same name as the type, with arguments corresponding to the type and position of the struct's members. For example, a struct defined as:
@@ -84,7 +84,7 @@ or it can be a `DECIMAL` optionally suffixed by an exponent, like these:
 100.5e+10
 ```
 
-Float literals have a internal type *Float*, which is not directly referenceable by the user. The *Float* type supports integers of arbitrary size.
+Float literals have a internal type *Float*, which is not directly referenceable by the user. The *Float* type supports floats with the same precision as Python floats.
 
 ## String literals
 String literals are strings matching:

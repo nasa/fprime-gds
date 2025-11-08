@@ -11,7 +11,7 @@ from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
     U8Type,
-    NumericalType
+    NumericalType,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppValue
 from lark import Lark
@@ -81,7 +81,9 @@ def text_to_ast(text: str):
     return transformed
 
 
-def get_base_compile_state(dictionary: str) -> CompileState:
+def get_base_compile_state(
+    dictionary: str, compile_args: dict
+) -> CompileState:
     """return the initial state of the compiler, based on the given dict path"""
     cmd_json_dict_loader = CmdJsonLoader(dictionary)
     (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
@@ -134,11 +136,15 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         for arg_name, _, arg_type in cmd.arguments:
             args.append((arg_name, arg_type))
         # cmds are thought of as callables with a Fw.CmdResponse return value
-        callable_name_dict[name] = FpyCmd(cmd_response_type, args, cmd)
+        callable_name_dict[name] = FpyCmd(
+            cmd.get_full_name(), cmd_response_type, args, cmd
+        )
 
     # add numeric type casts to callable dict
     for typ in SPECIFIC_NUMERIC_TYPES:
-        callable_name_dict[typ.get_canonical_name()] = FpyCast(typ, [("value", NumericalType)], typ)
+        callable_name_dict[typ.get_canonical_name()] = FpyCast(
+            typ.get_canonical_name(), typ, [("value", NumericalType)], typ
+        )
 
     # for each type in the dict, if it has a constructor, create an FpyTypeCtor
     # object to track the constructor and put it in the callable name dict
@@ -160,7 +166,7 @@ def get_base_compile_state(dictionary: str) -> CompileState:
             # none of these have callable ctors
             continue
 
-        callable_name_dict[name] = FpyTypeCtor(typ, args, typ)
+        callable_name_dict[name] = FpyTypeCtor(name, typ, args, typ)
 
     # for each macro function, add it to the callable dict
     for macro_name, macro in MACROS.items():
@@ -172,14 +178,18 @@ def get_base_compile_state(dictionary: str) -> CompileState:
         types=create_scope(type_name_dict),
         callables=create_scope(callable_name_dict),
         consts=create_scope(enum_const_name_dict),
+        compile_args=compile_args or dict(),
     )
     return state
 
 
 def ast_to_directives(
-    body: AstScopedBody, dictionary: str
+    body: AstScopedBody,
+    dictionary: str,
+    compile_args: dict | None = None,
 ) -> list[Directive] | CompileError | BackendError:
-    state = get_base_compile_state(dictionary)
+    compile_args = compile_args or dict()
+    state = get_base_compile_state(dictionary, compile_args)
     state.root = body
     semantics_passes: list[Visitor] = [
         # assign each node a unique id for indexing/hashing
@@ -211,10 +221,7 @@ def ast_to_directives(
         DesugarForLoops(),
     ]
     code_generator = GenerateCode()
-    ir_passes: list[IrPass] = [
-        ResolveLabels(),
-        FinalChecks()
-    ]
+    ir_passes: list[IrPass] = [ResolveLabels(), FinalChecks()]
 
     for compile_pass in semantics_passes:
         compile_pass.run(body, state)

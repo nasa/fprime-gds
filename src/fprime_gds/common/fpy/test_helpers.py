@@ -21,11 +21,15 @@ default_dictionary = str(
 )
 
 
-def compile_seq(fprime_test_api, seq: str) -> list[Directive]:
+def compile_seq(fprime_test_api, seq: str, flags: list[str]=None) -> list[Directive]:
     input_file = tempfile.NamedTemporaryFile(suffix=".fpy", delete=False)
     output_file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
     Path(input_file.name).write_text(seq)
-    compile_main(["-d", default_dictionary, "-o", output_file.name, input_file.name])
+    args = ["-d", default_dictionary, "-o", output_file.name, input_file.name]
+    for flag in flags or []:
+        args.append("--flag")
+        args.append(flag)
+    compile_main(args)
 
     # also, run some additional tests: try reading the bin file, turning it into assembly,
     # parsing the assembly, writing it to disk and making sure it's the same as the bin file
@@ -105,19 +109,19 @@ def run_seq(
             raise RuntimeError(f"Sequence leaked {len(model.stack) - deserialized_dirs[0].size} bytes")
 
 
-def assert_compile_success(fprime_test_api, seq: str):
-    compile_seq(fprime_test_api, seq)
+def assert_compile_success(fprime_test_api, seq: str, flags: list[str] = None):
+    compile_seq(fprime_test_api, seq, flags)
 
 
-def assert_run_success(fprime_test_api, seq: str, tlm: dict[str, bytes] = None):
-    compiled_file = compile_seq(fprime_test_api, seq)
+def assert_run_success(fprime_test_api, seq: str, tlm: dict[str, bytes] = None, flags: list[str]=None):
+    compiled_file = compile_seq(fprime_test_api, seq, flags)
 
     run_seq(fprime_test_api, compiled_file, tlm)
 
 
-def assert_compile_failure(fprime_test_api, seq: str):
+def assert_compile_failure(fprime_test_api, seq: str, flags: list[str] = None):
     try:
-        compile_seq(fprime_test_api, seq)
+        compile_seq(fprime_test_api, seq, flags)
     except AssertionError as e:
         # under any circumstances we should not assert
         raise e
@@ -130,8 +134,8 @@ def assert_compile_failure(fprime_test_api, seq: str):
     raise RuntimeError("compile_seq succeeded")
 
 
-def assert_run_failure(fprime_test_api, seq: str):
-    compiled_file = compile_seq(fprime_test_api, seq)
+def assert_run_failure(fprime_test_api, seq: str, flags: list[str] = None):
+    compiled_file = compile_seq(fprime_test_api, seq, flags)
     try:
         run_seq(fprime_test_api, compiled_file)
     except (RuntimeError, AssertionError) as e:

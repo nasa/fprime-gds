@@ -1,5 +1,6 @@
 from __future__ import annotations
 from numbers import Number
+import heapq
 from typing import Union
 
 from fprime_gds.common.fpy.error import CompileError
@@ -7,6 +8,7 @@ from fprime_gds.common.fpy.types import (
     SIGNED_INTEGER_TYPES,
     SPECIFIC_NUMERIC_TYPES,
     UNSIGNED_INTEGER_TYPES,
+    CompileArg,
     CompileState,
     FieldReference,
     ForLoopAnalysis,
@@ -921,6 +923,10 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         node_args: list[AstExpr],
         state: CompileState,
     ) -> CompileError | None:
+        """check if a function call matches the expected arguments.
+        given args must be coercible to expected args, with a special case for casting
+        where any numeric type is accepted.
+        returns a compile error if no match, otherwise none"""
         func_args = func.args
         if len(node_args) < len(func_args):
             return CompileError(
@@ -961,58 +967,86 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         return
 
     def resolve_overloaded_func(
-        self, node: AstFuncCall, func: FpyOverloadedCallable, node_args: list[AstExpr], state: CompileState
+        self,
+        node: AstFuncCall,
+        overloaded_func: FpyOverloadedCallable,
+        node_args: list[AstExpr],
+        state: CompileState,
     ) -> FpyCallable | None:
         # algorithm:
-        # find all funcs 
-        matching_funcs = []
-        for f in func.callables:
-            if self.check_args_coercible_to_func(node, f, node_args, state) is None:
+        # find all funcs that we could possibly call with these args
+        # give them each a cost: 0 per arg if arg exactly matches, 1 otherwise
+        impossible_funcs: list[tuple[FpyCallable, CompileError]] = []
+        possible_funcs = []
+        for func in overloaded_func.callables:
+            error = self.check_args_coercible_to_func(node, func, node_args, state)
+            if error is None:
                 # no compile error. matches!
-                matching_funcs.append(f)
-        if len(matching_funcs) == 0:
+                possible_funcs.append(func)
+            else:
+                impossible_funcs.append((func, error))
+
+        if len(possible_funcs) == 0:
+            # this call is unresolvable
+            # make a nice err msg
             node_arg_types = []
             for node_arg in node_args:
                 node_arg_types.append(state.expr_unconverted_types[node_arg])
             arg_type_name_list = ", ".join(t.__name__ for t in node_arg_types)
 
             functions_tried = []
-            for f in func.callables:
-                f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
-                functions_tried.append(f"{f_arg_type_name_list}")
+            for func in overloaded_func.callables:
+                f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in func.args)
+                functions_tried.append(
+                    f"{func.name}({f_arg_type_name_list}) -> {func.return_type.__name__}"
+                )
             functions_tried = "\n    ".join(functions_tried)
             state.err(
-                f"No function matches the argument list: {arg_type_name_list}\nTried:{functions_tried}",
+                f"No function matches the argument list: {arg_type_name_list}\nTried:\n    {functions_tried}",
                 node,
             )
             return
 
-        if len(matching_funcs) > 1:
+        funcs_and_costs: list[tuple[FpyCallable, int]] = []
+        for func in possible_funcs:
+            cost = 0
+            for value_expr, arg in zip(node_args, func.args):
+                arg_name, arg_type = arg
 
-            # try to pick one with exact arg type match
-            exact_match = None
-            for func in matching_funcs:
-                for value_expr, arg in zip(node_args, func_args):
-                    arg_name, arg_type = arg
+                unconverted_type = state.expr_unconverted_types[value_expr]
+                if arg_type != unconverted_type:
+                    # we have to coerce it
+                    cost += 1
+            funcs_and_costs.append((func, cost))
 
-                    unconverted_type = state.expr_unconverted_types[value_expr]
-                    if not self.can_coerce_type(unconverted_type, arg_type):
-                        return CompileError(
-                            f"Expected {arg_type.__name__}, found {unconverted_type.__name__}",
-                            node,
-                        )
-
+        lowest_cost = min(cost for func, cost in funcs_and_costs)
+        lowest_costing_funcs = [
+            func for func, cost in funcs_and_costs if cost == lowest_cost
+        ]
+        # what if there are two with the same lowest cost?
+        if len(lowest_costing_funcs) > 1:
+            # in that case, let's raise an error. force the user to cast
+            node_arg_types = []
+            for node_arg in node_args:
+                node_arg_types.append(state.expr_unconverted_types[node_arg])
+            arg_type_name_list = ", ".join(t.__name__ for t in node_arg_types)
             matching_funcs_strs = []
-            for f in matching_funcs:
-                f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
-                matching_funcs_strs.append(f"{f_arg_type_name_list}")
+            # note we're going to display all the possible funcs in the err msg, even tho we were
+            # only considering the lowest cost ones
+            for func in possible_funcs:
+                f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in func.args)
+                matching_funcs_strs.append(
+                    f"{func.name}({f_arg_type_name_list}) -> {func.return_type.__name__}"
+                )
             matching_funcs_strs = "\n    ".join(matching_funcs_strs)
             state.err(
-                f"Multiple functions match the argument list: {arg_type_name_list}\nMatches:{matching_funcs_strs}",
+                f"Function call is ambiguous for args: {arg_type_name_list}\nMatches:\n    {matching_funcs_strs}",
                 node,
             )
             return
-        func = matching_funcs[0]
+
+        # otherwise:
+        return lowest_costing_funcs[0]
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references.get(node.func)
@@ -1025,12 +1059,17 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         node_args = node.args if node.args else []
 
         if isinstance(func, FpyOverloadedCallable):
+            func = self.resolve_overloaded_func(node, func, node_args, state)
+            if func is None:
+                return
             # we've decided on an overloaded func
             # re-resolve the var and update the type
             state.resolved_references[node.func] = func
 
         else:
-            error_or_none = self.check_args_coercible_to_func(node, func, node_args, state)
+            error_or_none = self.check_args_coercible_to_func(
+                node, func, node_args, state
+            )
             if is_instance_compat(error_or_none, CompileError):
                 state.errors.append(error_or_none)
                 return
@@ -1141,9 +1180,11 @@ class CalculateConstExprValues(Visitor):
             if issubclass(to_type, IntegerType):
                 assert issubclass(type(from_val), NumericalType), type(from_val)
                 if not explicit_cast:
+                    # if this was a coercion, we know from rules that we can only coerce from
+                    # an int to another int
+                    assert is_instance_compat(from_val, IntegerType), from_val
                     # if this was a coercion, we can actually perform one additional check
                     # before we convert it: does it fit within bounds?
-                    assert is_instance_compat(from_val, IntegerType), from_val
                     # this is an implicit cast, check that the value can fit in the dest type
                     dest_min, dest_max = to_type.range()
                     if from_val.val < dest_min or from_val.val > dest_max:
@@ -1156,13 +1197,16 @@ class CalculateConstExprValues(Visitor):
                 # handle narrowing, if necessary
                 value = int(from_val.val)
                 mask = (1 << to_type.get_bits()) - 1
+                # this also implicitly converts value to an unsigned number
                 value &= mask
                 if to_type in SIGNED_INTEGER_TYPES:
+                    # now if the target was signed:
                     sign_bit = 1 << (to_type.get_bits() - 1)
                     if value & sign_bit:
                         # the sign bit is set, the result should be negative
                         # subtract the max value as this is how two's complement works
                         value -= 1 << to_type.get_bits()
+                print(value)
                 return to_type(value)
             assert False, (from_val, type(from_val), to_type)
         except TypeException as e:
@@ -1241,9 +1285,10 @@ class CalculateConstExprValues(Visitor):
             unconverted_type,
         )
 
+        explicit_cast = node in state.expr_explicit_casts
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state
+                expr_value, converted_type, node, state, explicit_cast
             )
             if expr_value is None:
                 return
@@ -1279,10 +1324,11 @@ class CalculateConstExprValues(Visitor):
             unconverted_type,
         )
 
+        explicit_cast = node in state.expr_explicit_casts
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state
+                expr_value, converted_type, node, state, explicit_cast
             )
             if expr_value is None:
                 return
@@ -1317,9 +1363,10 @@ class CalculateConstExprValues(Visitor):
             unconverted_type,
         )
 
+        explicit_cast = node in state.expr_explicit_casts
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state
+                expr_value, converted_type, node, state, explicit_cast
             )
             if expr_value is None:
                 return
@@ -1379,10 +1426,11 @@ class CalculateConstExprValues(Visitor):
             unconverted_type,
         )
 
+        explicit_cast = node in state.expr_explicit_casts
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state
+                expr_value, converted_type, node, state, explicit_cast
             )
             if expr_value is None:
                 return
@@ -1478,11 +1526,12 @@ class CalculateConstExprValues(Visitor):
         else:
             assert False, folded_value
 
+        explicit_cast = node in state.expr_explicit_casts
         unconverted_type = state.expr_unconverted_types.get(node)
         converted_type = state.expr_converted_types.get(node)
         if converted_type != unconverted_type:
             folded_value = self.const_convert_type(
-                folded_value, converted_type, node, state
+                folded_value, converted_type, node, state, explicit_cast
             )
             if folded_value is None:
                 return
@@ -1523,11 +1572,12 @@ class CalculateConstExprValues(Visitor):
         else:
             assert False, folded_value
 
+        explicit_cast = node in state.expr_explicit_casts
         unconverted_type = state.expr_unconverted_types.get(node)
         converted_type = state.expr_converted_types.get(node)
         if converted_type != unconverted_type:
             folded_value = self.const_convert_type(
-                folded_value, converted_type, node, state
+                folded_value, converted_type, node, state, explicit_cast
             )
             if folded_value is None:
                 return

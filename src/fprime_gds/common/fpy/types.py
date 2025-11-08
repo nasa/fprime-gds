@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC
+from enum import Enum
 import inspect
 from dataclasses import astuple, dataclass, field, fields
 import math
@@ -209,6 +210,7 @@ NothingType = type[NothingValue]
 
 @dataclass
 class FpyCallable:
+    name: str
     return_type: FppType | NothingType
     args: list[tuple[str, FppType]]
 
@@ -396,7 +398,6 @@ FpyReference = typing.Union[
 """some named concept in fpy"""
 
 
-
 def resolve_var(node: Ast, name: str, state: CompileState) -> FpyVariable:
     # check this scope and all parent scopes
     local_scope = state.local_scopes[node]
@@ -406,6 +407,10 @@ def resolve_var(node: Ast, name: str, state: CompileState) -> FpyVariable:
         local_scope = state.scope_parents[local_scope]
 
     return resolved
+
+
+class CompileArg(str, Enum):
+    pass
 
 
 @dataclass
@@ -425,6 +430,8 @@ class CompileState:
     runtime_values: FpyScope = None
     """a scope whose leaf nodes are tlms/prms/consts, all of which
     have some value at runtime."""
+
+    compile_args: dict = field(default_factory=dict)
 
     def __post_init__(self):
         self.runtime_values = union_scope(
@@ -585,6 +592,7 @@ class TopDownVisitor(Visitor):
         self._visit(start, state)
         _descend(start)
 
+
 class Transformer(Visitor):
 
     class Delete:
@@ -662,7 +670,6 @@ class Transformer(Visitor):
 
         _descend(start)
         self._visit(start, state)
-
 
 
 MAJOR_VERSION = 0

@@ -1964,13 +1964,51 @@ time: Fw.Time = now()
     assert_run_success(fprime_test_api, seq)
 
 
-def test_numeric_cast(fprime_test_api):
+def test_signed_int_const_casts(fprime_test_api):
     seq = """
-i: I32 = I32(-123)
-assert i == -123
+assert I8(-256) == 0
+assert I8(-129) == 127
+assert I16(-65536) == 0
+assert I16(-32769) == 32767
+assert I32(-4294967296) == 0
+assert I32(-2147483649) == 2147483647
+assert I64(-18446744073709551616) == 0
+assert I64(-9223372036854775809) == 9223372036854775807
 """
 
     assert_run_success(fprime_test_api, seq)
+
+
+def test_unsigned_int_const_casts(fprime_test_api):
+    seq = """
+assert U8(-1) == 255
+assert U8(256) == 0
+assert U16(-1) == 65535
+assert U16(65536) == 0
+assert U32(-1) == 4294967295
+assert U32(4294967296) == 0
+assert U64(-1) == 18446744073709551615
+assert U64(18446744073709551616) == 0
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_float_const_casts(fprime_test_api):
+    seq = """
+assert F32(0.5) == 0.5
+assert F32(-0.75) == -0.75
+assert F32(1024.0) == 1024.0
+assert F32(-2048.0) == -2048.0
+assert F64(0.5) == 0.5
+assert F64(-0.75) == -0.75
+assert F64(123456789.5) == 123456789.5
+assert F64(-987654321.25) == -987654321.25
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
 
 
 def test_downcast(fprime_test_api):
@@ -2082,7 +2120,44 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("в")
 
 def test_abs_float(fprime_test_api):
     seq = """
+assert abs(1.0) == 1.0
+assert abs(-1.0) == 1.0
+assert abs(0.0) == 0.0
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_abs_i64(fprime_test_api):
+    seq = """
 assert abs(I64(-1)) == 1
+assert abs(I64(1)) == 1
+assert abs(I64(0)) == 0
+assert abs(I64(2**63 - 1)) == 2**63 - 1
+assert abs(I64(-2**63)) == 2**63
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+def test_abs_u64(fprime_test_api):
+    seq = """
+assert abs(U64(1)) == 1
+assert abs(U64(0)) == 0
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+def test_i64_casts(fprime_test_api):
+    seq = """
+assert I64(-1.0) == -1
+assert I64(2.0 - 1) == 1
+assert I64(-1) == -1
+assert I64(1) == 1
+float: F64 = 4.0
+assert I64(float) == 4
+uint: U64 = 4
+assert I64(uint) == 4
+assert I64(abs(I64(-4))) == 4
 """
 
     assert_run_success(fprime_test_api, seq)

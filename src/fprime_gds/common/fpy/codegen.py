@@ -140,7 +140,7 @@ class GenerateCode:
 
         assert not is_instance_compat(
             expr_value, (InternalIntValue, InternalStringValue, InternalFloatValue)
-        )
+        ), expr_value
 
         if is_instance_compat(expr_value, NothingValue):
             # nothing type has no value
