@@ -14,6 +14,7 @@ from fprime_gds.common.fpy.types import (
     FpyCallable,
     FpyCast,
     FpyOverloadedCallable,
+    FpyReference,
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
@@ -25,7 +26,6 @@ from fprime_gds.common.fpy.types import (
     RangeValue,
     TopDownVisitor,
     Visitor,
-    get_ref_fpp_type_class,
     is_instance_compat,
     resolve_var,
 )
@@ -688,6 +688,40 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             member_list.append(("useconds", U32Type))
         return member_list
 
+    def get_ref_type(self, ref: FpyReference) -> FppType:
+        """returns the fprime type of the ref, if it were to be evaluated as an expression"""
+        if isinstance(ref, ChTemplate):
+            result_type = ref.ch_type_obj
+        elif isinstance(ref, PrmTemplate):
+            result_type = ref.prm_type_obj
+        elif isinstance(ref, FppValue):
+            # constant value
+            result_type = type(ref)
+        elif isinstance(ref, FpyCallable):
+            # a reference to a callable isn't a type in and of itself
+            # it has a return type but you have to call it (with an AstFuncCall)
+            # consider making a separate "reference" type
+            result_type = NothingValue
+        elif isinstance(ref, FpyVariable):
+            result_type = ref.type
+        elif isinstance(ref, type):
+            # a reference to a type doesn't have a value, and so doesn't have a type,
+            # in and of itself. if this were a function call to the type's ctor then
+            # it would have a value and thus a type
+            result_type = NothingValue
+        elif isinstance(ref, FieldReference):
+            result_type = ref.type
+        elif isinstance(ref, dict):
+            # reference to a scope. scopes don't have values
+            result_type = NothingValue
+        elif isinstance(ref, FpyOverloadedCallable):
+            # overloaded callables should end up being resolved into FpyCallables
+            result_type = NothingValue
+        else:
+            assert False, ref
+
+        return result_type
+
     def visit_AstGetAttr(self, node: AstGetAttr, state: CompileState):
         parent_ref = state.resolved_references.get(node.parent)
 
@@ -753,7 +787,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             )
             return
 
-        ref_type = get_ref_fpp_type_class(ref)
+        ref_type = self.get_ref_type(ref)
 
         state.resolved_references[node] = ref
         state.expr_unconverted_types[node] = ref_type
@@ -808,7 +842,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         ref = state.resolved_references[node]
         if ref is None:
             return
-        ref_type = get_ref_fpp_type_class(ref)
+        ref_type = self.get_ref_type(ref)
 
         state.expr_unconverted_types[node] = ref_type
         state.expr_converted_types[node] = ref_type
@@ -880,7 +914,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_unconverted_types[node] = BoolType
         state.expr_converted_types[node] = BoolType
 
-    def check_func_matches(
+    def check_args_coercible_to_func(
         self,
         node: AstFuncCall,
         func: FpyCallable,
@@ -926,6 +960,60 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # all args r good
         return
 
+    def resolve_overloaded_func(
+        self, node: AstFuncCall, func: FpyOverloadedCallable, node_args: list[AstExpr], state: CompileState
+    ) -> FpyCallable | None:
+        # algorithm:
+        # find all funcs 
+        matching_funcs = []
+        for f in func.callables:
+            if self.check_args_coercible_to_func(node, f, node_args, state) is None:
+                # no compile error. matches!
+                matching_funcs.append(f)
+        if len(matching_funcs) == 0:
+            node_arg_types = []
+            for node_arg in node_args:
+                node_arg_types.append(state.expr_unconverted_types[node_arg])
+            arg_type_name_list = ", ".join(t.__name__ for t in node_arg_types)
+
+            functions_tried = []
+            for f in func.callables:
+                f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
+                functions_tried.append(f"{f_arg_type_name_list}")
+            functions_tried = "\n    ".join(functions_tried)
+            state.err(
+                f"No function matches the argument list: {arg_type_name_list}\nTried:{functions_tried}",
+                node,
+            )
+            return
+
+        if len(matching_funcs) > 1:
+
+            # try to pick one with exact arg type match
+            exact_match = None
+            for func in matching_funcs:
+                for value_expr, arg in zip(node_args, func_args):
+                    arg_name, arg_type = arg
+
+                    unconverted_type = state.expr_unconverted_types[value_expr]
+                    if not self.can_coerce_type(unconverted_type, arg_type):
+                        return CompileError(
+                            f"Expected {arg_type.__name__}, found {unconverted_type.__name__}",
+                            node,
+                        )
+
+            matching_funcs_strs = []
+            for f in matching_funcs:
+                f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
+                matching_funcs_strs.append(f"{f_arg_type_name_list}")
+            matching_funcs_strs = "\n    ".join(matching_funcs_strs)
+            state.err(
+                f"Multiple functions match the argument list: {arg_type_name_list}\nMatches:{matching_funcs_strs}",
+                node,
+            )
+            return
+        func = matching_funcs[0]
+
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references.get(node.func)
         if func is None:
@@ -934,49 +1022,15 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # so it's not even a ref, just some expr
             state.err(f"Unknown function", node.func)
             return
-        func_args = func.args
         node_args = node.args if node.args else []
 
         if isinstance(func, FpyOverloadedCallable):
-            # gotta resolve this func. try each possibility
-            matching_funcs = []
-            for f in func.callables:
-                if self.check_func_matches(node, f, node_args, state) is None:
-                    # no compile error. matches!
-                    matching_funcs.append(f)
+            # we've decided on an overloaded func
+            # re-resolve the var and update the type
+            state.resolved_references[node.func] = func
 
-            if len(matching_funcs) != 1:
-                # make a nice error msg
-                node_arg_types = []
-                for node_arg in node_args:
-                    node_arg_types.append(state.expr_unconverted_types[node_arg])
-                arg_type_name_list = ", ".join(t.__name__ for t in node_arg_types)
-
-                if len(matching_funcs) == 0:
-                    functions_tried = []
-                    for f in func.callables:
-                        f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
-                        functions_tried.append(f"{f_arg_type_name_list}")
-                    functions_tried = "\n    ".join(functions_tried)
-                    state.err(
-                        f"No function matches the argument list: {arg_type_name_list}\nTried:{functions_tried}",
-                        node,
-                    )
-                    return
-
-                matching_funcs_strs = []
-                for f in matching_funcs:
-                    f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in f.args)
-                    matching_funcs_strs.append(f"{f_arg_type_name_list}")
-                matching_funcs_strs = "\n    ".join(matching_funcs_strs)
-                state.err(
-                    f"Multiple functions match the argument list: {arg_type_name_list}\nMatches:{matching_funcs_strs}",
-                    node,
-                )
-                return
-            func = matching_funcs[0]
         else:
-            error_or_none = self.check_func_matches(node, func, node_args, state)
+            error_or_none = self.check_args_coercible_to_func(node, func, node_args, state)
             if is_instance_compat(error_or_none, CompileError):
                 state.errors.append(error_or_none)
                 return
@@ -990,7 +1044,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             state.expr_converted_types[node_arg] = output_type
             state.expr_explicit_casts.append(node_arg)
         else:
-            for value_expr, arg in zip(node_args, func_args):
+            for value_expr, arg in zip(node_args, func.args):
                 arg_name, arg_type = arg
 
                 # should be good 2 go based on the check func above

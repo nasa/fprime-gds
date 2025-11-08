@@ -18,9 +18,14 @@ from fprime_gds.common.fpy.model import DirectiveErrorCode
 from fprime_gds.common.fpy.types import (
     MAX_DIRECTIVES_COUNT,
     MAX_STACK_SIZE,
+    SIGNED_INTEGER_TYPES,
+    SPECIFIC_FLOAT_TYPES,
+    SPECIFIC_INTEGER_TYPES,
     SPECIFIC_NUMERIC_TYPES,
+    UNSIGNED_INTEGER_TYPES,
     CompileState,
     FieldReference,
+    FppType,
     FpyCast,
     FpyCmd,
     FpyMacro,
@@ -30,7 +35,6 @@ from fprime_gds.common.fpy.types import (
     InternalIntValue,
     InternalStringValue,
     NothingValue,
-    convert_numeric_type,
     is_instance_compat,
 )
 
@@ -44,8 +48,18 @@ from fprime_gds.common.fpy.bytecode.directives import (
     DiscardDirective,
     ExitDirective,
     FloatDivideDirective,
+    FloatExtendDirective,
     FloatToSignedIntDirective,
+    FloatTruncateDirective,
     FwOpcodeType,
+    IntegerSignedExtend16To64Directive,
+    IntegerSignedExtend32To64Directive,
+    IntegerSignedExtend8To64Directive,
+    IntegerTruncate64To16Directive,
+    IntegerTruncate64To8Directive,
+    IntegerZeroExtend16To64Directive,
+    IntegerZeroExtend32To64Directive,
+    IntegerZeroExtend8To64Directive,
     PeekDirective,
     FloatMultiplyDirective,
     GetFieldDirective,
@@ -69,6 +83,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     PushTlmValDirective,
     UnaryStackOp,
     UnsignedGreaterThanOrEqualDirective,
+    UnsignedIntToFloatDirective,
     UnsignedLessThanDirective,
 )
 from fprime_gds.common.templates.ch_template import ChTemplate
@@ -79,6 +94,8 @@ from fprime.common.models.serialize.numerical_types import (
     U8Type,
     I64Type,
     F64Type,
+    F32Type,
+    IntegerType,
 )
 from fprime_gds.common.fpy.syntax import (
     Ast,
@@ -147,7 +164,115 @@ class GenerateCode:
         if result_type.getMaxSize() > 0:
             return [DiscardDirective(result_type.getMaxSize())]
         return []
-        
+
+    def get_64_bit_numeric_type(self, type: FppType) -> FppType:
+        assert type in SPECIFIC_NUMERIC_TYPES, type
+        return (
+            I64Type
+            if type in SIGNED_INTEGER_TYPES
+            else U64Type if type in UNSIGNED_INTEGER_TYPES else F64Type
+        )
+
+    def convert_numeric_type(
+        self, from_type: FppType, to_type: FppType
+    ) -> list[Directive]:
+        if from_type == to_type:
+            return []
+
+        # only valid runtime type conversion is between two numeric types
+        assert (
+            from_type in SPECIFIC_NUMERIC_TYPES and to_type in SPECIFIC_NUMERIC_TYPES
+        ), (
+            from_type,
+            to_type,
+        )
+        # also invalid to convert from a float to an integer at runtime due to loss of precision
+        assert not (
+            from_type in SPECIFIC_FLOAT_TYPES and to_type in SPECIFIC_INTEGER_TYPES
+        ), (
+            from_type,
+            to_type,
+        )
+
+        dirs = []
+        # first go to 64 bit width
+        dirs.extend(self.extend_numeric_type_to_64_bits(from_type))
+        from_64_bit = self.get_64_bit_numeric_type(from_type)
+        to_64_bit = self.get_64_bit_numeric_type(to_type)
+
+        # now convert from int to float if necessary
+        if from_64_bit == U64Type and to_64_bit == F64Type:
+            dirs.append(UnsignedIntToFloatDirective())
+            from_64_bit = F64Type
+        elif from_64_bit == I64Type and to_64_bit == F64Type:
+            dirs.append(SignedIntToFloatDirective())
+            from_64_bit = F64Type
+        elif from_64_bit == U64Type or from_64_bit == I64Type:
+            assert to_64_bit == U64Type or to_64_bit == I64Type
+            # conversion from signed to unsigned int is implicit, doesn't need code gen
+            from_64_bit = to_64_bit
+
+        assert from_64_bit == to_64_bit, (from_64_bit, to_64_bit)
+
+        # now truncate back down to desired size
+        dirs.extend(
+            self.truncate_numeric_type_from_64_bits(to_64_bit, to_type.getMaxSize())
+        )
+        return dirs
+
+    def truncate_numeric_type_from_64_bits(
+        self, from_type: FppType, new_size: int
+    ) -> list[Directive]:
+
+        assert new_size in (1, 2, 4, 8), new_size
+        assert from_type.getMaxSize() == 8, from_type.getMaxSize()
+
+        if new_size == 8:
+            # already correct size
+            return []
+
+        if from_type == F64Type:
+            # only one option for float trunc
+            assert new_size == 4, new_size
+            return [FloatTruncateDirective()]
+
+        # must be an int
+        assert issubclass(from_type, IntegerType), from_type
+
+        if new_size == 1:
+            return [IntegerTruncate64To8Directive()]
+        elif new_size == 2:
+            return [IntegerTruncate64To16Directive()]
+
+        return [IntegerTruncate64To32Directive()]
+
+    def extend_numeric_type_to_64_bits(self, type: FppType) -> list[Directive]:
+        if type.getMaxSize() == 8:
+            # already 8 bytes
+            return []
+        if type == F32Type:
+            return [FloatExtendDirective()]
+
+        # must be an int
+        assert issubclass(type, IntegerType), type
+
+        from_size = type.getMaxSize()
+        assert from_size in (1, 2, 4, 8), from_size
+
+        if type in SIGNED_INTEGER_TYPES:
+            if from_size == 1:
+                return [IntegerSignedExtend8To64Directive()]
+            elif from_size == 2:
+                return [IntegerSignedExtend16To64Directive()]
+            else:
+                return [IntegerSignedExtend32To64Directive()]
+        else:
+            if from_size == 1:
+                return [IntegerZeroExtend8To64Directive()]
+            elif from_size == 2:
+                return [IntegerZeroExtend16To64Directive()]
+            else:
+                return [IntegerZeroExtend32To64Directive()]
 
     def build_emitter_dict(self):
         for name, func in inspect.getmembers(type(self), inspect.isfunction):
@@ -344,12 +469,12 @@ class GenerateCode:
         dirs.append(PushValDirective(StackSizeType(0).serialize()))
         dirs.append(PeekDirective())
         # convert idx to u64
-        dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
+        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Type))
         dirs.append(
             PushValDirective(ArrayIndexType(parent_type.LENGTH))
         )  # push the length
         # convert len to u64
-        dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
+        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Type))
         # check if idx >= length
         dirs.append(UnsignedGreaterThanOrEqualDirective())
         # if true, fail with error code, otherwise go to after check
@@ -384,7 +509,7 @@ class GenerateCode:
         # now convert the type if necessary
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            dirs.extend(convert_numeric_type(unconverted_type, converted_type))
+            dirs.extend(self.convert_numeric_type(unconverted_type, converted_type))
 
         return dirs
 
@@ -403,7 +528,7 @@ class GenerateCode:
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            dirs.extend(convert_numeric_type(unconverted_type, converted_type))
+            dirs.extend(self.convert_numeric_type(unconverted_type, converted_type))
 
         return dirs
 
@@ -451,7 +576,7 @@ class GenerateCode:
 
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
-            dirs.extend(convert_numeric_type(unconverted_type, converted_type))
+            dirs.extend(self.convert_numeric_type(unconverted_type, converted_type))
 
         return dirs
 
@@ -492,7 +617,7 @@ class GenerateCode:
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            dirs.extend(convert_numeric_type(unconverted_type, converted_type))
+            dirs.extend(self.convert_numeric_type(unconverted_type, converted_type))
 
         return dirs
 
@@ -522,7 +647,7 @@ class GenerateCode:
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            dirs.extend(convert_numeric_type(unconverted_type, converted_type))
+            dirs.extend(self.convert_numeric_type(unconverted_type, converted_type))
 
         return dirs
 
@@ -581,7 +706,7 @@ class GenerateCode:
         unconverted_type = state.expr_unconverted_types[node]
         converted_type = state.expr_converted_types[node]
         if unconverted_type != converted_type:
-            dirs.extend(convert_numeric_type(unconverted_type, converted_type))
+            dirs.extend(self.convert_numeric_type(unconverted_type, converted_type))
 
         return dirs
 
@@ -649,7 +774,7 @@ class GenerateCode:
             dirs.append(PushValDirective(StackSizeType(0).serialize()))
             dirs.append(PeekDirective())  # duplicate the index
             # convert idx to u64
-            dirs.extend(convert_numeric_type(ArrayIndexType, U64Type))
+            dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Type))
             lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
             dirs.append(
                 PushValDirective(U64Type(lhs_parent_type.LENGTH).serialize())
@@ -680,7 +805,7 @@ class GenerateCode:
             dirs.append(IntAddDirective())
 
             # and now convert the u64 back into the StackSizeType that store expects
-            dirs.extend(convert_numeric_type(U64Type, StackSizeType))
+            dirs.extend(self.convert_numeric_type(U64Type, StackSizeType))
 
             # now that lvar array offset is pushed, use it to store in lvar array
             dirs.append(StoreDirective(lhs.type.getMaxSize()))
@@ -712,4 +837,3 @@ class GenerateCode:
         dirs.append(end_label)
 
         return dirs
-

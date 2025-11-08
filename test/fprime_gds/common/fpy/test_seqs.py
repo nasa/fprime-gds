@@ -2078,3 +2078,11 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("в")
 
 
 # TODO assert failure should split based on whether it's a syntax or semantic failure
+
+
+def test_abs_float(fprime_test_api):
+    seq = """
+assert abs(I64(-1)) == 1
+"""
+
+    assert_run_success(fprime_test_api, seq)
