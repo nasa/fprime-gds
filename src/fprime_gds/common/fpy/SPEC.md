@@ -95,15 +95,18 @@ STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 They have a internal type *String*, which is not directly referenceable by the user. The *String* type supports strings of arbitrary length.
 
 # Functions
-Functions have a name, argument types and a return type. Functions can be You can call a function like:
+Functions have a `function_name`, argument types and a `return_type`. A function call is an expression of type `return_type` which looks like:
 ```
 function_name(arg_0, arg_1, ..., arg_x)
 ```
 
-where `function_name` is the name of the function, and `arg_x` are the argument expressions at index `x`. Argument expressions will be evaluated once, in order from lowest index to highest index. Once the function is done executing, a value of its return type will be pushed to the 
+where `arg_x` are the argument expressions at index `x`. Argument expressions will be evaluated once, in order from lowest index to highest index. 
 
+There are several types of functions: commands, macros, casts and constructors.
 ## Commands
+Any command in a component instance defined in FPP is callable in Fpy. The `function_name` of a command is its fully-qualified name, and the argument types are the same as those defined in FPP. The `return_type` of every command is `Fw.CmdResponse`.
 
+When a command is called, its opcode and arguments are immediately sent to the command dispatcher, and the sequence pauses execution until the command returns a response. That response becomes the value of the command call expression.
 
 # Type conversion
 

@@ -495,6 +495,7 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop()
         lhs = self.pop()
+        print(lhs, rhs)
         self.push(lhs < rhs)
 
     def handle_sle(self, dir: SignedLessThanOrEqualDirective):
@@ -523,7 +524,6 @@ class FpySequencerModel:
             return DirectiveErrorCode.STACK_ACCESS_OUT_OF_BOUNDS
         rhs = self.pop(type=float)
         lhs = self.pop(type=float)
-        print(rhs, lhs, rhs == lhs)
         self.push(lhs == rhs)
 
     def handle_fne(self, dir: FloatNotEqualDirective):

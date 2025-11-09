@@ -1075,12 +1075,19 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
                 return
             # otherwise, no error, we're good!
 
+        # okay, we've resolved overloading and made sure that the func is possible
+        # to call with these args
+
+        # go handle coercion/casting
         if is_instance_compat(func, FpyCast):
             node_arg = node_args[0]
             output_type = func.to_type
             # we're going from input_type to output type, and we're going to ignore
             # the coercion rules
             state.expr_converted_types[node_arg] = output_type
+            # keep track of which ones we explicitly cast. this will
+            # let us turn off some checks for boundaries later when we do const folding
+            # we turn off the checks because the user is asking us to force this!
             state.expr_explicit_casts.append(node_arg)
         else:
             for value_expr, arg in zip(node_args, func.args):
@@ -1089,7 +1096,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
                 # should be good 2 go based on the check func above
                 state.expr_converted_types[value_expr] = arg_type
 
-        # got thru all args successfully
         state.expr_unconverted_types[node] = func.return_type
         state.expr_converted_types[node] = func.return_type
 
@@ -1206,7 +1212,6 @@ class CalculateConstExprValues(Visitor):
                         # the sign bit is set, the result should be negative
                         # subtract the max value as this is how two's complement works
                         value -= 1 << to_type.get_bits()
-                print(value)
                 return to_type(value)
             assert False, (from_val, type(from_val), to_type)
         except TypeException as e:
@@ -1526,9 +1531,16 @@ class CalculateConstExprValues(Visitor):
         else:
             assert False, folded_value
 
+        # first fold, store the result in arbitrary precision
+
+        # then if the expression is some other type, convert:
         explicit_cast = node in state.expr_explicit_casts
         unconverted_type = state.expr_unconverted_types.get(node)
+        # the intent of this is to handle situations where we're constant folding and the results cannot be arbitrary precision
+        folded_value = self.const_convert_type(folded_value, unconverted_type, node, state, explicit_cast=False)
+
         converted_type = state.expr_converted_types.get(node)
+        # okay and now perform type coercion/casting
         if converted_type != unconverted_type:
             folded_value = self.const_convert_type(
                 folded_value, converted_type, node, state, explicit_cast
@@ -1572,8 +1584,14 @@ class CalculateConstExprValues(Visitor):
         else:
             assert False, folded_value
 
+        # first fold, store the result in arbitrary precision
+
+        # then if the expression is some other type, convert:
         explicit_cast = node in state.expr_explicit_casts
         unconverted_type = state.expr_unconverted_types.get(node)
+        # the intent of this is to handle situations where we're constant folding and the results cannot be arbitrary precision
+        folded_value = self.const_convert_type(folded_value, unconverted_type, node, state, explicit_cast=False)
+
         converted_type = state.expr_converted_types.get(node)
         if converted_type != unconverted_type:
             folded_value = self.const_convert_type(
