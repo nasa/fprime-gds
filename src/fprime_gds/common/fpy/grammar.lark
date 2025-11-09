@@ -82,7 +82,6 @@ arguments: _expr ("," _expr)*
 ?atom: _literal
      | "(" _expr ")"
      | var
-     | "..." -> ellipsis
 
 var: name
 

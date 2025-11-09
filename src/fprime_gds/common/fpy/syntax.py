@@ -139,12 +139,6 @@ class AstFuncCall(Ast):
 @dataclass
 class AstPass(Ast):
     pass  # ha ha
-
-
-@dataclass
-class AstEllipsis(Ast): ...  # this is my way of being funny
-
-
 @dataclass
 class AstBinaryOp(Ast):
     lhs: AstExpr
@@ -237,7 +231,6 @@ AstStmt = Union[
     AstContinue,
     AstWhile,
     AstAssert,
-    AstEllipsis,
 ]
 AstStmtWithExpr = Union[AstExpr, AstAssign, AstIf, AstElif, AstFor, AstWhile, AstAssert]
 AstNodeWithSideEffects = Union[
@@ -354,7 +347,6 @@ class FpyTransformer(Transformer):
     get_attr = AstGetAttr
     get_item = AstGetItem
     var = AstVar
-    ellipsis = AstEllipsis
     range = AstRange
 
     NAME = str
