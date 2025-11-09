@@ -1461,58 +1461,71 @@ class CalculateConstExprValues(Visitor):
 
         folded_value = None
         # Arithmetic operations
-        if node.op == BinaryStackOp.ADD:
-            folded_value = lhs_value + rhs_value
-        elif node.op == BinaryStackOp.SUBTRACT:
-            folded_value = lhs_value - rhs_value
-        elif node.op == BinaryStackOp.MULTIPLY:
-            folded_value = lhs_value * rhs_value
-        elif node.op == BinaryStackOp.DIVIDE:
-            folded_value = lhs_value / rhs_value
-        elif node.op == BinaryStackOp.EXPONENT:
-            folded_value = lhs_value**rhs_value
-        elif node.op == BinaryStackOp.FLOOR_DIVIDE:
-            folded_value = lhs_value // rhs_value
-        elif node.op == BinaryStackOp.MODULUS:
-            folded_value = lhs_value % rhs_value
-        # Boolean logic operations
-        elif node.op == BinaryStackOp.AND:
-            folded_value = lhs_value and rhs_value
-        elif node.op == BinaryStackOp.OR:
-            folded_value = lhs_value or rhs_value
-        # Inequalities
-        elif node.op == BinaryStackOp.GREATER_THAN:
-            folded_value = lhs_value > rhs_value
-        elif node.op == BinaryStackOp.GREATER_THAN_OR_EQUAL:
-            folded_value = lhs_value >= rhs_value
-        elif node.op == BinaryStackOp.LESS_THAN:
-            folded_value = lhs_value < rhs_value
-        elif node.op == BinaryStackOp.LESS_THAN_OR_EQUAL:
-            folded_value = lhs_value <= rhs_value
-        # Equality Checking
-        elif node.op == BinaryStackOp.EQUAL:
-            if not is_instance_compat(lhs_value, Number):
-                # comparing two complex types
-                assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
-                # for now we don't fold this
-                folded_value = None
+        try:
+            if node.op == BinaryStackOp.ADD:
+                folded_value = lhs_value + rhs_value
+            elif node.op == BinaryStackOp.SUBTRACT:
+                folded_value = lhs_value - rhs_value
+            elif node.op == BinaryStackOp.MULTIPLY:
+                folded_value = lhs_value * rhs_value
+            elif node.op == BinaryStackOp.DIVIDE:
+                folded_value = lhs_value / rhs_value
+            elif node.op == BinaryStackOp.EXPONENT:
+                folded_value = lhs_value**rhs_value
+            elif node.op == BinaryStackOp.FLOOR_DIVIDE:
+                folded_value = lhs_value // rhs_value
+            elif node.op == BinaryStackOp.MODULUS:
+                folded_value = lhs_value % rhs_value
+            # Boolean logic operations
+            elif node.op == BinaryStackOp.AND:
+                folded_value = lhs_value and rhs_value
+            elif node.op == BinaryStackOp.OR:
+                folded_value = lhs_value or rhs_value
+            # Inequalities
+            elif node.op == BinaryStackOp.GREATER_THAN:
+                folded_value = lhs_value > rhs_value
+            elif node.op == BinaryStackOp.GREATER_THAN_OR_EQUAL:
+                folded_value = lhs_value >= rhs_value
+            elif node.op == BinaryStackOp.LESS_THAN:
+                folded_value = lhs_value < rhs_value
+            elif node.op == BinaryStackOp.LESS_THAN_OR_EQUAL:
+                folded_value = lhs_value <= rhs_value
+            # Equality Checking
+            elif node.op == BinaryStackOp.EQUAL:
+                if not is_instance_compat(lhs_value, Number):
+                    # comparing two complex types
+                    assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
+                    # for now we don't fold this
+                    folded_value = None
+                else:
+                    folded_value = lhs_value == rhs_value
+            elif node.op == BinaryStackOp.NOT_EQUAL:
+                if not is_instance_compat(lhs_value, Number):
+                    # comparing two complex types
+                    assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
+                    # for now we don't fold this
+                    folded_value = None
+                else:
+                    folded_value = lhs_value != rhs_value
             else:
-                folded_value = lhs_value == rhs_value
-        elif node.op == BinaryStackOp.NOT_EQUAL:
-            if not is_instance_compat(lhs_value, Number):
-                # comparing two complex types
-                assert type(lhs_value) == type(rhs_value), (lhs_value, rhs_value)
-                # for now we don't fold this
-                folded_value = None
-            else:
-                folded_value = lhs_value != rhs_value
-        else:
-            # missing an operation
-            assert False, node.op
+                # missing an operation
+                assert False, node.op
+        except ZeroDivisionError:
+            state.err("Divide by zero error", node)
+            return
+        except OverflowError:
+            state.err("Overflow error", node)
+            return
+        except ValueError as err:
+            state.err(str(err) if str(err) else "Domain error", node)
+            return
 
         if folded_value is None:
             # give up, don't try to calculate the value of this expr at compile time
             state.expr_converted_values[node] = None
+            return
+        if type(folded_value) == complex:
+            state.err("Domain error", node)
             return
 
         if type(folded_value) == int:

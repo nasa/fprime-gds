@@ -2400,3 +2400,27 @@ x()
 """
 
     assert_compile_failure(fprime_test_api, seq)
+
+
+def test_const_divide_by_zero(fprime_test_api):
+    seq = """
+1 / 0
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_const_complex_pow(fprime_test_api):
+    seq = """
+(-1) ** 0.5
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_const_pow_overflow(fprime_test_api):
+    seq = """
+10.0 ** 1000
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
