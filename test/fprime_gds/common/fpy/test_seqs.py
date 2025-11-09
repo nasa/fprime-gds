@@ -2349,3 +2349,54 @@ assert abs(U64(0)) == 0
 """
 
     assert_run_success(fprime_test_api, seq)
+
+
+def test_var_type_ann_bad(fprime_test_api):
+    seq = """
+var: Fw.Time.asdf = 0
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_var_type_ann_bad_2(fprime_test_api):
+    seq = """
+var: Svc = 0
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_const_folding_time_eq(fprime_test_api):
+    seq = """
+assert Fw.Time(0, 0, 0, 0) == Fw.Time(0, 0, 0, 0)
+assert Fw.Time(0, 0, 1, 0) != Fw.Time(0, 0, 0, 0)
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+
+def test_calling_struct_field_should_fail_gracefully(fprime_test_api):
+    seq = """
+var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+var.priority()
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_calling_namespace_should_fail_gracefully(fprime_test_api):
+    seq = """
+Ref.typeDemo()
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_calling_variable_should_fail_gracefully(fprime_test_api):
+    seq = """
+x: U32 = 1
+x()
+"""
+
+    assert_compile_failure(fprime_test_api, seq)

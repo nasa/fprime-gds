@@ -31,7 +31,7 @@ from fprime_gds.common.fpy.semantics import (
     CheckUseBeforeDeclareForLoopVariables,
     CreateVariables,
     PickTypesAndResolveAttrsAndItems,
-    ResolveVarsAndTypes,
+    ResolveVarsTypesAndFuncs,
 )
 from fprime_gds.common.fpy.syntax import AstScopedBody, FpyTransformer, PythonIndenter
 from fprime_gds.common.fpy.macros import MACROS
@@ -205,7 +205,7 @@ def ast_to_directives(
         # also, because types have a restricted set of possible syntax, resolve them
         # before we resolve other things. this means we can also figure out the type of variables
         # at this stage
-        ResolveVarsAndTypes(),
+        ResolveVarsTypesAndFuncs(),
         # make sure we don't use any variables before they are declared
         CheckUseBeforeDeclare(),
         CheckUseBeforeDeclareForLoopVariables(),

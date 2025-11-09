@@ -114,7 +114,7 @@ def compile_main(args: list[str] = None):
         metavar="NAME[=VALUE]",
         action="append",
         default=[],
-        help="Set a compiler flag (repeatable). Recognized: NO_OPERATOR_CONST_FOLDING.",
+        help="Set a compiler flag (repeatable).",
     )
 
     if args is not None:

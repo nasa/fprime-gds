@@ -248,57 +248,57 @@ class CheckBreakAndContinueInLoop(TopDownVisitor):
             return
 
 
-class ResolveVarsAndTypes(TopDownVisitor):
+class ResolveVarsTypesAndFuncs(TopDownVisitor):
 
-    def resolve_type_reference(self, node: Ast, state: CompileState) -> bool:
+    def fully_resolve_ref(self, node: Ast, global_scope: FpyScope, global_scope_name: str, state: CompileState) -> FpyReference | None:
+        """resolves the given node recursively, if it is fully a reference. if at any point it
+        is not a ref, or if it is a ref to something which doesn't exist, generate a compile error.
 
-        # we have some special logic for types because we want them resolved early,
-        # and they are easy to resolve
+        return the resolved reference"""
 
-        def resolve(n: Ast):
+        if not is_instance_compat(node, (AstVar, AstGetAttr)):
+            state.err(f"Unknown {global_scope_name}", node)
+            return None
 
-            if not is_instance_compat(n, (AstVar, AstGetAttr)):
-                state.err("Unknown type", node)
-                return None
+        if is_instance_compat(node, AstVar):
+            parent_scope = global_scope
+            name = node.var
+        else:
+            parent_scope = self.fully_resolve_ref(node.parent, global_scope, global_scope_name, state)
+            name = node.attr
 
-            if is_instance_compat(n, AstVar):
-                parent_scope = state.types
-                name = n.var
-            else:
-                parent_scope = resolve(n.parent)
-                name = n.attr
+        if parent_scope is None:
+            # parent doesn't exist
+            # error already raised
+            return None
 
-            if parent_scope is None:
-                # error already raised
-                return None
+        if not is_instance_compat(parent_scope, dict):
+            # parent scope is something other than a namespace
+            # this is not possible for fprime types based on the system we have
+            state.err(f"Unknown {global_scope_name}", node)
+            return None
 
-            assert is_instance_compat(parent_scope, dict), parent_scope
+        resolved_ref = parent_scope.get(name)
+        if resolved_ref is None:
+            state.err(f"Unknown {global_scope_name}", node)
+            return None
 
-            node_type = parent_scope.get(name)
-            if node_type is None:
-                state.err("Unknown type", node)
-                return None
+        state.resolved_references[node] = resolved_ref
+        return resolved_ref
 
-            state.resolved_references[n] = node_type
-            return node_type
-
-        ret_type = resolve(node)
-        return ret_type is not None
-
-    def resolve_var_in_global_scope(
+    def try_resolve_var_as_value(
         self,
         node: Ast,
-        global_scope: FpyScope,
-        global_scope_name: str,
         state: CompileState,
     ) -> bool:
         if not is_instance_compat(node, AstReference):
+            # not a reference, nothing to resolve
             return True
 
         if not is_instance_compat(node, AstVar):
-            return self.resolve_var_in_global_scope(
-                node.parent, global_scope, global_scope_name, state
-            )
+            # it is a reference but it's not a var
+            # recurse until we find the var
+            return self.try_resolve_var_as_value(node.parent, state)
 
         local_scope = state.local_scopes[node]
         resolved = None
@@ -309,133 +309,124 @@ class ResolveVarsAndTypes(TopDownVisitor):
         if resolved is None:
             # unable to find this symbol in the hierarchy of local scopes
             # look it up in the global scope
-            resolved = global_scope.get(node.var)
+            resolved = state.runtime_values.get(node.var)
 
         if resolved is None:
-            state.err(f"Unknown {global_scope_name}", node)
+            state.err(f"Unknown value", node)
             return False
 
         state.resolved_references[node] = resolved
         return True
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
-        if not self.resolve_var_in_global_scope(
-            node.func, state.callables, "function", state
-        ):
+        func = self.fully_resolve_ref(node.func, state.callables, "function", state)
+        if func is None:
             return
+        if is_instance_compat(func, dict):
+            # this is a ref to a namespace which contains a func, but not a func itself
+            state.err(f"Unknown function", node.func)
+            return
+        # otherwise:
+        # must be a callable or overloaded callable because we resolved it in callables
+        assert is_instance_compat(func, (FpyCallable, FpyOverloadedCallable)), func
 
         for arg in node.args if node.args is not None else []:
             # arg value refs must have values at runtime
-            if not self.resolve_var_in_global_scope(
-                arg, state.runtime_values, "value", state
-            ):
+            if not self.try_resolve_var_as_value(arg, state):
                 return
 
     def visit_AstIf_AstElif(self, node: Union[AstIf, AstElif], state: CompileState):
         # if condition expr refs must be "runtime values" (tlm/prm/const/etc)
-        if not self.resolve_var_in_global_scope(
-            node.condition, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.condition, state):
             return
 
     def visit_AstBinaryOp(self, node: AstBinaryOp, state: CompileState):
         # lhs/rhs side of stack op, if they are refs, must be refs to "runtime vals"
-        if not self.resolve_var_in_global_scope(
-            node.lhs, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.lhs, state):
             return
-        if not self.resolve_var_in_global_scope(
-            node.rhs, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.rhs, state):
             return
 
     def visit_AstUnaryOp(self, node: AstUnaryOp, state: CompileState):
-        if not self.resolve_var_in_global_scope(
-            node.val, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.val, state):
             return
 
     def visit_AstAssign(self, node: AstAssign, state: CompileState):
-        if not self.resolve_var_in_global_scope(
-            node.lhs, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.lhs, state):
             return
 
         if node.type_ann is not None:
             # in this pass, we also go ahead and finish up the types because they're easy
-            if not self.resolve_type_reference(node.type_ann, state):
+            var_type = self.fully_resolve_ref(node.type_ann, state.types, "type", state)
+            if var_type is None:
+                # alr errored
                 return
+            if is_instance_compat(var_type, dict):
+                # this is a ref to a namespace which contains a type, but not a type itself
+                state.err(f"Unknown type", node.type_ann)
+                return
+            # must be a type because we resolved it in type
+            assert is_instance_compat(var_type, type), var_type
             # okay, we know the var, we know the type, let's update the var type
             # in the struct
             var = state.resolved_references[node.lhs]
-            var_type = state.resolved_references[node.type_ann]
             assert is_instance_compat(var, FpyVariable), var
             assert is_instance_compat(var_type, type), var_type
             var.type = var_type
 
-        if not self.resolve_var_in_global_scope(
-            node.rhs, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.rhs, state):
             return
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
-        if not self.resolve_var_in_global_scope(
-            node.loop_var, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.loop_var, state):
             return
 
         # this really shouldn't be possible to be a var right now
         # but this is future proof
-        if not self.resolve_var_in_global_scope(
-            node.range, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.range, state):
             return
 
     def visit_AstWhile(self, node: AstWhile, state: CompileState):
-        if not self.resolve_var_in_global_scope(
-            node.condition, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.condition, state):
             return
 
     def visit_AstAssert(self, node: AstAssert, state: CompileState):
-        if not self.resolve_var_in_global_scope(
-            node.condition, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.condition, state):
             return
         if node.exit_code is not None:
-            if not self.resolve_var_in_global_scope(
-                node.exit_code, state.runtime_values, "value", state
-            ):
+            if not self.try_resolve_var_as_value(node.exit_code, state):
                 return
 
     def visit_AstVar(self, node: AstVar, state: CompileState):
         # make sure that all vars are resolved when we get to them
         # if not resolved, then the var is "outside" of a context which could resolve it
-        # usually this would just mean it's on its own on a line
+        # usually this would just mean it's on its own on a line. what is it referring to?
+        # idk
         if node not in state.resolved_references:
             state.err("Expression is invalid when used here", node)
             return
 
     def visit_AstGetItem(self, node: AstGetItem, state: CompileState):
-        if not self.resolve_var_in_global_scope(
-            node.item, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.item, state):
             return
 
     def visit_AstRange(self, node: AstRange, state: CompileState):
-        if not self.resolve_var_in_global_scope(
-            node.lower_bound, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.lower_bound, state):
             return
-        if not self.resolve_var_in_global_scope(
-            node.upper_bound, state.runtime_values, "value", state
-        ):
+        if not self.try_resolve_var_as_value(node.upper_bound, state):
             return
 
     def visit_AstLiteral_AstGetAttr(
         self, node: Union[AstLiteral, AstGetAttr], state: CompileState
     ):
         # don't need to do anything for literals or getattr, but just have this here for completion's sake
+        # the reason we don't need to do anything for getattr is because the point of this
+        # pass is explicitly not to resolve getattrs, just resolve vars (and types), not general
+        # getattrs
+        # we don't do this now because we need to resolve all expr types first
+        # before we can figure out whether a getattr is correct, and this pass lets
+        # us now do that (i.e. after this pass, we have enough info about the program
+        # that we can decide types of any expr)
         pass
 
     def visit_default(self, node, state):
@@ -1457,7 +1448,9 @@ class CalculateConstExprValues(Visitor):
             rhs_value, ValueType
         ):
             # if one of them isn't a ValueType, assume it must be TimeType
-            assert lhs_value == rhs_value and lhs_value == TimeType, (
+            assert type(lhs_value) == type(rhs_value) and is_instance_compat(
+                lhs_value, TimeType
+            ), (
                 lhs_value,
                 rhs_value,
             )
@@ -1537,7 +1530,9 @@ class CalculateConstExprValues(Visitor):
         explicit_cast = node in state.expr_explicit_casts
         unconverted_type = state.expr_unconverted_types.get(node)
         # the intent of this is to handle situations where we're constant folding and the results cannot be arbitrary precision
-        folded_value = self.const_convert_type(folded_value, unconverted_type, node, state, explicit_cast=False)
+        folded_value = self.const_convert_type(
+            folded_value, unconverted_type, node, state, explicit_cast=False
+        )
 
         converted_type = state.expr_converted_types.get(node)
         # okay and now perform type coercion/casting
@@ -1590,7 +1585,9 @@ class CalculateConstExprValues(Visitor):
         explicit_cast = node in state.expr_explicit_casts
         unconverted_type = state.expr_unconverted_types.get(node)
         # the intent of this is to handle situations where we're constant folding and the results cannot be arbitrary precision
-        folded_value = self.const_convert_type(folded_value, unconverted_type, node, state, explicit_cast=False)
+        folded_value = self.const_convert_type(
+            folded_value, unconverted_type, node, state, explicit_cast=False
+        )
 
         converted_type = state.expr_converted_types.get(node)
         if converted_type != unconverted_type:
