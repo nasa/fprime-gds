@@ -131,6 +131,14 @@ var = 1
     assert_compile_failure(fprime_test_api, seq)
 
 
+def test_namespace_type_annotation_fails(fprime_test_api):
+    seq = """
+var: Svc = 1
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
 def test_create_after_assign_var(fprime_test_api):
     seq = """
 var = 1
@@ -182,11 +190,27 @@ var: U16 = 2
     assert_compile_failure(fprime_test_api, seq)
 
 
+def test_assign_function_value(fprime_test_api):
+    seq = """
+var: U32 = CdhCore.cmdDisp.CMD_NO_OP
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
 def test_call_cmd(fprime_test_api):
     seq = """
 CdhCore.cmdDisp.CMD_NO_OP()
 """
     assert_run_success(fprime_test_api, seq)
+
+
+def test_call_namespace_fails(fprime_test_api):
+    seq = """
+CdhCore.cmdDisp()
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_call_cmd_with_str_arg(fprime_test_api):

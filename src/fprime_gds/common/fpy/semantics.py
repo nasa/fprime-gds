@@ -664,7 +664,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         if not self.is_type_constant_size(parent_type):
             state.err(
-                f"{parent_type} has dynamically-sized members, cannot access members",
+                f"{parent_type} has non-constant sized members, cannot access members",
                 node,
             )
             return None
