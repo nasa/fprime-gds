@@ -2542,3 +2542,11 @@ def test_get_item_of_namespace(fprime_test_api):
 value: U32 = CdhCore.cmdDisp[0]
 """
     assert_compile_failure(fprime_test_api, seq)
+
+
+def test_literal_float_coercion_overflow(fprime_test_api):
+    seq = """
+var: F32 = 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999
+"""
+
+    assert_compile_failure(fprime_test_api, seq)

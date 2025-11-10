@@ -1188,7 +1188,24 @@ class CalculateConstExprValues(Visitor):
                 assert issubclass(type(from_val), NumericalType), type(from_val)
                 # based on inspection of the underlying FloatType classes,
                 # floats do not need narrowing handling
-                return to_type(float(from_val.val))
+                try:
+                    coerced_value = float(from_val.val)
+                except OverflowError:
+                    state.err(
+                        f"{from_val.val} is out of range for type {to_type.__name__}",
+                        node,
+                    )
+                    return None
+                converted = to_type(coerced_value)
+                try:
+                    converted.serialize()
+                except OverflowError:
+                    state.err(
+                        f"{from_val.val} is out of range for type {to_type.__name__}",
+                        node,
+                    )
+                    return None
+                return converted
             if issubclass(to_type, IntegerType):
                 assert issubclass(type(from_val), NumericalType), type(from_val)
                 if not explicit_cast:
