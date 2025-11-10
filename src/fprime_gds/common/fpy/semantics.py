@@ -730,6 +730,10 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             if ref is None:
                 state.err("Unknown attribute", node)
                 return
+            # GetAttr should never resolve to a lexical variable; variables are accessed directly
+            assert not is_instance_compat(ref, FpyVariable), (
+                "Field resolution unexpectedly found a local variable"
+            )
         else:
             # in all other cases, parent has at least some sort of type
             # ref may be None (if parent is some complex expr), or it may be

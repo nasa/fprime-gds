@@ -1,5 +1,7 @@
-from fprime.common.models.serialize.numerical_types import U32Type
 import pytest
+
+from fprime.common.models.serialize.numerical_types import U32Type
+
 from fprime_gds.common.fpy.test_helpers import (
     assert_run_success,
     assert_compile_failure,
@@ -1350,6 +1352,40 @@ if var2 % var1 == 0 and (var2 + 1) % var1 == -4:
 exit(1)
 """
     assert_run_success(fprime_test_api, seq)
+
+@pytest.mark.parametrize(
+    "lhs_type,rhs_type,lhs_value,rhs_value,result_type,expected_value",
+    [
+        ("I64", "I64", "9", "2", "I64", "4"),
+        ("I64", "U64", "9", "2", "U64", "4"),
+        ("U64", "I64", "9", "2", "U64", "4"),
+        ("U64", "U64", "9", "2", "U64", "4"),
+        ("F64", "F64", "5.5", "2.0", "F64", "2.0"),
+        ("F64", "F64", "-5.5", "2.0", "F64", "-2.0"),
+        ("F64", "I64", "5.5", "2", "F64", "2.0"),
+        ("I64", "F64", "5", "2.5", "F64", "2.0"),
+        ("U64", "F64", "9", "2.0", "F64", "4.0"),
+        ("F64", "U64", "9.0", "2", "F64", "4.0"),
+    ],
+)
+def test_floor_divide_64_bit_numeric_types(
+    fprime_test_api,
+    lhs_type,
+    rhs_type,
+    lhs_value,
+    rhs_value,
+    result_type,
+    expected_value,
+):
+    seq = f"""
+lhs: {lhs_type} = {lhs_value}
+rhs: {rhs_type} = {rhs_value}
+result: {result_type} = lhs // rhs
+assert result == {expected_value}
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
 
 
 def test_bool_stack_value(fprime_test_api):
