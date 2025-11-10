@@ -168,7 +168,7 @@ fpybc
 fqn
 fsw
 gdiplus
-getattr
+getattrs
 getbootstrap
 getoption
 github
