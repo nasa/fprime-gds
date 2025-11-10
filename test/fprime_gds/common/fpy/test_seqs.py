@@ -2423,7 +2423,7 @@ assert abs(U64(0)) == 0
 
     assert_run_success(fprime_test_api, seq)
 
-def test_abs_internal_int(fprime_test_api):
+def test_abs_literal_int(fprime_test_api):
     seq = """
 assert abs(1) == 1
 assert abs(-1) == 1
@@ -2431,7 +2431,7 @@ assert abs(-1) == 1
 
     assert_run_success(fprime_test_api, seq)
 
-def test_abs_internal_float(fprime_test_api):
+def test_abs_literal_float(fprime_test_api):
     seq = """
 assert abs(1.0) == 1.0
 assert abs(-1.0) == 1.0

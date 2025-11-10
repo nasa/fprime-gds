@@ -68,7 +68,7 @@ LoopVarType = I64Type
 
 # this is the "internal" integer type that integer literals have by
 # default. it is arbitrary precision
-class InternalIntValue(IntegerType):
+class LiteralIntValue(IntegerType):
     @classmethod
     def range(cls):
         raise NotImplementedError()
@@ -85,23 +85,6 @@ class InternalIntValue(IntegerType):
     def validate(cls, val):
         if not isinstance(val, int):
             raise RuntimeError()
-
-
-# this is the "internal" float type that float literals have by
-# default.
-# class InternalFloatValue(FloatType):
-#     @staticmethod
-#     def get_serialize_format():
-#         raise NotImplementedError()
-
-#     @classmethod
-#     def get_bits(cls):
-#         return math.inf
-
-#     @classmethod
-#     def validate(cls, val):
-#         if not isinstance(val, (float, int)):
-#             raise RuntimeError()
 
 
 class RangeValue(FppValue):
@@ -125,7 +108,7 @@ class RangeValue(FppValue):
         raise NotImplementedError()
 
 
-InternalStringValue = StringType.construct_type("InternalStringType", None)
+LiteralStringValue = StringType.construct_type("LiteralStringType", None)
 
 
 SPECIFIC_NUMERIC_TYPES = (

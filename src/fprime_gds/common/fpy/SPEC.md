@@ -9,7 +9,7 @@ The following types are built into Fpy, and the developer can directly refer to 
 
 In addition, the developer can directly refer to any displayable type defined in FPP via its fully-qualified name. This includes user-defined structs, arrays and enums.
 
-There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These are the internal *Float*, *Int*, and *String* types. See [literals](#literals).
+There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These are the *LiteralInt*, and *LiteralString* types. See [literals](#literals).
 
 ## Structs
 You can instantiate a new struct at runtime by calling its constructor. A struct's constructor is a function with the same name as the type, with arguments corresponding to the type and position of the struct's members. For example, a struct defined as:
@@ -57,7 +57,7 @@ The second rule allows you to write any number of zeroes, separated by underscor
 00_000_0
 ```
 
-Integer literals have a internal type *Int*, which is not directly referenceable by the user. The *Int* type supports integers of arbitrary size.
+Integer literals have type *LiteralInt*, which is not directly referenceable by the user. The *LiteralInt* type supports integers of arbitrary size.
 
 ## Float literals
 Float literals are strings matching:
@@ -84,7 +84,7 @@ or it can be a `DECIMAL` optionally suffixed by an exponent, like these:
 100.5e+10
 ```
 
-Float literals have a internal type *Float*, which is not directly referenceable by the user. The *Float* type supports floats with the same precision as Python floats.
+Float literals have type `F64`.
 
 ## String literals
 String literals are strings matching:
@@ -92,7 +92,7 @@ String literals are strings matching:
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 ```
 
-They have a internal type *String*, which is not directly referenceable by the user. The *String* type supports strings of arbitrary length.
+They have type *LiteralString*, which is not directly referenceable by the user. The *LiteralString* type supports strings of arbitrary length.
 
 # Functions
 Functions have a `function_name`, argument types and a `return_type`. A function call is an expression of type `return_type` which looks like:
@@ -119,7 +119,7 @@ When type coercion happens, the following type conversion rules are applied:
 
 1. Expressions of any integer type can be converted to any signed or unsigned integer or float type.
 2. Expressions of any float type can be converted to any float type.
-3. Expressions of internal type *String* can be converted to any string type.
+3. Expressions of type *LiteralString* can be converted to any string type.
 
 TODO try out with forcing type casting--see what the FF's think
 TODO require explicit narrowing casts? or have a compiler warning?
@@ -128,7 +128,7 @@ TODO consider adding constants
 
 If no rule matches, then the compiler raises an error.
 
-There is currently no support for converting non-internal string expressions to other string expressions.
+There is currently no support for converting non-literal string expressions to other string expressions.
 
 # Operators
 

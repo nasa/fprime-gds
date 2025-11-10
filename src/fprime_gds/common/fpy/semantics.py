@@ -19,8 +19,8 @@ from fprime_gds.common.fpy.types import (
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
-    InternalIntValue,
-    InternalStringValue,
+    LiteralIntValue,
+    LiteralStringValue,
     LoopVarType,
     NothingValue,
     RangeValue,
@@ -248,7 +248,13 @@ class CheckBreakAndContinueInLoop(TopDownVisitor):
 
 class ResolveVarsTypesAndFuncs(TopDownVisitor):
 
-    def fully_resolve_ref(self, node: Ast, global_scope: FpyScope, global_scope_name: str, state: CompileState) -> FpyReference | None:
+    def fully_resolve_ref(
+        self,
+        node: Ast,
+        global_scope: FpyScope,
+        global_scope_name: str,
+        state: CompileState,
+    ) -> FpyReference | None:
         """resolves the given node recursively, if it is fully a reference. if at any point it
         is not a ref, or if it is a ref to something which doesn't exist, generate a compile error.
 
@@ -262,7 +268,9 @@ class ResolveVarsTypesAndFuncs(TopDownVisitor):
             parent_scope = global_scope
             name = node.var
         else:
-            parent_scope = self.fully_resolve_ref(node.parent, global_scope, global_scope_name, state)
+            parent_scope = self.fully_resolve_ref(
+                node.parent, global_scope, global_scope_name, state
+            )
             name = node.attr
 
         if parent_scope is None:
@@ -542,8 +550,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if from_type == to_type:
             # no coercion necessary
             return True
-        if from_type == InternalStringValue and issubclass(to_type, StringType):
-            # we can convert the internal String type to any string type
+        if from_type == LiteralStringValue and issubclass(to_type, StringType):
+            # we can convert the literal String type to any string type
             return True
         if not issubclass(from_type, NumericalType) or not issubclass(
             to_type, NumericalType
@@ -553,20 +561,23 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         # now we must answer:
         # are all values of from_type representable in the destination type?
-        
+
         # if we currently have a float
         if issubclass(from_type, FloatType):
             # the dest must be a float and must be >= width
-            return issubclass(to_type, FloatType) and to_type.get_bits() >= from_type.get_bits()
-        
+            return (
+                issubclass(to_type, FloatType)
+                and to_type.get_bits() >= from_type.get_bits()
+            )
+
         # otherwise must be an int
         assert issubclass(from_type, IntegerType)
 
-        if to_type == InternalIntValue:
+        if to_type == LiteralIntValue:
             # destination has arbitrary precision
             return True
-        
-        if from_type == InternalIntValue:
+
+        if from_type == LiteralIntValue:
             # this is a special case. we're going from a value which has arbitrary
             # precision. it has values which cannot fit in any finite bitwidth type
             # however, we have a big advantage: this type is only used for literals. that
@@ -581,8 +592,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # the dest must be an int with the same signedness and >= width
         from_unsigned = from_type in UNSIGNED_INTEGER_TYPES
         to_unsigned = to_type in UNSIGNED_INTEGER_TYPES
-        return from_unsigned == to_unsigned and to_type.get_bits() >= from_type.get_bits()
-        
+        return (
+            from_unsigned == to_unsigned and to_type.get_bits() >= from_type.get_bits()
+        )
 
     def pick_intermediate_type(
         self, arg_types: list[FppType], op: BinaryStackOp | UnaryStackOp
@@ -606,43 +618,36 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         # what we're trying to do here is pick a type that our bytecode can handle easiest
         # basically, one which requires the least conversion and preserves the input values the most
-        
+
         # if we have a float in the input, we're going to have to convert everything to floats
         float = any(issubclass(t, FloatType) for t in arg_types)
         if float:
             return F64Type
-        
-        # handle some special cases
+
+        # okay, no floats.
+
+        # but what if our op still results in a float, even with int inputs?
         if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
             # always do true division and exponentiation over floats, python style
+            # this is because, for the given op, even with integer inputs, we might get 
+            # float outputs
             return F64Type
+
+        literals = all(t == LiteralIntValue for t in arg_types)
+
+        # if all args are literals, then we will rely on const folding which can output
+        # more "literal" values (even tho they aren't literally in the src ast)
+        if literals:
+            return LiteralIntValue
+
+        # okay, there are at least some non-literal values
+        # so we're going to do our ops in non-literal land
+
+        unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
 
         if op == UnaryStackOp.NEGATE and unsigned:
             # negation of an unsigned integer always returns a signed int
             return I64Type
-
-        arbitrary_precision = all(
-            t == InternalIntValue or t == F64Type for t in arg_types
-        )
-
-        if arbitrary_precision:
-            # all arguments are arbitrary precision
-            # the return value should be arbitrary precision
-            if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
-                # always do true division over floats, python style
-                return F64Type
-            if float:
-                # at least one arg is a float
-                return F64Type
-            # no args are floats
-            return InternalIntValue
-
-        unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
-
-
-        if float:
-            # at least one arg is a float
-            return F64Type
 
         if unsigned:
             # at least one arg is unsigned
@@ -741,9 +746,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
                 state.err("Unknown attribute", node)
                 return
             # GetAttr should never resolve to a lexical variable; variables are accessed directly
-            assert not is_instance_compat(ref, FpyVariable), (
-                "Field resolution unexpectedly found a local variable"
-            )
+            assert not is_instance_compat(
+                ref, FpyVariable
+            ), "Field resolution unexpectedly found a local variable"
         else:
             # in all other cases, parent has at least some sort of type
             # ref may be None (if parent is some complex expr), or it may be
@@ -860,7 +865,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if is_instance_compat(node.value, float):
             result_type = F64Type
         else:
-            result_type = InternalIntValue
+            result_type = LiteralIntValue
 
         state.expr_unconverted_types[node] = result_type
         state.expr_converted_types[node] = result_type
@@ -915,8 +920,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_converted_types[node] = result_type
 
     def visit_AstString(self, node: AstString, state: CompileState):
-        state.expr_unconverted_types[node] = InternalStringValue
-        state.expr_converted_types[node] = InternalStringValue
+        state.expr_unconverted_types[node] = LiteralStringValue
+        state.expr_converted_types[node] = LiteralStringValue
 
     def visit_AstBoolean(self, node: AstBoolean, state: CompileState):
         state.expr_unconverted_types[node] = BoolType
@@ -1182,7 +1187,7 @@ class CalculateConstExprValues(Visitor):
             if type(from_val) == to_type:
                 return from_val
             if issubclass(to_type, StringType):
-                assert type(from_val) == InternalStringValue, type(from_val)
+                assert type(from_val) == LiteralStringValue, type(from_val)
                 return to_type(from_val.val)
             if issubclass(to_type, FloatType):
                 assert issubclass(type(from_val), NumericalType), type(from_val)
@@ -1561,7 +1566,7 @@ class CalculateConstExprValues(Visitor):
             return
 
         if type(folded_value) == int:
-            folded_value = InternalIntValue(folded_value)
+            folded_value = LiteralIntValue(folded_value)
         elif type(folded_value) == float:
             folded_value = F64Type(folded_value)
         elif type(folded_value) == bool:
@@ -1616,7 +1621,7 @@ class CalculateConstExprValues(Visitor):
         assert folded_value is not None
 
         if type(folded_value) == int:
-            folded_value = InternalIntValue(folded_value)
+            folded_value = LiteralIntValue(folded_value)
         elif type(folded_value) == float:
             folded_value = F64Type(folded_value)
         elif type(folded_value) == bool:

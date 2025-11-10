@@ -15,7 +15,7 @@ from fprime_gds.common.fpy.types import (
     ForLoopAnalysis,
     FppType,
     FpyReference,
-    InternalIntValue,
+    LiteralIntValue,
     LoopVarType,
     Transformer,
 )
@@ -140,7 +140,7 @@ class DesugarForLoops(Transformer):
             state,
             AstNumber(None, 1),
             expr_converted_type=LoopVarType,
-            expr_unconverted_type=InternalIntValue,
+            expr_unconverted_type=LiteralIntValue,
             expr_converted_value=LoopVarType(1),
             op_intermediate_type=None,
             resolved_reference=None,
