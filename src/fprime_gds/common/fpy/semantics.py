@@ -19,7 +19,6 @@ from fprime_gds.common.fpy.types import (
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
-    InternalFloatValue,
     InternalIntValue,
     InternalStringValue,
     LoopVarType,
@@ -539,47 +538,51 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.err(f"Expected {type.__name__}, found {unconverted_type.__name__}", node)
         return False
 
-    def can_coerce_type(self, type: FppType, to_type: FppType) -> bool:
-        if type == to_type:
+    def can_coerce_type(self, from_type: FppType, to_type: FppType) -> bool:
+        if from_type == to_type:
+            # no coercion necessary
             return True
-        if type == InternalStringValue and issubclass(to_type, StringType):
+        if from_type == InternalStringValue and issubclass(to_type, StringType):
             # we can convert the internal String type to any string type
             return True
-        if not issubclass(type, NumericalType) or not issubclass(
+        if not issubclass(from_type, NumericalType) or not issubclass(
             to_type, NumericalType
         ):
             # if one of the src or dest aren't numerical, we can't coerce
             return False
-        # for numeric types
-        # ints can only go to >= size ints, or floats
-        # and floats can only go into >= size floats
-        if issubclass(type, IntegerType):
-            if issubclass(to_type, FloatType):
-                # int to a float is allowed. yes this can cause
-                # loss of precision for large integer values
-                # TODO is this the right call?
-                return True
-            assert issubclass(to_type, IntegerType), to_type
-            # if the from_type is internal int, then it has infinite precision
-            # we'll allow interpreting this as any integer, regardless of dest bitwidth
 
-            # i think this should be impossible rn
-            assert to_type != InternalIntValue
-            return type == InternalIntValue or type.get_bits() <= to_type.get_bits()
-        if issubclass(type, FloatType):
-            if not issubclass(to_type, FloatType):
-                # definitely will fail, cannot coerce float into non float
-                return False
-            if type == InternalFloatValue:
-                # can convert the internal float type into any float type
-                return True
-            # otherwise we're going from a specific float type
+        # now we must answer:
+        # are all values of from_type representable in the destination type?
+        
+        # if we currently have a float
+        if issubclass(from_type, FloatType):
+            # the dest must be a float and must be >= width
+            return issubclass(to_type, FloatType) and to_type.get_bits() >= from_type.get_bits()
+        
+        # otherwise must be an int
+        assert issubclass(from_type, IntegerType)
 
-            # i think this should be impossible rn
-            assert to_type != InternalFloatValue
+        if to_type == InternalIntValue:
+            # destination has arbitrary precision
+            return True
+        
+        if from_type == InternalIntValue:
+            # this is a special case. we're going from a value which has arbitrary
+            # precision. it has values which cannot fit in any finite bitwidth type
+            # however, we have a big advantage: this type is only used for literals. that
+            # means we actually know what the value is, so we can actually check!
+            # however, we won't perform that check here. That will happen later in the
+            # const_convert_type func in the CalcConstExprValues
+            # for now, we will let the compilation proceed
+            return True
 
-            return type.get_bits() <= to_type.get_bits()
-        return False
+        # otherwise, both src and dest have finite bits
+
+        # the dest must be an int with the same signedness and >= width
+        from_unsigned = from_type in UNSIGNED_INTEGER_TYPES
+        to_unsigned = to_type in UNSIGNED_INTEGER_TYPES
+        return from_unsigned == to_unsigned and to_type.get_bits() >= from_type.get_bits()
+        
 
     def pick_intermediate_type(
         self, arg_types: list[FppType], op: BinaryStackOp | UnaryStackOp
@@ -597,41 +600,49 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
                     return None
                 return arg_types[0]
 
-        # all arguments should be numeric
+        # all other cases require that arguments are numeric
         if non_numeric:
-            # cannot find intermediate type
             return None
 
-        arbitrary_precision = all(
-            t == InternalIntValue or t == InternalFloatValue for t in arg_types
-        )
+        # what we're trying to do here is pick a type that our bytecode can handle easiest
+        # basically, one which requires the least conversion and preserves the input values the most
+        
+        # if we have a float in the input, we're going to have to convert everything to floats
         float = any(issubclass(t, FloatType) for t in arg_types)
+        if float:
+            return F64Type
+        
+        # handle some special cases
+        if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
+            # always do true division and exponentiation over floats, python style
+            return F64Type
+
+        if op == UnaryStackOp.NEGATE and unsigned:
+            # negation of an unsigned integer always returns a signed int
+            return I64Type
+
+        arbitrary_precision = all(
+            t == InternalIntValue or t == F64Type for t in arg_types
+        )
 
         if arbitrary_precision:
             # all arguments are arbitrary precision
             # the return value should be arbitrary precision
             if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
                 # always do true division over floats, python style
-                return InternalFloatValue
+                return F64Type
             if float:
                 # at least one arg is a float
-                return InternalFloatValue
+                return F64Type
             # no args are floats
             return InternalIntValue
 
         unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
 
-        if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
-            # always do true division over floats, python style
-            return F64Type
 
         if float:
             # at least one arg is a float
             return F64Type
-
-        if op == UnaryStackOp.NEGATE and unsigned:
-            # negation of an unsigned integer always returns a signed int
-            return I64Type
 
         if unsigned:
             # at least one arg is unsigned
@@ -847,7 +858,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # give a best guess as to the final type of this node. we don't actually know
         # its bitwidth or signedness yet
         if is_instance_compat(node.value, float):
-            result_type = InternalFloatValue
+            result_type = F64Type
         else:
             result_type = InternalIntValue
 
@@ -866,6 +877,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             )
             return
 
+        print(lhs_type, rhs_type, intermediate_type)
         if not self.coerce_expr_type(node.lhs, intermediate_type, state):
             return
         if not self.coerce_expr_type(node.rhs, intermediate_type, state):
@@ -1534,7 +1546,7 @@ class CalculateConstExprValues(Visitor):
         if type(folded_value) == int:
             folded_value = InternalIntValue(folded_value)
         elif type(folded_value) == float:
-            folded_value = InternalFloatValue(folded_value)
+            folded_value = F64Type(folded_value)
         elif type(folded_value) == bool:
             folded_value = BoolType(folded_value)
         else:
@@ -1589,7 +1601,7 @@ class CalculateConstExprValues(Visitor):
         if type(folded_value) == int:
             folded_value = InternalIntValue(folded_value)
         elif type(folded_value) == float:
-            folded_value = InternalFloatValue(folded_value)
+            folded_value = F64Type(folded_value)
         elif type(folded_value) == bool:
             folded_value = BoolType(folded_value)
         else:

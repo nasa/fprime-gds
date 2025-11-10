@@ -89,19 +89,19 @@ class InternalIntValue(IntegerType):
 
 # this is the "internal" float type that float literals have by
 # default.
-class InternalFloatValue(FloatType):
-    @staticmethod
-    def get_serialize_format():
-        raise NotImplementedError()
+# class InternalFloatValue(FloatType):
+#     @staticmethod
+#     def get_serialize_format():
+#         raise NotImplementedError()
 
-    @classmethod
-    def get_bits(cls):
-        return math.inf
+#     @classmethod
+#     def get_bits(cls):
+#         return math.inf
 
-    @classmethod
-    def validate(cls, val):
-        if not isinstance(val, (float, int)):
-            raise RuntimeError()
+#     @classmethod
+#     def validate(cls, val):
+#         if not isinstance(val, (float, int)):
+#             raise RuntimeError()
 
 
 class RangeValue(FppValue):

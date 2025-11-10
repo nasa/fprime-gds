@@ -31,7 +31,7 @@ from fprime_gds.common.fpy.types import (
     FpyMacro,
     FpyTypeCtor,
     FpyVariable,
-    InternalFloatValue,
+    F64Type,
     InternalIntValue,
     InternalStringValue,
     NothingValue,
@@ -140,7 +140,7 @@ class GenerateCode:
             return None
 
         assert not is_instance_compat(
-            expr_value, (InternalIntValue, InternalStringValue, InternalFloatValue)
+            expr_value, (InternalIntValue, InternalStringValue, F64Type)
         ), expr_value
 
         if is_instance_compat(expr_value, NothingValue):
