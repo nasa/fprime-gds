@@ -8,11 +8,6 @@ import fprime_gds.common.fpy.error as fpy_error
 import fprime_gds.common.fpy.model as fpy_model
 
 
-class DummyCompileArg(str, Enum):
-    TEST_FLAG = "test_flag"
-    ANOTHER = "another"
-
-
 @pytest.mark.parametrize(
     "size,expected",
     [
@@ -27,73 +22,20 @@ def test_human_readable_size(size, expected):
     assert fpy_main.human_readable_size(size) == expected
 
 
-@pytest.mark.parametrize(
-    "raw,expected",
-    [
-        (None, True),
-        (" true ", True),
-        ("OFF", False),
-        ("something", "something"),
-    ],
-)
-def test_coerce_flag_value(raw, expected):
-    assert fpy_main._coerce_flag_value(raw) == expected
-
-
-def test_normalize_flag_name(monkeypatch):
-    monkeypatch.setattr(fpy_main, "CompileArg", DummyCompileArg)
-    assert fpy_main._normalize_flag_name("test-flag") is DummyCompileArg.TEST_FLAG
-    assert fpy_main._normalize_flag_name("another") is DummyCompileArg.ANOTHER
-    assert fpy_main._normalize_flag_name("unknown") == "unknown"
-    with pytest.raises(ValueError):
-        fpy_main._normalize_flag_name("   ")
-
-
-def test_build_compile_args(monkeypatch):
-    monkeypatch.setattr(fpy_main, "CompileArg", DummyCompileArg)
-    entries = [
-        "test-flag=On",
-        "another=OFF",
-        "plain",
-    ]
-    result = fpy_main._build_compile_args(entries)
-    assert result[DummyCompileArg.TEST_FLAG] is True
-    assert result[DummyCompileArg.ANOTHER] is False
-    assert result["plain"] is True
-    with pytest.raises(ValueError):
-        fpy_main._build_compile_args([" "])
-    assert fpy_main._build_compile_args(None) == {}
-
-
 def test_compile_main_missing_input(tmp_path, capsys):
     missing = tmp_path / "missing.fpy"
     dict_path = tmp_path / "dict.json"
     with pytest.raises(SystemExit) as exc:
-        fpy_main.compile_main([
-            str(missing),
-            "--dictionary",
-            str(dict_path),
-        ])
+        fpy_main.compile_main(
+            [
+                str(missing),
+                "--dictionary",
+                str(dict_path),
+            ]
+        )
     assert exc.value.code == -1
     captured = capsys.readouterr()
     assert "does not exist" in captured.out
-
-
-def test_compile_main_invalid_flag(tmp_path, capsys):
-    source = tmp_path / "script.fpy"
-    source.write_text("pass\n")
-    dict_path = tmp_path / "dict.json"
-    with pytest.raises(SystemExit) as exc:
-        fpy_main.compile_main([
-            str(source),
-            "--dictionary",
-            str(dict_path),
-            "--flag",
-            "  ",
-        ])
-    assert exc.value.code == 2
-    captured = capsys.readouterr()
-    assert "cannot be empty" in captured.err
 
 
 def test_compile_main_bytecode_output(monkeypatch, tmp_path, capsys):
@@ -105,10 +47,9 @@ def test_compile_main_bytecode_output(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(fpy_error, "debug", False, raising=False)
     monkeypatch.setattr(fpy_main, "text_to_ast", lambda text: "AST")
 
-    def fake_ast_to_directives(body, dictionary, compile_args):
+    def fake_ast_to_directives(body, dictionary):
         assert body == "AST"
         assert Path(dictionary) == dict_path
-        assert compile_args == {"flag": False}
         return ["directive"]
 
     monkeypatch.setattr(fpy_main, "ast_to_directives", fake_ast_to_directives)
@@ -126,8 +67,6 @@ def test_compile_main_bytecode_output(monkeypatch, tmp_path, capsys):
             str(dict_path),
             "--bytecode",
             "--debug",
-            "--flag",
-            "flag=off",
         ]
     )
 
@@ -146,7 +85,7 @@ def test_compile_main_binary_output(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(
         fpy_main,
         "ast_to_directives",
-        lambda body, dictionary, compile_args: ["directive"],
+        lambda body, dictionary: ["directive"],
     )
     monkeypatch.setattr(fpy_main, "directives_to_fpybc", lambda directives: "FPYBC")
     monkeypatch.setattr(
@@ -160,8 +99,6 @@ def test_compile_main_binary_output(monkeypatch, tmp_path, capsys):
             str(input_path),
             "--dictionary",
             str(dict_path),
-            "--flag",
-            "flag=true",
         ]
     )
 

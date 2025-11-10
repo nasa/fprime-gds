@@ -8,7 +8,6 @@ from fprime_gds.common.fpy.types import (
     SIGNED_INTEGER_TYPES,
     SPECIFIC_NUMERIC_TYPES,
     UNSIGNED_INTEGER_TYPES,
-    CompileArg,
     CompileState,
     FieldReference,
     ForLoopAnalysis,

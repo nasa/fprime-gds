@@ -409,10 +409,6 @@ def resolve_var(node: Ast, name: str, state: CompileState) -> FpyVariable:
     return resolved
 
 
-class CompileArg(str, Enum):
-    pass
-
-
 @dataclass
 class CompileState:
     """a collection of input, internal and output state variables and maps"""
