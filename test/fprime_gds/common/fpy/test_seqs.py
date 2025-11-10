@@ -401,6 +401,19 @@ exit(1)
     )
 
 
+def test_deeply_nested_loops_exhaust_recursion_depth(fprime_test_api):
+    depth = 500
+    loop_header_lines = [
+        ("    " * level) + f"for i{level} in 0 .. 1:"
+        for level in range(depth)
+    ]
+    seq = "\n" + "\n".join(loop_header_lines) + "\n" + ("    " * depth) + "pass\n"
+
+    # Purposefully triggers RecursionError inside the compiler's parse transform.
+
+    assert_compile_failure(fprime_test_api, seq)
+
+
 def test_get_const_struct_member(fprime_test_api):
     seq = """
 var: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
@@ -2410,6 +2423,21 @@ assert abs(U64(0)) == 0
 
     assert_run_success(fprime_test_api, seq)
 
+def test_abs_internal_int(fprime_test_api):
+    seq = """
+assert abs(1) == 1
+assert abs(-1) == 1
+"""
+
+    assert_run_success(fprime_test_api, seq)
+
+def test_abs_internal_float(fprime_test_api):
+    seq = """
+assert abs(1.0) == 1.0
+assert abs(-1.0) == 1.0
+"""
+
+    assert_run_success(fprime_test_api, seq)
 
 def test_var_type_ann_bad(fprime_test_api):
     seq = """

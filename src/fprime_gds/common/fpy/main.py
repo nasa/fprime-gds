@@ -71,10 +71,18 @@ def compile_main(args: list[str] = None):
 
     if not parsed_args.input.exists():
         print(f"Input file {parsed_args.input} does not exist")
-        sys.exit(-1)
+        sys.exit(1)
     fprime_gds.common.fpy.error.file_name = str(parsed_args.input)
-    body = text_to_ast(parsed_args.input.read_text())
-    directives = ast_to_directives(body, parsed_args.dictionary)
+    try:
+        body = text_to_ast(parsed_args.input.read_text())
+    except RecursionError:
+        print("Recursion limit exceeded in parsing")
+        sys.exit(1)
+    try:
+        directives = ast_to_directives(body, parsed_args.dictionary)
+    except RecursionError:
+        print("Recursion limit exceeded in compiling")
+        sys.exit(1)
     if isinstance(
         directives,
         (
@@ -113,7 +121,7 @@ def model_main(args: list[str] = None):
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
-        sys.exit(-1)
+        sys.exit(1)
 
     if args.debug:
         fprime_gds.common.fpy.model.debug = True
@@ -145,7 +153,7 @@ def assemble_main(args: list[str] = None):
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
-        exit(-1)
+        exit(1)
 
     body = fpybc_parse(args.input.read_text())
     directives = assemble(body)
@@ -176,7 +184,7 @@ def disassemble_main(args: list[str] = None):
 
     if not args.input.exists():
         print(f"Input file {args.input} does not exist")
-        exit(-1)
+        exit(1)
 
     dirs = deserialize_directives(args.input.read_bytes())
     fpybc = directives_to_fpybc(dirs)
