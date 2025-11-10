@@ -38,6 +38,7 @@ calcsize
 calibri
 callergraph
 callgraph
+capsys
 cata
 CCB
 CCFF
@@ -99,6 +100,7 @@ docbook
 docset
 dontinclude
 DOTFONTPATH
+downcasted
 downcasting
 downfiles
 downlinker
@@ -148,6 +150,7 @@ fileurl
 Firefox
 fle
 focusring
+fors
 fne
 FONTNAME
 FONTPATH
@@ -165,6 +168,7 @@ fpybc
 fqn
 fsw
 gdiplus
+getattr
 getbootstrap
 getoption
 github
@@ -373,6 +377,7 @@ subhist
 subhistory
 superpackage
 superpkg
+sus
 tabetc
 tagfile
 tcanham

@@ -359,7 +359,7 @@ class ResolveVarsTypesAndFuncs(TopDownVisitor):
             # in this pass, we also go ahead and finish up the types because they're easy
             var_type = self.fully_resolve_ref(node.type_ann, state.types, "type", state)
             if var_type is None:
-                # alr errored
+                # already errored
                 return
             if is_instance_compat(var_type, dict):
                 # this is a ref to a namespace which contains a type, but not a type itself
