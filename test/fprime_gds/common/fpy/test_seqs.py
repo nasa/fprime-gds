@@ -2448,3 +2448,33 @@ def test_const_pow_overflow(fprime_test_api):
 """
 
     assert_compile_failure(fprime_test_api, seq)
+
+
+def test_func_call_a_namespace(fprime_test_api):
+    seq = """
+CdhCore.cmdDisp()
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_missing_struct_member(fprime_test_api):
+    seq = """
+record: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+value: U32 = record.missing_field
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_get_item_of_struct(fprime_test_api):
+    seq = """
+record: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
+value: U32 = record[0]
+"""
+    assert_compile_failure(fprime_test_api, seq)
+
+
+def test_get_item_of_namespace(fprime_test_api):
+    seq = """
+value: U32 = CdhCore.cmdDisp[0]
+"""
+    assert_compile_failure(fprime_test_api, seq)
