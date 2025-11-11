@@ -23,7 +23,7 @@
 ####
 import flask_restful
 import flask_restful.reqparse
-import fprime.common.models.serialize.type_exceptions
+import fprime_gds.common.models.serialize.type_exceptions
 import werkzeug.exceptions
 
 import fprime_gds.common.data_types.cmd_data
@@ -96,7 +96,9 @@ class Command(flask_restful.Resource):
             arg_list = []
         try:
             self.sender.send_command(command, arg_list)
-        except fprime.common.models.serialize.type_exceptions.NotInitializedException:
+        except (
+            fprime_gds.common.models.serialize.type_exceptions.NotInitializedException
+        ):
             raise MissingArgumentException()
         except fprime_gds.common.data_types.cmd_data.CommandArgumentsException as exc:
             raise CommandArgumentsInvalidException(exc.errors)

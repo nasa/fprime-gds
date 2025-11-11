@@ -3,8 +3,8 @@ import sys
 import time
 import unittest
 
-from fprime.common.models.serialize.numerical_types import I32Type
-from fprime.common.models.serialize.time_type import TimeType
+from fprime_gds.common.models.serialize.numerical_types import I32Type
+from fprime_gds.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.history.chrono import ChronologicalHistory
 from fprime_gds.common.templates.ch_template import ChTemplate

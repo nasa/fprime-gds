@@ -15,11 +15,11 @@ Based on the ConfigManager class written by Len Reder in the fprime Gse
          ALL RIGHTS RESERVED. U.S. Government Sponsorship acknowledged.
 """
 
-from fprime.common.models.serialize.numerical_types import (
+from fprime_gds.common.models.serialize.numerical_types import (
     U16Type,
     U32Type,
 )
-from fprime.common.models.serialize.type_base import BaseType
+from fprime_gds.common.models.serialize.type_base import BaseType
 from typing import Any
 
 
@@ -188,6 +188,6 @@ class ConfigManager:
                 "msg_len": U32Type,
                 # Used for processing logged data from Svc.ComLogger
                 "key_val": U16Type,
-                "use_key": False
+                "use_key": False,
             }
         )

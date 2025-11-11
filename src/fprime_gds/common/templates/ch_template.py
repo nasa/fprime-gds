@@ -10,8 +10,8 @@ reading)
 @bug No known bugs
 """
 
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.type_exceptions import TypeMismatchException
+from fprime_gds.common.models.serialize.type_base import BaseType
+from fprime_gds.common.models.serialize.type_exceptions import TypeMismatchException
 
 from . import data_template
 

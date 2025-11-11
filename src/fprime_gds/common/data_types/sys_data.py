@@ -10,7 +10,8 @@ of the data as well as data such as channel value or argument value.
 
 @bug No known bugs
 """
-from fprime.common.models.serialize import time_type
+
+from fprime_gds.common.models.serialize import time_type
 
 from fprime_gds.common.templates import data_template
 

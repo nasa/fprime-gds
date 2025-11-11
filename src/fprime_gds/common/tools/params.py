@@ -9,11 +9,11 @@ from argparse import ArgumentParser
 from typing import Any
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 from fprime_gds.common.templates.prm_template import PrmTemplate
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.array_type import ArrayType
-from fprime.common.models.serialize.bool_type import BoolType
-from fprime.common.models.serialize.enum_type import EnumType
-from fprime.common.models.serialize.numerical_types import (
+from fprime_gds.common.models.serialize.type_base import BaseType
+from fprime_gds.common.models.serialize.array_type import ArrayType
+from fprime_gds.common.models.serialize.bool_type import BoolType
+from fprime_gds.common.models.serialize.enum_type import EnumType
+from fprime_gds.common.models.serialize.numerical_types import (
     F32Type,
     F64Type,
     I8Type,
@@ -25,10 +25,10 @@ from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U64Type,
 )
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.string_type import StringType
+from fprime_gds.common.models.serialize.serializable_type import SerializableType
+from fprime_gds.common.models.serialize.string_type import StringType
 
-FW_PRM_ID_TYPE_SIZE = 4 # serialized size of the FwPrmIdType
+FW_PRM_ID_TYPE_SIZE = 4  # serialized size of the FwPrmIdType
 
 
 def instantiate_prm_type(prm_val_json, prm_type: type[BaseType]):
@@ -52,15 +52,15 @@ def instantiate_prm_type(prm_val_json, prm_type: type[BaseType]):
         prm_instance,
         (I64Type, U64Type, I32Type, U32Type, I16Type, U16Type, I8Type, U8Type),
     ):
-        prm_instance.val = int(prm_val_json, 0) if isinstance(prm_val_json, str) else int(prm_val_json)
+        prm_instance.val = (
+            int(prm_val_json, 0) if isinstance(prm_val_json, str) else int(prm_val_json)
+        )
     elif isinstance(prm_instance, StringType):
         prm_instance.val = prm_val_json
     elif isinstance(prm_instance, (ArrayType, SerializableType)):
         prm_instance.val = prm_val_json
     else:
-        raise RuntimeError(
-            "Param value could not be converted to type object"
-        )
+        raise RuntimeError("Param value could not be converted to type object")
     return prm_instance
 
 
@@ -77,7 +77,7 @@ def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, Any]]) -> b
         # for an explanation of the binary format of parameters in the .dat file
 
         # delimiter
-        serialized += b"\xA5"
+        serialized += b"\xa5"
 
         record_size = FW_PRM_ID_TYPE_SIZE + len(prm_instance_bytes)
 
@@ -90,7 +90,9 @@ def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, Any]]) -> b
     return serialized
 
 
-def parsed_json_to_seq(templates_and_values: list[tuple[PrmTemplate, dict]], include_save=False) -> list[str]:
+def parsed_json_to_seq(
+    templates_and_values: list[tuple[PrmTemplate, dict]], include_save=False
+) -> list[str]:
     """convert a list of (PrmTemplate, prm value json) to a command sequence for the CmdSequencer.
     Returns a list of lines in the sequence."""
     cmds = []
@@ -101,13 +103,16 @@ def parsed_json_to_seq(templates_and_values: list[tuple[PrmTemplate, dict]], inc
         cmd = "R00:00:00 " + set_cmd_name + " " + str(json_value)
         cmds.append(cmd)
         if include_save:
-            save_cmd = template.comp_name + "." + template.prm_name.upper() + "_PRM_SAVE"
+            save_cmd = (
+                template.comp_name + "." + template.prm_name.upper() + "_PRM_SAVE"
+            )
             cmds.append(save_cmd)
     return cmds
 
 
-
-def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_implicit_defaults=False) -> list[tuple[PrmTemplate, dict]]:
+def parse_json(
+    param_value_json, name_dict: dict[str, PrmTemplate], include_implicit_defaults=False
+) -> list[tuple[PrmTemplate, dict]]:
     """
     param_value_json: the json object read from the .json file
     name_dict: a dictionary of (fqn param name, PrmTemplate) pairs
@@ -122,9 +127,7 @@ def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_impl
             param_temp: PrmTemplate = name_dict.get(fqn_param_name, None)
             if not param_temp:
                 raise RuntimeError(
-                    "Unable to find param "
-                    + fqn_param_name
-                    + " in dictionary"
+                    "Unable to find param " + fqn_param_name + " in dictionary"
                 )
 
     # okay, now iterate over the dict
@@ -136,7 +139,7 @@ def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_impl
         if include_implicit_defaults:
             # there is a default value
             prm_val = prm_template.prm_default_val
-        
+
         comp_json = param_value_json.get(prm_template.comp_name, None)
         if comp_json:
             # if there is an entry for the component
@@ -144,7 +147,7 @@ def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_impl
                 # if there is an entry for this param
                 # get the value
                 prm_val = comp_json[prm_template.prm_name]
-        
+
         if not prm_val:
             # not writing a val for this prm
             continue
@@ -158,10 +161,14 @@ def main():
     arg_parser = ArgumentParser()
     subparsers = arg_parser.add_subparsers(dest="subcmd", required=True)
 
-
-    json_to_dat = subparsers.add_parser("dat", help="Compiles .json files into param DB .dat files")
+    json_to_dat = subparsers.add_parser(
+        "dat", help="Compiles .json files into param DB .dat files"
+    )
     json_to_dat.add_argument(
-        "json_file", type=Path, help="The .json file to turn into a .dat file", default=None
+        "json_file",
+        type=Path,
+        help="The .json file to turn into a .dat file",
+        default=None,
     )
     json_to_dat.add_argument(
         "--dictionary",
@@ -170,13 +177,23 @@ def main():
         help="The dictionary file of the FSW",
         required=True,
     )
-    json_to_dat.add_argument("--defaults", action="store_true", help="Whether or not to implicitly include default parameter values in the output")
-    json_to_dat.add_argument("--output", "-o", type=Path, help="The output file", default=None)
+    json_to_dat.add_argument(
+        "--defaults",
+        action="store_true",
+        help="Whether or not to implicitly include default parameter values in the output",
+    )
+    json_to_dat.add_argument(
+        "--output", "-o", type=Path, help="The output file", default=None
+    )
 
-
-    json_to_seq = subparsers.add_parser("seq", help="Converts .json files into command sequence .seq files")
+    json_to_seq = subparsers.add_parser(
+        "seq", help="Converts .json files into command sequence .seq files"
+    )
     json_to_seq.add_argument(
-        "json_file", type=Path, help="The .json file to turn into a .seq file", default=None
+        "json_file",
+        type=Path,
+        help="The .json file to turn into a .seq file",
+        default=None,
     )
     json_to_seq.add_argument(
         "--dictionary",
@@ -185,10 +202,19 @@ def main():
         help="The dictionary file of the FSW",
         required=True,
     )
-    json_to_seq.add_argument("--defaults", action="store_true", help="Whether or not to implicitly include default parameter values in the output")
-    json_to_seq.add_argument("--save", action="store_true", help="Whether or not to include the PRM_SAVE cmd in the output")
-    json_to_seq.add_argument("--output", "-o", type=Path, help="The output file", default=None)
-
+    json_to_seq.add_argument(
+        "--defaults",
+        action="store_true",
+        help="Whether or not to implicitly include default parameter values in the output",
+    )
+    json_to_seq.add_argument(
+        "--save",
+        action="store_true",
+        help="Whether or not to include the PRM_SAVE cmd in the output",
+    )
+    json_to_seq.add_argument(
+        "--output", "-o", type=Path, help="The output file", default=None
+    )
 
     args = arg_parser.parse_args()
 
@@ -215,11 +241,25 @@ def main():
     # when using dat need a save attribute
     if not hasattr(args, "save"):
         args.save = False
-    
-    convert_json(args.json_file, args.dictionary, output_path, output_format, args.defaults, args.save)
+
+    convert_json(
+        args.json_file,
+        args.dictionary,
+        output_path,
+        output_format,
+        args.defaults,
+        args.save,
+    )
 
 
-def convert_json(json_file: Path, dictionary: Path, output: Path, output_format: str, implicit_defaults=False, include_save_cmd=False):
+def convert_json(
+    json_file: Path,
+    dictionary: Path,
+    output: Path,
+    output_format: str,
+    implicit_defaults=False,
+    include_save_cmd=False,
+):
 
     print("Converting", json_file, "to", output, "(format: ." + output_format + ")")
     output.parent.mkdir(parents=True, exist_ok=True)

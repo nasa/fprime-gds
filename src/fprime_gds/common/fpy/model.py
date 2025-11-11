@@ -73,7 +73,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerTruncate64To8Directive,
 )
 from fprime_gds.common.templates.cmd_template import CmdTemplate
-from fprime.common.models.serialize.type_base import BaseType
+from fprime_gds.common.models.serialize.type_base import BaseType
 
 debug = True
 

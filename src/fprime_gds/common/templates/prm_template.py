@@ -1,7 +1,7 @@
 """
 @brief Params Template class
 
-Instances of this class describe a parameter of a component instance (not 
+Instances of this class describe a parameter of a component instance (not
 including a specific value)
 
 @date Created January 27, 2025
@@ -10,8 +10,8 @@ including a specific value)
 @bug Hopefully none
 """
 
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.type_exceptions import TypeMismatchException
+from fprime_gds.common.models.serialize.type_base import BaseType
+from fprime_gds.common.models.serialize.type_exceptions import TypeMismatchException
 
 from . import data_template
 

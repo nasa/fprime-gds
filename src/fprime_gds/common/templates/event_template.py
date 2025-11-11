@@ -10,8 +10,8 @@ or cmdSeq_CS_CmdStarted
 @bug No known bugs
 """
 
-from fprime.common.models.serialize import type_base
-from fprime.common.models.serialize.type_exceptions import TypeMismatchException
+from fprime_gds.common.models.serialize import type_base
+from fprime_gds.common.models.serialize.type_exceptions import TypeMismatchException
 
 from fprime_gds.common.utils.event_severity import EventSeverity
 
@@ -56,7 +56,7 @@ class EventTemplate(data_template.DataTemplate):
         if not isinstance(args, list):
             raise TypeMismatchException(list, type(args))
 
-        for (arg_name, arg_desc, arg_type) in args:
+        for arg_name, arg_desc, arg_type in args:
             if not isinstance(arg_name, str):
                 raise TypeMismatchException(str, type(arg_name))
 

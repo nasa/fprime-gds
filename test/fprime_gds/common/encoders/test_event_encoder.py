@@ -5,8 +5,8 @@ Created on Jul 10, 2020
 @author: Joseph Paetz, hpaulson
 """
 
-from fprime.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
-from fprime.common.models.serialize.time_type import TimeType
+from fprime_gds.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
+from fprime_gds.common.models.serialize.time_type import TimeType
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.encoders.event_encoder import EventEncoder
 from fprime_gds.common.templates.event_template import EventTemplate

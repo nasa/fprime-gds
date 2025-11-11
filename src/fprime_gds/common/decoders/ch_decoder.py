@@ -16,7 +16,8 @@ Example data that would be sent to a decoder that parses channels:
 
 @bug No known bugs
 """
-from fprime.common.models.serialize.time_type import TimeType
+
+from fprime_gds.common.models.serialize.time_type import TimeType
 
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.decoders.decoder import Decoder, DecodingException
@@ -65,7 +66,7 @@ class ChDecoder(Decoder):
         # list for decoded channel values
         ch_list = []
 
-        while (ptr < len(data)):
+        while ptr < len(data):
 
             # Decode Ch ID here...
             self.id_obj.deserialize(data, ptr)

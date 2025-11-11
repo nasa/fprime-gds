@@ -8,7 +8,7 @@ from fprime_gds.common.fpy.codegen import (
     SPECIFIC_FLOAT_TYPES,
     FppTypeClass,
 )
-from fprime.common.models.serialize.numerical_types import I64Type, U64Type, F64Type
+from fprime_gds.common.models.serialize.numerical_types import I64Type, U64Type, F64Type
 
 from fprime_gds.common.fpy.model import MIN_INT64, overflow_check
 from fprime_gds.common.fpy.test_helpers import (

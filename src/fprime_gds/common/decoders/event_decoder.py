@@ -14,8 +14,9 @@ Example data structure:
 
 @bug No known bugs
 """
-from fprime.common.models.serialize import time_type
-from fprime.common.models.serialize.type_exceptions import TypeException
+
+from fprime_gds.common.models.serialize import time_type
+from fprime_gds.common.models.serialize.type_exceptions import TypeException
 
 from fprime_gds.common.data_types import event_data
 from fprime_gds.common.decoders import decoder
@@ -23,7 +24,9 @@ from fprime_gds.common.decoders.decoder import DecodingException
 from fprime_gds.common.utils import config_manager
 
 import logging
+
 LOGGER = logging.getLogger("event_decoder")
+
 
 class EventDecoder(decoder.Decoder):
     """Decoder class for event data"""
@@ -66,7 +69,7 @@ class EventDecoder(decoder.Decoder):
 
         event_list = []
 
-        while (ptr < len(data)):
+        while ptr < len(data):
 
             # Decode event ID here...
             if ptr + self.id_obj.getSize() <= len(data):

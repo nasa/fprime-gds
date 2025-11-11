@@ -11,8 +11,8 @@ Instances of this class describe a specific command type.
 
 import copy
 
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.type_exceptions import (
+from fprime_gds.common.models.serialize.type_base import BaseType
+from fprime_gds.common.models.serialize.type_exceptions import (
     ArgLengthMismatchException,
     TypeMismatchException,
 )
@@ -52,7 +52,7 @@ class CmdTemplate(data_template.DataTemplate):
         if not isinstance(arguments, list):
             raise TypeMismatchException(list, type(arguments))
 
-        for (argname, argdesc, argtype) in arguments:
+        for argname, argdesc, argtype in arguments:
             #
             if not isinstance(argname, str):
                 raise TypeMismatchException(int, type(argname))
@@ -180,6 +180,6 @@ class CmdTemplate(data_template.DataTemplate):
         arg_strs = []
         for arg in self.arguments:
             arg_strs.append(arg[0] + ": " + str(arg[2]))
-            
+
         args_str = ", ".join(arg_strs)
         return f"CmdTemplate({self.comp_name}.{self.mnemonic}, args: ({args_str}))"

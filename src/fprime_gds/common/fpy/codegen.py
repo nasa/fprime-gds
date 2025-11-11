@@ -39,6 +39,7 @@ from fprime_gds.common.fpy.types import (
 )
 
 from fprime_gds.common.fpy.error import CompileError
+
 # In Python 3.10+, the `|` operator creates a `types.UnionType`.
 # We need to handle this for forward compatibility, but it won't exist in 3.9.
 try:
@@ -97,12 +98,12 @@ from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
-from fprime.common.models.serialize.time_type import TimeType
-from fprime.common.models.serialize.enum_type import EnumType
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.array_type import ArrayType
-from fprime.common.models.serialize.type_exceptions import TypeException
-from fprime.common.models.serialize.numerical_types import (
+from fprime_gds.common.models.serialize.time_type import TimeType
+from fprime_gds.common.models.serialize.enum_type import EnumType
+from fprime_gds.common.models.serialize.serializable_type import SerializableType
+from fprime_gds.common.models.serialize.array_type import ArrayType
+from fprime_gds.common.models.serialize.type_exceptions import TypeException
+from fprime_gds.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
     U64Type,
@@ -114,8 +115,8 @@ from fprime.common.models.serialize.numerical_types import (
     IntegerType,
     NumericalType,
 )
-from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.bool_type import BoolType
+from fprime_gds.common.models.serialize.string_type import StringType
+from fprime_gds.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
     AstBinaryOp,
     AstBoolean,
@@ -138,7 +139,7 @@ from fprime_gds.common.fpy.parser import (
     AstUnaryOp,
     AstVar,
 )
-from fprime.common.models.serialize.type_base import BaseType as FppType
+from fprime_gds.common.models.serialize.type_base import BaseType as FppType
 
 
 class AssignIds(TopDownVisitor):
@@ -1292,6 +1293,7 @@ class GenerateBodyDirectives(Visitor):
 
         state.directives[node] = dirs
 
+
 def get_base_compile_state(dictionary: str) -> CompileState:
     """return the initial state of the compiler, based on the given dict path"""
     cmd_json_dict_loader = CmdJsonLoader(dictionary)
@@ -1423,7 +1425,11 @@ def compile(body: AstScopedBody, dictionary: str) -> list[Directive]:
 
     dirs = state.directives[body]
     if len(dirs) > MAX_DIRECTIVES_COUNT:
-        print(CompileError(f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"))
+        print(
+            CompileError(
+                f"Too many directives in sequence (expected less than {MAX_DIRECTIVES_COUNT}, had {len(dirs)})"
+            )
+        )
         exit(1)
 
     return dirs

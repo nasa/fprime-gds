@@ -5,7 +5,7 @@ GDS CLI uses
 
 import fprime_gds.common.gds_cli.filtering_utils as filtering_utils
 import pytest
-from fprime.common.models.serialize import time_type
+from fprime_gds.common.models.serialize import time_type
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.templates.event_template import EventTemplate
 from fprime_gds.common.testing_fw import predicates

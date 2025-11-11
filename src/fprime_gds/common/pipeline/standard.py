@@ -14,7 +14,7 @@ import os.path
 from pathlib import Path
 from typing import Type
 
-import fprime.common.models.serialize.time_type
+import fprime_gds.common.models.serialize.time_type
 
 import fprime_gds.common.data_types.cmd_data
 import fprime_gds.common.distributor.distributor
@@ -200,7 +200,7 @@ class StandardPipeline:
         cmd_data = fprime_gds.common.data_types.cmd_data.CmdData(
             tuple(args), command_template
         )
-        cmd_data.time = fprime.common.models.serialize.time_type.TimeType()
+        cmd_data.time = fprime_gds.common.models.serialize.time_type.TimeType()
         cmd_data.time.set_datetime(datetime.datetime.now(), 2)
         self.coders.send_command(cmd_data)
 
@@ -242,5 +242,5 @@ class StandardPipeline:
 
     @property
     def dictionaries(self):
-        """ Dictionaries member """
+        """Dictionaries member"""
         return self.__dictionaries

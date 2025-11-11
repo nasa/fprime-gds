@@ -6,9 +6,9 @@ Created on Jan 11, 2025
 """
 
 import unittest
-from fprime.common.models.serialize.bool_type import BoolType
-import fprime.common.models.serialize.numerical_types as numerical_types
-from fprime.common.models.serialize.string_type import StringType
+from fprime_gds.common.models.serialize.bool_type import BoolType
+import fprime_gds.common.models.serialize.numerical_types as numerical_types
+from fprime_gds.common.models.serialize.string_type import StringType
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.data_types.cmd_data import CmdData
 
@@ -23,7 +23,7 @@ class CmdDataTest(unittest.TestCase):
         component = "PythonTests"
         arguments = [("status", None, BoolType)]
         command_template = CmdTemplate(opcode, mnemonic, component, arguments)
-        cmd_data = CmdData((True, ), command_template)
+        cmd_data = CmdData((True,), command_template)
 
         data_str = cmd_data.get_str()
 
@@ -36,9 +36,11 @@ class CmdDataTest(unittest.TestCase):
         opcode = 43
         mnemonic = "TEST_CMD_NUMERICS"
         component = "PythonTests"
-        arguments = [("just_int", None, numerical_types.U32Type),
-                     ("just_float", None, numerical_types.F64Type),
-                     ("just_byte", None, numerical_types.I8Type)]
+        arguments = [
+            ("just_int", None, numerical_types.U32Type),
+            ("just_float", None, numerical_types.F64Type),
+            ("just_byte", None, numerical_types.I8Type),
+        ]
         command_template = CmdTemplate(opcode, mnemonic, component, arguments)
         cmd_data = CmdData((12345, 98.765, 127), command_template)
 
@@ -53,9 +55,11 @@ class CmdDataTest(unittest.TestCase):
         opcode = 44
         mnemonic = "TEST_CMD_STR"
         component = "PythonTests"
-        arguments = [("just_string", None, StringType.construct_type(f"String_{128}", 128))]
+        arguments = [
+            ("just_string", None, StringType.construct_type(f"String_{128}", 128))
+        ]
         command_template = CmdTemplate(opcode, mnemonic, component, arguments)
-        cmd_data = CmdData(("Everything is good", ), command_template)
+        cmd_data = CmdData(("Everything is good",), command_template)
 
         data_str = cmd_data.get_str()
 

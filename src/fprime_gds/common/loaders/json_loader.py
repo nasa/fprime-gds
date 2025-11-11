@@ -9,13 +9,13 @@ Base class for all loaders that load dictionaries from json dictionaries
 import json
 from typing import Optional
 
-from fprime.common.models.serialize.array_type import ArrayType
-from fprime.common.models.serialize.bool_type import BoolType
-from fprime.common.models.serialize.enum_type import EnumType
-import fprime.common.models.serialize.numerical_types as numerical_types
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.type_base import DictionaryType
+from fprime_gds.common.models.serialize.array_type import ArrayType
+from fprime_gds.common.models.serialize.bool_type import BoolType
+from fprime_gds.common.models.serialize.enum_type import EnumType
+import fprime_gds.common.models.serialize.numerical_types as numerical_types
+from fprime_gds.common.models.serialize.serializable_type import SerializableType
+from fprime_gds.common.models.serialize.string_type import StringType
+from fprime_gds.common.models.serialize.type_base import DictionaryType
 
 from fprime_gds.common.utils.string_util import preprocess_fpp_format_str
 from fprime_gds.common.loaders import dict_loader

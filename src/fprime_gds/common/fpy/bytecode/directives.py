@@ -18,8 +18,8 @@ from typing import Union
 from pathlib import Path
 import struct
 import zlib
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.numerical_types import (
+from fprime_gds.common.models.serialize.type_base import BaseType
+from fprime_gds.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
     U64Type,
@@ -31,7 +31,7 @@ from fprime.common.models.serialize.numerical_types import (
     F32Type,
     F64Type,
 )
-from fprime.common.models.serialize.bool_type import BoolType
+from fprime_gds.common.models.serialize.bool_type import BoolType
 from enum import Enum
 
 
@@ -254,6 +254,7 @@ class Directive:
 
         dir = dir_type(*arg_values)
         return offset, dir
+
 
 @dataclass
 class StackOpDirective(Directive):
@@ -740,7 +741,7 @@ UNARY_STACK_OPS: dict[str, dict[type[BaseType], type[StackOpDirective]]] = {
     UnaryStackOp.NEGATE: {
         I64Type: IntMultiplyDirective,
         U64Type: IntMultiplyDirective,
-        F64Type: FloatMultiplyDirective
+        F64Type: FloatMultiplyDirective,
     },
 }
 

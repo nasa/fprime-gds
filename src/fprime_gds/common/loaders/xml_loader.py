@@ -16,10 +16,10 @@ helper functions
 
 import os
 
-from fprime.common.models.serialize.array_type import ArrayType
-from fprime.common.models.serialize.bool_type import BoolType
-from fprime.common.models.serialize.enum_type import EnumType
-from fprime.common.models.serialize.numerical_types import (
+from fprime_gds.common.models.serialize.array_type import ArrayType
+from fprime_gds.common.models.serialize.bool_type import BoolType
+from fprime_gds.common.models.serialize.enum_type import EnumType
+from fprime_gds.common.models.serialize.numerical_types import (
     F32Type,
     F64Type,
     I8Type,
@@ -31,8 +31,8 @@ from fprime.common.models.serialize.numerical_types import (
     U32Type,
     U64Type,
 )
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.string_type import StringType
+from fprime_gds.common.models.serialize.serializable_type import SerializableType
+from fprime_gds.common.models.serialize.string_type import StringType
 from lxml import etree
 
 from fprime_gds.common.utils.string_util import preprocess_c_style_format_str

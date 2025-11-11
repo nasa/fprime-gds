@@ -5,8 +5,8 @@ import time
 import unittest
 
 # these imports are needed to generate data objects.
-from fprime.common.models.serialize.numerical_types import I32Type, U32Type
-from fprime.common.models.serialize.time_type import TimeType
+from fprime_gds.common.models.serialize.numerical_types import I32Type, U32Type
+from fprime_gds.common.models.serialize.time_type import TimeType
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.cmd_data import CmdData
@@ -81,9 +81,7 @@ class APITestCases(unittest.TestCase):
 
         # Load test dictionary
         dictionaries = Dictionaries()
-        dictionaries.load_dictionaries(
-            path, None, None
-        )
+        dictionaries.load_dictionaries(path, None, None)
 
         file_store = os.path.join(os.path.dirname(__file__), "./")
         cls.pipeline.setup(config, dictionaries, file_store)
@@ -120,7 +118,11 @@ class APITestCases(unittest.TestCase):
             callback(item)
 
     def fill_history_async(self, callback, items, timestep=1.0):
-        t = threading.Thread(target=self.fill_history, name="FillHistoryAsync", args=(callback, items, timestep))
+        t = threading.Thread(
+            target=self.fill_history,
+            name="FillHistoryAsync",
+            args=(callback, items, timestep),
+        )
         self.threads.append(t)
         t.start()
         return t
@@ -661,9 +663,16 @@ class APITestCases(unittest.TestCase):
             assert True, "the api raised the correct error"
 
     def test_translate_telemetry_name_search(self):
-        assert self.api.translate_telemetry_name("CommandCounter", force_component=False) == [1]
-        assert self.api.translate_telemetry_name("Oscillator", force_component=False) == [2]
-        assert self.api.translate_telemetry_name("Counter", force_component=False) == [3, 4]
+        assert self.api.translate_telemetry_name(
+            "CommandCounter", force_component=False
+        ) == [1]
+        assert self.api.translate_telemetry_name(
+            "Oscillator", force_component=False
+        ) == [2]
+        assert self.api.translate_telemetry_name("Counter", force_component=False) == [
+            3,
+            4,
+        ]
         assert self.api.translate_telemetry_name(1, force_component=False) == 1
         assert self.api.translate_telemetry_name(2, force_component=False) == 2
         assert self.api.translate_telemetry_name(3, force_component=False) == 3
@@ -901,15 +910,33 @@ class APITestCases(unittest.TestCase):
             assert True, "the api raised the correct error"
 
     def test_translate_event_name_search(self):
-        assert self.api.translate_event_name("CommandReceived", force_component=False) == [1]
-        assert self.api.translate_event_name("HistorySizeUpdate", force_component=False) == [2]
-        assert self.api.translate_event_name("SeverityCOMMAND", force_component=False) == [3]
-        assert self.api.translate_event_name("SeverityACTIVITY_LO", force_component=False) == [4]
-        assert self.api.translate_event_name("SeverityACTIVITY_HI", force_component=False) == [5]
-        assert self.api.translate_event_name("SeverityWARNING_LO", force_component=False) == [6]
-        assert self.api.translate_event_name("SeverityWARNING_HI", force_component=False) == [7]
-        assert self.api.translate_event_name("SeverityDIAGNOSTIC", force_component=False) == [8]
-        assert self.api.translate_event_name("SeverityFATAL", force_component=False) == [9, 10]
+        assert self.api.translate_event_name(
+            "CommandReceived", force_component=False
+        ) == [1]
+        assert self.api.translate_event_name(
+            "HistorySizeUpdate", force_component=False
+        ) == [2]
+        assert self.api.translate_event_name(
+            "SeverityCOMMAND", force_component=False
+        ) == [3]
+        assert self.api.translate_event_name(
+            "SeverityACTIVITY_LO", force_component=False
+        ) == [4]
+        assert self.api.translate_event_name(
+            "SeverityACTIVITY_HI", force_component=False
+        ) == [5]
+        assert self.api.translate_event_name(
+            "SeverityWARNING_LO", force_component=False
+        ) == [6]
+        assert self.api.translate_event_name(
+            "SeverityWARNING_HI", force_component=False
+        ) == [7]
+        assert self.api.translate_event_name(
+            "SeverityDIAGNOSTIC", force_component=False
+        ) == [8]
+        assert self.api.translate_event_name(
+            "SeverityFATAL", force_component=False
+        ) == [9, 10]
         for i in range(1, 11):
             assert self.api.translate_event_name(i, force_component=False) == i
 

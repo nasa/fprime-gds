@@ -1,4 +1,4 @@
-from fprime.common.models.serialize.numerical_types import U32Type
+from fprime_gds.common.models.serialize.numerical_types import U32Type
 import pytest
 from fprime_gds.common.fpy.test_helpers import (
     assert_run_success,
@@ -409,6 +409,7 @@ exit(False)
 """
     assert_run_success(fprime_test_api, seq)
 
+
 def test_struct_ctor_var_arg(fprime_test_api):
     seq = """
 id: U32 = 111
@@ -434,6 +435,7 @@ exit(False)
 """
 
     assert_run_success(fprime_test_api, seq)
+
 
 def test_f32_f64_cmp(fprime_test_api):
     seq = """

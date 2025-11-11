@@ -14,7 +14,7 @@ from pathlib import Path
 import shutil
 import json
 
-from fprime.common.models.serialize.time_type import TimeType
+from fprime_gds.common.models.serialize.time_type import TimeType
 
 from fprime_gds.common.handlers import DataHandler
 from fprime_gds.common.history.chrono import ChronologicalHistory
@@ -87,7 +87,7 @@ class IntegrationTestAPI(DataHandler):
 
     @property
     def dictionaries(self):
-        """ Return the dictionaries """
+        """Return the dictionaries"""
         # Pipeline should not be exposed to the user, but it stores the dictionary
         # thus delegate to it.
         return self.pipeline.dictionaries

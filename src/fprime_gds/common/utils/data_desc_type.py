@@ -7,8 +7,8 @@ Defines an enumeration that represents each type of data packet that can be down
 from enum import Enum
 from typing import Any
 from fprime_gds.common.utils.config_manager import ConfigBadTypeException, ConfigManager
-from fprime.common.models.serialize.numerical_types import U16Type
-import fprime.common.models.serialize.enum_type as enum_type
+from fprime_gds.common.models.serialize.numerical_types import U16Type
+import fprime_gds.common.models.serialize.enum_type as enum_type
 
 
 class MetaDescType(type):

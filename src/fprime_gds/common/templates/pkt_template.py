@@ -11,7 +11,7 @@ describe the packet with ID 5 and channels A, B, and C in that order.
 @bug No known bugs
 """
 
-from fprime.common.models.serialize.type_exceptions import TypeMismatchException
+from fprime_gds.common.models.serialize.type_exceptions import TypeMismatchException
 
 from . import ch_template, data_template
 

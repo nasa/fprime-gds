@@ -7,11 +7,11 @@ Created on Jan 5, 2015
 import copy
 from enum import Enum
 
-from fprime.common.models.serialize.numerical_types import U32Type
-from fprime.common.models.serialize.type_base import BaseType
+from fprime_gds.common.models.serialize.numerical_types import U32Type
+from fprime_gds.common.models.serialize.type_base import BaseType
 
 # Import the types this way so they do not need prefixing for execution.
-from fprime.common.models.serialize.type_exceptions import (
+from fprime_gds.common.models.serialize.type_exceptions import (
     ArgLengthMismatchException,
     ArgNotFoundException,
     TypeMismatchException,
@@ -57,7 +57,7 @@ class Command:
         if not isinstance(arguments, list):
             raise TypeMismatchException(list, type(arguments))
 
-        for (argname, argdesc, argtype) in arguments:
+        for argname, argdesc, argtype in arguments:
             #
             if not isinstance(argname, str):
                 raise TypeMismatchException(str, type(argname))
@@ -89,7 +89,7 @@ class Command:
         ser_data = opcode.serialize()
 
         # then, serialize arguments
-        for (arg_name, arg_desc, arg_type) in self.__arguments:
+        for arg_name, arg_desc, arg_type in self.__arguments:
             ser_data += arg_type.serialize()
         return ser_data
 
@@ -150,7 +150,7 @@ class Command:
         new_arg_list = []
         found = False
         # search for argument
-        for (arg, arg_desc, arg_value) in self.__arguments:
+        for arg, arg_desc, arg_value in self.__arguments:
             if arg_name == arg:
                 arg_value = arg_type
                 found = True

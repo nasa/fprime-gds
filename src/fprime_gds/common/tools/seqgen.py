@@ -17,7 +17,7 @@ import argparse
 import os
 import sys
 
-from fprime.common.models.serialize.time_type import TimeBase, TimeType
+from fprime_gds.common.models.serialize.time_type import TimeBase, TimeType
 
 from fprime_gds.common.data_types import exceptions as gseExceptions
 from fprime_gds.common.data_types.cmd_data import CmdData, CommandArgumentsException

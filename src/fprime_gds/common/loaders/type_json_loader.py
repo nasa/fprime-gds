@@ -8,8 +8,8 @@ Loads flight dictionary (JSON) and returns name based Python dictionaries of Fw 
 
 from fprime_gds.common.loaders.json_loader import JsonLoader
 from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
-from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.numerical_types import U16Type
+from fprime_gds.common.models.serialize.string_type import StringType
+from fprime_gds.common.models.serialize.numerical_types import U16Type
 
 
 class TypeJsonLoader(JsonLoader):

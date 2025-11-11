@@ -31,10 +31,10 @@ from fprime_gds.common.fpy.bytecode.directives import (
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
-from fprime.common.models.serialize.time_type import TimeType
-from fprime.common.models.serialize.serializable_type import SerializableType
-from fprime.common.models.serialize.array_type import ArrayType
-from fprime.common.models.serialize.numerical_types import (
+from fprime_gds.common.models.serialize.time_type import TimeType
+from fprime_gds.common.models.serialize.serializable_type import SerializableType
+from fprime_gds.common.models.serialize.array_type import ArrayType
+from fprime_gds.common.models.serialize.numerical_types import (
     U32Type,
     U16Type,
     U64Type,
@@ -47,8 +47,8 @@ from fprime.common.models.serialize.numerical_types import (
     F64Type,
     IntegerType,
 )
-from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.bool_type import BoolType
+from fprime_gds.common.models.serialize.string_type import StringType
+from fprime_gds.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.fpy.parser import (
     AstExpr,
     AstOp,
@@ -56,7 +56,7 @@ from fprime_gds.common.fpy.parser import (
     Ast,
     AstAssign,
 )
-from fprime.common.models.serialize.type_base import BaseType as FppType
+from fprime_gds.common.models.serialize.type_base import BaseType as FppType
 
 MAX_DIRECTIVES_COUNT = 1024
 MAX_DIRECTIVE_SIZE = 2048
@@ -167,6 +167,7 @@ class NothingType(ABC):
 
 # the `type` object representing the NothingType class
 NothingTypeClass = type[NothingType]
+
 
 @dataclass
 class FpyCallable:
@@ -576,7 +577,9 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
     header = Header(*struct.unpack_from(HEADER_FORMAT, bytes))
 
     if header.schemaVersion != SCHEMA_VERSION:
-        raise RuntimeError(f"Schema version wrong (expected {SCHEMA_VERSION} found {header.schemaVersion})")
+        raise RuntimeError(
+            f"Schema version wrong (expected {SCHEMA_VERSION} found {header.schemaVersion})"
+        )
 
     dirs = []
     idx = 0
@@ -590,7 +593,9 @@ def deserialize_directives(bytes: bytes) -> list[Directive]:
         idx += 1
 
     if offset != len(bytes) - FOOTER_SIZE:
-        raise RuntimeError(f"{len(bytes) - FOOTER_SIZE - offset} extra bytes at end of sequence")
+        raise RuntimeError(
+            f"{len(bytes) - FOOTER_SIZE - offset} extra bytes at end of sequence"
+        )
 
     return dirs
 
@@ -601,9 +606,11 @@ def serialize_directives(dirs: list[Directive]) -> tuple[bytes, int]:
     for dir in dirs:
         dir_bytes = dir.serialize()
         if len(dir_bytes) > MAX_DIRECTIVE_SIZE:
-            print(CompileError(
-                f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})"
-            ))
+            print(
+                CompileError(
+                    f"Directive {dir} in sequence too large (expected less than {MAX_DIRECTIVE_SIZE}, was {len(dir_bytes)})"
+                )
+            )
             exit(1)
         output_bytes += dir_bytes
 

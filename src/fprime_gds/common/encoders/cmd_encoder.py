@@ -41,8 +41,7 @@ Serialized command format:
 @bug No known bugs
 """
 
-
-from fprime.common.models.serialize.numerical_types import U32Type
+from fprime_gds.common.models.serialize.numerical_types import U32Type
 
 from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.utils import config_manager
