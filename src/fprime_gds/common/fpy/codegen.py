@@ -28,6 +28,7 @@ from fprime_gds.common.fpy.types import (
     FppType,
     FpyCast,
     FpyCmd,
+    FpyFloatValue,
     FpyMacro,
     FpyTypeCtor,
     FpyVariable,
@@ -139,7 +140,7 @@ class GenerateCode:
             return None
 
         assert not is_instance_compat(
-            expr_value, (FpyIntegerValue, FpyStringValue, F64Value)
+            expr_value, (FpyIntegerValue, FpyStringValue, FpyFloatValue)
         ), expr_value
 
         if is_instance_compat(expr_value, NothingValue):

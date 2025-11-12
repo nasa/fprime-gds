@@ -40,6 +40,7 @@ from fprime.common.models.serialize.numerical_types import (
     F64Type as F64Value,
     IntegerType as IntegerValue,
     FloatType as FloatValue,
+    NumericalType as NumericalValue
 )
 from fprime.common.models.serialize.string_type import StringType as StringValue
 from fprime_gds.common.fpy.syntax import (
@@ -63,6 +64,20 @@ MAX_DIRECTIVE_SIZE = 2048
 MAX_STACK_SIZE = 1024
 
 COMPILER_MAX_STRING_SIZE = 128
+
+def typename(typ: FppType) -> str:
+    if typ == FpyIntegerValue:
+        return "Integer"
+    if typ == FpyFloatValue:
+        return "Float"
+    if issubclass(typ, NumericalValue):
+        return typ.get_canonical_name()
+    if typ == FpyStringValue:
+        return "String"
+    if typ == RangeValue:
+        return "Range"
+    return str(typ)
+    
 
 LoopVarValue = I64Value
 
@@ -221,11 +236,6 @@ class FpyCallable:
     name: str
     return_type: FppType | NothingType
     args: list[tuple[str, FppType]]
-
-
-@dataclass
-class FpyOverloadedCallable:
-    callables: list[FpyCallable]
 
 
 @dataclass
@@ -397,7 +407,6 @@ FpyReference = typing.Union[
     PrmTemplate,
     FppValue,
     FpyCallable,
-    FpyOverloadedCallable,
     FppType,
     FpyVariable,
     FieldReference,

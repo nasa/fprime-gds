@@ -17,7 +17,6 @@ from fprime_gds.common.fpy.types import (
     FpyCallable,
     FpyCast,
     FpyFloatValue,
-    FpyOverloadedCallable,
     FpyReference,
     FpyScope,
     FpyTypeCtor,
@@ -31,6 +30,7 @@ from fprime_gds.common.fpy.types import (
     Visitor,
     is_instance_compat,
     resolve_var,
+    typename,
 )
 
 # In Python 3.10+, the `|` operator creates a `types.UnionType`.
@@ -205,7 +205,7 @@ class CreateVariables(TopDownVisitor):
                 )
             ):
                 state.err(
-                    f"'{node.loop_var.var}' has already been declared as a type other than {LoopVarValue.__name__}",
+                    f"'{node.loop_var.var}' has already been declared as a type other than {typename(LoopVarValue)}",
                     node,
                 )
                 return
@@ -336,8 +336,8 @@ class ResolveVarsTypesAndFuncs(TopDownVisitor):
             state.err(f"Unknown function", node.func)
             return
         # otherwise:
-        # must be a callable or overloaded callable because we resolved it in callables
-        assert is_instance_compat(func, (FpyCallable, FpyOverloadedCallable)), func
+        # must be a callable because we resolved it in callables
+        assert is_instance_compat(func, FpyCallable), func
 
         for arg in node.args if node.args is not None else []:
             # arg value refs must have values at runtime
@@ -546,7 +546,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if self.can_coerce_type(unconverted_type, type):
             state.expr_converted_types[node] = type
             return True
-        state.err(f"Expected {type.__name__}, found {unconverted_type.__name__}", node)
+        state.err(f"Expected {typename(type)}, found {typename(unconverted_type)}", node)
         return False
 
     def can_coerce_type(self, from_type: FppType, to_type: FppType) -> bool:
@@ -565,6 +565,12 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         # now we must answer:
         # are all values of from_type representable in the destination type?
+
+        # if going between integer/float, definitely not
+        if (
+            issubclass(from_type, FloatValue) and issubclass(to_type, IntegerValue)
+        ) or (issubclass(from_type, IntegerValue) and issubclass(to_type, FloatValue)):
+            return False
 
         # in general: if either src or dest is one of our FpyXYZValue types, which are
         # arb precision, we allow this coercion.
@@ -586,11 +592,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         # if we currently have a float
         if issubclass(from_type, FloatValue):
-            # the dest must be a float and must be >= width
-            return (
-                issubclass(to_type, FloatValue)
-                and to_type.get_bits() >= from_type.get_bits()
-            )
+            # the dest must be a float (already checked) and must be >= width
+            return to_type.get_bits() >= from_type.get_bits()
 
         # otherwise must be an int
         assert issubclass(from_type, IntegerValue)
@@ -612,7 +615,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         non_numeric = any(not issubclass(t, NumericalValue) for t in arg_types)
 
-        if op == BinaryStackOp.EQUAL or op == BinaryStackOp.NOT_EQUAL and non_numeric:
+        if (op == BinaryStackOp.EQUAL or op == BinaryStackOp.NOT_EQUAL) and non_numeric:
             # comparison of complex types (structs/strings/arrays/enum consts)
             if len(set(arg_types)) != 1:
                 # can only compare equality between the same types
@@ -632,6 +635,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             # this is because, for the given op, even with integer inputs, we might get
             # float outputs
             type_category = "float"
+            # TODO problem: this means that if we do I32 / F32, it doesn't work b/c we can't convert I32 to F32
         elif any(issubclass(t, FloatValue) for t in arg_types):
             # otherwise if any args are floats, use float
             type_category = "float"
@@ -728,9 +732,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         elif isinstance(ref, dict):
             # reference to a scope. scopes don't have values
             result_type = NothingValue
-        elif isinstance(ref, FpyOverloadedCallable):
-            # overloaded callables should end up being resolved into FpyCallables
-            result_type = NothingValue
         else:
             assert False, ref
 
@@ -800,7 +801,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         if ref is None:
             state.err(
-                f"{parent_type.__name__} has no member named {node.attr}",
+                f"{typename(parent_type)} has no member named {node.attr}",
                 node,
             )
             return
@@ -824,13 +825,13 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         if not self.is_type_constant_size(parent_type):
             state.err(
-                f"{parent_type.__name__} has non-constant sized members, cannot access items",
+                f"{typename(parent_type)} has non-constant sized members, cannot access items",
                 node,
             )
             return
 
         if not issubclass(parent_type, ArrayValue):
-            state.err(f"{parent_type.__name__} is not an array", node)
+            state.err(f"{typename(parent_type)} is not an array", node)
             return
 
         # coerce the index expression to array index type
@@ -883,7 +884,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         intermediate_type = self.pick_intermediate_type([lhs_type, rhs_type], node.op)
         if intermediate_type is None:
             state.err(
-                f"Op {node.op} undefined for {lhs_type.__name__}, {rhs_type.__name__}",
+                f"Op {node.op} undefined for {typename(lhs_type)}, {typename(rhs_type)}",
                 node,
             )
             return
@@ -909,7 +910,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         intermediate_type = self.pick_intermediate_type([val_type], node.op)
         if intermediate_type is None:
-            state.err(f"Op {node.op} undefined for {val_type.__name__}", node)
+            state.err(f"Op {node.op} undefined for {typename(val_type)}", node)
             return
 
         if not self.coerce_expr_type(node.val, intermediate_type, state):
@@ -966,7 +967,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             if not issubclass(input_type, NumericalValue):
                 # cannot convert a non-numeric type to a numeric type
                 return CompileError(
-                    f"Expected a number, found {input_type.__name__}", node_arg
+                    f"Expected a number, found {typename(input_type)}", node_arg
                 )
             # no error! looks good to me
             return
@@ -977,93 +978,11 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             unconverted_type = state.expr_unconverted_types[value_expr]
             if not self.can_coerce_type(unconverted_type, arg_type):
                 return CompileError(
-                    f"Expected {arg_type.__name__}, found {unconverted_type.__name__}",
+                    f"Expected {typename(arg_type)}, found {typename(unconverted_type)}",
                     node,
                 )
         # all args r good
         return
-
-    def resolve_overloaded_func(
-        self,
-        node: AstFuncCall,
-        overloaded_func: FpyOverloadedCallable,
-        node_args: list[AstExpr],
-        state: CompileState,
-    ) -> FpyCallable | None:
-        # algorithm:
-        # find all funcs that we could possibly call with these args
-        # give them each a cost: 0 per arg if arg exactly matches, 1 otherwise
-        impossible_funcs: list[tuple[FpyCallable, CompileError]] = []
-        possible_funcs = []
-        for func in overloaded_func.callables:
-            error = self.check_args_coercible_to_func(node, func, node_args, state)
-            if error is None:
-                # no compile error. matches!
-                possible_funcs.append(func)
-            else:
-                impossible_funcs.append((func, error))
-
-        if len(possible_funcs) == 0:
-            # this call is unresolvable
-            # make a nice err msg
-            node_arg_types = []
-            for node_arg in node_args:
-                node_arg_types.append(state.expr_unconverted_types[node_arg])
-            arg_type_name_list = ", ".join(t.__name__ for t in node_arg_types)
-
-            functions_tried = []
-            for func in overloaded_func.callables:
-                f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in func.args)
-                functions_tried.append(
-                    f"{func.name}({f_arg_type_name_list}) -> {func.return_type.__name__}"
-                )
-            functions_tried = "\n    ".join(functions_tried)
-            state.err(
-                f"No function matches the argument list: {arg_type_name_list}\nTried:\n    {functions_tried}",
-                node,
-            )
-            return
-
-        funcs_and_costs: list[tuple[FpyCallable, int]] = []
-        for func in possible_funcs:
-            cost = 0
-            for value_expr, arg in zip(node_args, func.args):
-                arg_name, arg_type = arg
-
-                unconverted_type = state.expr_unconverted_types[value_expr]
-                if arg_type != unconverted_type:
-                    # we have to coerce it
-                    cost += 1
-            funcs_and_costs.append((func, cost))
-
-        lowest_cost = min(cost for func, cost in funcs_and_costs)
-        lowest_costing_funcs = [
-            func for func, cost in funcs_and_costs if cost == lowest_cost
-        ]
-        # what if there are two with the same lowest cost?
-        if len(lowest_costing_funcs) > 1:
-            # in that case, let's raise an error. force the user to cast
-            node_arg_types = []
-            for node_arg in node_args:
-                node_arg_types.append(state.expr_unconverted_types[node_arg])
-            arg_type_name_list = ", ".join(t.__name__ for t in node_arg_types)
-            matching_funcs_strs = []
-            # note we're going to display all the possible funcs in the err msg, even tho we were
-            # only considering the lowest cost ones
-            for func in possible_funcs:
-                f_arg_type_name_list = ", ".join(arg[1].__name__ for arg in func.args)
-                matching_funcs_strs.append(
-                    f"{func.name}({f_arg_type_name_list}) -> {func.return_type.__name__}"
-                )
-            matching_funcs_strs = "\n    ".join(matching_funcs_strs)
-            state.err(
-                f"Function call is ambiguous for args: {arg_type_name_list}\nMatches:\n    {matching_funcs_strs}",
-                node,
-            )
-            return
-
-        # otherwise:
-        return lowest_costing_funcs[0]
 
     def visit_AstFuncCall(self, node: AstFuncCall, state: CompileState):
         func = state.resolved_references.get(node.func)
@@ -1075,24 +994,13 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             return
         node_args = node.args if node.args else []
 
-        if isinstance(func, FpyOverloadedCallable):
-            func = self.resolve_overloaded_func(node, func, node_args, state)
-            if func is None:
-                return
-            # we've decided on an overloaded func
-            # re-resolve the var and update the type
-            state.resolved_references[node.func] = func
+        error_or_none = self.check_args_coercible_to_func(node, func, node_args, state)
+        if is_instance_compat(error_or_none, CompileError):
+            state.errors.append(error_or_none)
+            return
+        # otherwise, no error, we're good!
 
-        else:
-            error_or_none = self.check_args_coercible_to_func(
-                node, func, node_args, state
-            )
-            if is_instance_compat(error_or_none, CompileError):
-                state.errors.append(error_or_none)
-                return
-            # otherwise, no error, we're good!
-
-        # okay, we've resolved overloading and made sure that the func is possible
+        # okay, we've made sure that the func is possible
         # to call with these args
 
         # go handle coercion/casting
@@ -1187,69 +1095,92 @@ class CalculateConstExprValues(Visitor):
         to_type: FppType,
         node: Ast,
         state: CompileState,
-        explicit_cast: bool = False,
+        skip_range_check: bool = False,
     ) -> FppValue | None:
         try:
-            if type(from_val) == to_type:
+            from_type = type(from_val)
+
+            if from_type == to_type:
+                # no conversion necessary
                 return from_val
+
             if issubclass(to_type, StringValue):
-                assert type(from_val) == FpyStringValue, type(from_val)
+                assert from_type == FpyStringValue, from_type
                 return to_type(from_val.val)
+
             if issubclass(to_type, FloatValue):
-                assert issubclass(type(from_val), NumericalValue), type(from_val)
+                assert issubclass(from_type, NumericalValue), from_type
+                from_val = from_val.val
+
+                if to_type == FpyFloatValue:
+                    # arbitrary precision
+                    # decimal constructor should handle all cases: int, float, or other Decimal
+                    return FpyFloatValue(Decimal(from_val))
+
+                # otherwise, we're going to a finite bitwidth float type
+
                 # based on inspection of the underlying FloatValue classes,
                 # floats do not need narrowing handling
-                try:
-                    coerced_value = float(from_val.val)
-                except OverflowError:
-                    state.err(
-                        f"{from_val.val} is out of range for type {to_type.__name__}",
-                        node,
-                    )
-                    return None
+                coerced_value = float(from_val)
                 converted = to_type(coerced_value)
                 try:
+                    # catch if we would crash the struct packing lib
                     converted.serialize()
                 except OverflowError:
                     state.err(
-                        f"{from_val.val} is out of range for type {to_type.__name__}",
+                        f"{from_val} is out of range for type {typename(to_type)}",
                         node,
                     )
                     return None
                 return converted
             if issubclass(to_type, IntegerValue):
-                assert issubclass(type(from_val), NumericalValue), type(from_val)
-                if not explicit_cast:
-                    # if this was a coercion, we know from rules that we can only coerce from
-                    # an int to another int
-                    assert is_instance_compat(from_val, IntegerValue), from_val
-                    # if this was a coercion, we can actually perform one additional check
-                    # before we convert it: does it fit within bounds?
-                    # this is an implicit cast, check that the value can fit in the dest type
+                assert issubclass(from_type, NumericalValue), from_type
+                from_val = from_val.val
+
+                if to_type == FpyIntegerValue:
+                    # arbitrary precision
+                    # int constructor should handle all cases: int, float, or Decimal
+                    return FpyIntegerValue(int(from_val))
+
+                # otherwise going to a finite bitwidth integer type
+
+                if not skip_range_check:
+                    # does it fit within bounds?
+                    # check that the value can fit in the dest type
                     dest_min, dest_max = to_type.range()
-                    if from_val.val < dest_min or from_val.val > dest_max:
+                    if from_val < dest_min or from_val > dest_max:
                         state.err(
-                            f"{from_val.val} is out of range for type {to_type.__name__}",
+                            f"{from_val} is out of range for type {typename(to_type)}",
                             node,
                         )
                         return None
-                # downcasting
-                # handle narrowing, if necessary
-                value = int(from_val.val)
-                mask = (1 << to_type.get_bits()) - 1
-                # this also implicitly converts value to an unsigned number
-                value &= mask
-                if to_type in SIGNED_INTEGER_TYPES:
-                    # now if the target was signed:
-                    sign_bit = 1 << (to_type.get_bits() - 1)
-                    if value & sign_bit:
-                        # the sign bit is set, the result should be negative
-                        # subtract the max value as this is how two's complement works
-                        value -= 1 << to_type.get_bits()
-                return to_type(value)
-            assert False, (from_val, type(from_val), to_type)
+
+                    # just convert it
+                    from_val = int(from_val)
+                else:
+                    # we skipped the range check, but it's still gotta fit. cut it down
+
+                    # handle narrowing, if necessary
+                    from_val = int(from_val)
+                    # first cut down to bitwidth
+                    mask = (1 << to_type.get_bits()) - 1
+                    # this also implicitly converts value to an unsigned number
+                    from_val &= mask
+                    if to_type in SIGNED_INTEGER_TYPES:
+                        # now if the target was signed:
+                        sign_bit = 1 << (to_type.get_bits() - 1)
+                        if from_val & sign_bit:
+                            # the sign bit is set, the result should be negative
+                            # subtract the max value as this is how two's complement works
+                            from_val -= 1 << to_type.get_bits()
+
+                # okay, we either checked that the value fits in the dest, or we've skipped
+                # the check and changed the value to fit
+                return to_type(from_val)
+
+            assert False, (from_val, from_type, to_type)
         except TypeException as e:
-            state.err(f"For type {type(from_val).__name__}: {e}", node)
+            state.err(f"For type {typename(from_type)}: {e}", node)
             return None
 
     def visit_AstLiteral(self, node: AstLiteral, state: CompileState):
@@ -1259,7 +1190,7 @@ class CalculateConstExprValues(Visitor):
             expr_value = unconverted_type(node.value)
         except TypeException as e:
             # TODO can this be reached any more? maybe for string types
-            state.err(f"For type {unconverted_type.__name__}: {e}", node)
+            state.err(f"For type {typename(unconverted_type)}: {e}", node)
             return
 
         explicit_cast = node in state.expr_explicit_casts
@@ -1562,19 +1493,19 @@ class CalculateConstExprValues(Visitor):
         except ValueError as err:
             state.err(str(err) if str(err) else "Domain error", node)
             return
+        if type(folded_value) == complex:
+            state.err("Domain error", node)
+            return
 
         if folded_value is None:
             # give up, don't try to calculate the value of this expr at compile time
             state.expr_converted_values[node] = None
             return
-        if type(folded_value) == complex:
-            state.err("Domain error", node)
-            return
 
         if type(folded_value) == int:
             folded_value = FpyIntegerValue(folded_value)
-        elif type(folded_value) == float:
-            folded_value = F64Value(folded_value)
+        elif type(folded_value) == Decimal:
+            folded_value = FpyFloatValue(folded_value)
         elif type(folded_value) == bool:
             folded_value = BoolValue(folded_value)
         else:
@@ -1587,7 +1518,7 @@ class CalculateConstExprValues(Visitor):
         unconverted_type = state.expr_unconverted_types.get(node)
         # the intent of this is to handle situations where we're constant folding and the results cannot be arbitrary precision
         folded_value = self.const_convert_type(
-            folded_value, unconverted_type, node, state, explicit_cast=False
+            folded_value, unconverted_type, node, state, skip_range_check=False
         )
 
         converted_type = state.expr_converted_types.get(node)
@@ -1628,8 +1559,8 @@ class CalculateConstExprValues(Visitor):
 
         if type(folded_value) == int:
             folded_value = FpyIntegerValue(folded_value)
-        elif type(folded_value) == float:
-            folded_value = F64Value(folded_value)
+        elif type(folded_value) == Decimal:
+            folded_value = FpyFloatValue(folded_value)
         elif type(folded_value) == bool:
             folded_value = BoolValue(folded_value)
         else:
@@ -1642,7 +1573,7 @@ class CalculateConstExprValues(Visitor):
         unconverted_type = state.expr_unconverted_types.get(node)
         # the intent of this is to handle situations where we're constant folding and the results cannot be arbitrary precision
         folded_value = self.const_convert_type(
-            folded_value, unconverted_type, node, state, explicit_cast=False
+            folded_value, unconverted_type, node, state, skip_range_check=False
         )
 
         converted_type = state.expr_converted_types.get(node)
@@ -1676,7 +1607,7 @@ class CheckConstArrayAccesses(Visitor):
 
         if idx_value.val < 0 or idx_value.val >= parent_type.LENGTH:
             state.err(
-                f"Index {idx_value.val} out of bounds for array type {parent_type.__name__} with length {parent_type.LENGTH}",
+                f"Index {idx_value.val} out of bounds for array type {typename(parent_type)} with length {parent_type.LENGTH}",
                 node.item,
             )
             return

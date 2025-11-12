@@ -1,6 +1,6 @@
 import pytest
 
-from fprime.common.models.serialize.numerical_types import U32Value
+from fprime.common.models.serialize.numerical_types import U32Type as U32Value
 
 from fprime_gds.common.fpy.test_helpers import (
     assert_run_success,
@@ -580,20 +580,20 @@ if val > val2:
 exit(1)
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_i32_u32_cmp(fprime_test_api):
     seq = """
 val: I32 = -2
 val2: U32 = 2
-# this is actually false because we interpret both sides as unsigned
+# fails to compile, can't compare types of diff signedness
 if val < val2:
     exit(1)
 exit(0)
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 # caught one bug
@@ -604,7 +604,7 @@ if 1 < 2.0:
 exit(1)
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_assign_float_to_int(fprime_test_api):
@@ -858,7 +858,7 @@ if val_u8 < val_i8 and val_i32 > val_u32:
             exit(0)
 exit(1)
 """
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_equality_edge_cases(fprime_test_api):
@@ -874,7 +874,7 @@ if val1 == val2 and val3 == val4 and val4 == val5:
         exit(0)
 exit(1)
 """
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_nested_boolean_expressions(fprime_test_api):
@@ -888,14 +888,12 @@ exit(0)
 
 def test_maximum_integer_comparisons(fprime_test_api):
     seq = """
-val1: U64 = 18446744073709551615  # Max U64
-val2: I64 = 9223372036854775807   # Max I64, should be same in unsigned
-# TODO there is currently a bug in this
-#val3: I64 = -9223372036854775808  # Min I64, should be max i64 + 1 in unsigned
-val3: I64 = -9223372036854775807  # Min I64 - 1, should be max i64 + 1 in unsigned
+val_max: I64 = 9223372036854775807  # Max I64
+val_mid: I64 = 1
+val_min: I64 = -9223372036854775808  # Min I64
 
-if val1 > val2 and val2 > val3:
-    if val3 < val1:
+if val_max > val_mid and val_mid > val_min:
+    if val_min < val_max:
         exit(0)
 exit(1)
 """
@@ -913,7 +911,7 @@ if val1 == val3:  # Integer to float comparison
         exit(0)
 exit(1)
 """
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_negative_val_unsigned_type(fprime_test_api):
@@ -1013,7 +1011,7 @@ def test_add_float(fprime_test_api):
     seq = """
 var1: F32 = -255.0
 var2: F32 = 255.0
-if var1 + var2 == 0 and (var1 + 1) > (var1 + -1):
+if var1 + var2 == 0.0 and (var1 + 1.0) > (var1 + -1.0):
     exit(0)
 exit(1)
 """
@@ -1058,7 +1056,7 @@ def test_sub_float(fprime_test_api):
     seq = """
 var1: F32 = 255.0
 var2: F32 = 255.0
-if var1 - var2 == 0 and (var1 - 1) < (var1 - -1):
+if var1 - var2 == 0.0 and (var1 - 1.0) < (var1 - -1.0):
     exit(0)
 exit(1)
 """
@@ -1091,7 +1089,7 @@ def test_mul_float(fprime_test_api):
     seq = """
 var1: F32 = 5.0
 var2: F32 = 20.0
-if var1 * var2 == 100 and (var1 * 2) > var1:
+if var1 * var2 == 100.0 and (var1 * 2.0) > var1:
     exit(0)
 exit(1)
 """
@@ -1102,7 +1100,7 @@ def test_div_unsigned(fprime_test_api):
     seq = """
 var1: U32 = 20
 var2: U32 = 5
-if var1 / var2 == 4 and (var1 / 2) < var1:
+if var1 / var2 == 4.0 and (var1 / 2) < var1:
     exit(0)
 exit(1)
 """
@@ -1113,7 +1111,7 @@ def test_div_signed(fprime_test_api):
     seq = """
 var1: I32 = -20
 var2: I32 = 5
-if var1 / var2 == -4: # and (var1 / -2) > var1:
+if var1 / var2 == -4.0: # and (var1 / -2) > var1:
     exit(0)
 exit(1)
 """
@@ -1124,7 +1122,7 @@ def test_div_float(fprime_test_api):
     seq = """
 var1: F32 = -20.0
 var2: F32 = 5.0
-if var1 / var2 == -4 and (var1 / -2) > var1:
+if var1 / var2 == -4.0 and (var1 / -2.0) > var1:
     exit(0)
 exit(1)
 """
@@ -1134,7 +1132,7 @@ exit(1)
 # this test caught one bug (my mom spotted it)
 def test_order_of_operations(fprime_test_api):
     seq = """
-if 1 - 2 + 3 * 4 == 11 and 10 / 5 * 2 == 4:
+if 1 - 2 + 3 * 4 == 11 and 10.0 / 5.0 * 2.0 == 4.0:
     exit(0)
 exit(1)
 """

@@ -33,7 +33,7 @@ def test_compile_main_missing_input(tmp_path, capsys):
                 str(dict_path),
             ]
         )
-    assert exc.value.code == -1
+    assert exc.value.code == 1
     captured = capsys.readouterr()
     assert "does not exist" in captured.out
 
@@ -159,7 +159,7 @@ def test_assemble_main_missing_input(tmp_path, capsys):
     source = tmp_path / "seq.fpybc"
     with pytest.raises(SystemExit) as exc:
         fpy_main.assemble_main([str(source)])
-    assert exc.value.code == -1
+    assert exc.value.code == 1
     captured = capsys.readouterr()
     assert "does not exist" in captured.out
 
@@ -188,7 +188,7 @@ def test_disassemble_main_missing_input(tmp_path, capsys):
     source = tmp_path / "seq.bin"
     with pytest.raises(SystemExit) as exc:
         fpy_main.disassemble_main([str(source)])
-    assert exc.value.code == -1
+    assert exc.value.code == 1
     captured = capsys.readouterr()
     assert "does not exist" in captured.out
 
