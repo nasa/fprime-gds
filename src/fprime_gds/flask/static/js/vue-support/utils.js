@@ -113,7 +113,7 @@ export function timeToString(time) {
     if (time instanceof Date) {
         date = time;
     }
-    else if (time.base.value === 2) {
+    else if (time.base === 2) {
         date = timeToDate(time);
     }
     // Convert date
