@@ -508,7 +508,7 @@ class GenerateCode:
 
         # calculate the offset in the parent array
         dirs.extend(self.calc_lvar_offset_of_array_element(node, node.item, parent_type, state))
-        # truncate back to stacksizetype which is what getfield uses
+        # truncate back to StackSizeType which is what get field uses
         dirs.extend(self.convert_numeric_type(U64Value, StackSizeType))
 
         # get the member from the stack at this offset, discard the rest of
