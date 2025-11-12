@@ -409,19 +409,19 @@ class UnsignedModuloDirective(StackOpDirective):
 
 @dataclass
 class IntAddDirective(StackOpDirective):
-    opcode: ClassVar[DirectiveId] = DirectiveId.IADD
+    opcode: ClassVar[DirectiveId] = DirectiveId.ADD
     stack_output_type: ClassVar[type[FppValue]] = I64Value
 
 
 @dataclass
 class IntSubtractDirective(StackOpDirective):
-    opcode: ClassVar[DirectiveId] = DirectiveId.ISUB
+    opcode: ClassVar[DirectiveId] = DirectiveId.SUB
     stack_output_type: ClassVar[type[FppValue]] = I64Value
 
 
 @dataclass
 class IntMultiplyDirective(StackOpDirective):
-    opcode: ClassVar[DirectiveId] = DirectiveId.IMUL
+    opcode: ClassVar[DirectiveId] = DirectiveId.MUL
     stack_output_type: ClassVar[type[FppValue]] = I64Value
 
 

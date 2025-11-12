@@ -830,10 +830,10 @@ class GenerateCode:
         if node.exit_code is not None:
             dirs.extend(self.emit(node.exit_code, state))
         else:
-            # otherwise just use the default "ASSERTION_FAILURE error code"
+            # otherwise just use the default EXIT_WITH_ERROR error code
             dirs.append(
                 PushValDirective(
-                    U8Value(DirectiveErrorCode.ASSERTION_FAILURE.value).serialize()
+                    U8Value(DirectiveErrorCode.EXIT_WITH_ERROR.value).serialize()
                 )
             )
         dirs.append(ExitDirective())

@@ -85,20 +85,20 @@ def text_to_ast(text: str):
 def get_base_compile_state(dictionary: str, compile_args: dict) -> CompileState:
     """return the initial state of the compiler, based on the given dict path"""
     cmd_json_dict_loader = CmdJsonLoader(dictionary)
-    (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
+    (_, cmd_name_dict, _) = cmd_json_dict_loader.construct_dicts(
         dictionary
     )
 
     ch_json_dict_loader = ChJsonLoader(dictionary)
-    (ch_id_dict, ch_name_dict, versions) = ch_json_dict_loader.construct_dicts(
+    (_, ch_name_dict, _) = ch_json_dict_loader.construct_dicts(
         dictionary
     )
     prm_json_dict_loader = PrmJsonLoader(dictionary)
-    (prm_id_dict, prm_name_dict, versions) = prm_json_dict_loader.construct_dicts(
+    (_, prm_name_dict, _) = prm_json_dict_loader.construct_dicts(
         dictionary
     )
     event_json_dict_loader = EventJsonLoader(dictionary)
-    (event_id_dict, event_name_dict, versions) = event_json_dict_loader.construct_dicts(
+    (_, _, _) = event_json_dict_loader.construct_dicts(
         dictionary
     )
     # the type name dict is a mapping of a fully qualified name to an fprime type

@@ -2583,6 +2583,3 @@ for i in 7..0:
     exit(1)
 """
     assert_run_success(fprime_test_api, seq)
-
-
-def test_truncate

@@ -14,7 +14,6 @@ from fprime.common.models.serialize.time_type import TimeType as TimeValue
 from fprime.common.models.serialize.numerical_types import (
     U8Type as U8Value,
     U32Type as U32Value,
-    U64Type as U64Value,
     I64Type as I64Value,
     F64Type as F64Value,
 )
