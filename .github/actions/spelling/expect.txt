@@ -191,6 +191,7 @@ hookspecs
 hpaulson
 htags
 hyperlinks
+iabs
 idct
 idk
 idl

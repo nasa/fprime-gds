@@ -76,7 +76,7 @@ def test_visitor_depth_first_traversal():
 
     assert visitor.visited == ["var:x", "number:7", "assign"]
 
-def test_topdown_visitor_breadth_first_order():
+def test_top_down_visitor_breadth_first_order():
     class RecordingTopDownVisitor(TopDownVisitor):
         def __init__(self):
             self.visited = []
@@ -150,14 +150,14 @@ def test_visitor_stops_on_error():
 def test_visitor_handler_exception_propagates():
     class ExplodingVisitor(Visitor):
         def visit_var(self, node: AstVar, state):
-            raise RuntimeError("kaboom")
+            raise RuntimeError("should fail")
 
     visitor = ExplodingVisitor()
     state = _make_state()
 
     node = AstVar(meta=None, var="z")
 
-    with pytest.raises(RuntimeError, match="kaboom"):
+    with pytest.raises(RuntimeError, match="should fail"):
         visitor.run(node, state)
 
 def test_transformer_replaces_child_nodes():

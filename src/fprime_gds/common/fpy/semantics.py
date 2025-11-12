@@ -431,7 +431,7 @@ class ResolveVarsTypesAndFuncs(TopDownVisitor):
     ):
         # don't need to do anything for literals or getattr, but just have this here for completion's sake
         # the reason we don't need to do anything for getattr is because the point of this
-        # pass is explicitly not to resolve getattrs, just resolve vars (and types), not general
+        # pass is explicitly not to resolve getattr, just resolve vars (and types), not general
         # getattr
         # we don't do this now because we need to resolve all expr types first
         # before we can figure out whether a getattr is correct, and this pass lets
