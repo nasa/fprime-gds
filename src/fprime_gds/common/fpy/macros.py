@@ -10,13 +10,13 @@ from fprime_gds.common.fpy.bytecode.directives import (
 from fprime_gds.common.fpy.ir import Ir, IrIf, IrLabel
 from fprime_gds.common.fpy.syntax import Ast
 from fprime_gds.common.fpy.types import FpyMacro, FpyOverloadedCallable, NothingValue
-from fprime.common.models.serialize.time_type import TimeType
+from fprime.common.models.serialize.time_type import TimeType as TimeValue
 from fprime.common.models.serialize.numerical_types import (
-    U32Type,
-    U8Type,
-    F64Type,
-    I64Type,
-    U64Type,
+    U8Type as U8Value,
+    U32Type as U32Value,
+    U64Type as U64Value,
+    I64Type as I64Value,
+    F64Type as F64Value,
 )
 from fprime_gds.common.fpy.bytecode.directives import (
     FloatLessThanDirective,
@@ -49,12 +49,12 @@ def generate_abs_float(node: Ast) -> list[Directive | Ir]:
         PushValDirective(StackSizeType(0).serialize()),
         PeekDirective(),
         # push 0
-        PushValDirective(F64Type(0.0).serialize()),
+        PushValDirective(F64Value(0.0).serialize()),
         # check <
         FloatLessThanDirective(),
         IrIf(leave_unmodified),
         # push -1
-        PushValDirective(F64Type(-1.0).serialize()),
+        PushValDirective(F64Value(-1.0).serialize()),
         # and multiply
         FloatMultiplyDirective(),
         # otherwise do nothing
@@ -63,7 +63,7 @@ def generate_abs_float(node: Ast) -> list[Directive | Ir]:
     return dirs
 
 
-MACRO_ABS_FLOAT = FpyMacro("abs", F64Type, [("value", F64Type)], generate_abs_float)
+MACRO_ABS_FLOAT = FpyMacro("abs", F64Value, [("value", F64Value)], generate_abs_float)
 
 
 def generate_abs_signed_int(node: Ast) -> list[Directive | Ir]:
@@ -75,12 +75,12 @@ def generate_abs_signed_int(node: Ast) -> list[Directive | Ir]:
         PushValDirective(StackSizeType(0).serialize()),
         PeekDirective(),
         # push 0
-        PushValDirective(I64Type(0).serialize()),
+        PushValDirective(I64Value(0).serialize()),
         # check <
         SignedLessThanDirective(),
         IrIf(leave_unmodified),
         # push -1
-        PushValDirective(I64Type(-1).serialize()),
+        PushValDirective(I64Value(-1).serialize()),
         # and multiply
         IntMultiplyDirective(),
         # otherwise do nothing
@@ -89,7 +89,7 @@ def generate_abs_signed_int(node: Ast) -> list[Directive | Ir]:
     return dirs
 
 
-MACRO_ABS_SIGNED_INT = FpyMacro("abs", I64Type, [("value", I64Type)], generate_abs_signed_int)
+MACRO_ABS_SIGNED_INT = FpyMacro("abs", I64Value, [("value", I64Value)], generate_abs_signed_int)
 
 
 def generate_abs_unsigned_int(node: Ast) -> list[Directive | Ir]:
@@ -98,7 +98,7 @@ def generate_abs_unsigned_int(node: Ast) -> list[Directive | Ir]:
 
 
 MACRO_ABS_UNSIGNED_INT = FpyMacro(
-    "abs", U64Type, [("value", U64Type)], generate_abs_unsigned_int
+    "abs", U64Value, [("value", U64Value)], generate_abs_unsigned_int
 )
 
 MACRO_ABS = FpyOverloadedCallable(
@@ -111,9 +111,9 @@ MACRO_SLEEP_SECONDS_USECONDS = FpyMacro("sleep",
     [
         (
             "seconds",
-            U32Type,
+            U32Value,
         ),
-        ("microseconds", U32Type),
+        ("microseconds", U32Value),
     ],
     lambda n: [WaitRelDirective()],
 )
@@ -143,7 +143,7 @@ def generate_sleep_float(node: Ast) -> list[Directive | Ir]:
         # subtract, this should give us the frac
         FloatSubtractDirective(),
         # okay now multiply by 1000000
-        PushValDirective(F64Type(1_000_000.0).serialize()),
+        PushValDirective(F64Value(1_000_000.0).serialize()),
         # now convert to u32
         FloatToUnsignedIntDirective(),
         IntegerTruncate64To32Directive(),
@@ -152,7 +152,7 @@ def generate_sleep_float(node: Ast) -> list[Directive | Ir]:
     return dirs
 
 
-MACRO_SLEEP_FLOAT = FpyMacro("sleep", NothingValue, [("seconds", F64Type)], generate_sleep_float)
+MACRO_SLEEP_FLOAT = FpyMacro("sleep", NothingValue, [("seconds", F64Value)], generate_sleep_float)
 
 MACRO_SLEEP = FpyOverloadedCallable([MACRO_SLEEP_FLOAT, MACRO_SLEEP_SECONDS_USECONDS])
 
@@ -166,10 +166,10 @@ def generate_log_signed_int(node: Ast) -> list[Directive|Ir]:
 MACROS: dict[str, FpyMacro | FpyOverloadedCallable] = {
     "sleep": MACRO_SLEEP,
     "sleep_until": FpyMacro("sleep_until",
-        NothingValue, [("wakeup_time", TimeType)], lambda n: [WaitAbsDirective()]
+        NothingValue, [("wakeup_time", TimeValue)], lambda n: [WaitAbsDirective()]
     ),
-    "exit": FpyMacro("exit", NothingValue, [("exit_code", U8Type)], lambda n: [ExitDirective()]),
-    "log": FpyMacro("log", F64Type, [("operand", F64Type)], lambda n: [FloatLogDirective()]),
-    "now": FpyMacro("now", TimeType, [], lambda n: [PushTimeDirective()]),
+    "exit": FpyMacro("exit", NothingValue, [("exit_code", U8Value)], lambda n: [ExitDirective()]),
+    "log": FpyMacro("log", F64Value, [("operand", F64Value)], lambda n: [FloatLogDirective()]),
+    "now": FpyMacro("now", TimeValue, [], lambda n: [PushTimeDirective()]),
     "abs": MACRO_ABS,
 }

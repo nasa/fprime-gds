@@ -1,6 +1,6 @@
 import pytest
 
-from fprime.common.models.serialize.numerical_types import U32Type
+from fprime.common.models.serialize.numerical_types import U32Value
 
 from fprime_gds.common.fpy.test_helpers import (
     assert_run_success,
@@ -324,7 +324,7 @@ exit(1)
     assert_run_success(
         fprime_test_api,
         seq,
-        {"CdhCore.cmdDisp.CommandsDispatched": U32Type(1).serialize()},
+        {"CdhCore.cmdDisp.CommandsDispatched": U32Value(1).serialize()},
     )
 
 
@@ -347,7 +347,7 @@ else:
     assert_run_success(
         fprime_test_api,
         seq,
-        {"CdhCore.cmdDisp.CommandsDispatched": U32Type(4).serialize()},
+        {"CdhCore.cmdDisp.CommandsDispatched": U32Value(4).serialize()},
     )
 
 

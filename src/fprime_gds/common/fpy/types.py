@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC
+from decimal import Decimal
 from enum import Enum
 import inspect
 from dataclasses import astuple, dataclass, field, fields
@@ -27,20 +28,20 @@ from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime.common.models.serialize.numerical_types import (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    I8Type,
-    F32Type,
-    F64Type,
-    IntegerType,
-    FloatType,
+    U8Type as U8Value,
+    U16Type as U16Value,
+    U32Type as U32Value,
+    U64Type as U64Value,
+    I8Type as I8Value,
+    I16Type as I16Value,
+    I32Type as I32Value,
+    I64Type as I64Value,
+    F32Type as F32Value,
+    F64Type as F64Value,
+    IntegerType as IntegerValue,
+    FloatType as FloatValue,
 )
-from fprime.common.models.serialize.string_type import StringType
+from fprime.common.models.serialize.string_type import StringType as StringValue
 from fprime_gds.common.fpy.syntax import (
     AstBreak,
     AstContinue,
@@ -63,12 +64,13 @@ MAX_STACK_SIZE = 1024
 
 COMPILER_MAX_STRING_SIZE = 128
 
-LoopVarType = I64Type
+LoopVarValue = I64Value
 
 
 # this is the "internal" integer type that integer literals have by
-# default. it is arbitrary precision
-class LiteralIntValue(IntegerType):
+# default. it is arbitrary precision. it is also only used in places where
+# we know the value is constant
+class FpyIntegerValue(IntegerValue):
     @classmethod
     def range(cls):
         raise NotImplementedError()
@@ -87,6 +89,25 @@ class LiteralIntValue(IntegerType):
             raise RuntimeError()
 
 
+# this is the "internal" float type that float literals have by
+# default. it is arbitrary precision. it is also only used in places where
+# we know the value is constant
+class FpyFloatValue(FloatValue):
+    @staticmethod
+    def get_serialize_format():
+        raise NotImplementedError()
+
+    @classmethod
+    def get_bits(cls):
+        return math.inf
+
+    @classmethod
+    def validate(cls, val):
+        if not isinstance(val, Decimal):
+            raise RuntimeError()
+
+
+# the type produced by range expressions `X .. Y`
 class RangeValue(FppValue):
     def serialize(self):
         raise NotImplementedError()
@@ -108,47 +129,51 @@ class RangeValue(FppValue):
         raise NotImplementedError()
 
 
-LiteralStringValue = StringType.construct_type("LiteralStringType", None)
+# this is the "internal" string type that string literals have by
+# default. it is arbitrary length. it is also only used in places where
+# we know the value is constant
+FpyStringValue = StringValue.construct_type("FpyStringValue", None)
 
 
 SPECIFIC_NUMERIC_TYPES = (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    I8Type,
-    F32Type,
-    F64Type,
+    U32Value,
+    U16Value,
+    U64Value,
+    U8Value,
+    I16Value,
+    I32Value,
+    I64Value,
+    I8Value,
+    F32Value,
+    F64Value,
 )
 SPECIFIC_INTEGER_TYPES = (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    I8Type,
+    U32Value,
+    U16Value,
+    U64Value,
+    U8Value,
+    I16Value,
+    I32Value,
+    I64Value,
+    I8Value,
 )
 SIGNED_INTEGER_TYPES = (
-    I16Type,
-    I32Type,
-    I64Type,
-    I8Type,
+    I16Value,
+    I32Value,
+    I64Value,
+    I8Value,
 )
 UNSIGNED_INTEGER_TYPES = (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
+    U32Value,
+    U16Value,
+    U64Value,
+    U8Value,
 )
 SPECIFIC_FLOAT_TYPES = (
-    F32Type,
-    F64Type,
+    F32Value,
+    F64Value,
 )
+ARBITRARY_PRECISION_TYPES = (FpyFloatValue, FpyIntegerValue)
 
 
 def is_instance_compat(obj, cls):

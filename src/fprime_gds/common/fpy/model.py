@@ -77,8 +77,7 @@ from fprime_gds.common.fpy.bytecode.directives import (
     IntegerTruncate64To8Directive,
 )
 from fprime_gds.common.templates.cmd_template import CmdTemplate
-from fprime.common.models.serialize.type_base import BaseType
-from fprime.common.models.serialize.time_type import TimeType
+from fprime.common.models.serialize.time_type import TimeType as TimeValue
 
 debug = True
 
@@ -282,7 +281,6 @@ class FpySequencerModel:
         offset = 0
         for arg in cmd.arguments:
             arg_name, arg_desc, arg_type = arg
-            arg_type: type[BaseType]
             arg_value = arg_type()
             arg_value.deserialize(args, offset)
             offset += arg_value.getSize()
@@ -873,7 +871,7 @@ class FpySequencerModel:
         self.push(bytes)
 
     def handle_push_time(self, dir: PushTimeDirective):
-        if len(self.stack) + TimeType.getMaxSize() > self.max_stack_size:
+        if len(self.stack) + TimeValue.getMaxSize() > self.max_stack_size:
             return DirectiveErrorCode.STACK_OVERFLOW
 
-        self.push(TimeType(0, 0, 0, 0).serialize())
+        self.push(TimeValue(0, 0, 0, 0).serialize())

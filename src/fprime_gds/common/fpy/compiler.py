@@ -1,17 +1,17 @@
 from __future__ import annotations
 from pathlib import Path
-from fprime.common.models.serialize.time_type import TimeType
-from fprime.common.models.serialize.bool_type import BoolType
-from fprime.common.models.serialize.enum_type import EnumType
+from fprime.common.models.serialize.time_type import TimeType as TimeValue
+from fprime.common.models.serialize.bool_type import BoolType as BoolValue
+from fprime.common.models.serialize.enum_type import EnumType as EnumValue
 from fprime.common.models.serialize.serializable_type import (
-    SerializableType as StructType,
+    SerializableType as StructValue,
 )
-from fprime.common.models.serialize.array_type import ArrayType
+from fprime.common.models.serialize.array_type import ArrayType as ArrayValue
 from fprime.common.models.serialize.numerical_types import (
-    U32Type,
-    U16Type,
-    U8Type,
-    NumericalType,
+    U8Type as U8Value,
+    U16Type as U16Value,
+    U32Type as U32Value,
+    NumericalType as NumericalValue,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppValue
 from lark import Lark
@@ -81,9 +81,7 @@ def text_to_ast(text: str):
     return transformed
 
 
-def get_base_compile_state(
-    dictionary: str, compile_args: dict
-) -> CompileState:
+def get_base_compile_state(dictionary: str, compile_args: dict) -> CompileState:
     """return the initial state of the compiler, based on the given dict path"""
     cmd_json_dict_loader = CmdJsonLoader(dictionary)
     (cmd_id_dict, cmd_name_dict, versions) = cmd_json_dict_loader.construct_dicts(
@@ -114,17 +112,17 @@ def get_base_compile_state(
 
     # find each enum type, and put each of its values in the enum const dict
     for name, typ in type_name_dict.items():
-        if issubclass(typ, EnumType):
+        if issubclass(typ, EnumValue):
             for enum_const_name, val in typ.ENUM_DICT.items():
                 enum_const_name_dict[name + "." + enum_const_name] = typ(
                     enum_const_name
                 )
 
     # insert the builtin types into the dict
-    type_name_dict["Fw.Time"] = TimeType
+    type_name_dict["Fw.Time"] = TimeValue
     for typ in SPECIFIC_NUMERIC_TYPES:
         type_name_dict[typ.get_canonical_name()] = typ
-    type_name_dict["bool"] = BoolType
+    type_name_dict["bool"] = BoolValue
     # note no string type at the moment
 
     cmd_response_type = type_name_dict["Fw.CmdResponse"]
@@ -143,24 +141,24 @@ def get_base_compile_state(
     # add numeric type casts to callable dict
     for typ in SPECIFIC_NUMERIC_TYPES:
         callable_name_dict[typ.get_canonical_name()] = FpyCast(
-            typ.get_canonical_name(), typ, [("value", NumericalType)], typ
+            typ.get_canonical_name(), typ, [("value", NumericalValue)], typ
         )
 
     # for each type in the dict, if it has a constructor, create an FpyTypeCtor
     # object to track the constructor and put it in the callable name dict
     for name, typ in type_name_dict.items():
         args = []
-        if issubclass(typ, StructType):
+        if issubclass(typ, StructValue):
             for arg_name, arg_type, _, _ in typ.MEMBER_LIST:
                 args.append((arg_name, arg_type))
-        elif issubclass(typ, ArrayType):
+        elif issubclass(typ, ArrayValue):
             for i in range(0, typ.LENGTH):
                 args.append(("e" + str(i), typ.MEMBER_TYPE))
-        elif issubclass(typ, TimeType):
-            args.append(("time_base", U16Type))
-            args.append(("time_context", U8Type))
-            args.append(("seconds", U32Type))
-            args.append(("useconds", U32Type))
+        elif issubclass(typ, TimeValue):
+            args.append(("time_base", U16Value))
+            args.append(("time_context", U8Value))
+            args.append(("seconds", U32Value))
+            args.append(("useconds", U32Value))
         else:
             # bool, enum, string or numeric type
             # none of these have callable ctors

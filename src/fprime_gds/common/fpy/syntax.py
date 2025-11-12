@@ -5,6 +5,7 @@ from lark import Token, Transformer, v_args
 from lark.tree import Meta
 from lark.lark import PostLex
 from lark.indenter import DedentError
+from decimal import Decimal
 
 
 class PythonIndenter(PostLex):
@@ -107,7 +108,7 @@ class AstString(Ast):
 
 @dataclass
 class AstNumber(Ast):
-    value: int | float
+    value: int | Decimal
 
 
 @dataclass
@@ -351,7 +352,7 @@ class FpyTransformer(Transformer):
 
     NAME = str
     DEC_NUMBER = int
-    FLOAT_NUMBER = float
+    FLOAT_NUMBER = Decimal
     COMPARISON_OP = str
     RANGE_OP = str
     STRING = handle_str

@@ -31,9 +31,8 @@ from fprime_gds.common.fpy.types import (
     FpyMacro,
     FpyTypeCtor,
     FpyVariable,
-    F64Type,
-    LiteralIntValue,
-    LiteralStringValue,
+    FpyIntegerValue,
+    FpyStringValue,
     NothingValue,
     is_instance_compat,
 )
@@ -89,14 +88,14 @@ from fprime_gds.common.fpy.bytecode.directives import (
 )
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
-from fprime.common.models.serialize.array_type import ArrayType
+from fprime.common.models.serialize.array_type import ArrayType as ArrayValue
 from fprime.common.models.serialize.numerical_types import (
-    U64Type,
-    U8Type,
-    I64Type,
-    F64Type,
-    F32Type,
-    IntegerType,
+    U8Type as U8Value,
+    U64Type as U64Value,
+    I64Type as I64Value,
+    F32Type as F32Value,
+    F64Type as F64Value,
+    IntegerType as IntegerValue,
 )
 from fprime_gds.common.fpy.syntax import (
     Ast,
@@ -140,7 +139,7 @@ class GenerateCode:
             return None
 
         assert not is_instance_compat(
-            expr_value, (LiteralIntValue, LiteralStringValue, F64Type)
+            expr_value, (FpyIntegerValue, FpyStringValue, F64Value)
         ), expr_value
 
         if is_instance_compat(expr_value, NothingValue):
@@ -170,9 +169,9 @@ class GenerateCode:
         """return the 64 bit version of the input numeric type"""
         assert type in SPECIFIC_NUMERIC_TYPES, type
         return (
-            I64Type
+            I64Value
             if type in SIGNED_INTEGER_TYPES
-            else U64Type if type in UNSIGNED_INTEGER_TYPES else F64Type
+            else U64Value if type in UNSIGNED_INTEGER_TYPES else F64Value
         )
 
     def convert_numeric_type(
@@ -198,22 +197,22 @@ class GenerateCode:
         to_64_bit = self.get_64_bit_numeric_type(to_type)
 
         # now convert between int and float if necessary
-        if from_64_bit == U64Type and to_64_bit == F64Type:
+        if from_64_bit == U64Value and to_64_bit == F64Value:
             dirs.append(UnsignedIntToFloatDirective())
-            from_64_bit = F64Type
-        elif from_64_bit == I64Type and to_64_bit == F64Type:
+            from_64_bit = F64Value
+        elif from_64_bit == I64Value and to_64_bit == F64Value:
             dirs.append(SignedIntToFloatDirective())
-            from_64_bit = F64Type
-        elif from_64_bit == U64Type or from_64_bit == I64Type:
-            assert to_64_bit == U64Type or to_64_bit == I64Type
+            from_64_bit = F64Value
+        elif from_64_bit == U64Value or from_64_bit == I64Value:
+            assert to_64_bit == U64Value or to_64_bit == I64Value
             # conversion from signed to unsigned int is implicit, doesn't need code gen
             from_64_bit = to_64_bit
-        elif from_64_bit == F64Type and to_64_bit == I64Type:
+        elif from_64_bit == F64Value and to_64_bit == I64Value:
             dirs.append(FloatToSignedIntDirective())
-            from_64_bit = I64Type
-        elif from_64_bit == F64Type and to_64_bit == U64Type:
+            from_64_bit = I64Value
+        elif from_64_bit == F64Value and to_64_bit == U64Value:
             dirs.append(FloatToUnsignedIntDirective())
-            from_64_bit = U64Type
+            from_64_bit = U64Value
 
         assert from_64_bit == to_64_bit, (from_64_bit, to_64_bit)
 
@@ -234,13 +233,13 @@ class GenerateCode:
             # already correct size
             return []
 
-        if from_type == F64Type:
+        if from_type == F64Value:
             # only one option for float trunc
             assert new_size == 4, new_size
             return [FloatTruncateDirective()]
 
         # must be an int
-        assert issubclass(from_type, IntegerType), from_type
+        assert issubclass(from_type, IntegerValue), from_type
 
         if new_size == 1:
             return [IntegerTruncate64To8Directive()]
@@ -253,11 +252,11 @@ class GenerateCode:
         if type.getMaxSize() == 8:
             # already 8 bytes
             return []
-        if type == F32Type:
+        if type == F32Value:
             return [FloatExtendDirective()]
 
         # must be an int
-        assert issubclass(type, IntegerType), type
+        assert issubclass(type, IntegerValue), type
 
         from_size = type.getMaxSize()
         assert from_size in (1, 2, 4, 8), from_size
@@ -447,7 +446,7 @@ class GenerateCode:
         # however, for parent, use converted because conversion has been run
         parent_type = state.expr_converted_types[node.parent]
 
-        assert issubclass(parent_type, ArrayType)
+        assert issubclass(parent_type, ArrayValue)
         assert unconverted_type == parent_type.MEMBER_TYPE, (
             parent_type.MEMBER_TYPE,
             unconverted_type,
@@ -472,12 +471,12 @@ class GenerateCode:
         dirs.append(PushValDirective(StackSizeType(0).serialize()))
         dirs.append(PeekDirective())
         # convert idx to u64
-        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Type))
+        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Value))
         dirs.append(
             PushValDirective(ArrayIndexType(parent_type.LENGTH))
         )  # push the length
         # convert len to u64
-        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Type))
+        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Value))
         # check if idx >= length
         dirs.append(UnsignedGreaterThanOrEqualDirective())
         # if true, fail with error code, otherwise go to after check
@@ -486,7 +485,7 @@ class GenerateCode:
         # push the error code we should fail with if false
         dirs.append(
             PushValDirective(
-                U8Type(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
+                U8Value(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
             )
         )
         dirs.append(ExitDirective())
@@ -494,7 +493,7 @@ class GenerateCode:
         # okay we're good. should still have the idx on the stack
 
         # multiply the index by the member type size
-        dirs.append(PushValDirective(U64Type(parent_type.MEMBER_TYPE.getMaxSize())))
+        dirs.append(PushValDirective(U64Value(parent_type.MEMBER_TYPE.getMaxSize())))
         dirs.append(IntMultiplyDirective())
 
         # okay now we have the offset on the stack
@@ -603,7 +602,7 @@ class GenerateCode:
             dirs.append(MemCompareDirective(lhs_type.getMaxSize()))
             if node.op == BinaryStackOp.NOT_EQUAL:
                 dirs.append(NotDirective())
-        elif node.op == BinaryStackOp.FLOOR_DIVIDE and intermediate_type == F64Type:
+        elif node.op == BinaryStackOp.FLOOR_DIVIDE and intermediate_type == F64Value:
             # for float floor division, do float division, then convert to int, then
             # back to float
             dirs.append(FloatDivideDirective())
@@ -640,9 +639,9 @@ class GenerateCode:
         if node.op == UnaryStackOp.NEGATE:
             # in this case, we also need to push -1
             if dir == FloatMultiplyDirective:
-                dirs.append(PushValDirective(F64Type(-1).serialize()))
+                dirs.append(PushValDirective(F64Value(-1).serialize()))
             elif dir == IntMultiplyDirective:
-                dirs.append(PushValDirective(I64Type(-1).serialize()))
+                dirs.append(PushValDirective(I64Value(-1).serialize()))
 
         dirs.append(dir())
 
@@ -764,7 +763,7 @@ class GenerateCode:
             # calculate the offset in base type, then add
 
             # push as u64 because we're going to do math
-            dirs.append(PushValDirective(U64Type(lhs.base_ref.lvar_offset).serialize()))
+            dirs.append(PushValDirective(U64Value(lhs.base_ref.lvar_offset).serialize()))
 
             # push the index to the stack, do a bounds check,
             dirs.extend(self.emit(lhs.idx_expr, state))
@@ -777,10 +776,10 @@ class GenerateCode:
             dirs.append(PushValDirective(StackSizeType(0).serialize()))
             dirs.append(PeekDirective())  # duplicate the index
             # convert idx to u64
-            dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Type))
+            dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Value))
             lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
             dirs.append(
-                PushValDirective(U64Type(lhs_parent_type.LENGTH).serialize())
+                PushValDirective(U64Value(lhs_parent_type.LENGTH).serialize())
             )  # push the length as U64
             # check if idx >= length
             dirs.append(UnsignedGreaterThanOrEqualDirective())
@@ -790,7 +789,7 @@ class GenerateCode:
             # push the error code we should fail with if false
             dirs.append(
                 PushValDirective(
-                    U8Type(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
+                    U8Value(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
                 )
             )
             dirs.append(ExitDirective())
@@ -799,7 +798,7 @@ class GenerateCode:
 
             # multiply the index by the member type size
             dirs.append(
-                PushValDirective(U64Type(lhs_parent_type.MEMBER_TYPE.getMaxSize()))
+                PushValDirective(U64Value(lhs_parent_type.MEMBER_TYPE.getMaxSize()))
             )
             dirs.append(IntMultiplyDirective())
             # okay, now we should have the offset wrt base of the parent type on the stack
@@ -808,7 +807,7 @@ class GenerateCode:
             dirs.append(IntAddDirective())
 
             # and now convert the u64 back into the StackSizeType that store expects
-            dirs.extend(self.convert_numeric_type(U64Type, StackSizeType))
+            dirs.extend(self.convert_numeric_type(U64Value, StackSizeType))
 
             # now that lvar array offset is pushed, use it to store in lvar array
             dirs.append(StoreDirective(lhs.type.getMaxSize()))
@@ -833,7 +832,7 @@ class GenerateCode:
             # otherwise just use the default "ASSERTION_FAILURE error code"
             dirs.append(
                 PushValDirective(
-                    U8Type(DirectiveErrorCode.ASSERTION_FAILURE.value).serialize()
+                    U8Value(DirectiveErrorCode.ASSERTION_FAILURE.value).serialize()
                 )
             )
         dirs.append(ExitDirective())

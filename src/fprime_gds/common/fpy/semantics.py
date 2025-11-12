@@ -1,10 +1,12 @@
 from __future__ import annotations
+from decimal import Decimal
 from numbers import Number
 import heapq
 from typing import Union
 
 from fprime_gds.common.fpy.error import CompileError
 from fprime_gds.common.fpy.types import (
+    ARBITRARY_PRECISION_TYPES,
     SIGNED_INTEGER_TYPES,
     SPECIFIC_NUMERIC_TYPES,
     UNSIGNED_INTEGER_TYPES,
@@ -14,14 +16,15 @@ from fprime_gds.common.fpy.types import (
     FppType,
     FpyCallable,
     FpyCast,
+    FpyFloatValue,
     FpyOverloadedCallable,
     FpyReference,
     FpyScope,
     FpyTypeCtor,
     FpyVariable,
-    LiteralIntValue,
-    LiteralStringValue,
-    LoopVarType,
+    FpyIntegerValue,
+    FpyStringValue,
+    LoopVarValue,
     NothingValue,
     RangeValue,
     TopDownVisitor,
@@ -51,26 +54,26 @@ from fprime_gds.common.fpy.bytecode.directives import (
 )
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
-from fprime.common.models.serialize.time_type import TimeType
+from fprime.common.models.serialize.time_type import TimeType as TimeValue
 from fprime.common.models.serialize.type_base import ValueType
 from fprime.common.models.serialize.serializable_type import (
-    SerializableType as StructType,
+    SerializableType as StructValue,
 )
-from fprime.common.models.serialize.array_type import ArrayType
+from fprime.common.models.serialize.array_type import ArrayType as ArrayValue
 from fprime.common.models.serialize.type_exceptions import TypeException
 from fprime.common.models.serialize.numerical_types import (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
-    I64Type,
-    F64Type,
-    FloatType,
-    IntegerType,
-    NumericalType,
+    U8Type as U8Value,
+    U16Type as U16Value,
+    U32Type as U32Value,
+    U64Type as U64Value,
+    I64Type as I64Value,
+    F64Type as F64Value,
+    FloatType as FloatValue,
+    IntegerType as IntegerValue,
+    NumericalType as NumericalValue,
 )
-from fprime.common.models.serialize.string_type import StringType
-from fprime.common.models.serialize.bool_type import BoolType
+from fprime.common.models.serialize.string_type import StringType as StringValue
+from fprime.common.models.serialize.bool_type import BoolType as BoolValue
 from fprime_gds.common.fpy.syntax import (
     AstAssert,
     AstBinaryOp,
@@ -194,29 +197,29 @@ class CreateVariables(TopDownVisitor):
             # the alternative to this is that we do some primitive type resolution in the same pass as variable creation
             # i'm doing this hack because we're going to switch to type inference for variables later and that will make this go away
 
-            if (loop_var.type_ref is None and loop_var.type != LoopVarType) or (
+            if (loop_var.type_ref is None and loop_var.type != LoopVarValue) or (
                 loop_var.type is None
                 and not (
                     isinstance(loop_var.type_ref, AstVar)
-                    and loop_var.type_ref.var == LoopVarType.get_canonical_name()
+                    and loop_var.type_ref.var == LoopVarValue.get_canonical_name()
                 )
             ):
                 state.err(
-                    f"'{node.loop_var.var}' has already been declared as a type other than {LoopVarType.__name__}",
+                    f"'{node.loop_var.var}' has already been declared as a type other than {LoopVarValue.__name__}",
                     node,
                 )
                 return
             reuse_existing_loop_var = True
         else:
             # new var. put it in the table under this scope
-            loop_var = FpyVariable(node.loop_var.var, None, node, LoopVarType)
+            loop_var = FpyVariable(node.loop_var.var, None, node, LoopVarValue)
             state.local_scopes[node][node.loop_var.var] = loop_var
             state.variables.append(loop_var)
 
         # each loop also declares an implicit ub variable
         # type of ub var is same as loop var type
         upper_bound_var = FpyVariable(
-            state.new_anonymous_variable_name(), None, node, LoopVarType
+            state.new_anonymous_variable_name(), None, node, LoopVarValue
         )
         state.variables.append(upper_bound_var)
         analysis = ForLoopAnalysis(loop_var, upper_bound_var, reuse_existing_loop_var)
@@ -547,14 +550,15 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         return False
 
     def can_coerce_type(self, from_type: FppType, to_type: FppType) -> bool:
+        """return True if the type coercion rules allow from_type to be implicitly converted to to_type"""
         if from_type == to_type:
             # no coercion necessary
             return True
-        if from_type == LiteralStringValue and issubclass(to_type, StringType):
+        if from_type == FpyStringValue and issubclass(to_type, StringValue):
             # we can convert the literal String type to any string type
             return True
-        if not issubclass(from_type, NumericalType) or not issubclass(
-            to_type, NumericalType
+        if not issubclass(from_type, NumericalValue) or not issubclass(
+            to_type, NumericalValue
         ):
             # if one of the src or dest aren't numerical, we can't coerce
             return False
@@ -562,32 +566,34 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # now we must answer:
         # are all values of from_type representable in the destination type?
 
+        # in general: if either src or dest is one of our FpyXYZValue types, which are
+        # arb precision, we allow this coercion.
+        # it's easy to argue we should allow converting to arb precision. but why would
+        # we allow arb precision to go to an 8 bit type, e.g.?
+        # we have a big advantage: the arb precision types are only used for constants. that
+        # means we actually know what the value is, so we can actually check!
+        # however, we won't perform that check here. That will happen later in the
+        # const_convert_type func in the CalcConstExprValues
+        # for now, we will let the compilation proceed if either side is arb precision
+
+        if (
+            from_type in ARBITRARY_PRECISION_TYPES
+            or to_type in ARBITRARY_PRECISION_TYPES
+        ):
+            return True
+
+        # otherwise, both src and dest have finite bits
+
         # if we currently have a float
-        if issubclass(from_type, FloatType):
+        if issubclass(from_type, FloatValue):
             # the dest must be a float and must be >= width
             return (
-                issubclass(to_type, FloatType)
+                issubclass(to_type, FloatValue)
                 and to_type.get_bits() >= from_type.get_bits()
             )
 
         # otherwise must be an int
-        assert issubclass(from_type, IntegerType)
-
-        if to_type == LiteralIntValue:
-            # destination has arbitrary precision
-            return True
-
-        if from_type == LiteralIntValue:
-            # this is a special case. we're going from a value which has arbitrary
-            # precision. it has values which cannot fit in any finite bitwidth type
-            # however, we have a big advantage: this type is only used for literals. that
-            # means we actually know what the value is, so we can actually check!
-            # however, we won't perform that check here. That will happen later in the
-            # const_convert_type func in the CalcConstExprValues
-            # for now, we will let the compilation proceed
-            return True
-
-        # otherwise, both src and dest have finite bits
+        assert issubclass(from_type, IntegerValue)
 
         # the dest must be an int with the same signedness and >= width
         from_unsigned = from_type in UNSIGNED_INTEGER_TYPES
@@ -599,71 +605,71 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def pick_intermediate_type(
         self, arg_types: list[FppType], op: BinaryStackOp | UnaryStackOp
     ) -> FppType:
+        """return the intermediate type that all arguments should be converted to for the given operator"""
 
         if op in BOOLEAN_OPERATORS:
-            return BoolType
+            return BoolValue
 
-        non_numeric = any(not issubclass(t, NumericalType) for t in arg_types)
+        non_numeric = any(not issubclass(t, NumericalValue) for t in arg_types)
 
-        if op == BinaryStackOp.EQUAL or op == BinaryStackOp.NOT_EQUAL:
-            if non_numeric:
-                if len(set(arg_types)) != 1:
-                    # can only compare equality between the same types
-                    return None
-                return arg_types[0]
+        if op == BinaryStackOp.EQUAL or op == BinaryStackOp.NOT_EQUAL and non_numeric:
+            # comparison of complex types (structs/strings/arrays/enum consts)
+            if len(set(arg_types)) != 1:
+                # can only compare equality between the same types
+                return None
+            return arg_types[0]
 
         # all other cases require that arguments are numeric
         if non_numeric:
             return None
 
-        # what we're trying to do here is pick a type that our bytecode can handle easiest
-        # basically, one which requires the least conversion and preserves the input values the most
+        # we split this algo up into two stages: picking the type category (float, uint or int), and picking the type bitwidth
 
-        # if we have a float in the input, we're going to have to convert everything to floats
-        float = any(issubclass(t, FloatType) for t in arg_types)
-        if float:
-            return F64Type
-
-        # okay, no floats.
-
-        # but what if our op still results in a float, even with int inputs?
+        # pick the type category:
+        type_category = None
         if op == BinaryStackOp.DIVIDE or op == BinaryStackOp.EXPONENT:
             # always do true division and exponentiation over floats, python style
-            # this is because, for the given op, even with integer inputs, we might get 
+            # this is because, for the given op, even with integer inputs, we might get
             # float outputs
-            return F64Type
+            type_category = "float"
+        elif any(issubclass(t, FloatValue) for t in arg_types):
+            # otherwise if any args are floats, use float
+            type_category = "float"
+        elif any(t in UNSIGNED_INTEGER_TYPES for t in arg_types):
+            # otherwise if any args are unsigned, use unsigned
+            type_category = "uint"
+        else:
+            # otherwise use signed int
+            type_category = "int"
 
-        literals = all(t == LiteralIntValue for t in arg_types)
+        # pick the bitwidth
+        # we only use the arb precision types for constants, so if theyre all arb precision, they're consts
+        constants = all(t in ARBITRARY_PRECISION_TYPES for t in arg_types)
 
-        # if all args are literals, then we will rely on const folding which can output
-        # more "literal" values (even tho they aren't literally in the src ast)
-        if literals:
-            return LiteralIntValue
+        if constants:
+            # we can constant fold this, so use infinite bitwidth
+            if type_category == "float":
+                return FpyFloatValue
+            assert type_category == "int" or type_category == "uint"
+            return FpyIntegerValue
 
-        # okay, there are at least some non-literal values
-        # so we're going to do our ops in non-literal land
-
-        unsigned = any(t in UNSIGNED_INTEGER_TYPES for t in arg_types)
-
-        if op == UnaryStackOp.NEGATE and unsigned:
-            # negation of an unsigned integer always returns a signed int
-            return I64Type
-
-        if unsigned:
-            # at least one arg is unsigned
-            return U64Type
-
-        return I64Type
+        # can't const fold
+        if type_category == "float":
+            return F64Value
+        if type_category == "uint":
+            return U64Value
+        assert type_category == "int"
+        return I64Value
 
     def is_type_constant_size(self, type: FppType) -> bool:
         """return true if the type is statically sized"""
-        if issubclass(type, StringType):
+        if issubclass(type, StringValue):
             return False
 
-        if issubclass(type, ArrayType):
+        if issubclass(type, ArrayValue):
             return self.is_type_constant_size(type.MEMBER_TYPE)
 
-        if issubclass(type, StructType):
+        if issubclass(type, StructValue):
             for _, arg_type, _, _ in type.MEMBER_LIST:
                 if not self.is_type_constant_size(arg_type):
                     return False
@@ -674,7 +680,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def get_members(
         self, node: Ast, parent_type: FppType, state: CompileState
     ) -> list[tuple[str, FppType]] | None:
-        if not issubclass(parent_type, (StructType, TimeType)):
+        if not issubclass(parent_type, (StructValue, TimeValue)):
             return {}
 
         if not self.is_type_constant_size(parent_type):
@@ -685,15 +691,15 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             return None
 
         member_list: list[tuple[str, FppType]] = None
-        if issubclass(parent_type, StructType):
+        if issubclass(parent_type, StructValue):
             member_list = [t[0:2] for t in parent_type.MEMBER_LIST]
         else:
             # if it is a time type, there are some "implied" members
             member_list = []
-            member_list.append(("time_base", U16Type))
-            member_list.append(("time_context", U8Type))
-            member_list.append(("seconds", U32Type))
-            member_list.append(("useconds", U32Type))
+            member_list.append(("time_base", U16Value))
+            member_list.append(("time_context", U8Value))
+            member_list.append(("seconds", U32Value))
+            member_list.append(("useconds", U32Value))
         return member_list
 
     def get_ref_type(self, ref: FpyReference) -> FppType:
@@ -823,7 +829,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             )
             return
 
-        if not issubclass(parent_type, ArrayType):
+        if not issubclass(parent_type, ArrayValue):
             state.err(f"{parent_type.__name__} is not an array", node)
             return
 
@@ -862,10 +868,10 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
     def visit_AstNumber(self, node: AstNumber, state: CompileState):
         # give a best guess as to the final type of this node. we don't actually know
         # its bitwidth or signedness yet
-        if is_instance_compat(node.value, float):
-            result_type = F64Type
+        if is_instance_compat(node.value, Decimal):
+            result_type = FpyFloatValue
         else:
-            result_type = LiteralIntValue
+            result_type = FpyIntegerValue
 
         state.expr_unconverted_types[node] = result_type
         state.expr_converted_types[node] = result_type
@@ -892,7 +898,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if node.op in NUMERIC_OPERATORS:
             result_type = intermediate_type
         else:
-            result_type = BoolType
+            result_type = BoolValue
 
         state.op_intermediate_types[node] = intermediate_type
         state.expr_unconverted_types[node] = result_type
@@ -913,19 +919,19 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if node.op in NUMERIC_OPERATORS:
             result_type = intermediate_type
         else:
-            result_type = BoolType
+            result_type = BoolValue
 
         state.op_intermediate_types[node] = intermediate_type
         state.expr_unconverted_types[node] = result_type
         state.expr_converted_types[node] = result_type
 
     def visit_AstString(self, node: AstString, state: CompileState):
-        state.expr_unconverted_types[node] = LiteralStringValue
-        state.expr_converted_types[node] = LiteralStringValue
+        state.expr_unconverted_types[node] = FpyStringValue
+        state.expr_converted_types[node] = FpyStringValue
 
     def visit_AstBoolean(self, node: AstBoolean, state: CompileState):
-        state.expr_unconverted_types[node] = BoolType
-        state.expr_converted_types[node] = BoolType
+        state.expr_unconverted_types[node] = BoolValue
+        state.expr_converted_types[node] = BoolValue
 
     def check_args_coercible_to_func(
         self,
@@ -957,7 +963,7 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             output_type = func.to_type
             # right now we only have casting to numbers
             assert output_type in SPECIFIC_NUMERIC_TYPES
-            if not issubclass(input_type, NumericalType):
+            if not issubclass(input_type, NumericalValue):
                 # cannot convert a non-numeric type to a numeric type
                 return CompileError(
                     f"Expected a number, found {input_type.__name__}", node_arg
@@ -1111,9 +1117,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         state.expr_converted_types[node] = func.return_type
 
     def visit_AstRange(self, node: AstRange, state: CompileState):
-        if not self.coerce_expr_type(node.lower_bound, LoopVarType, state):
+        if not self.coerce_expr_type(node.lower_bound, LoopVarValue, state):
             return
-        if not self.coerce_expr_type(node.upper_bound, LoopVarType, state):
+        if not self.coerce_expr_type(node.upper_bound, LoopVarValue, state):
             return
 
         state.expr_unconverted_types[node] = RangeValue
@@ -1147,10 +1153,10 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             return
 
     def visit_AstAssert(self, node: AstAssert, state: CompileState):
-        if not self.coerce_expr_type(node.condition, BoolType, state):
+        if not self.coerce_expr_type(node.condition, BoolValue, state):
             return
         if node.exit_code is not None:
-            if not self.coerce_expr_type(node.exit_code, U8Type, state):
+            if not self.coerce_expr_type(node.exit_code, U8Value, state):
                 return
 
     def visit_AstFor(self, node: AstFor, state: CompileState):
@@ -1159,11 +1165,11 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             return
 
     def visit_AstWhile(self, node: AstWhile, state: CompileState):
-        if not self.coerce_expr_type(node.condition, BoolType, state):
+        if not self.coerce_expr_type(node.condition, BoolValue, state):
             return
 
     def visit_AstIf_AstElif(self, node: Union[AstIf, AstElif], state: CompileState):
-        if not self.coerce_expr_type(node.condition, BoolType, state):
+        if not self.coerce_expr_type(node.condition, BoolValue, state):
             return
 
     def visit_default(self, node, state):
@@ -1186,12 +1192,12 @@ class CalculateConstExprValues(Visitor):
         try:
             if type(from_val) == to_type:
                 return from_val
-            if issubclass(to_type, StringType):
-                assert type(from_val) == LiteralStringValue, type(from_val)
+            if issubclass(to_type, StringValue):
+                assert type(from_val) == FpyStringValue, type(from_val)
                 return to_type(from_val.val)
-            if issubclass(to_type, FloatType):
-                assert issubclass(type(from_val), NumericalType), type(from_val)
-                # based on inspection of the underlying FloatType classes,
+            if issubclass(to_type, FloatValue):
+                assert issubclass(type(from_val), NumericalValue), type(from_val)
+                # based on inspection of the underlying FloatValue classes,
                 # floats do not need narrowing handling
                 try:
                     coerced_value = float(from_val.val)
@@ -1211,12 +1217,12 @@ class CalculateConstExprValues(Visitor):
                     )
                     return None
                 return converted
-            if issubclass(to_type, IntegerType):
-                assert issubclass(type(from_val), NumericalType), type(from_val)
+            if issubclass(to_type, IntegerValue):
+                assert issubclass(type(from_val), NumericalValue), type(from_val)
                 if not explicit_cast:
                     # if this was a coercion, we know from rules that we can only coerce from
                     # an int to another int
-                    assert is_instance_compat(from_val, IntegerType), from_val
+                    assert is_instance_compat(from_val, IntegerValue), from_val
                     # if this was a coercion, we can actually perform one additional check
                     # before we convert it: does it fit within bounds?
                     # this is an implicit cast, check that the value can fit in the dest type
@@ -1295,17 +1301,17 @@ class CalculateConstExprValues(Visitor):
 
             # we are accessing an attribute of something with an fprime value at compile time
             # we must be getting a member
-            if is_instance_compat(parent_value, StructType):
+            if is_instance_compat(parent_value, StructValue):
                 expr_value = parent_value._val[node.attr]
-            elif is_instance_compat(parent_value, TimeType):
+            elif is_instance_compat(parent_value, TimeValue):
                 if node.attr == "seconds":
-                    expr_value = U32Type(parent_value.seconds)
+                    expr_value = U32Value(parent_value.seconds)
                 elif node.attr == "useconds":
-                    expr_value = U32Type(parent_value.useconds)
+                    expr_value = U32Value(parent_value.useconds)
                 elif node.attr == "time_base":
-                    expr_value = U16Type(parent_value.timeBase)
+                    expr_value = U16Value(parent_value.timeBase)
                 elif node.attr == "time_context":
-                    expr_value = U8Type(parent_value.timeContext)
+                    expr_value = U8Value(parent_value.timeContext)
                 else:
                     assert False, node.attr
             else:
@@ -1339,7 +1345,7 @@ class CalculateConstExprValues(Visitor):
             state.expr_converted_values[node] = None
             return
 
-        assert is_instance_compat(parent_value, ArrayType), parent_value
+        assert is_instance_compat(parent_value, ArrayValue), parent_value
 
         idx = state.expr_converted_values.get(node.item)
         if idx is None:
@@ -1347,7 +1353,7 @@ class CalculateConstExprValues(Visitor):
             state.expr_converted_values[node] = None
             return
 
-        assert is_instance_compat(idx, U64Type)
+        assert is_instance_compat(idx, U64Value)
 
         expr_value = parent_value._val[idx._val]
 
@@ -1424,7 +1430,7 @@ class CalculateConstExprValues(Visitor):
         # whether the conversion that will happen is due to an explicit cast
         if is_instance_compat(func, FpyTypeCtor):
             # actually construct the type
-            if issubclass(func.type, StructType):
+            if issubclass(func.type, StructValue):
                 instance = func.type()
                 # pass in args as a dict
                 # t[0] is the arg name
@@ -1432,13 +1438,13 @@ class CalculateConstExprValues(Visitor):
                 instance._val = arg_dict
                 expr_value = instance
 
-            elif issubclass(func.type, ArrayType):
+            elif issubclass(func.type, ArrayValue):
                 instance = func.type()
                 instance._val = arg_values
                 expr_value = instance
 
-            elif func.type == TimeType:
-                expr_value = TimeType(*[val.val for val in arg_values])
+            elif func.type == TimeValue:
+                expr_value = TimeValue(*[val.val for val in arg_values])
 
             else:
                 # no other FppTypees have ctors
@@ -1484,9 +1490,9 @@ class CalculateConstExprValues(Visitor):
         if not is_instance_compat(lhs_value, ValueType) or not is_instance_compat(
             rhs_value, ValueType
         ):
-            # if one of them isn't a ValueType, assume it must be TimeType
+            # if one of them isn't a ValueType, assume it must be TimeValue
             assert type(lhs_value) == type(rhs_value) and is_instance_compat(
-                lhs_value, TimeType
+                lhs_value, TimeValue
             ), (
                 lhs_value,
                 rhs_value,
@@ -1566,11 +1572,11 @@ class CalculateConstExprValues(Visitor):
             return
 
         if type(folded_value) == int:
-            folded_value = LiteralIntValue(folded_value)
+            folded_value = FpyIntegerValue(folded_value)
         elif type(folded_value) == float:
-            folded_value = F64Type(folded_value)
+            folded_value = F64Value(folded_value)
         elif type(folded_value) == bool:
-            folded_value = BoolType(folded_value)
+            folded_value = BoolValue(folded_value)
         else:
             assert False, folded_value
 
@@ -1621,11 +1627,11 @@ class CalculateConstExprValues(Visitor):
         assert folded_value is not None
 
         if type(folded_value) == int:
-            folded_value = LiteralIntValue(folded_value)
+            folded_value = FpyIntegerValue(folded_value)
         elif type(folded_value) == float:
-            folded_value = F64Type(folded_value)
+            folded_value = F64Value(folded_value)
         elif type(folded_value) == bool:
-            folded_value = BoolType(folded_value)
+            folded_value = BoolValue(folded_value)
         else:
             assert False, folded_value
 
@@ -1666,7 +1672,7 @@ class CheckConstArrayAccesses(Visitor):
             return
 
         parent_type = state.expr_converted_types[node.parent]
-        assert issubclass(parent_type, ArrayType), parent_type
+        assert issubclass(parent_type, ArrayValue), parent_type
 
         if idx_value.val < 0 or idx_value.val >= parent_type.LENGTH:
             state.err(

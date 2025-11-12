@@ -8,7 +8,11 @@ from fprime_gds.common.fpy.codegen import (
     SPECIFIC_FLOAT_TYPES,
     FppTypeClass,
 )
-from fprime.common.models.serialize.numerical_types import I64Type, U64Type, F64Type
+from fprime.common.models.serialize.numerical_types import (
+    U64Type as U64Value,
+    I64Type as I64Value,
+    F64Type as F64Value,
+)
 
 from fprime_gds.common.fpy.model import MIN_INT64, overflow_check
 from fprime_gds.common.fpy.test_helpers import (
@@ -16,7 +20,7 @@ from fprime_gds.common.fpy.test_helpers import (
     assert_run_success,
 )
 
-MAX_BITWIDTH_TYPES = [I64Type, U64Type, F64Type]
+MAX_BITWIDTH_TYPES = [I64Value, U64Value, F64Value]
 NUMERIC_VALUES = ["min", "-1", "0", "1", "max"]
 
 ARITHMETIC_OPERATORS = [
@@ -96,12 +100,12 @@ def test_math_with_max_bitwidth_types(
         return
 
     result_type = None
-    if F64Type in (lhs_type, rhs_type):
-        result_type = F64Type
-    elif U64Type in (lhs_type, rhs_type):
-        result_type = U64Type
+    if F64Value in (lhs_type, rhs_type):
+        result_type = F64Value
+    elif U64Value in (lhs_type, rhs_type):
+        result_type = U64Value
     else:
-        result_type = I64Type
+        result_type = I64Value
 
     should_fail = False
 
@@ -111,7 +115,7 @@ def test_math_with_max_bitwidth_types(
             should_fail = True
             ans = math.inf
         else:
-            if result_type == F64Type:
+            if result_type == F64Value:
                 ans = lhs_val / rhs_val
             else:
                 if lhs_val == MIN_INT64 and rhs_val == -1:
@@ -129,7 +133,7 @@ def test_math_with_max_bitwidth_types(
     else:
         assert False, op
 
-    if result_type != F64Type and op != "/":
+    if result_type != F64Value and op != "/":
         # if integer and not division, prevent overflow
         ans = overflow_check(ans)
 
