@@ -71,8 +71,8 @@ class CmdEncoder(encoder.Encoder):
         super().__init__(config)
 
         self.len_obj = self.config.get_config("msg_len")()
-        self.desc_obj = self.config.get_type("FwPacketDescriptorType")
-        self.opcode_obj = self.config.get_type("FwOpcodeType")
+        self.desc_obj = self.config.get_type("FwPacketDescriptorType")()
+        self.opcode_obj = self.config.get_type("FwOpcodeType")()
 
     def encode_api(self, data):
         """

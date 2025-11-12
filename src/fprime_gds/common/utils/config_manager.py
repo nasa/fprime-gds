@@ -20,7 +20,7 @@ from fprime_gds.common.models.serialize.numerical_types import (
     U32Type,
 )
 from fprime_gds.common.models.serialize.type_base import BaseType
-from typing import Any
+from typing import Any, Optional
 
 
 class ConfigBadTypeException(Exception):
@@ -79,9 +79,13 @@ class ConfigManager:
             ConfigManager.__instance = ConfigManager()
         return ConfigManager.__instance
 
-    def get_type(self, name: str) -> BaseType:
+    def get_type(
+        self, name: str, fallback_type: Optional[type[BaseType]] = None
+    ) -> type[BaseType]:
         """
-        Return an **instance** of the associated type.
+        Return the associated type class for the given name. If fallback_type is provided,
+        it is returned if the type name is unknown. If no fallback_type is provided and the name
+        is unknown, an exception is raised.
 
         Args:
             name (string): Name of the type to retrieve
@@ -92,9 +96,10 @@ class ConfigManager:
         """
         type_class = self.__prop["types"].get(name, None)
         if type_class is None:
+            if fallback_type is not None:
+                return fallback_type
             raise ConfigBadTypeException(name, "Unknown type name")
-        # Return an instance of the type
-        return type_class()
+        return type_class
 
     def set_type(self, name: str, type_class: type[BaseType]):
         """
@@ -110,19 +115,24 @@ class ConfigManager:
         """
         self.__prop["types"][name] = type_class
 
-    def get_constant(self, name: str) -> int:
+    def get_constant(self, name: str, fallback_val: Optional[int] = None) -> int:
         """
-        Get constant from the config, returning the associated integer value
+        Get constant from the config, returning the associated integer value.
+        If fallback_val is provided, it is returned if the constant name is unknown.
+        If no fallback_val is provided and the name is unknown, an exception is raised.
 
         Args:
             name (string): Name of the constant to retrieve
 
         Returns:
             If the name is known, returns the value of the constant.
-            Otherwise, raises ConfigBadTypeException
+            Otherwise, returns fallback_val if provided, or raises
+            ConfigBadTypeException.
         """
         constant_value = self.__prop["constants"].get(name, None)
         if constant_value is None:
+            if fallback_val is not None:
+                return fallback_val
             raise ConfigBadTypeException(name, "Unknown constant name")
         return constant_value
 

@@ -61,8 +61,8 @@ class EventEncoder(Encoder):
         super().__init__(config)
 
         self.len_obj = self.config.get_config("msg_len")()
-        self.desc_obj = self.config.get_type("FwPacketDescriptorType")
-        self.id_obj = self.config.get_type("FwEventIdType")
+        self.desc_obj = self.config.get_type("FwPacketDescriptorType")()
+        self.id_obj = self.config.get_type("FwEventIdType")()
 
     def encode_api(self, data):
         """

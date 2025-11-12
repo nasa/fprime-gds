@@ -1048,11 +1048,6 @@ class DictionaryParser(DetectionParser):
         config = ConfigManager.get_instance()
         # Update config to use type definitions defined in the JSON dictionary
         if dictionaries.typedefs_name:
-            # size_store_type = "FwSizeStoreType"
-            # config.set_type(
-            #     size_store_type,
-            #     dictionaries.typedefs_name.get(size_store_type, U16Type),
-            # )
             for type_name, type_dict in dictionaries.typedefs_name.items():
                 config.set_type(type_name, type_dict)
         if dictionaries.constant_name:

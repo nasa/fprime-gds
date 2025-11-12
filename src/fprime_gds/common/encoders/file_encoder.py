@@ -92,7 +92,7 @@ class FileEncoder(encoder.Encoder):
         elif data.packetType != FilePacketType.CANCEL:
             msg = f"Invalid packet type found while encoding: {data.packetType}"
             raise Exception(msg)
-        descriptor_obj = self.config.get_type("FwPacketDescriptorType")
+        descriptor_obj = self.config.get_type("FwPacketDescriptorType")()
         descriptor_obj.val = DataDescType["FW_PACKET_FILE"].value
         length_obj = self.config.get_config("msg_len")()
         length_obj.val = descriptor_obj.getSize() + len(out_data)
