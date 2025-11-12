@@ -277,6 +277,53 @@ class GenerateCode:
             else:
                 return [IntegerZeroExtend32To64Directive()]
 
+    def calc_lvar_offset_of_array_element(self, node: Ast, idx_expr: AstExpr, array_type: FppType, state: CompileState) -> list[Directive|Ir]:
+        """generates code to push to stack the U64 byte offset in the array for an array access, while performing an array oob
+        check. idx_expr is the expression to calculate the index, and dest is the FieldReference containing info about the
+        dest array"""
+        dirs = []
+        # let's push the offset of base lvar first, then
+        # calculate the offset in base type, then add
+
+        # push the index to the stack, do a bounds check,
+        dirs.extend(self.emit(idx_expr, state))
+        # okay now let's do an array oob check
+        # we want to peek the index so we can consume it for the oob check
+        # byte count
+        dirs.append(
+            PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize())
+        )
+        # offset
+        dirs.append(PushValDirective(StackSizeType(0).serialize()))
+        dirs.append(PeekDirective())  # duplicate the index
+        # convert idx to u64
+        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Value))
+        dirs.append(
+            PushValDirective(U64Value(array_type.LENGTH).serialize())
+        )  # push the length as U64
+        # check if idx >= length
+        dirs.append(UnsignedGreaterThanOrEqualDirective())
+        # if true, fail with error code, otherwise go to after check
+        oob_check_end_label = IrLabel(node, "oob_check_end")
+        dirs.append(IrIf(oob_check_end_label))
+        # push the error code we should fail with if false
+        dirs.append(
+            PushValDirective(
+                U8Value(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
+            )
+        )
+        dirs.append(ExitDirective())
+        dirs.append(oob_check_end_label)
+        # okay we're good. should still have the idx on the stack
+
+        # multiply the index by the member type size
+        dirs.append(
+            PushValDirective(U64Value(array_type.MEMBER_TYPE.getMaxSize()))
+        )
+        dirs.append(IntMultiplyDirective())
+        return dirs
+
+
     def build_emitter_dict(self):
         for name, func in inspect.getmembers(type(self), inspect.isfunction):
             if not name.startswith("emit_"):
@@ -452,54 +499,17 @@ class GenerateCode:
             parent_type.MEMBER_TYPE,
             unconverted_type,
         )
-        # these are the dirs to put the parent on the stack
-        # we want to put it on the stack and then grab a certain
-        # size at a certain offset
+        
+        # okay, we want to get an element from an array on the stack
 
-        # optimization: leave it in the lvar array
-
+        # TODO optimization: leave it in the lvar array instead of pushing the whole thing to stack
+        # for now we push the whole thing
         dirs = self.emit(node.parent, state)
 
-        # push the index (must be U64) to the stack
-        dirs.extend(self.emit(node.item, state))
-        # okay now let's do an array oob check
-        # duplicate the index
-        # byte count
-        dirs.append(
-            PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize())
-        )
-        # offset
-        dirs.append(PushValDirective(StackSizeType(0).serialize()))
-        dirs.append(PeekDirective())
-        # convert idx to u64
-        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Value))
-        dirs.append(
-            PushValDirective(ArrayIndexType(parent_type.LENGTH))
-        )  # push the length
-        # convert len to u64
-        dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Value))
-        # check if idx >= length
-        dirs.append(UnsignedGreaterThanOrEqualDirective())
-        # if true, fail with error code, otherwise go to after check
-        oob_check_end_label = IrLabel(node, "oob_check_end")
-        dirs.append(IrIf(oob_check_end_label))
-        # push the error code we should fail with if false
-        dirs.append(
-            PushValDirective(
-                U8Value(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
-            )
-        )
-        dirs.append(ExitDirective())
-        dirs.append(oob_check_end_label)
-        # okay we're good. should still have the idx on the stack
-
-        # multiply the index by the member type size
-        dirs.append(PushValDirective(U64Value(parent_type.MEMBER_TYPE.getMaxSize())))
-        dirs.append(IntMultiplyDirective())
-
-        # okay now we have the offset on the stack
-        # have to truncate to 32 bits
-        dirs.append(IntegerTruncate64To32Directive())
+        # calculate the offset in the parent array
+        dirs.extend(self.calc_lvar_offset_of_array_element(node, node.item, parent_type, state))
+        # truncate back to stacksizetype which is what getfield uses
+        dirs.extend(self.convert_numeric_type(U64Value, StackSizeType))
 
         # get the member from the stack at this offset, discard the rest of
         # the parent
@@ -740,7 +750,7 @@ class GenerateCode:
                 const_idx_expr_value = state.expr_converted_values.get(lhs.idx_expr)
                 if const_idx_expr_value is not None:
                     assert is_instance_compat(const_idx_expr_value, ArrayIndexType)
-                    # okay, so we have an index which might be variable
+                    # okay, so we have a constant value index
                     lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
                     const_lvar_offset = (
                         lhs.base_ref.lvar_offset
@@ -758,52 +768,21 @@ class GenerateCode:
                 StoreConstOffsetDirective(const_lvar_offset, lhs.type.getMaxSize())
             )
         else:
-            # okay we don't know the offset
-            assert lhs.is_array_element
-            # let's push the offset of base lvar first, then
-            # calculate the offset in base type, then add
+            # okay we don't know the offset at compile time
+            # only one case where that can be:
+            assert is_instance_compat(lhs, FieldReference) and lhs.is_array_element, lhs
 
-            # push as u64 because we're going to do math
+
+            # we need to calculate absolute offset in lvar array
+            # == (parent offset) + (offset in parent)
+
+            # offset in parent:
+            lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
+            dirs.extend(self.calc_lvar_offset_of_array_element(node, lhs.idx_expr, lhs_parent_type, state))
+
+            # parent offset:
             dirs.append(PushValDirective(U64Value(lhs.base_ref.lvar_offset).serialize()))
 
-            # push the index to the stack, do a bounds check,
-            dirs.extend(self.emit(lhs.idx_expr, state))
-            # okay now let's do an array oob check
-            # byte count
-            dirs.append(
-                PushValDirective(StackSizeType(ArrayIndexType.getMaxSize()).serialize())
-            )
-            # offset
-            dirs.append(PushValDirective(StackSizeType(0).serialize()))
-            dirs.append(PeekDirective())  # duplicate the index
-            # convert idx to u64
-            dirs.extend(self.convert_numeric_type(ArrayIndexType, U64Value))
-            lhs_parent_type = state.expr_converted_types[lhs.parent_expr]
-            dirs.append(
-                PushValDirective(U64Value(lhs_parent_type.LENGTH).serialize())
-            )  # push the length as U64
-            # check if idx >= length
-            dirs.append(UnsignedGreaterThanOrEqualDirective())
-            # if true, fail with error code, otherwise go to after check
-            oob_check_end_label = IrLabel(node, "oob_check_end")
-            dirs.append(IrIf(oob_check_end_label))
-            # push the error code we should fail with if false
-            dirs.append(
-                PushValDirective(
-                    U8Value(DirectiveErrorCode.ARRAY_OUT_OF_BOUNDS.value).serialize()
-                )
-            )
-            dirs.append(ExitDirective())
-            dirs.append(oob_check_end_label)
-            # okay we're good. should still have the idx on the stack
-
-            # multiply the index by the member type size
-            dirs.append(
-                PushValDirective(U64Value(lhs_parent_type.MEMBER_TYPE.getMaxSize()))
-            )
-            dirs.append(IntMultiplyDirective())
-            # okay, now we should have the offset wrt base of the parent type on the stack
-            # right below it is the offset in the lvar array
             # add them
             dirs.append(IntAddDirective())
 
