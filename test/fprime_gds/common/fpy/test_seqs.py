@@ -2548,3 +2548,11 @@ var: F32 = 999999999999999999999999999999999999999999999999999999999999999999999
 """
 
     assert_compile_failure(fprime_test_api, seq)
+
+
+def test_empty_range(fprime_test_api):
+    seq = """
+for i in 7..0:
+    exit(1)
+"""
+    assert_run_success(fprime_test_api, seq)

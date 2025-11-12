@@ -32,6 +32,7 @@ from fprime_gds.common.fpy.semantics import (
     CreateVariables,
     PickTypesAndResolveAttrsAndItems,
     ResolveVarsTypesAndFuncs,
+    WarnRangesAreNotEmpty,
 )
 from fprime_gds.common.fpy.syntax import AstScopedBody, FpyTransformer, PythonIndenter
 from fprime_gds.common.fpy.macros import MACROS
@@ -213,6 +214,7 @@ def ast_to_directives(
         # we can calculate values of type ctors etc etc
         CalculateConstExprValues(),
         CheckConstArrayAccesses(),
+        WarnRangesAreNotEmpty()
     ]
     desugaring_passes: list[Visitor] = [
         # now that semantic analysis is done, we can desugar things. start with for loops
@@ -235,6 +237,10 @@ def ast_to_directives(
         if isinstance(ir, BackendError):
             # early return errors
             return ir
+
+    # print out warnings
+    for warning in state.warnings:
+        print(warning)
 
     # all the ir is guaranteed to have been converted to directives by now
     return ir

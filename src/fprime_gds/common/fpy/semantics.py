@@ -1611,3 +1611,16 @@ class CheckConstArrayAccesses(Visitor):
                 node.item,
             )
             return
+
+
+class WarnRangesAreNotEmpty(Visitor):
+    def visit_AstRange(self, node: AstRange, state: CompileState):
+        # if the index is a const, we should be able to check if it's in bounds
+        lower_value: LoopVarValue = state.expr_converted_values.get(node.lower_bound)
+        upper_value: LoopVarValue = state.expr_converted_values.get(node.lower_bound)
+        if lower_value is None or upper_value is None:
+            # cannot check at compile time
+            return
+
+        if lower_value.val >= upper_value.val:
+            state.warn("Range is empty", node)
