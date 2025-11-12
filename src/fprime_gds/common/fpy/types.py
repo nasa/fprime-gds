@@ -1,7 +1,6 @@
 from __future__ import annotations
 from abc import ABC
 from decimal import Decimal
-from enum import Enum
 import inspect
 from dataclasses import astuple, dataclass, field, fields
 import math
@@ -54,7 +53,6 @@ from fprime_gds.common.fpy.syntax import (
     Ast,
     AstAssign,
     AstScopedBody,
-    AstVar,
     AstWhile,
 )
 from fprime.common.models.serialize.type_base import BaseType as FppValue
