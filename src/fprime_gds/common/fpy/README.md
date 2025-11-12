@@ -69,19 +69,8 @@ low_bitwidth: U8 = U8(high_bitwidth) # no more error!
 ```
 This is called downcasting. It has the following behavior:
 * 64-bit floats are downcasted to 32-bit floats as if by `static_cast<F32>(f64_value)` in C++
-* Unsigned integers are truncated to the desired length
-* Signed integers are first converted to unsigned, then truncated. Then, if the sign bit of the resulting number is set, `2 ** dest_type_bits` is subtracted from the resulting number.
-
-   value = int(from_val.val)
-                mask = (1 << to_type.get_bits()) - 1
-                value &= mask
-                if to_type in SIGNED_INTEGER_TYPES:
-                    sign_bit = 1 << (to_type.get_bits() - 1)
-                    if value & sign_bit:
-                        # the sign bit is set, the result should be negative
-                        # subtract the max value as this is how two's complement works
-                        value -= 1 << to_type.get_bits()
-                return to_type(value)
+* Unsigned integers are bitwise truncated to the desired length
+* Signed integers are first reinterpreted bitwise as unsigned, then truncated to the desired length. Then, if the sign bit of the resulting number is set, `2 ** dest_type_bits` is subtracted from the resulting number to make it negative. This may have unintended behavior so use it cautiously.
 
 
 ## 4. Dictionary Types

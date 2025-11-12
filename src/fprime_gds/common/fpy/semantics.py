@@ -1167,7 +1167,8 @@ class CalculateConstExprValues(Visitor):
 
                     # handle narrowing, if necessary
                     from_val = int(from_val)
-                    # first cut down to bitwidth
+                    # if signed, convert to unsigned (bit representation should be the same)
+                    # first cut down to bitwidth. performed in two's complement
                     mask = (1 << to_type.get_bits()) - 1
                     # this also implicitly converts value to an unsigned number
                     from_val &= mask
@@ -1198,11 +1199,11 @@ class CalculateConstExprValues(Visitor):
             state.err(f"For type {typename(unconverted_type)}: {e}", node)
             return
 
-        explicit_cast = node in state.expr_explicit_casts
+        skip_range_check = node in state.expr_explicit_casts
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state, explicit_cast
+                expr_value, converted_type, node, state, skip_range_check
             )
             if expr_value is None:
                 return
@@ -1260,10 +1261,10 @@ class CalculateConstExprValues(Visitor):
             unconverted_type,
         )
 
-        explicit_cast = node in state.expr_explicit_casts
+        skip_range_check = node in state.expr_explicit_casts
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state, explicit_cast
+                expr_value, converted_type, node, state, skip_range_check
             )
             if expr_value is None:
                 return
@@ -1299,11 +1300,11 @@ class CalculateConstExprValues(Visitor):
             unconverted_type,
         )
 
-        explicit_cast = node in state.expr_explicit_casts
+        skip_range_check = node in state.expr_explicit_casts
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state, explicit_cast
+                expr_value, converted_type, node, state, skip_range_check
             )
             if expr_value is None:
                 return
@@ -1338,10 +1339,10 @@ class CalculateConstExprValues(Visitor):
             unconverted_type,
         )
 
-        explicit_cast = node in state.expr_explicit_casts
+        skip_range_check = node in state.expr_explicit_casts
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state, explicit_cast
+                expr_value, converted_type, node, state, skip_range_check
             )
             if expr_value is None:
                 return
@@ -1401,11 +1402,11 @@ class CalculateConstExprValues(Visitor):
             unconverted_type,
         )
 
-        explicit_cast = node in state.expr_explicit_casts
+        skip_range_check = node in state.expr_explicit_casts
         converted_type = state.expr_converted_types[node]
         if converted_type != unconverted_type:
             expr_value = self.const_convert_type(
-                expr_value, converted_type, node, state, explicit_cast
+                expr_value, converted_type, node, state, skip_range_check
             )
             if expr_value is None:
                 return
@@ -1519,7 +1520,7 @@ class CalculateConstExprValues(Visitor):
         # first fold, store the result in arbitrary precision
 
         # then if the expression is some other type, convert:
-        explicit_cast = node in state.expr_explicit_casts
+        skip_range_check = node in state.expr_explicit_casts
         unconverted_type = state.expr_unconverted_types.get(node)
         # the intent of this is to handle situations where we're constant folding and the results cannot be arbitrary precision
         folded_value = self.const_convert_type(
@@ -1530,7 +1531,7 @@ class CalculateConstExprValues(Visitor):
         # okay and now perform type coercion/casting
         if converted_type != unconverted_type:
             folded_value = self.const_convert_type(
-                folded_value, converted_type, node, state, explicit_cast
+                folded_value, converted_type, node, state, skip_range_check
             )
             if folded_value is None:
                 return
@@ -1574,7 +1575,7 @@ class CalculateConstExprValues(Visitor):
         # first fold, store the result in arbitrary precision
 
         # then if the expression is some other type, convert:
-        explicit_cast = node in state.expr_explicit_casts
+        skip_range_check = node in state.expr_explicit_casts
         unconverted_type = state.expr_unconverted_types.get(node)
         # the intent of this is to handle situations where we're constant folding and the results cannot be arbitrary precision
         folded_value = self.const_convert_type(
@@ -1584,7 +1585,7 @@ class CalculateConstExprValues(Visitor):
         converted_type = state.expr_converted_types.get(node)
         if converted_type != unconverted_type:
             folded_value = self.const_convert_type(
-                folded_value, converted_type, node, state, explicit_cast
+                folded_value, converted_type, node, state, skip_range_check
             )
             if folded_value is None:
                 return
