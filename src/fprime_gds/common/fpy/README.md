@@ -224,7 +224,7 @@ while counter < 100:
 
 You can also loop over a range of integers:
 ```py
-sum: U64 = 0
+sum: I64 = 0
 # loop i from 0 inclusive to 5 exclusive
 for i in 0..5:
     sum = sum + i
@@ -253,7 +253,7 @@ while True:
 
 You can also continue on to the next iteration of the loop, skipping the remainder of the loop body:
 ```py
-odd_numbers_sum: U64 = 0
+odd_numbers_sum: I64 = 0
 for i in 0..10:
     if i % 2 == 0:
         continue

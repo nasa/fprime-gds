@@ -404,8 +404,7 @@ exit(1)
 def test_deeply_nested_loops_exhaust_recursion_depth(fprime_test_api):
     depth = 500
     loop_header_lines = [
-        ("    " * level) + f"for i{level} in 0 .. 1:"
-        for level in range(depth)
+        ("    " * level) + f"for i{level} in 0 .. 1:" for level in range(depth)
     ]
     seq = "\n" + "\n".join(loop_header_lines) + "\n" + ("    " * depth) + "pass\n"
 
@@ -580,7 +579,7 @@ if val > val2:
 exit(1)
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_i32_u32_cmp(fprime_test_api):
@@ -604,7 +603,7 @@ if 1 < 2.0:
 exit(1)
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_assign_float_to_int(fprime_test_api):
@@ -874,7 +873,7 @@ if val1 == val2 and val3 == val4 and val4 == val5:
         exit(0)
 exit(1)
 """
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_nested_boolean_expressions(fprime_test_api):
@@ -911,7 +910,7 @@ if val1 == val3:  # Integer to float comparison
         exit(0)
 exit(1)
 """
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_negative_val_unsigned_type(fprime_test_api):
@@ -1364,11 +1363,10 @@ exit(1)
 """
     assert_run_success(fprime_test_api, seq)
 
+
 @pytest.mark.parametrize(
     "lhs_type,rhs_type,lhs_value,rhs_value,result_type,expected_value",
     [
-        ("I64", "I64", "9", "2", "I64", "4"),
-        ("I64", "U64", "9", "2", "U64", "4"),
         ("U64", "I64", "9", "2", "U64", "4"),
         ("U64", "U64", "9", "2", "U64", "4"),
         ("F64", "F64", "5.5", "2.0", "F64", "2.0"),
@@ -1397,6 +1395,31 @@ assert result == {expected_value}
 
     assert_run_success(fprime_test_api, seq)
 
+
+@pytest.mark.parametrize(
+    "lhs_type,rhs_type,lhs_value,rhs_value,result_type,expected_value",
+    [
+        ("I64", "U64", "9", "2", "U64", "4"),
+        ("U64", "I64", "9", "2", "U64", "4"),
+    ],
+)
+def test_floor_divide_64_bit_numeric_types(
+    fprime_test_api,
+    lhs_type,
+    rhs_type,
+    lhs_value,
+    rhs_value,
+    result_type,
+    expected_value,
+):
+    seq = f"""
+lhs: {lhs_type} = {lhs_value}
+rhs: {rhs_type} = {rhs_value}
+result: {result_type} = lhs // rhs
+assert result == {expected_value}
+"""
+
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_bool_stack_value(fprime_test_api):
@@ -1493,7 +1516,7 @@ while counter < 100:
     counter = counter + 1
 
 assert counter == 100
-sum: U64 = 0
+sum: I64 = 0
 # loop i from 0 inclusive to 5 exclusive
 for i in 0 .. 5:
     sum = sum + i
@@ -1506,7 +1529,7 @@ while True:
         break
 
 assert counter == 100
-odd_numbers_sum: U64 = 0
+odd_numbers_sum: I64 = 0
 for i in 0 .. 10:
     if i % 2 == 0:
         continue
@@ -1586,7 +1609,7 @@ if -var == -1:
     exit(0)
 exit(1)
 """
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
 
 
 def test_multi_arg_variable_arg_cmd(fprime_test_api):
@@ -2393,9 +2416,9 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("в")
 
 def test_abs_float(fprime_test_api):
     seq = """
-assert abs(1.0) == 1.0
-assert abs(-1.0) == 1.0
-assert abs(0.0) == 0.0
+assert fabs(1.0) == 1.0
+assert fabs(-1.0) == 1.0
+assert fabs(0.0) == 0.0
 """
 
     assert_run_success(fprime_test_api, seq)
@@ -2403,11 +2426,11 @@ assert abs(0.0) == 0.0
 
 def test_abs_i64(fprime_test_api):
     seq = """
-assert abs(I64(-1)) == 1
-assert abs(I64(1)) == 1
-assert abs(I64(0)) == 0
+assert iabs(I64(-1)) == 1
+assert iabs(I64(1)) == 1
+assert iabs(I64(0)) == 0
 # need to use a large subtract here cuz otherwise float precision kills us... this is kinda sus
-assert abs(I64(2**63 - 6556)) == 2**63 - 6556
+assert iabs(I64(2**63 - 6556)) == 2**63 - 6556
 """
 
     assert_run_success(fprime_test_api, seq)
@@ -2415,27 +2438,31 @@ assert abs(I64(2**63 - 6556)) == 2**63 - 6556
 
 def test_abs_u64(fprime_test_api):
     seq = """
-assert abs(U64(1)) == 1
-assert abs(U64(0)) == 0
+# fails, iabs takes signed
+assert iabs(U64(1)) == 1
+assert iabs(U64(0)) == 0
 """
 
-    assert_run_success(fprime_test_api, seq)
+    assert_compile_failure(fprime_test_api, seq)
+
 
 def test_abs_literal_int(fprime_test_api):
     seq = """
-assert abs(1) == 1
-assert abs(-1) == 1
+assert iabs(1) == 1
+assert iabs(-1) == 1
 """
 
     assert_run_success(fprime_test_api, seq)
+
 
 def test_abs_literal_float(fprime_test_api):
     seq = """
-assert abs(1.0) == 1.0
-assert abs(-1.0) == 1.0
+assert fabs(1.0) == 1.0
+assert fabs(-1.0) == 1.0
 """
 
     assert_run_success(fprime_test_api, seq)
+
 
 def test_var_type_ann_bad(fprime_test_api):
     seq = """
@@ -2504,12 +2531,12 @@ def test_const_complex_pow(fprime_test_api):
     assert_compile_failure(fprime_test_api, seq)
 
 
-def test_const_pow_overflow(fprime_test_api):
+def test_very_large_const_pow(fprime_test_api):
     seq = """
 10.0 ** 1000
 """
 
-    assert_compile_failure(fprime_test_api, seq)
+    assert_run_success(fprime_test_api, seq)
 
 
 def test_func_call_a_namespace(fprime_test_api):

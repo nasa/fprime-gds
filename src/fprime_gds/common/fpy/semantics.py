@@ -1,5 +1,6 @@
 from __future__ import annotations
 from decimal import Decimal
+import decimal
 from numbers import Number
 import heapq
 from typing import Union
@@ -546,7 +547,9 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         if self.can_coerce_type(unconverted_type, type):
             state.expr_converted_types[node] = type
             return True
-        state.err(f"Expected {typename(type)}, found {typename(unconverted_type)}", node)
+        state.err(
+            f"Expected {typename(type)}, found {typename(unconverted_type)}", node
+        )
         return False
 
     def can_coerce_type(self, from_type: FppType, to_type: FppType) -> bool:
@@ -566,10 +569,8 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
         # now we must answer:
         # are all values of from_type representable in the destination type?
 
-        # if going between integer/float, definitely not
-        if (
-            issubclass(from_type, FloatValue) and issubclass(to_type, IntegerValue)
-        ) or (issubclass(from_type, IntegerValue) and issubclass(to_type, FloatValue)):
+        # if going from float to integer, definitely not
+        if issubclass(from_type, FloatValue) and issubclass(to_type, IntegerValue):
             return False
 
         # in general: if either src or dest is one of our FpyXYZValue types, which are
@@ -592,11 +593,16 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
 
         # if we currently have a float
         if issubclass(from_type, FloatValue):
-            # the dest must be a float (already checked) and must be >= width
-            return to_type.get_bits() >= from_type.get_bits()
+            # the dest must be a float and must be >= width
+            return issubclass(to_type, FloatValue) and to_type.get_bits() >= from_type.get_bits()
 
         # otherwise must be an int
         assert issubclass(from_type, IntegerValue)
+        # int to float is allowed in any case.
+        # this is the big exception to our rule about full representation. this can cause loss of precision
+        # for large integer values
+        if issubclass(to_type, FloatValue):
+            return True
 
         # the dest must be an int with the same signedness and >= width
         from_unsigned = from_type in UNSIGNED_INTEGER_TYPES
@@ -889,7 +895,6 @@ class PickTypesAndResolveAttrsAndItems(Visitor):
             )
             return
 
-        print(lhs_type, rhs_type, intermediate_type)
         if not self.coerce_expr_type(node.lhs, intermediate_type, state):
             return
         if not self.coerce_expr_type(node.rhs, intermediate_type, state):
@@ -1493,7 +1498,7 @@ class CalculateConstExprValues(Visitor):
         except ValueError as err:
             state.err(str(err) if str(err) else "Domain error", node)
             return
-        if type(folded_value) == complex:
+        except decimal.InvalidOperation:
             state.err("Domain error", node)
             return
 
