@@ -40,7 +40,7 @@ For types, Fpy has most of the same basic ones that FPP does:
 * Floats: `F32, F64`
 * Boolean: `bool`
 
-Float literals are denoted with a decimal point (`5.0`, `0.123`) and Boolean literals have a capitalized first letter: `True`, `False`. There is no way to differentiate between signed and unsigned integer literals, so the compiler looks at where the literal is used to determine the signedness.
+Float literals are denoted with a decimal point (`5.0`, `0.123`) and Boolean literals have a capitalized first letter: `True`, `False`. There is no way to differentiate between signed and unsigned integer literals.
 
 Note there is currently no built-in `string` type. See [Strings](#15-strings).
 
@@ -72,6 +72,33 @@ This is called downcasting. It has the following behavior:
 * Unsigned integers are bitwise truncated to the desired length
 * Signed integers are first reinterpreted bitwise as unsigned, then truncated to the desired length. Then, if the sign bit of the resulting number is set, `2 ** dest_type_bits` is subtracted from the resulting number to make it negative. This may have unintended behavior so use it cautiously.
 
+You can turn an int into a float implicitly:
+```py
+int_value: U8 = 123
+float_value: F32 = int_value
+```
+
+But the opposite produces a compiler error:
+```py
+float_value: F32 = 123.0
+int_value: U8 = float_value # compiler error
+```
+
+Instead, you have to manually cast:
+```py
+float_value: F32 = 123.0
+int_value: U8 = U8(float_value)
+# int_value == 123
+```
+
+In addition, you have to cast between signed/unsigned ints:
+```py
+uint: U32 = 123123
+int: I32 = uint # compiler error
+int: I32 = I32(uint)
+# int == 123123
+```
+
 
 ## 4. Dictionary Types
 
@@ -101,10 +128,10 @@ Fpy supports the following math operations:
 * Exponentiation: `**`
 * Floor division: `//`
 * Natural logarithm: `log(F64)`
-* Absolute value: `abs(F64), abs(I64), abs(U64)`
+* Absolute value: `fabs(F64), iabs(I64)`
 
 The behavior of these operators is designed to mimic Python. 
-> Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
+> Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python. If you want integer division, use the `//` operator.
 
 ## 6. Variable Arguments to Commands, Macros and Constructors
 
@@ -117,7 +144,7 @@ param4: F32 = 15.0
 Ref.sendBuffComp.PARAMETER4_PRM_SET(param4)
 ```
 
-You can also pass variable arguments to the [`sleep`](#12-relative-and-absolute-sleep), [`exit`](#13-exit-macro), `abs` and `log` macros, as well as to constructors.
+You can also pass variable arguments to the [`sleep`](#12-relative-and-absolute-sleep), [`exit`](#13-exit-macro), `fabs`, `iabs` and `log` macros, as well as to constructors.
 
 There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#15-strings).
 

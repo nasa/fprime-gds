@@ -1497,6 +1497,15 @@ com_queue_depth[0] = 1
 #signal_pair_time: F32 = Ref.SG1.PairOutput.time
 #com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
 
+int_value: U8 = 123
+float_value: F32 = int_value
+int_value = U8(float_value)
+assert int_value == 123
+
+uint: U32 = 123123
+int: I32 = I32(uint)
+assert int == 123123
+
 
 value: bool = 1 > 2 and (3 + 4) != 5
 many_cmds_dispatched: bool = cmds_dispatched >= 123
