@@ -165,6 +165,7 @@ fptoui
 fptrunc
 fpy
 fpybc
+fpyc
 fqn
 fsw
 gdiplus
