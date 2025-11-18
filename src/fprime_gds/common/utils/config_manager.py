@@ -18,14 +18,13 @@ Based on the ConfigManager class written by Len Reder in the fprime Gse
 from fprime_gds.common.models.serialize.numerical_types import (
     U16Type,
     U32Type,
-    IntegerType,
+    ValueType,
 )
 from fprime_gds.common.models.serialize.enum_type import EnumType
+from fprime_gds.common.models.serialize.type_exceptions import FprimeGdsException
 
-from fprime_gds.common.models.serialize.type_base import BaseType
 from typing import Any, Optional
 
-from fprime_gds.common.models.serialize.type_exceptions import FprimeGdsException
 
 
 class ConfigBadTypeException(FprimeGdsException):
@@ -86,60 +85,46 @@ class ConfigManager:
             ConfigManager.__instance = ConfigManager()
         return ConfigManager.__instance
 
-    def get_type(
-        self, name: str, fallback_type: Optional[type[BaseType]] = None
-    ) -> type[BaseType]:
+    def get_type(self, name: str) -> type[ValueType]:
         """
-        Return the associated type class for the given name. If fallback_type is provided,
-        it is returned if the type name is unknown. If no fallback_type is provided and the name
-        is unknown, an exception is raised.
+        Return the associated type class for the given name.
         
         Args:
             name (string): Name of the type to retrieve
 
         Returns:
-            If the name is valid, returns an object of a type derived from
-            TypeBase. Otherwise, raises ConfigBadTypeException
+            If the name is valid, returns a class derived from
+            ValueType. Otherwise, raises ConfigBadTypeException
         """
         type_class = self.__prop["types"].get(name, None)
         if type_class is None:
-            if fallback_type is not None:
-                return fallback_type
             raise ConfigBadTypeException("Unknown type name", name)
         return type_class
 
-    def set_type(self, name: str, type_class: type[BaseType]):
+    def set_type(self, name: str, type_class: type[ValueType]):
         """
         Set a type in the config for parsing by associating a name with
         a type class.
 
         Args:
             name (string): Name of the type to set
-            type_class (type[TypeBase]): Class of (**not** instance of) the type to associate with the name
-
-        Returns:
-            None
+            type_class (type[ValueType]): Class of (**not** instance of) the type to associate with the name
         """
         self.__prop["types"][name] = type_class
 
-    def get_constant(self, name: str, fallback_val: Optional[int] = None) -> int:
+    def get_constant(self, name: str) -> int:
         """
         Get constant from the config, returning the associated integer value.
-        If fallback_val is provided, it is returned if the constant name is unknown.
-        If no fallback_val is provided and the name is unknown, an exception is raised.
 
         Args:
             name (string): Name of the constant to retrieve
 
         Returns:
             If the name is known, returns the value of the constant.
-            Otherwise, returns fallback_val if provided, or raises
-            ConfigBadTypeException.
+            Otherwise, raises ConfigBadTypeException.
         """
         constant_value = self.__prop["constants"].get(name, None)
         if constant_value is None:
-            if fallback_val is not None:
-                return fallback_val
             raise ConfigBadTypeException("Unknown constant name", name)
         return constant_value
 
