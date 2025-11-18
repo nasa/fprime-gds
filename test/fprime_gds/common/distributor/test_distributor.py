@@ -14,11 +14,11 @@ def test_distributor():
     """
     Tests the raw messages and leftover data for the distributor
     """
-    config = config_manager.ConfigManager.get_instance()
+    config = config_manager.ConfigManager()
     config.set_config("msg_len", U16Type)
     config.set_type("FwPacketDescriptorType", U32Type)
 
-    dist = Distributor(config)
+    dist = Distributor()
 
     header_1 = b"\x00\x0e\x00\x00\x00\x04"
     length_1 = 14

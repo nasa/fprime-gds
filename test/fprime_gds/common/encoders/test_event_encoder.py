@@ -14,23 +14,10 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.utils.event_severity import EventSeverity
 
 
-def test_event_encoder():
+def test_event_encoder_1():
     """
     Tests the encoding of the event encoder
     """
-    config = ConfigManager()
-    config.set_config("msg_len", U16Type)
-
-    # Required to set the global config for UTs to meet expected values
-    ConfigManager.get_instance().set_config("msg_len", U32Type)
-
-    # Tests written assuming FwPacketDescriptorType is U32Type so override default here
-    config.set_type("FwPacketDescriptorType", U32Type)
-    ConfigManager.get_instance().set_type("FwPacketDescriptorType", U32Type)
-
-    enc = EventEncoder()
-    enc_config = EventEncoder(config)
-
     temp = EventTemplate(
         101,
         "test_ch",
@@ -41,31 +28,36 @@ def test_event_encoder():
     )
 
     time_obj = TimeType(2, 0, 1533758629, 123456)
-
     event_obj = EventData((U32Type(42), U32Type(10)), time_obj, temp)
 
-    desc_bin = b"\x00\x00\x00\x02"
+    desc_bin = b"\x00\x02"  # U16 ComCfg.Apid for FW_PACKET_LOG
     id_bin = b"\x00\x00\x00\x65"
     time_bin = b"\x00\x02\x00\x5b\x6b\x4c\xa5\x00\x01\xe2\x40"
     arg_bin = b"\x00\x00\x00\x2a\x00\x00\x00\x0a"
-    long_len_bin = b"\x00\x00\x00\x1b"
-    short_len_bin = b"\x00\x1b"
+    u32_len_bin = b"\x00\x00\x00\x19"  # 25 bytes (2+4+11+8)
+    u16_len_bin = b"\x00\x19"  # 25 bytes
 
-    reg_expected = long_len_bin + desc_bin + id_bin + time_bin + arg_bin
-    config_expected = short_len_bin + desc_bin + id_bin + time_bin + arg_bin
+    u32_expected = u32_len_bin + desc_bin + id_bin + time_bin + arg_bin
+    u16_expected = u16_len_bin + desc_bin + id_bin + time_bin + arg_bin
 
-    reg_output = enc.encode_api(event_obj)
-
+    #### Use msg_len U32Type ####
+    ConfigManager().set_config("msg_len", U32Type)
+    enc = EventEncoder()
+    u32_output = enc.encode_api(event_obj)
     assert (
-        reg_output == reg_expected
-    ), f"FAIL: expected regular output to be {list(reg_expected)}, but found {list(reg_output)}"
+        u32_output == u32_expected
+    ), f"FAIL: expected regular output to be {list(u32_expected)}, but found {list(u32_output)}"
 
-    config_output = enc_config.encode_api(event_obj)
-
+    #### Use msg_len U16Type ####
+    ConfigManager().set_config("msg_len", U16Type)
+    enc_u16 = EventEncoder()
+    u16_output = enc_u16.encode_api(event_obj)
     assert (
-        config_output == config_expected
-    ), f"FAIL: expected configured output to be {list(config_expected)}, but found {list(config_output)}"
+        u16_output == u16_expected
+    ), f"FAIL: expected configured output to be {list(u16_expected)}, but found {list(u16_output)}"
 
+
+def test_event_encoder_2():
     temp = EventTemplate(
         102,
         "test_ch2",
@@ -76,27 +68,30 @@ def test_event_encoder():
     )
 
     time_obj = TimeType(2, 0, 1533758628, 123457)
-
     event_obj = EventData((U8Type(128), U16Type(40)), time_obj, temp)
 
-    desc_bin = b"\x00\x00\x00\x02"
+    desc_bin = b"\x00\x02"  # U16 ComCfg.Apid for FW_PACKET_LOG
     id_bin = b"\x00\x00\x00\x66"
     time_bin = b"\x00\x02\x00\x5b\x6b\x4c\xa4\x00\x01\xe2\x41"
     arg_bin = b"\x80\x00\x28"
-    long_len_bin = b"\x00\x00\x00\x16"
-    short_len_bin = b"\x00\x16"
+    u32_len_bin = b"\x00\x00\x00\x14"  # 20 bytes (2+4+11+3)
+    u16_len_bin = b"\x00\x14"  # 20 bytes
 
-    reg_expected = long_len_bin + desc_bin + id_bin + time_bin + arg_bin
-    config_expected = short_len_bin + desc_bin + id_bin + time_bin + arg_bin
+    u32_expected = u32_len_bin + desc_bin + id_bin + time_bin + arg_bin
+    u16_expected = u16_len_bin + desc_bin + id_bin + time_bin + arg_bin
 
-    reg_output = enc.encode_api(event_obj)
-
+    #### Use msg_len U32Type ####
+    ConfigManager().set_config("msg_len", U32Type)
+    enc = EventEncoder()
+    u32_output = enc.encode_api(event_obj)
     assert (
-        reg_output == reg_expected
-    ), f"FAIL: expected regular output to be {list(reg_expected)}, but found {list(reg_output)}"
+        u32_output == u32_expected
+    ), f"FAIL: expected regular output to be {list(u32_expected)}, but found {list(u32_output)}"
 
-    config_output = enc_config.encode_api(event_obj)
-
+    #### Use msg_len U16Type ####
+    ConfigManager().set_config("msg_len", U16Type)
+    enc_u16 = EventEncoder()
+    u16_output = enc_u16.encode_api(event_obj)
     assert (
-        config_output == config_expected
-    ), f"FAIL: expected configured output to be {list(config_expected)}, but found {list(config_output)}"
+        u16_output == u16_expected
+    ), f"FAIL: expected configured output to be {list(u16_expected)}, but found {list(u16_output)}"
