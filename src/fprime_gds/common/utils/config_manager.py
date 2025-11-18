@@ -93,7 +93,7 @@ class ConfigManager:
         Return the associated type class for the given name. If fallback_type is provided,
         it is returned if the type name is unknown. If no fallback_type is provided and the name
         is unknown, an exception is raised.
-
+        
         Args:
             name (string): Name of the type to retrieve
 
@@ -244,8 +244,8 @@ class ConfigManager:
         )
         self.__prop["constants"].update(
             {
-                "FW_SERIALIZE_TRUE_VALUE": 0,
-                "FW_SERIALIZE_FALSE_VALUE": 0xFF,
+                "FW_SERIALIZE_TRUE_VALUE": 0xFF,
+                "FW_SERIALIZE_FALSE_VALUE": 0,
             }
         )
         self.__prop["config"].update(
