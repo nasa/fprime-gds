@@ -19,8 +19,8 @@ from fprime_gds.common.fpy.types import (
     LoopVarValue,
     Transformer,
 )
-from fprime.common.models.serialize.type_base import BaseType as FppValue
-from fprime.common.models.serialize.bool_type import BoolType as BoolValue
+from fprime_gds.common.models.serialize.type_base import BaseType as FppValue
+from fprime_gds.common.models.serialize.bool_type import BoolType as BoolValue
 
 
 class DesugarForLoops(Transformer):

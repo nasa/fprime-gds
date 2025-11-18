@@ -1,19 +1,19 @@
 from __future__ import annotations
 from pathlib import Path
-from fprime.common.models.serialize.time_type import TimeType as TimeValue
-from fprime.common.models.serialize.bool_type import BoolType as BoolValue
-from fprime.common.models.serialize.enum_type import EnumType as EnumValue
-from fprime.common.models.serialize.serializable_type import (
+from fprime_gds.common.models.serialize.time_type import TimeType as TimeValue
+from fprime_gds.common.models.serialize.bool_type import BoolType as BoolValue
+from fprime_gds.common.models.serialize.enum_type import EnumType as EnumValue
+from fprime_gds.common.models.serialize.serializable_type import (
     SerializableType as StructValue,
 )
-from fprime.common.models.serialize.array_type import ArrayType as ArrayValue
-from fprime.common.models.serialize.numerical_types import (
+from fprime_gds.common.models.serialize.array_type import ArrayType as ArrayValue
+from fprime_gds.common.models.serialize.numerical_types import (
     U8Type as U8Value,
     U16Type as U16Value,
     U32Type as U32Value,
     NumericalType as NumericalValue,
 )
-from fprime.common.models.serialize.type_base import BaseType as FppValue
+from fprime_gds.common.models.serialize.type_base import BaseType as FppValue
 from lark import Lark
 from fprime_gds.common.fpy.bytecode.directives import Directive
 from fprime_gds.common.fpy.codegen import (
