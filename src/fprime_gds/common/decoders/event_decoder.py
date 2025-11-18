@@ -31,7 +31,7 @@ LOGGER = logging.getLogger("event_decoder")
 class EventDecoder(decoder.Decoder):
     """Decoder class for event data"""
 
-    def __init__(self, event_dict, config=None):
+    def __init__(self, event_dict):
         """
         EventDecoder class constructor
 
@@ -43,10 +43,6 @@ class EventDecoder(decoder.Decoder):
             An initialized EventDecoder object.
         """
         super(EventDecoder, self).__init__()
-
-        # if config is None:
-        #     # Retrieve defaults for the configs
-        #     config = config_manager.ConfigManager()
 
         self.__dict = event_dict
         FwEventIdType = ConfigManager().get_type("FwEventIdType")

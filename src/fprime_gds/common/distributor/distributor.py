@@ -39,11 +39,6 @@ class Distributor(DataHandler):
 
         Decoder dictionary is of the form:
         {data descriptor name: list of decoder objects registered for that data}
-
-        Args:
-            config (ConfigManager, default=None): Config manager with
-                   information on what types the message fields are. If None,
-                   defaults are used.
         """
         self.__decoders = {
             key: [] for key in ConfigManager().get_type("ComCfg.Apid").keys()

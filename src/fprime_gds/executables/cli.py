@@ -36,7 +36,6 @@ from fprime_gds.executables.utils import find_app, find_dict, get_artifacts_root
 from fprime_gds.plugin.definitions import PluginType
 from fprime_gds.plugin.system import Plugins, PluginsNotLoadedException
 from fprime_gds.common.zmq_transport import ZmqClient
-from fprime_gds.common.models.serialize.numerical_types import U16Type
 
 
 GUIS = ["none", "html"]

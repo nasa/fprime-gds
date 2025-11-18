@@ -25,7 +25,7 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.models.serialize import type_base
 
 # Custom Python Modules
-from fprime_gds.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
+from fprime_gds.common.models.serialize.numerical_types import U8Type, U32Type
 
 from fprime_gds.common.models.serialize.enum_type import EnumType
 from fprime_gds.common.models.serialize.type_exceptions import TypeRangeException
@@ -54,16 +54,7 @@ class TimeType(type_base.BaseType):
         Returns:
             An EnumType instance representing the TimeBase type
         """
-        return TimeType.get_TimeBase_type()(enum_constant)
-
-    @staticmethod
-    def get_TimeBase_type() -> type[EnumType]:
-        """Returns the TimeBase type class
-
-        Returns:
-            The TimeBase type class
-        """
-        return ConfigManager().get_type("TimeBase")  # type: ignore
+        return ConfigManager().get_type("TimeBase")(enum_constant)  # type: ignore
 
     def __init__(self, time_base=0, time_context=0, seconds=0, useconds=0):
         """
@@ -90,8 +81,8 @@ class TimeType(type_base.BaseType):
         self._check_time_base(time_base)
         self._check_useconds(useconds)
 
-        self.__timeBase = TimeType.get_TimeBase_type().from_int(time_base)
-        self.__timeContext = U8Type(time_context)
+        self.__timeBase = ConfigManager().get_type("TimeBase").from_int(time_base)
+        self.__timeContext = ConfigManager().get_type("FwTimeContextStoreType")(time_context)
         self.__secs = U32Type(seconds)
         self.__usecs = U32Type(useconds)
 
@@ -120,7 +111,7 @@ class TimeType(type_base.BaseType):
         Returns:
             Returns if valid, raises TypeRangeException if not valid.
         """
-        if time_base not in TimeType.get_TimeBase_type().values():
+        if time_base not in ConfigManager().get_type("TimeBase").values():
             raise TypeRangeException(time_base)
 
     def to_jsonable(self):
@@ -142,7 +133,7 @@ class TimeType(type_base.BaseType):
     @timeBase.setter
     def timeBase(self, val):
         self._check_time_base(val)
-        self.__timeBase = TimeType.get_TimeBase_type().from_int(val)
+        self.__timeBase = ConfigManager().get_type("TimeBase").from_int(val)
 
     @property
     def timeContext(self):
@@ -220,10 +211,10 @@ class TimeType(type_base.BaseType):
         """
         # Hardcoded ?
         return (
-            TimeType.get_TimeBase_type().getMaxSize()
-            + U8Type.getSize()
-            + U32Type.getSize()
-            + U32Type.getSize()
+            ConfigManager().get_type("TimeBase").getMaxSize()
+            + ConfigManager().get_type("FwTimeContextStoreType")().getSize()   # time context
+            + U32Type.getSize()  # seconds
+            + U32Type.getSize()  # microseconds
         )
 
     @classmethod
@@ -347,7 +338,7 @@ class TimeType(type_base.BaseType):
         self._check_time_base(time_base)
         self._check_useconds(useconds)
 
-        self.__timeBase = TimeType.get_TimeBase_type().from_int(time_base)
+        self.__timeBase = ConfigManager().get_type("TimeBase").from_int(time_base)
         self.__secs = U32Type(seconds)
         self.__usecs = U32Type(useconds)
 

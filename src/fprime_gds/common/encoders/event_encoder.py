@@ -50,11 +50,6 @@ class EventEncoder(Encoder):
         """
         Constructor
 
-        Args:
-            config (ConfigManager, default=None): Object with configuration data
-                    for the sizes of fields in the binary data. If None passed,
-                    defaults are used.
-
         Returns:
             An initialized EventEncoder object
         """

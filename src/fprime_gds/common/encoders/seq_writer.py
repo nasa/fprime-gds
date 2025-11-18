@@ -7,7 +7,7 @@ Created on August 16, 2019
 import struct
 import zlib
 
-from fprime_gds.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
+from fprime_gds.common.models.serialize.numerical_types import U8Type, U32Type
 from fprime_gds.common.models.serialize.type_exceptions import TypeMismatchException
 
 from fprime_gds.common.utils.config_manager import ConfigManager
@@ -18,16 +18,12 @@ class SeqBinaryWriter:
     Write out the Binary (ASTERIA) form of sequencer file.
     """
 
-    def __init__(self, timebase=0xFFFF, config=None):
+    def __init__(self, timebase=0xFFFF):
         """
         Constructor
         """
-        # if config is None:
-        #     config = config_manager.ConfigManager()
-
         self.__fd = None
         self.__timebase = timebase
-        # self.desc_obj = ConfigManager().get_type("FwPacketDescriptorType")()
         self.opcode_obj = ConfigManager().get_type("FwOpcodeType")()
         self.len_obj = ConfigManager().get_config("msg_len")()
 
@@ -58,6 +54,7 @@ class SeqBinaryWriter:
 
         def __descriptor(cmd_obj):
             # subtract 1 from the value because enum34 enums start at 1, and this can't be changed
+            # REVIEW NOTE: I haven't been to track down if this is configurable or not
             return U8Type(cmd_obj.get_descriptor().value - 1).serialize()
 
         def __command(cmd_obj):
@@ -141,10 +138,10 @@ class SeqBinaryWriter:
         header = b""
         header += U32Type(
             size + 4
-        ).serialize()  # Write out size of the sequence file in bytes here
-        header += U32Type(num_records).serialize()  # Write number of records
-        header += U16Type(self.__timebase).serialize()  # Write time base
-        header += U8Type(0xFF).serialize()  # write time context
+        ).serialize()  # Write out size of the sequence file in bytes here (U32 in CmdSequencer)
+        header += U32Type(num_records).serialize()  # Write number of records (U32 in CmdSequencer)
+        header += ConfigManager().get_type("TimeBase").from_int(self.__timebase).serialize()  # Write time base
+        header += ConfigManager().get_type("FwTimeContextStoreType")(0xFF).serialize()  # write time context
         sequence = header + sequence  # Write the list of command records here
         # compute CRC. Ported from Utils/Hash/libcrc/libcrc.h (update_crc_32)
         crc = self.computeCrc(sequence)
