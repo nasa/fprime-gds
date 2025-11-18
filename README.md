@@ -67,7 +67,7 @@ passes un-parsed data onto all objects registered with it.
 The distributer is responsible for taking in raw binary data, parsing off the 
 length and descriptor, and then passing the data to all decoders registered to 
 that descriptor. Descriptor types include events, channels, packets, etc (a full
-enumeration can be found in (src/utils/data_desc_type.py). The binary data that 
+enumeration can be found in (config_manager.py). The binary data that 
 the descriptor receives should be of the form:
 
 ```mermaid

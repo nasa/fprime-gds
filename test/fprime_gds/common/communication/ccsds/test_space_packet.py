@@ -1,8 +1,6 @@
 import pytest
 from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
 from spacepackets.ccsds.spacepacket import SpacePacketHeader, PacketType, SpacePacket
-from fprime_gds.common.utils.data_desc_type import DataDescType
-from fprime_gds.common.models.serialize.enum_type import EnumType
 from fprime_gds.common.utils.config_manager import ConfigManager
 
 @pytest.fixture

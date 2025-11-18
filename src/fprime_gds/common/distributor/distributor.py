@@ -19,7 +19,6 @@ import logging
 from fprime_gds.common.models.serialize.type_exceptions import DeserializeException
 from fprime_gds.common.decoders.decoder import DecodingException
 from fprime_gds.common.handlers import DataHandler
-from fprime_gds.common.utils import config_manager, data_desc_type
 from fprime_gds.common.utils.config_manager import ConfigManager
 
 LOGGER = logging.getLogger("distributor")

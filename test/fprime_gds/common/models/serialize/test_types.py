@@ -77,7 +77,7 @@ def valid_values_test(type_input, valid_values, sizes):
     # Setting to None is invalid
     with pytest.raises(TypeMismatchException):
         instantiation.val = None
-    # Should be able to get a JSONable object that is dumpable to a JSON string
+    # Should be able to get a JSONable object that is dump-able to a JSON string
     jsonable = instantiation.to_jsonable()
     json.loads(json.dumps(jsonable))
 
