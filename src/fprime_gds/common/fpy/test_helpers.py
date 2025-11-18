@@ -3,7 +3,7 @@ import tempfile
 import traceback
 from fprime_gds.common.fpy.types import deserialize_directives
 from fprime_gds.common.fpy.model import DirectiveErrorCode, FpySequencerModel
-from fprime_gds.common.fpy.bytecode.directives import Directive
+from fprime_gds.common.fpy.bytecode.directives import AllocateDirective, Directive
 from fprime_gds.common.fpy.main import assemble_main, compile_main, disassemble_main
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -21,11 +21,15 @@ default_dictionary = str(
 )
 
 
-def compile_seq(fprime_test_api, seq: str) -> list[Directive]:
+def compile_seq(fprime_test_api, seq: str, flags: list[str]=None) -> list[Directive]:
     input_file = tempfile.NamedTemporaryFile(suffix=".fpy", delete=False)
     output_file = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
     Path(input_file.name).write_text(seq)
-    compile_main(["-d", default_dictionary, "-o", output_file.name, input_file.name])
+    args = ["-d", default_dictionary, "-o", output_file.name, input_file.name]
+    for flag in flags or []:
+        args.append("--flag")
+        args.append(flag)
+    compile_main(args)
 
     # also, run some additional tests: try reading the bin file, turning it into assembly,
     # parsing the assembly, writing it to disk and making sure it's the same as the bin file
@@ -76,7 +80,7 @@ def run_seq(
     if tlm is None:
         tlm = {}
 
-    # fprime_test_api.send_and_assert_command("Ref.cmdSeq.RUN", [file.name, "BLOCK"], timeout=4)
+    # fprime_test_api.send_and_assert_command("Ref.cmdSeq.RUN", [file_name, "BLOCK"], timeout=4)
     # return
 
     dictionary = default_dictionary  # fprime_test_api.pipeline.dictionary_path
@@ -99,32 +103,44 @@ def run_seq(
     ret = model.run(deserialized_dirs, tlm_db)
     if ret != DirectiveErrorCode.NO_ERROR:
         raise RuntimeError("Sequence returned", ret)
+    if len(deserialized_dirs) > 0 and isinstance(deserialized_dirs[0], AllocateDirective):
+        # check that the start and end sizes are the same
+        if len(model.stack) != deserialized_dirs[0].size:
+            raise RuntimeError(f"Sequence leaked {len(model.stack) - deserialized_dirs[0].size} bytes")
 
 
-def assert_compile_success(fprime_test_api, seq: str):
-    compile_seq(fprime_test_api, seq)
+def assert_compile_success(fprime_test_api, seq: str, flags: list[str] = None):
+    compile_seq(fprime_test_api, seq, flags)
 
 
-def assert_run_success(fprime_test_api, seq: str, tlm: dict[str, bytes] = None):
-    compiled_file = compile_seq(fprime_test_api, seq)
+def assert_run_success(fprime_test_api, seq: str, tlm: dict[str, bytes] = None, flags: list[str]=None):
+    compiled_file = compile_seq(fprime_test_api, seq, flags)
 
     run_seq(fprime_test_api, compiled_file, tlm)
 
 
-def assert_compile_failure(fprime_test_api, seq: str):
+def assert_compile_failure(fprime_test_api, seq: str, flags: list[str] = None):
     try:
-        compile_seq(fprime_test_api, seq)
-    except BaseException as e:
+        compile_seq(fprime_test_api, seq, flags)
+    except AssertionError as e:
+        # under any circumstances we should not assert
+        raise e
+    except SystemExit:
+        # okay, compile "gracefully" failed
         traceback.print_exc()
         return
+
+    # no error was generated
     raise RuntimeError("compile_seq succeeded")
 
 
-def assert_run_failure(fprime_test_api, seq: str):
-    compiled_file = compile_seq(fprime_test_api, seq)
+def assert_run_failure(fprime_test_api, seq: str, flags: list[str] = None):
+    compiled_file = compile_seq(fprime_test_api, seq, flags)
     try:
         run_seq(fprime_test_api, compiled_file)
-    except BaseException as e:
+    except (RuntimeError, AssertionError) as e:
         print(e)
         return
+
+    # other exceptions we will let through, such as assertions
     raise RuntimeError("run_seq succeeded")

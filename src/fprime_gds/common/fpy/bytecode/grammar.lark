@@ -8,14 +8,17 @@ goto_tag: NAME ":"
   | "memcmp" _uint
   | "load" _uint _uint
   | "allocate" _uint
-  | "store" _uint _uint
+  | "store" _uint
   | "discard" _uint
   | "push_val" bytes
   | "const_cmd" _int bytes
   | "goto" (_uint|NAME)
   | "if" (_uint|NAME)
-  | "store_tlm_val" _int _uint
-  | "store_prm" _int _uint
+  | "push_tlm_val" _int
+  | "push_prm" _int
+  | "store_const_offset" _uint _uint
+  | "get_field" _uint _uint
+  | "peek"
 
 !op_with_no_args: "no_op"
   | "siext_8_64"
@@ -30,9 +33,9 @@ goto_tag: NAME ":"
   | "fmod"
   | "smod"
   | "umod"
-  | "iadd"
-  | "isub"
-  | "imul"
+  | "add"
+  | "sub"
+  | "mul"
   | "udiv"
   | "sdiv"
   | "fadd"
@@ -40,7 +43,6 @@ goto_tag: NAME ":"
   | "fmul"
   | "fpow"
   | "fdiv"
-  | "float_floor_div"
   | "flog"
   | "wait_rel"
   | "wait_abs"
@@ -70,6 +72,7 @@ goto_tag: NAME ":"
   | "fptoui"
   | "uitofp"
   | "exit"
+  | "push_time"
 
 _uint: [UNARY_IDENTITY] DEC_NUMBER
 _int: [UNARY_IDENTITY | UNARY_NEGATION] DEC_NUMBER

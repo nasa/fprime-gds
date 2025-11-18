@@ -14,6 +14,7 @@ argdesc
 ARGN
 argname
 argtype
+astassign
 autoapi
 AUTOBRIEF
 autocoded
@@ -37,6 +38,7 @@ calcsize
 calibri
 callergraph
 callgraph
+capsys
 cata
 CCB
 CCFF
@@ -98,6 +100,8 @@ docbook
 docset
 dontinclude
 DOTFONTPATH
+downcasted
+downcasting
 downfiles
 downlinker
 dox
@@ -146,6 +150,7 @@ fileurl
 Firefox
 fle
 focusring
+fors
 fne
 FONTNAME
 FONTPATH
@@ -163,6 +168,7 @@ fpybc
 fqn
 fsw
 gdiplus
+getattr
 getbootstrap
 getoption
 github
@@ -185,6 +191,7 @@ hookspecs
 hpaulson
 htags
 hyperlinks
+iabs
 idct
 idk
 idl
@@ -268,6 +275,7 @@ odl
 OKBLUE
 OKGREEN
 OMG
+oob
 OPREG
 oring
 osexc
@@ -288,9 +296,11 @@ plainnat
 plantuml
 PNGs
 postlex
+postlexer
 preds
 prm
 prmdb
+probs
 procs
 PROGRAMLISTING
 projectbrief
@@ -368,6 +378,7 @@ subhist
 subhistory
 superpackage
 superpkg
+sus
 tabetc
 tagfile
 tcanham
@@ -435,6 +446,7 @@ webified
 webpage
 website
 wikipedia
+wrt
 WSL
 wx
 xapian

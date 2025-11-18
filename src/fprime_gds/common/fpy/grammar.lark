@@ -5,27 +5,34 @@ input: (_NEWLINE | _stmt)*
 _literal: number | string | boolean
 
 _stmt: _small_stmt [_NEWLINE] | _compound_stmt
-_small_stmt: (_expr_stmt | assign | pass_stmt )
-_compound_stmt: if_stmt
+_small_stmt: _expr_stmt | assign | pass_stmt | break_stmt | continue_stmt | assert_stmt
+_compound_stmt: if_stmt | for_stmt | while_stmt
 pass_stmt: "pass"
+break_stmt: "break"
+continue_stmt: "continue"
 
 _expr_stmt: _expr
 
 
+assert_stmt: "assert" _expr ["," _expr]
+
 # assignment
 
-# can currently only assign constant values to vars
-# for some reason if i use _reference here i don't get a None in the optional spot
-assign: var [":" (get_attr | get_item | var)] "=" _expr
+assign: _expr [":" _expr] "=" _expr
 
 
+# loops
+for_stmt: "for" var "in" _expr ":" body
+while_stmt: "while" _expr ":" body
 
 # branching
 
 if_stmt: "if" _expr ":" body elifs ["else" ":" body]
 elifs: elif_*
 elif_: "elif" _expr ":" body
+
 body: _NEWLINE _INDENT _stmt+ _DEDENT
+scoped_body: _NEWLINE _INDENT _stmt+ _DEDENT
 
 _expr: _test
 
@@ -42,8 +49,11 @@ _test: or_test
           | comparison
 
 # all comparisons have same precedence
-?comparison: comparison COMPARISON_OP sum -> binary_op
-           | sum
+?comparison: comparison COMPARISON_OP range -> binary_op
+           | range
+
+?range: sum RANGE_OPERATOR sum
+      | sum
 
 ?sum: sum ADD_OP term -> binary_op
     | sum SUB_OP term -> binary_op
@@ -59,24 +69,26 @@ _test: or_test
        | SUB_OP factor -> unary_op # unary minus (negation)
        | power
 
-?power: atom POW_OP factor -> binary_op
-      | atom
+?power: atom_expr POW_OP factor -> binary_op
+      | atom_expr
 
 arguments: _expr ("," _expr)*
 
-?atom: _reference "(" [arguments] ")" -> func_call
-     | _reference
-     | _literal
+?atom_expr: atom_expr "(" [arguments] ")" -> func_call
+          | atom_expr "[" _expr "]" -> get_item
+          | atom_expr "." name -> get_attr
+          | atom
+
+?atom: _literal
      | "(" _expr ")"
+     | var
 
-get_item: _reference "[" number "]"
-get_attr: _reference "." name
 var: name
-
-_reference: get_item | get_attr | var
 
 # not used in grammar, but may appear in "node" passed from Parser to Compiler
 encoding_decl: name
+
+RANGE_OPERATOR: ".."
 
 number: DEC_NUMBER | FLOAT_NUMBER
 string: STRING
@@ -113,11 +125,13 @@ COMPARISON_OP: ">" | "<" | "<=" | ">=" | "==" | "!="
 
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 
-DEC_NUMBER:   "1".."9"        ("_"?  "0".."9"                       )*
-          |   "0"             ("_"?  "0"                            )* /(?![1-9])/
+# -2 prio so we resolve after floats
+DEC_NUMBER.-2:   "1".."9"        ("_"?  "0".."9"                       )*
+             |   "0"             ("_"?  "0"                            )* /(?![1-9])/
 
 _SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
 
-DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
+DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC
 _EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
-FLOAT_NUMBER.2: _SPECIAL_DEC _EXP | DECIMAL _EXP?
+# -1 prio so we resolve the .. syntax in for loop range first
+FLOAT_NUMBER.-1: _SPECIAL_DEC _EXP | DECIMAL _EXP?

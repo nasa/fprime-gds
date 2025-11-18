@@ -42,9 +42,38 @@ For types, Fpy has most of the same basic ones that FPP does:
 
 Float literals are denoted with a decimal point (`5.0`, `0.123`) and Boolean literals have a capitalized first letter: `True`, `False`. There is no way to differentiate between signed and unsigned integer literals, so the compiler looks at where the literal is used to determine the signedness.
 
-Note there is currently no built-in `string` type. See [Strings](#12-strings).
+Note there is currently no built-in `string` type. See [Strings](#15-strings).
 
-## 3. Dictionary Types
+## 3. Type coercion and casting
+If you have a lower-bitwidth numerical type and want to turn it into a higher-bitwidth type, this happens automatically:
+```py
+low_bitwidth_int: U8 = 123
+high_bitwidth_int: U32 = low_bitwidth_int
+# high_bitwidth_int == 123
+low_bitwidth_float: F32 = 123.0
+high_bitwidth_float: F64 = low_bitwidth_float
+# high_bitwidth_float == 123.0
+```
+
+However, the opposite produces a compiler error:
+```py
+high_bitwidth: U32 = 25565
+low_bitwidth: U8 = high_bitwidth # compiler error
+```
+
+If you are sure you want to do this, you can manually cast the type to the lower-bitwidth type:
+```py
+high_bitwidth: U32 = 16383
+low_bitwidth: U8 = U8(high_bitwidth) # no more error!
+# low_bitwidth == 255
+```
+This is called downcasting. It has the following behavior:
+* 64-bit floats are downcasted to 32-bit floats as if by `static_cast<F32>(f64_value)` in C++
+* Unsigned integers are bitwise truncated to the desired length
+* Signed integers are first reinterpreted bitwise as unsigned, then truncated to the desired length. Then, if the sign bit of the resulting number is set, `2 ** dest_type_bits` is subtracted from the resulting number to make it negative. This may have unintended behavior so use it cautiously.
+
+
+## 4. Dictionary Types
 
 Fpy also has access to all structs, arrays and enums in the FPrime dictionary:
 ```py
@@ -60,7 +89,7 @@ struct_var: Ref.SignalPair = Ref.SignalPair(0.0, 1.0)
 
 In general, the syntax for instantiating a struct or array type is `Full.Type.Name(arg, ..., arg)`.
 
-## 4. Math
+## 5. Math
 You can do basic math and store the result in variables in Fpy:
 ```py
 pemdas: F32 = 1 - 2 + 3 * 4 + 10 / 5 * 2 # == 15.0
@@ -71,26 +100,28 @@ Fpy supports the following math operations:
 * Modulo: `%`
 * Exponentiation: `**`
 * Floor division: `//`
-* Natural logarithm: `log(x)`
+* Natural logarithm: `log(F64)`
+* Absolute value: `abs(F64), abs(I64), abs(U64)`
 
-The behavior of these operators is designed to mimic Python. Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
+The behavior of these operators is designed to mimic Python. 
+> Note that **division always returns a float**. This means that `5 / 2 == 2.5`, not `2`. This may be confusing coming from C++, but it is consistent with Python.
 
-## 5. Variable Arguments to Commands, Macros and Constructors
+## 6. Variable Arguments to Commands, Macros and Constructors
 
 Where this really gets interesting is when you pass variables or expressions into commands:
 ```py
 # this is a command that takes an F32
-Ref.recvBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
+Ref.sendBuffComp.PARAMETER4_PRM_SET(1 - 2 + 3 * 4 + 10 / 5 * 2)
 # alternatively:
 param4: F32 = 15.0
-Ref.recvBuffComp.PARAMETER4_PRM_SET(param4)
+Ref.sendBuffComp.PARAMETER4_PRM_SET(param4)
 ```
 
-You can also pass variable arguments to the [`sleep`](#10-relative-and-absolute-sleep), [`exit`](#11-exit-macro), and `log` macros, as well as to constructors.
+You can also pass variable arguments to the [`sleep`](#12-relative-and-absolute-sleep), [`exit`](#13-exit-macro), `abs` and `log` macros, as well as to constructors.
 
-There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#12-strings).
+There are some restrictions on passing string values, or complex types containing string values, to commands. See [Strings](#15-strings).
 
-## 6. Getting Telemetry Channels and Parameters
+## 7. Getting Telemetry Channels and Parameters
 
 Fpy supports getting the value of telemetry channels:
 ```py
@@ -108,8 +139,8 @@ prm_3: U8 = Ref.sendBuffComp.parameter3
 
 A significant limitation of this is that it will only return the value most recently saved to the parameter database. This means you must command `_PRM_SAVE` before the sequence will see the new value.
 
-#### Note:  If a telemetry channel and parameter have the same fully-qualified name, the fully-qualified name will get the value of the telemetry channel
-## 7. Conditionals
+> Note:  If a telemetry channel and parameter have the same fully-qualified name, the fully-qualified name will get the value of the telemetry channel
+## 8. Conditionals
 Fpy supports comparison operators:
 ```py
 value: bool = 1 > 2 and (3 + 4) != 5
@@ -125,7 +156,7 @@ record1: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 record2: Svc.DpRecord = Svc.DpRecord(0, 1, 2, 3, 4, 5, Fw.DpState.UNTRANSMITTED)
 records_equal: bool = record1 == record2 # == True
 ```
-## 8. If/elif/else
+## 9. If/elif/else
 
 You can branch off of conditionals with `if`, `elif` and `else`:
 ```py
@@ -148,7 +179,7 @@ if CdhCore.cmdDisp.CommandsDispatched >= 1:
     CdhCore.cmdDisp.CMD_NO_OP_STRING("should happen")
 ```
 
-## 9. Getting Struct Members and Array Items
+## 10. Getting Struct Members and Array Items
 
 You can access members of structs by name, or array elements by index:
 ```py
@@ -159,20 +190,68 @@ signal_pair_time: F32 = Ref.SG1.PairOutput.time
 com_queue_depth_0: U32 = ComCcsds.comQueue.comQueueDepth[0]
 ```
 
-You cannot reassign struct members or array elements however:
+You can also reassign struct members or array elements:
 ```py
 # Ref.SignalPair is a struct type
 signal_pair: Ref.SignalPair = Ref.SG1.PairOutput
-# compiler error:
 signal_pair.time = 0.2
 
 # Svc.ComQueueDepth is an array type
 com_queue_depth: Svc.ComQueueDepth = ComCcsds.comQueue.comQueueDepth
-# compiler error:
 com_queue_depth[0] = 1
 ```
 
-## 10. Relative and Absolute Sleep
+## 11. For and while loops
+You can loop while a condition is true:
+```py
+counter: U64 = 0
+while counter < 100:
+    counter = counter + 1
+
+# counter == 100
+```
+
+You can also loop over a range of integers:
+```py
+sum: I64 = 0
+# loop i from 0 inclusive to 5 exclusive
+for i in 0..5:
+    sum = sum + i
+
+# sum == 10
+```
+The loop variable, in this case `i`, is always of type `I64`. If a variable with the same name as the loop variable already exists, it can be reused as long as it is an `I64`:
+```py
+i: I64 = 123
+for i in 0..5: # okay: reuse of `i`
+    sum = sum + i
+```
+
+There is currently no support for a step size other than 1.
+
+While inside of a loop, you can break out of the loop:
+```py
+counter: U64 = 0
+while True:
+    counter = counter + 1
+    if counter == 100:
+        break
+
+# counter == 100
+```
+
+You can also continue on to the next iteration of the loop, skipping the remainder of the loop body:
+```py
+odd_numbers_sum: I64 = 0
+for i in 0..10:
+    if i % 2 == 0:
+        continue
+    odd_numbers_sum = odd_numbers_sum + i
+
+# odd_numbers_sum == 25
+```
+
+## 12. Relative and Absolute Sleep
 You can pause the execution of a sequence for a relative duration, or until an absolute time:
 ```py
 CdhCore.cmdDisp.CMD_NO_OP_STRING("second 0")
@@ -190,15 +269,30 @@ CdhCore.cmdDisp.CMD_NO_OP_STRING("much later")
 
 Make sure that the `Svc.FpySequencer.checkTimers` port is connected to a rate group. The sequencer only checks if a sleep is done when the port is called, so the more frequently you call it, the more accurate the wakeup time.
 
-## 11. Exit Macro
+## 13. Exit Macro
 You can end the execution of the sequence early by calling the `exit` macro:
 ```py
-# exit takes a boolean argument
-# True means "end the sequence without an error"
-exit(True)
-# False means "end the sequence and raise an error"
-exit(False)
+# exit takes a U8 argument
+# 0 is the error code meaning "no error"
+exit(0)
+# anything else means an error occurred, and will show up in telemetry
+exit(123)
 ```
 
-## 12. Strings
+## 14. Assertions
+You can assert that a Boolean condition is true:
+```py
+# won't end the sequence
+assert 1 > 0
+# will end the sequence
+assert 0 > 1
+```
+
+You can also specify an error code to be raised if the expression is not true:
+```py
+# will raise an error code of 123
+assert 1 > 2, 123
+```
+
+## 15. Strings
 Fpy does not support a fully-fledged `string` type yet. You can pass a string literal as an argument to a command, but you cannot pass a string from a telemetry channel. You also cannot store a string in a variable, or perform any string manipulation. These features will be added in a later Fpy update.

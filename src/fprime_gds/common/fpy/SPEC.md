@@ -9,7 +9,7 @@ The following types are built into Fpy, and the developer can directly refer to 
 
 In addition, the developer can directly refer to any displayable type defined in FPP via its fully-qualified name. This includes user-defined structs, arrays and enums.
 
-There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These are the internal *Int*, and *String* types. See [literals](#literals).
+There are some types which exist in Fpy but cannot be directly referenced by name by the developer. These are the *LiteralInt*, and *LiteralString* types. See [literals](#literals).
 
 ## Structs
 You can instantiate a new struct at runtime by calling its constructor. A struct's constructor is a function with the same name as the type, with arguments corresponding to the type and position of the struct's members. For example, a struct defined as:
@@ -27,6 +27,8 @@ Fw.Example(0, True)
 ```
 
 
+## Fields
+Fields are either members (of structs) or elements (of arrays)
 # Literals
 The following literals are supported by Fpy:
 * Integer literals: `123`, `-456_879`
@@ -55,7 +57,7 @@ The second rule allows you to write any number of zeroes, separated by underscor
 00_000_0
 ```
 
-Integer literals have a internal type *Int*, which is not directly referenceable by the user. The *Int* type supports integers of arbitrary size.
+Integer literals have type *LiteralInt*, which is not directly referenceable by the user. The *LiteralInt* type supports integers of arbitrary size.
 
 ## Float literals
 Float literals are strings matching:
@@ -67,7 +69,7 @@ where `_SPECIAL_DEC`, `_EXP` and `DECIMAL` are defined as:
 ```
 _SPECIAL_DEC: "0".."9" ("_"?  "0".."9")*
 _EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
-DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
+DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC
 ```
 
 A `FLOAT_NUMBER` can be any string of digits suffixed with an exponent, like these:
@@ -78,12 +80,11 @@ A `FLOAT_NUMBER` can be any string of digits suffixed with an exponent, like the
 
 or it can be a `DECIMAL` optionally suffixed by an exponent, like these:
 ```
-1.
 2.123
 100.5e+10
 ```
 
-Float literals are of type `F64`.
+Float literals have type `F64`.
 
 ## String literals
 String literals are strings matching:
@@ -91,16 +92,21 @@ String literals are strings matching:
 STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 ```
 
-They have a internal type *String*, which is not directly referenceable by the user. The *String* type supports strings of arbitrary length.
+They have type *LiteralString*, which is not directly referenceable by the user. The *LiteralString* type supports strings of arbitrary length.
 
 # Functions
-Functions have arguments and a return type. You can call a function like:
+Functions have a `function_name`, argument types and a `return_type`. A function call is an expression of type `return_type` which looks like:
 ```
-function_name(arg_1, arg_2, arg_3)
+function_name(arg_0, arg_1, ..., arg_x)
 ```
 
+where `arg_x` are the argument expressions at index `x`. Argument expressions will be evaluated once, in order from lowest index to highest index. 
+
+There are several types of functions: commands, macros, casts and constructors.
 ## Commands
+Any command in a component instance defined in FPP is callable in Fpy. The `function_name` of a command is its fully-qualified name, and the argument types are the same as those defined in FPP. The `return_type` of every command is `Fw.CmdResponse`.
 
+When a command is called, its opcode and arguments are immediately sent to the command dispatcher, and the sequence pauses execution until the command returns a response. That response becomes the value of the command call expression.
 
 # Type conversion
 
@@ -113,7 +119,7 @@ When type coercion happens, the following type conversion rules are applied:
 
 1. Expressions of any integer type can be converted to any signed or unsigned integer or float type.
 2. Expressions of any float type can be converted to any float type.
-3. Expressions of internal type *String* can be converted to any string type.
+3. Expressions of type *LiteralString* can be converted to any string type.
 
 TODO try out with forcing type casting--see what the FF's think
 TODO require explicit narrowing casts? or have a compiler warning?
@@ -122,7 +128,7 @@ TODO consider adding constants
 
 If no rule matches, then the compiler raises an error.
 
-There is currently no support for converting non-internal string expressions to other string expressions.
+There is currently no support for converting non-literal string expressions to other string expressions.
 
 # Operators
 
@@ -172,6 +178,14 @@ The result type is the type of the value produced by the operator.
 
 Normal type coercion rules apply to the result, of course. Once the operator has produced a value, it may be coerced into some other type depending on context.
 
+# Loops
+
+## For loops
+
+```
+for_stmt: "for" var "in" _expr ":" body
+```
+* 
 
 # Macros
 
