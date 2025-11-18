@@ -501,15 +501,15 @@ class Dummy(BaseType):
 
 
 def test_base_type():
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError) as exception:
         BaseType()
 
-    assert "Can't instantiate abstract class" in str(excinfo.value)
+    assert "Can't instantiate abstract class" in str(exception.value)
 
-    with pytest.raises(TypeError) as excinfo2:
+    with pytest.raises(TypeError) as exception2:
         ValueType()
 
-    assert "Can't instantiate abstract class" in str(excinfo2.value)
+    assert "Can't instantiate abstract class" in str(exception2.value)
 
     d = Dummy()
     assert d.serialize() == "serialized"
