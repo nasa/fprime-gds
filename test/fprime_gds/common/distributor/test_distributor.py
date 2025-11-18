@@ -54,3 +54,5 @@ def test_distributor():
     assert test_desc_2 == desc_2, f"expected 2nd desc to be {desc_2} but found {test_desc_2}"
     assert (test_msg_1 == data_1), f"expected 1st msg to be {list(data_1)} but found {list(test_msg_1)}"
     assert (test_msg_2 == data_2), f"expected 2nd msg to be {list(data_2)} but found {list(test_msg_2)}"
+
+    ConfigManager()._set_defaults()  # reset defaults not to interfere with other tests

@@ -58,3 +58,5 @@ def test_pkt_encoder():
     assert (
         u16_output == u16_expected
     ), f"FAIL: expected configured output to be {list(u16_expected)}, but found {list(u16_output)}"
+
+    ConfigManager()._set_defaults()  # reset defaults not to interfere with other tests

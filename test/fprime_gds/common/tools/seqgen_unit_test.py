@@ -4,6 +4,8 @@ import tempfile
 import unittest
 
 import fprime_gds.common.tools.seqgen as seqgen
+from fprime_gds.common.models.serialize.numerical_types import U32Type
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 class APITestCases(unittest.TestCase):
     def test_nominal_sequence(self):
