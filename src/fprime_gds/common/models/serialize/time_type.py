@@ -90,7 +90,7 @@ class TimeType(type_base.BaseType):
         self._check_time_base(time_base)
         self._check_useconds(useconds)
 
-        self.__timeBase = TimeType.get_TimeBase_type().from_value(time_base)
+        self.__timeBase = TimeType.get_TimeBase_type().from_int(time_base)
         self.__timeContext = U8Type(time_context)
         self.__secs = U32Type(seconds)
         self.__usecs = U32Type(useconds)
@@ -142,7 +142,7 @@ class TimeType(type_base.BaseType):
     @timeBase.setter
     def timeBase(self, val):
         self._check_time_base(val)
-        self.__timeBase = TimeType.get_TimeBase_type().from_value(val)
+        self.__timeBase = TimeType.get_TimeBase_type().from_int(val)
 
     @property
     def timeContext(self):
@@ -347,7 +347,7 @@ class TimeType(type_base.BaseType):
         self._check_time_base(time_base)
         self._check_useconds(useconds)
 
-        self.__timeBase = TimeType.get_TimeBase_type().from_value(time_base)
+        self.__timeBase = TimeType.get_TimeBase_type().from_int(time_base)
         self.__secs = U32Type(seconds)
         self.__usecs = U32Type(useconds)
 

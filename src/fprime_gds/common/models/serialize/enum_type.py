@@ -139,7 +139,7 @@ class EnumType(DictionaryType):
         )
 
     @classmethod
-    def from_value(cls, val: int) -> "EnumType":
+    def from_int(cls, val: int) -> "EnumType":
         """Create an EnumType instance from an enumerated value (integer).
         To create from the string key, simply call the constructor."""
         key = next((key for key, value in cls.ENUM_DICT.items() if value == val), None)

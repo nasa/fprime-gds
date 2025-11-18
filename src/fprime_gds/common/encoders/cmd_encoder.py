@@ -44,8 +44,7 @@ Serialized command format:
 from fprime_gds.common.models.serialize.numerical_types import U32Type
 
 from fprime_gds.common.data_types.cmd_data import CmdData
-from fprime_gds.common.utils import config_manager
-from fprime_gds.common.utils.data_desc_type import DataDescType
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 from . import encoder
 
@@ -53,26 +52,19 @@ from . import encoder
 class CmdEncoder(encoder.Encoder):
     """Encoder class for command data"""
 
-    def __init__(self, config=None):
+    def __init__(self):
         """
         CmdEncoder class constructor
-
-        Args:
-            config (ConfigManager, default=None): Object with configuration data
-                    for the sizes of fields in the binary data. If None passed,
-                    defaults are used.
 
         Returns:
             An initialized CmdEncoder object
         """
 
-        if config is None:
-            config = config_manager.ConfigManager.get_instance()
-        super().__init__(config)
+        super().__init__()
 
-        self.len_obj = self.config.get_config("msg_len")()
-        self.desc_obj = self.config.get_type("FwPacketDescriptorType")()
-        self.opcode_obj = self.config.get_type("FwOpcodeType")()
+        self.len_obj = ConfigManager().get_config("msg_len")()
+        self.desc_obj = ConfigManager().get_type("FwPacketDescriptorType")()
+        self.opcode_obj = ConfigManager().get_type("FwOpcodeType")()
 
     def encode_api(self, data):
         """
@@ -89,8 +81,9 @@ class CmdEncoder(encoder.Encoder):
 
         desc = U32Type(0x5A5A5A5A).serialize()
 
-        self.desc_obj.val = DataDescType["FW_PACKET_COMMAND"].value
-        descriptor = self.desc_obj.serialize()
+        descriptor = (
+            ConfigManager().get_type("ComCfg.Apid")("FW_PACKET_COMMAND").serialize()
+        )
 
         self.opcode_obj.val = cmd_temp.get_op_code()
         op_code = self.opcode_obj.serialize()

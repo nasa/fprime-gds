@@ -38,7 +38,7 @@ Serialized Event format:
 """
 
 from fprime_gds.common.data_types.event_data import EventData
-from fprime_gds.common.utils.data_desc_type import DataDescType
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 from .encoder import Encoder
 
@@ -46,7 +46,7 @@ from .encoder import Encoder
 class EventEncoder(Encoder):
     """Encoder class for event data"""
 
-    def __init__(self, config=None):
+    def __init__(self):
         """
         Constructor
 
@@ -58,11 +58,10 @@ class EventEncoder(Encoder):
         Returns:
             An initialized EventEncoder object
         """
-        super().__init__(config)
+        super().__init__()
 
-        self.len_obj = self.config.get_config("msg_len")()
-        self.desc_obj = self.config.get_type("FwPacketDescriptorType")()
-        self.id_obj = self.config.get_type("FwEventIdType")()
+        self.len_obj = ConfigManager().get_config("msg_len")()
+        self.id_obj = ConfigManager().get_type("FwEventIdType")()
 
     def encode_api(self, data):
         """
@@ -77,8 +76,7 @@ class EventEncoder(Encoder):
         assert isinstance(data, EventData), "Encoder handling incorrect type"
         event_temp = data.get_template()
 
-        self.desc_obj.val = DataDescType["FW_PACKET_LOG"].value
-        desc_bin = self.desc_obj.serialize()
+        desc_bin = ConfigManager().get_type("ComCfg.Apid")("FW_PACKET_LOG").serialize()
 
         self.id_obj.val = event_temp.get_id()
         id_bin = self.id_obj.serialize()

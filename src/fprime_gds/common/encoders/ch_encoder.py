@@ -33,7 +33,7 @@ Serialized Ch format:
 """
 
 from fprime_gds.common.data_types.ch_data import ChData
-from fprime_gds.common.utils.data_desc_type import DataDescType
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 from .encoder import Encoder
 
@@ -41,24 +41,19 @@ from .encoder import Encoder
 class ChEncoder(Encoder):
     """Encoder class for channel data"""
 
-    def __init__(self, config=None):
+    def __init__(self):
         """
         Constructor
-
-        Args:
-            config (ConfigManager, default=None): Object with configuration data
-                    for the sizes of fields in the binary data. If None passed,
-                    defaults are used.
 
         Returns:
             An initialized ChEncoder object
         """
         # sets up config
-        super().__init__(config)
+        super().__init__()
 
-        self.len_obj = self.config.get_config("msg_len")()
-        self.desc_obj = self.config.get_type("FwPacketDescriptorType")()
-        self.id_obj = self.config.get_type("FwChanIdType")()
+        self.len_obj = ConfigManager().get_config("msg_len")()
+        self.desc_obj = ConfigManager().get_type("FwPacketDescriptorType")()
+        self.id_obj = ConfigManager().get_type("FwChanIdType")()
 
     def encode_api(self, data):
         """
@@ -73,8 +68,9 @@ class ChEncoder(Encoder):
         assert isinstance(data, ChData), "Encoder handling incorrect type"
         ch_temp = data.get_template()
 
-        self.desc_obj.val = DataDescType["FW_PACKET_TELEM"].value
-        desc_bin = self.desc_obj.serialize()
+        desc_bin = (
+            ConfigManager().get_type("ComCfg.Apid")("FW_PACKET_TELEM").serialize()
+        )
 
         self.id_obj.val = ch_temp.get_id()
         id_bin = self.id_obj.serialize()

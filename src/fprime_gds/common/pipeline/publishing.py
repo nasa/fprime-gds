@@ -46,10 +46,9 @@ class PublishingPipeline(DataHandler, MappedRegistrar):
         """ Set up the publishing pipeline """
         self._dictionaries = dictionaries
         self.client_socket = self.__transport_type()
-        config = ConfigManager.get_instance()
     
         for id, encoder_class in self.DEFAULT_ENCODERS.items():
-            encoder_instance = encoder_class(config=config)
+            encoder_instance = encoder_class()
             encoder_instance.register(self.client_socket)
             self.register(id, encoder_instance)
 

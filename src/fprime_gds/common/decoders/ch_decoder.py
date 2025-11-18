@@ -23,17 +23,11 @@ from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.decoders.decoder import Decoder, DecodingException
 from fprime_gds.common.utils.config_manager import ConfigManager
 
-# from fprime_gds.common.utils.dict_types_decorator import inject_dictionary_type
-# from fprime_gds.common.models.serialize.numerical_types import NumericalType
 
-
-# @inject_dictionary_type("FwChanIdType")
 class ChDecoder(Decoder):
     """Decoder class for Channel data"""
 
-    # FwChanIdType: type[NumericalType]  # for type hinting; getter injected by decorator
-
-    def __init__(self, ch_dict, config):
+    def __init__(self, ch_dict):
         """
         ChDecoder class constructor
 
@@ -46,13 +40,8 @@ class ChDecoder(Decoder):
         """
         super().__init__()
 
-        # if config is None:
-        #     # Retrieve singleton for the configs
-        #     config = config_manager.ConfigManager()
-
         self.__dict = ch_dict
-        FwChanIdType = ConfigManager().get_type("FwChanIdType")
-        self.id_obj = FwChanIdType()
+        self.id_obj = ConfigManager().get_type("FwChanIdType")()
 
     def decode_api(self, data):
         """

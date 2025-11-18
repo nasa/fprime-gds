@@ -40,18 +40,11 @@ class Encoder(
     addition it has a "data_callback" function implementation that decodes and sends out all results.
     """
 
-    def __init__(self, config=None):
+    def __init__(self):
         """
         Encoder class constructor
-
-        :param config: (ConfigManager, default=None): Object with configuration data for the sizes of fields in the
-                       binary data. If None passed, defaults are used.
         """
         super().__init__()
-        if config is None:
-            # Retrieve defaults for the configs
-            config = ConfigManager.get_instance()
-        self.config = config
 
     def data_callback(self, data, sender=None):
         """

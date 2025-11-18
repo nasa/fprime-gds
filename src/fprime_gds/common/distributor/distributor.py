@@ -33,7 +33,7 @@ class Distributor(DataHandler):
     Decoders can register with a distributor to recv packets of data of a certain description.
     """
 
-    def __init__(self, config=None):
+    def __init__(self):
         """
         Sets up the dictionary of connected decoders and socket client object.
 
@@ -45,10 +45,6 @@ class Distributor(DataHandler):
                    information on what types the message fields are. If None,
                    defaults are used.
         """
-        # if config is None:
-        #     # Retrieve singleton for the configs, or defaults if singleton unused
-        #     config = config_manager.ConfigManager()
-
         self.__decoders = {
             key: [] for key in ConfigManager().get_type("ComCfg.Apid").keys()
         }
@@ -203,7 +199,9 @@ class Distributor(DataHandler):
         for raw_msg in raw_msgs:
             try:
                 (length, data_desc, msg) = self.parse_raw_msg_api(raw_msg)
-                data_desc_key = data_desc_type.DataDescType(data_desc).name
+                data_desc_key = (
+                    ConfigManager().get_type("ComCfg.Apid").from_int(data_desc).val
+                )
             except DeserializeException as deserialize_exception:
                 LOGGER.warning(f"Invalid message: {deserialize_exception}")
                 return

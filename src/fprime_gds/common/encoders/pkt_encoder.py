@@ -40,7 +40,6 @@ Serialized Packet format:
 from fprime_gds.common.data_types.pkt_data import PktData
 from fprime_gds.common.utils.config_manager import ConfigManager
 
-# from fprime_gds.common.utils.data_desc_type import DataDescType
 
 from .encoder import Encoder
 
@@ -48,23 +47,17 @@ from .encoder import Encoder
 class PktEncoder(Encoder):
     """Encoder class for packet data"""
 
-    def __init__(self, config=None):
+    def __init__(self):
         """
         Constructor
-
-        Args:
-            config (ConfigManager, default=None): Object with configuration data
-                    for the sizes of fields in the binary data. If None passed,
-                    defaults are used.
 
         Returns:
             An initialized PktEncoder object
         """
-        super().__init__(config)
+        super().__init__()
 
-        self.len_obj = self.config.get_config("msg_len")()
-        # self.desc_obj = self.config.get_type("FwPacketDescriptorType")()
-        self.id_obj = self.config.get_type("FwTlmPacketizeIdType")()
+        self.len_obj = ConfigManager().get_config("msg_len")()
+        self.id_obj = ConfigManager().get_type("FwTlmPacketizeIdType")()
 
     def encode_api(self, data):
         """
@@ -79,7 +72,6 @@ class PktEncoder(Encoder):
         assert isinstance(data, PktData), "Encoder handling incorrect type"
         pkt_temp = data.get_template()
 
-        # self.desc_obj.val = DataDescType["FW_PACKET_PACKETIZED_TLM"].value
         desc_bin = (
             ConfigManager()
             .get_type("ComCfg.Apid")("FW_PACKET_PACKETIZED_TLM")

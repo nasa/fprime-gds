@@ -27,7 +27,7 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 class PktDecoder(ChDecoder):
     """Decoder class for Packetized Telemetry data"""
 
-    def __init__(self, pkt_name_dict, ch_dict, config=None):
+    def __init__(self, pkt_name_dict, ch_dict):
         """
         Constructor
 
@@ -40,12 +40,9 @@ class PktDecoder(ChDecoder):
         Returns:
             An initialized PktDecoder object
         """
-        # if config is None:
-        #     config = ConfigManager()
-        super().__init__(ch_dict, config)
+        super().__init__(ch_dict)
 
         self.__dict = pkt_name_dict
-        # FwTlmPacketizeIdType = ConfigManager().get_type("FwTlmPacketizeIdType")
         self.id_obj = ConfigManager().get_type("FwTlmPacketizeIdType")()
 
     def decode_api(self, data):

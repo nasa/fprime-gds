@@ -42,7 +42,7 @@ class EncodingDecoding:
         self.packet_decoder = None
         self.command_subscribers = []
 
-    def setup_coders(self, dictionaries, distributor, sender, config):
+    def setup_coders(self, dictionaries, distributor, sender):
         """
         Sets up the encoder and decoder layer of the GDS pipeline. This requires a dictionary set that has loaded the
         dictionaries needed for the decoders to work correctly. This will register then register the decoders with a
@@ -52,18 +52,15 @@ class EncodingDecoding:
         :param dictionaries: a dictionaries handling object holding dictionaries
         :param distributor: distributor of data to register to
         :param sender: is used to send the bytes created by the command encoder
-        :param config: config object used to describe types used for different field encodings
         """
         # Create encoders and decoders using dictionaries
         self.file_encoder = fprime_gds.common.encoders.file_encoder.FileEncoder()
-        self.command_encoder = fprime_gds.common.encoders.cmd_encoder.CmdEncoder(
-            config=config
-        )
+        self.command_encoder = fprime_gds.common.encoders.cmd_encoder.CmdEncoder()
         self.event_decoder = fprime_gds.common.decoders.event_decoder.EventDecoder(
-            dictionaries.event_id, config=config
+            dictionaries.event_id
         )
         self.channel_decoder = fprime_gds.common.decoders.ch_decoder.ChDecoder(
-            dictionaries.channel_id, config=config
+            dictionaries.channel_id
         )
         self.file_decoder = fprime_gds.common.decoders.file_decoder.FileDecoder()
         self.packet_decoder = None
