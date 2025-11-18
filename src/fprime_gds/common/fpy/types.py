@@ -26,25 +26,25 @@ from fprime_gds.common.fpy.bytecode.directives import (
 from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.cmd_template import CmdTemplate
 from fprime_gds.common.templates.prm_template import PrmTemplate
-from fprime_gds.common.models.serialize.time_type import TimeType
-from fprime_gds.common.models.serialize.serializable_type import SerializableType
-from fprime_gds.common.models.serialize.array_type import ArrayType
 from fprime_gds.common.models.serialize.numerical_types import (
-    U32Type,
-    U16Type,
-    U64Type,
-    U8Type,
-    I16Type,
-    I32Type,
-    I64Type,
-    I8Type,
-    F32Type,
-    F64Type,
-    IntegerType,
+    U8Type as U8Value,
+    U16Type as U16Value,
+    U32Type as U32Value,
+    U64Type as U64Value,
+    I8Type as I8Value,
+    I16Type as I16Value,
+    I32Type as I32Value,
+    I64Type as I64Value,
+    F32Type as F32Value,
+    F64Type as F64Value,
+    IntegerType as IntegerValue,
+    FloatType as FloatValue,
+    NumericalType as NumericalValue,
 )
-from fprime_gds.common.models.serialize.string_type import StringType
-from fprime_gds.common.models.serialize.bool_type import BoolType
-from fprime_gds.common.fpy.parser import (
+from fprime_gds.common.models.serialize.string_type import StringType as StringValue
+from fprime_gds.common.fpy.syntax import (
+    AstBreak,
+    AstContinue,
     AstExpr,
     AstFor,
     AstFuncCall,
@@ -55,7 +55,7 @@ from fprime_gds.common.fpy.parser import (
     AstScopedBody,
     AstWhile,
 )
-from fprime.common.models.serialize.type_base import BaseType as FppType
+from fprime_gds.common.models.serialize.type_base import BaseType as FppValue
 
 MAX_DIRECTIVES_COUNT = 1024
 MAX_DIRECTIVE_SIZE = 2048
@@ -227,7 +227,8 @@ class NothingValue(ABC):
 
 
 # the `type` object representing the NothingType class
-NothingTypeClass = type[NothingType]
+NothingType = type[NothingValue]
+
 
 @dataclass
 class FpyCallable:
@@ -278,39 +279,8 @@ class FieldReference:
     or None if unknown at compile time"""
     name: str = None
     """the name of the field, if applicable"""
-    idx: int = None
-    """the index of the field, if applicable"""
-
-    def get_from(self, parent_val: FppType) -> FppType:
-        """gets the field value from the parent value"""
-        assert isinstance(parent_val, self.type)
-        assert self.name is not None or self.idx is not None
-        value = None
-        if self.name is not None:
-            if isinstance(parent_val, SerializableType):
-                value = parent_val.val[self.name]
-            elif isinstance(parent_val, TimeType):
-                if self.name == "seconds":
-                    value = parent_val.__secs
-                elif self.name == "useconds":
-                    value = parent_val.__usecs
-                elif self.name == "time_base":
-                    value = parent_val.__timeBase
-                elif self.name == "time_context":
-                    value = parent_val.__timeContext
-                else:
-                    assert False, self.name
-            else:
-                assert False, parent_val
-
-        else:
-
-            assert isinstance(parent_val, ArrayType), parent_val
-
-            value = parent_val._val[self.idx]
-
-        assert isinstance(value, self.type), (value, self.type)
-        return value
+    idx_expr: AstExpr = None
+    """the expression that evaluates to the index in the parent array of the field, if applicable"""
 
 
 # named variables can be tlm chans, prms, callables, or directly referenced consts (usually enums)
