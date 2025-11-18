@@ -16,7 +16,6 @@ Example data structure:
 """
 
 from fprime_gds.common.models.serialize import time_type
-from fprime_gds.common.models.serialize.numerical_types import NumericalType
 from fprime_gds.common.models.serialize.type_exceptions import TypeException
 
 from fprime_gds.common.data_types import event_data
@@ -25,8 +24,6 @@ from fprime_gds.common.decoders.decoder import DecodingException
 from fprime_gds.common.utils.config_manager import ConfigManager
 
 import logging
-
-from fprime_gds.common.utils.dict_types_decorator import inject_dictionary_type
 
 LOGGER = logging.getLogger("event_decoder")
 

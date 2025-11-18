@@ -5,8 +5,6 @@ Created on Dec 18, 2014
 
 import struct
 
-from fprime_gds.common.utils.dict_types_decorator import inject_dictionary_constant
-
 from .type_base import ValueType
 from .type_exceptions import (
     DeserializeException,
