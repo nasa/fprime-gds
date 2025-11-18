@@ -5,6 +5,8 @@ Created on Dec 18, 2014
 
 import struct
 
+from fprime_gds.common.utils.dict_types_decorator import inject_dictionary_constant
+
 from .type_base import ValueType
 from .type_exceptions import (
     DeserializeException,
@@ -12,6 +14,7 @@ from .type_exceptions import (
     TypeMismatchException,
     TypeRangeException,
 )
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 
 class BoolType(ValueType):
@@ -19,9 +22,6 @@ class BoolType(ValueType):
     Representation of a boolean type that will be stored for F prime. True values are stored as a U8 of 0xFF and False
     is stored as a U8 of 0x00.
     """
-
-    TRUE = 0xFF  # Hardcoded
-    FALSE = 0x00
 
     @classmethod
     def validate(cls, val):
@@ -33,21 +33,30 @@ class BoolType(ValueType):
         """Serialize a boolean value"""
         if self._val is None:
             raise NotInitializedException(type(self))
-        return struct.pack("B", self.TRUE if self._val else self.FALSE)
+        return struct.pack(
+            "B",
+            (
+                ConfigManager().get_constant("FW_SERIALIZE_TRUE_VALUE")
+                if self._val
+                else ConfigManager().get_constant("FW_SERIALIZE_FALSE_VALUE")
+            ),
+        )
 
     def deserialize(self, data, offset):
         """Deserialize boolean value"""
+        TRUE_VAL = ConfigManager().get_constant("FW_SERIALIZE_TRUE_VALUE")
+        FALSE_VAL = ConfigManager().get_constant("FW_SERIALIZE_FALSE_VALUE")
         try:
             int_val = struct.unpack_from("B", data, offset)[0]
-            if int_val not in [self.TRUE, self.FALSE]:
+            if int_val not in [TRUE_VAL, FALSE_VAL]:
                 raise TypeRangeException(int_val)
-            self._val = int_val == self.TRUE
+            self._val = int_val == TRUE_VAL
         except struct.error:
             raise DeserializeException("Not enough bytes to deserialize bool.")
 
     @classmethod
     def getSize(cls):
-        return struct.calcsize("B")  # Hardcoded
+        return struct.calcsize("B")
 
     @classmethod
     def getMaxSize(cls):

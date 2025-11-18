@@ -44,13 +44,11 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         dict_scid = None
         dict_frame_size = None
         try:
-            dict_scid = ConfigManager.get_instance().get_constant("ComCfg.SpacecraftId")
+            dict_scid = ConfigManager().get_constant("ComCfg.SpacecraftId")
         except ConfigBadTypeException:
             pass  # Config value not found, move on
         try:
-            dict_frame_size = ConfigManager.get_instance().get_constant(
-                "ComCfg.TmFrameFixedSize"
-            )
+            dict_frame_size = ConfigManager().get_constant("ComCfg.TmFrameFixedSize")
         except ConfigBadTypeException:
             pass  # Config value not found, move on
         if scid is not None and dict_scid is not None and scid != dict_scid:

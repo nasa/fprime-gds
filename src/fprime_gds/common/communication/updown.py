@@ -18,7 +18,6 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.communication.adapters.base import BaseAdapter
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.common.communication.ground import GroundHandler
-from fprime_gds.common.utils.data_desc_type import DataDescType
 
 DW_LOGGER = logging.getLogger("downlink")
 UP_LOGGER = logging.getLogger("uplink")
@@ -246,6 +245,7 @@ class Uplinker:
         Returns:
             handshake packet
         """
-        descriptor_obj = ConfigManager.get_instance().get_type("FwPacketDescriptorType")
-        descriptor_obj.val = DataDescType["FW_PACKET_HAND"].value
-        return descriptor_obj.serialize() + packet
+        return (
+            ConfigManager().get_type("ComCfg.Apid")("FW_PACKET_HAND").serialize()
+            + packet
+        )

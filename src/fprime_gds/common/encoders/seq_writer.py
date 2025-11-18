@@ -10,8 +10,7 @@ import zlib
 from fprime_gds.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
 from fprime_gds.common.models.serialize.type_exceptions import TypeMismatchException
 
-from fprime_gds.common.utils import config_manager
-from fprime_gds.common.utils.data_desc_type import DataDescType
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 
 class SeqBinaryWriter:
@@ -23,14 +22,14 @@ class SeqBinaryWriter:
         """
         Constructor
         """
-        if config is None:
-            config = config_manager.ConfigManager.get_instance()
+        # if config is None:
+        #     config = config_manager.ConfigManager()
 
         self.__fd = None
         self.__timebase = timebase
-        self.desc_obj = config.get_type("FwPacketDescriptorType")()
-        self.opcode_obj = config.get_type("FwOpcodeType")()
-        self.len_obj = config.get_config("msg_len")()
+        # self.desc_obj = ConfigManager().get_type("FwPacketDescriptorType")()
+        self.opcode_obj = ConfigManager().get_type("FwOpcodeType")()
+        self.len_obj = ConfigManager().get_config("msg_len")()
 
     def open(self, filename):
         """
@@ -62,10 +61,9 @@ class SeqBinaryWriter:
             return U8Type(cmd_obj.get_descriptor().value - 1).serialize()
 
         def __command(cmd_obj):
-            self.desc_obj.val = DataDescType["FW_PACKET_COMMAND"].value
             self.opcode_obj.val = cmd_obj.get_id()
             command = (
-                self.desc_obj.serialize()
+                ConfigManager().get_type("ComCfg.Apid")("FW_PACKET_COMMAND").serialize()
             )  # serialize combuffer type enum: FW_PACKET_COMMAND
             command += self.opcode_obj.serialize()  # serialize opcode
             # Command arguments

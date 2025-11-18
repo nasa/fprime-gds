@@ -47,7 +47,7 @@ from fprime_gds.common.models.serialize.numerical_types import U32Type
 from fprime.constants import DATA_ENCODING
 
 from fprime_gds.common.data_types.file_data import FilePacketType
-from fprime_gds.common.utils.data_desc_type import DataDescType
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 from . import encoder
 
@@ -92,9 +92,8 @@ class FileEncoder(encoder.Encoder):
         elif data.packetType != FilePacketType.CANCEL:
             msg = f"Invalid packet type found while encoding: {data.packetType}"
             raise Exception(msg)
-        descriptor_obj = self.config.get_type("FwPacketDescriptorType")()
-        descriptor_obj.val = DataDescType["FW_PACKET_FILE"].value
-        length_obj = self.config.get_config("msg_len")()
+        descriptor_obj = ConfigManager().get_type("ComCfg.Apid")("FW_PACKET_FILE")
+        length_obj = ConfigManager().get_config("msg_len")()
         length_obj.val = descriptor_obj.getSize() + len(out_data)
         header = (
             U32Type(0x5A5A5A5A).serialize()

@@ -38,7 +38,9 @@ Serialized Packet format:
 """
 
 from fprime_gds.common.data_types.pkt_data import PktData
-from fprime_gds.common.utils.data_desc_type import DataDescType
+from fprime_gds.common.utils.config_manager import ConfigManager
+
+# from fprime_gds.common.utils.data_desc_type import DataDescType
 
 from .encoder import Encoder
 
@@ -61,7 +63,7 @@ class PktEncoder(Encoder):
         super().__init__(config)
 
         self.len_obj = self.config.get_config("msg_len")()
-        self.desc_obj = self.config.get_type("FwPacketDescriptorType")()
+        # self.desc_obj = self.config.get_type("FwPacketDescriptorType")()
         self.id_obj = self.config.get_type("FwTlmPacketizeIdType")()
 
     def encode_api(self, data):
@@ -77,8 +79,12 @@ class PktEncoder(Encoder):
         assert isinstance(data, PktData), "Encoder handling incorrect type"
         pkt_temp = data.get_template()
 
-        self.desc_obj.val = DataDescType["FW_PACKET_PACKETIZED_TLM"].value
-        desc_bin = self.desc_obj.serialize()
+        # self.desc_obj.val = DataDescType["FW_PACKET_PACKETIZED_TLM"].value
+        desc_bin = (
+            ConfigManager()
+            .get_type("ComCfg.Apid")("FW_PACKET_PACKETIZED_TLM")
+            .serialize()
+        )
 
         self.id_obj.val = pkt_temp.get_id()
         id_bin = self.id_obj.serialize()

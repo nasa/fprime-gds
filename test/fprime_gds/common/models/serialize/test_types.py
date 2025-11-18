@@ -26,7 +26,7 @@ from fprime_gds.common.models.serialize.numerical_types import (
 )
 from fprime_gds.common.models.serialize.serializable_type import SerializableType
 from fprime_gds.common.models.serialize.string_type import StringType
-from fprime_gds.common.models.serialize.time_type import TimeBase, TimeType
+from fprime_gds.common.models.serialize.time_type import TimeType
 from fprime_gds.common.models.serialize.type_base import (
     BaseType,
     DictionaryType,
@@ -156,7 +156,7 @@ def ser_deser_time_test(t_base, t_context, secs, usecs):
     val2 = TimeType()
     val2.deserialize(buff, 0)
 
-    assert val2.timeBase.value == t_base
+    assert val2.timeBase.numeric_value == t_base
     assert val2.timeContext == t_context
     assert val2.seconds == secs
     assert val2.useconds == usecs
@@ -454,18 +454,18 @@ def test_time_type():
     TIME_SIZE = 11
 
     in_no_err_list = [
-        (TimeBase["TB_NONE"].value, 1, 100, 999999),
-        (TimeBase["TB_PROC_TIME"].value, 0xFF, 1234567, 2952),
-        (TimeBase["TB_WORKSTATION_TIME"].value, 8, 1529430215, 12),
-        (TimeBase["TB_SC_TIME"].value, 231, 1344230277, 123456),
-        (TimeBase["TB_FPGA_TIME"].value, 78, 10395, 24556),
-        (TimeBase["TB_DONT_CARE"].value, 0xB3, 12390819, 12356),
+        (TimeType.TimeBase("TB_NONE").numeric_value, 1, 100, 999999),
+        (TimeType.TimeBase("TB_PROC_TIME").numeric_value, 0xFF, 1234567, 2952),
+        (TimeType.TimeBase("TB_WORKSTATION_TIME").numeric_value, 8, 1529430215, 12),
+        (TimeType.TimeBase("TB_SC_TIME").numeric_value, 231, 1344230277, 123456),
+        (TimeType.TimeBase("TB_FPGA_TIME").numeric_value, 78, 10395, 24556),
+        (TimeType.TimeBase("TB_DONT_CARE").numeric_value, 0xB3, 12390819, 12356),
     ]
 
     in_err_list = [
         (10, 58, 15345, 0),
-        (TimeBase["TB_NONE"].value, 1, 3, -1),
-        (TimeBase["TB_WORKSTATION_TIME"].value, 1, 700000, 1234567),
+        (TimeType.TimeBase("TB_NONE").numeric_value, 1, 3, -1),
+        (TimeType.TimeBase("TB_WORKSTATION_TIME").numeric_value, 1, 700000, 1234567),
     ]
 
     val = TimeType()

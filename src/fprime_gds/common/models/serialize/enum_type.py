@@ -75,11 +75,18 @@ class EnumType(DictionaryType):
             raise EnumMismatchException(cls.__class__.__name__, val)
 
     @classmethod
-    def keys(cls):
+    def keys(cls) -> list[str]:
         """
-        Return all the enum key values.
+        Return all the enum keys (enumeration members).
         """
         return list(cls.ENUM_DICT.keys())
+
+    @classmethod
+    def values(cls) -> list[int]:
+        """
+        Return all the enum values (enumeration numeric values).
+        """
+        return list(cls.ENUM_DICT.values())
 
     def serialize(self):
         """
@@ -130,3 +137,20 @@ class EnumType(DictionaryType):
         return struct.calcsize(
             REPRESENTATION_TYPE_MAP[cls.REP_TYPE].get_serialize_format()
         )
+
+    @classmethod
+    def from_value(cls, val: int) -> "EnumType":
+        """Create an EnumType instance from an enumerated value (integer).
+        To create from the string key, simply call the constructor."""
+        key = next((key for key, value in cls.ENUM_DICT.items() if value == val), None)
+        if key is None:
+            raise EnumMismatchException(cls.__name__, f"value {val}")
+        instance = cls(key)
+        return instance
+
+    @property
+    def numeric_value(self) -> int:
+        """Get the numeric value associated with the current enumeration"""
+        if self._val is None:
+            raise NotInitializedException(type(self))
+        return self.ENUM_DICT[self._val]

@@ -29,7 +29,7 @@ from fprime_gds.common.models.serialize.numerical_types import (
 )
 from fprime_gds.common.models.serialize.serializable_type import SerializableType
 from fprime_gds.common.models.serialize.string_type import StringType
-from fprime_gds.common.models.serialize.time_type import TimeBase, TimeType
+from fprime_gds.common.models.serialize.time_type import TimeType
 
 from fprime_gds.common.data_types import sys_data
 
@@ -58,7 +58,9 @@ class CmdData(sys_data.SysData):
         self.template = cmd_temp
 
         self.args, errors = self.process_args(cmd_args)
-        self.time = cmd_time or TimeType(TimeBase["TB_DONT_CARE"].value)
+        self.time = cmd_time or TimeType(
+            TimeType.TimeBase("TB_DONT_CARE").numeric_value
+        )
         self.descriptor = cmd_desc
 
         # If any errors occur, then raise a aggregated error

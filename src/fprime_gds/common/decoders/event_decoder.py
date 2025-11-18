@@ -16,14 +16,17 @@ Example data structure:
 """
 
 from fprime_gds.common.models.serialize import time_type
+from fprime_gds.common.models.serialize.numerical_types import NumericalType
 from fprime_gds.common.models.serialize.type_exceptions import TypeException
 
 from fprime_gds.common.data_types import event_data
 from fprime_gds.common.decoders import decoder
 from fprime_gds.common.decoders.decoder import DecodingException
-from fprime_gds.common.utils import config_manager
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 import logging
+
+from fprime_gds.common.utils.dict_types_decorator import inject_dictionary_type
 
 LOGGER = logging.getLogger("event_decoder")
 
@@ -44,12 +47,13 @@ class EventDecoder(decoder.Decoder):
         """
         super(EventDecoder, self).__init__()
 
-        if config is None:
-            # Retrieve defaults for the configs
-            config = config_manager.ConfigManager.get_instance()
+        # if config is None:
+        #     # Retrieve defaults for the configs
+        #     config = config_manager.ConfigManager()
 
         self.__dict = event_dict
-        self.id_obj = config.get_type("FwEventIdType")()
+        FwEventIdType = ConfigManager().get_type("FwEventIdType")
+        self.id_obj = FwEventIdType()
 
     def decode_api(self, data):
         """

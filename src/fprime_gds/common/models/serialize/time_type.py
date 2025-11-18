@@ -21,29 +21,14 @@ import datetime
 import math
 from enum import Enum
 
+from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.models.serialize import type_base
 
 # Custom Python Modules
 from fprime_gds.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
-from fprime_gds.common.models.serialize.type_exceptions import TypeRangeException
 
-TimeBase = Enum(
-    "TimeBase",
-    # No time base has been established
-    {
-        "TB_NONE": 0,
-        # Processor cycle time. Not tried to external time
-        "TB_PROC_TIME": 1,
-        # Time on workstation where software is running. For testing.
-        "TB_WORKSTATION_TIME": 2,
-        # Time as reported by the SCLK.
-        "TB_SC_TIME": 3,
-        # Time as reported by the FPGA clock
-        "TB_FPGA_TIME": 4,
-        # Don't care value for sequences
-        "TB_DONT_CARE": 0xFFFF,
-    },
-)
+from fprime_gds.common.models.serialize.enum_type import EnumType
+from fprime_gds.common.models.serialize.type_exceptions import TypeRangeException
 
 
 class TimeType(type_base.BaseType):
@@ -57,6 +42,28 @@ class TimeType(type_base.BaseType):
     another TimeType, these comparisons use the provided compare method. See TimeType.compare for
     a description of this behavior.  See comparison functions at the end.
     """
+
+    @staticmethod
+    def TimeBase(enum_constant: str) -> EnumType:
+        """Constructs a TimeBase instance (EnumType) from a string constant, as defined in the
+        ConfigManager.
+
+        Args:
+            enum_constant (str): String name of the TimeBase enum constant (e.g., "TB_DONT_CARE")
+
+        Returns:
+            An EnumType instance representing the TimeBase type
+        """
+        return TimeType.get_TimeBase_type()(enum_constant)
+
+    @staticmethod
+    def get_TimeBase_type() -> type[EnumType]:
+        """Returns the TimeBase type class
+
+        Returns:
+            The TimeBase type class
+        """
+        return ConfigManager().get_type("TimeBase")  # type: ignore
 
     def __init__(self, time_base=0, time_context=0, seconds=0, useconds=0):
         """
@@ -83,7 +90,7 @@ class TimeType(type_base.BaseType):
         self._check_time_base(time_base)
         self._check_useconds(useconds)
 
-        self.__timeBase = U16Type(time_base)
+        self.__timeBase = TimeType.get_TimeBase_type().from_value(time_base)
         self.__timeContext = U8Type(time_context)
         self.__secs = U32Type(seconds)
         self.__usecs = U32Type(useconds)
@@ -113,10 +120,7 @@ class TimeType(type_base.BaseType):
         Returns:
             Returns if valid, raises TypeRangeException if not valid.
         """
-        # Construct list of possible values for TimeBase enum
-        valid_vals = [member.value for member in list(TimeBase)]
-
-        if time_base not in valid_vals:
+        if time_base not in TimeType.get_TimeBase_type().values():
             raise TypeRangeException(time_base)
 
     def to_jsonable(self):
@@ -125,7 +129,7 @@ class TimeType(type_base.BaseType):
         """
         return {
             "type": self.__repr__(),
-            "base": self.__timeBase,
+            "base": self.__timeBase.numeric_value,
             "context": self.__timeContext,
             "seconds": self.seconds,
             "microseconds": self.useconds,
@@ -133,12 +137,12 @@ class TimeType(type_base.BaseType):
 
     @property
     def timeBase(self):
-        return TimeBase(self.__timeBase.val)
+        return self.__timeBase
 
     @timeBase.setter
     def timeBase(self, val):
         self._check_time_base(val)
-        self.__timeBase = U16Type(val)
+        self.__timeBase = TimeType.get_TimeBase_type().from_value(val)
 
     @property
     def timeContext(self):
@@ -216,7 +220,10 @@ class TimeType(type_base.BaseType):
         """
         # Hardcoded ?
         return (
-            U16Type.getSize() + U8Type.getSize() + U32Type.getSize() + U32Type.getSize()
+            TimeType.get_TimeBase_type().getMaxSize()
+            + U8Type.getSize()
+            + U32Type.getSize()
+            + U32Type.getSize()
         )
 
     @classmethod
@@ -246,7 +253,7 @@ class TimeType(type_base.BaseType):
             return (x > y) - (x < y)  # added to support Python 2/3
 
         # Compare Base
-        base_cmp = cmp(t1.timeBase.value, t2.timeBase.value)
+        base_cmp = cmp(t1.timeBase.numeric_value, t2.timeBase.numeric_value)
         if base_cmp != 0:
             return base_cmp
 
@@ -267,7 +274,7 @@ class TimeType(type_base.BaseType):
             A string representing the time type object
         """
         return "(%d(%d)-%d:%d)" % (
-            self.__timeBase.val,
+            self.__timeBase.numeric_value,
             self.__timeContext.val,
             self.__secs.val,
             self.__usecs.val,
@@ -295,7 +302,7 @@ class TimeType(type_base.BaseType):
             # This line can be changed for other precisions or needs.
             return dt.isoformat(timespec="microseconds")
         return "%s: %d.%06ds, context=%d" % (
-            TimeBase(self.__timeBase.val).name,
+            self.__timeBase.numeric_value,
             self.__secs.val,
             self.__usecs.val,
             self.__timeContext.val,
@@ -312,11 +319,12 @@ class TimeType(type_base.BaseType):
             datetime object for the time type or None if the time couldn't
             be determined.
         """
-
-        tb = TimeBase(self.__timeBase.val)
         dt = None
 
-        if tb in [TimeBase["TB_WORKSTATION_TIME"], TimeBase["TB_SC_TIME"]]:
+        if self.__timeBase.numeric_value in [
+            TimeType.TimeBase("TB_WORKSTATION_TIME").numeric_value,
+            TimeType.TimeBase("TB_SC_TIME").numeric_value,
+        ]:
             # This finds the local time corresponding to the timestamp and
             # timezone object, or local time zone if tz=None
             dt = datetime.datetime.fromtimestamp(self.__secs.val, tz)
@@ -339,7 +347,7 @@ class TimeType(type_base.BaseType):
         self._check_time_base(time_base)
         self._check_useconds(useconds)
 
-        self.__timeBase = U16Type(time_base)
+        self.__timeBase = TimeType.get_TimeBase_type().from_value(time_base)
         self.__secs = U32Type(seconds)
         self.__usecs = U32Type(useconds)
 
@@ -408,7 +416,7 @@ class TimeType(type_base.BaseType):
         fields using the given number. The new TimeType's time_base and time_context will be
         preserved from the calling object.
         """
-        tType = TimeType(self.__timeBase.val, self.__timeContext.val)
+        tType = TimeType(self.__timeBase.numeric_value, self.__timeContext.val)
         tType.set_float(num)
         return tType
 

@@ -18,12 +18,17 @@ Based on the ConfigManager class written by Len Reder in the fprime Gse
 from fprime_gds.common.models.serialize.numerical_types import (
     U16Type,
     U32Type,
+    IntegerType,
 )
+from fprime_gds.common.models.serialize.enum_type import EnumType
+
 from fprime_gds.common.models.serialize.type_base import BaseType
 from typing import Any, Optional
 
+from fprime_gds.common.models.serialize.type_exceptions import FprimeGdsException
 
-class ConfigBadTypeException(Exception):
+
+class ConfigBadTypeException(FprimeGdsException):
     def __init__(self, config_name, type_str):
         """
         Constructor
@@ -32,9 +37,7 @@ class ConfigBadTypeException(Exception):
             config_name (string): Name of the config containing the bad type
             type_str (string): Bad type string that caused the error
         """
-        super().__init__(
-            f"Invalid type string {type_str} read in configuration {config_name}"
-        )
+        super().__init__(f"{config_name}: {type_str}")
 
 
 class ConfigManager:
@@ -52,25 +55,29 @@ class ConfigManager:
     # Dictionary holding all config properties
     __prop: dict
 
-    def __init__(self):
-        """
-        Constructor
+    def __new__(cls):
+        """Controls creation of and access to the singleton instance.
 
-        Creates a ConfigManager object with the default configuration values
+        This forbids construction of multiple ConfigManager instances.
+
+        Usage:
+            MyType = ConfigManager().get_type("MyType")
 
         Returns:
-            An instance of the ConfigManager class. Default configurations
-            will be used until the set_configs method is called!
+            The singleton ConfigManager object for this python application
         """
-        # `types` and `constants` are meant to be pulled from the FSW dictionary
-        # `config` is for config that is internal to the GDS
-        self.__prop = {"types": {}, "constants": {}, "config": {}}
-        self._set_defaults()
+        if cls.__instance is None:
+            cls.__instance = super(ConfigManager, cls).__new__(cls)
+            # Initialization of the singleton instance - only ran once
+            cls.__instance.__prop = {"types": {}, "constants": {}, "config": {}}
+            cls.__instance._set_defaults()
+        return cls.__instance
 
     @staticmethod
     def get_instance():
         """
-        Return instance of singleton.
+        Return instance of singleton. Superseded by the __new__ access method, but
+        left for backwards compatibility.
 
         Returns:
             The current ConfigManager object for this python application
@@ -81,7 +88,7 @@ class ConfigManager:
 
     def get_type(
         self, name: str, fallback_type: Optional[type[BaseType]] = None
-    ) -> type[BaseType]:
+    ) -> type[BaseType] | type[IntegerType]:
         """
         Return the associated type class for the given name. If fallback_type is provided,
         it is returned if the type name is unknown. If no fallback_type is provided and the name
@@ -98,7 +105,7 @@ class ConfigManager:
         if type_class is None:
             if fallback_type is not None:
                 return fallback_type
-            raise ConfigBadTypeException(name, "Unknown type name")
+            raise ConfigBadTypeException("Unknown type name", name)
         return type_class
 
     def set_type(self, name: str, type_class: type[BaseType]):
@@ -133,7 +140,7 @@ class ConfigManager:
         if constant_value is None:
             if fallback_val is not None:
                 return fallback_val
-            raise ConfigBadTypeException(name, "Unknown constant name")
+            raise ConfigBadTypeException("Unknown constant name", name)
         return constant_value
 
     def set_constant(self, name: str, value: int):
@@ -163,7 +170,7 @@ class ConfigManager:
         """
         config_value = self.__prop["config"].get(name, None)
         if config_value is None:
-            raise ConfigBadTypeException(name, "Unknown config field name")
+            raise ConfigBadTypeException("Unknown config field name", name)
         return config_value
 
     def set_config(self, name: str, entry: Any):
@@ -181,7 +188,8 @@ class ConfigManager:
 
     def _set_defaults(self):
         """
-        Used by the constructor to set all ConfigManager defaults
+        Set all ConfigManager defaults. Needed for backwards compatibility if the flight dictionary
+        does not provide certain types or constants.
         """
         self.__prop["types"].update(
             {
@@ -190,6 +198,31 @@ class ConfigManager:
                 "FwEventIdType": U32Type,
                 "FwOpcodeType": U32Type,
                 "FwTlmPacketizeIdType": U16Type,
+                "FwSizeStoreType": U16Type,
+                "TimeBase": EnumType.construct_type(
+                    "__GdsInternal_TimeBase_Fallback",
+                    {
+                        "TB_NONE": 0,
+                        # Processor cycle time. Not tried to external time
+                        "TB_PROC_TIME": 1,
+                        # Time on workstation where software is running. For testing.
+                        "TB_WORKSTATION_TIME": 2,
+                        # Time as reported by the SCLK.
+                        "TB_SC_TIME": 3,
+                        # Time as reported by the FPGA clock
+                        "TB_FPGA_TIME": 4,
+                        # Don't care value for sequences
+                        "TB_DONT_CARE": 0xFFFF,
+                    },
+                    rep_type="U16",
+                ),
+                # TODO: ComCfg.Apid
+            }
+        )
+        self.__prop["constants"].update(
+            {
+                "FW_SERIALIZE_TRUE_VALUE": 0,
+                "FW_SERIALIZE_FALSE_VALUE": 0xFF,
             }
         )
         self.__prop["config"].update(

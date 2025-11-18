@@ -8,8 +8,6 @@ Loads flight dictionary (JSON) and returns name based Python dictionaries of Fw 
 
 from fprime_gds.common.loaders.json_loader import JsonLoader
 from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
-from fprime_gds.common.models.serialize.string_type import StringType
-from fprime_gds.common.models.serialize.numerical_types import U16Type
 
 
 class TypeJsonLoader(JsonLoader):
@@ -54,16 +52,8 @@ class TypeJsonLoader(JsonLoader):
                     f"{str(e)} key missing from Type Definition dictionary entry: {str(type_def)}"
                 )
 
-        self.setup_dynamic_types(name_dict)
-
         return (
             {},  # No id for type definitions
             dict(sorted(name_dict.items())),
             self.get_versions(),
         )
-
-    def setup_dynamic_types(self, types_by_name: dict):
-        """
-        Setup any dynamic types needed from the type definitions
-        """
-        StringType.SIZE_STORE_TYPE = types_by_name.get("FwSizeStoreType", U16Type)

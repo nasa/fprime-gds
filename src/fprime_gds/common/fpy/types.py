@@ -238,7 +238,7 @@ class FieldReference:
                 elif self.name == "useconds":
                     value = parent_val.__usecs
                 elif self.name == "time_base":
-                    value = parent_val.__timeBase
+                    value = parent_val.__timeBase.numeric_value
                 elif self.name == "time_context":
                     value = parent_val.__timeContext
                 else:

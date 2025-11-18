@@ -17,7 +17,7 @@ import argparse
 import os
 import sys
 
-from fprime_gds.common.models.serialize.time_type import TimeBase, TimeType
+from fprime_gds.common.models.serialize.time_type import TimeType
 
 from fprime_gds.common.data_types import exceptions as gseExceptions
 from fprime_gds.common.data_types.cmd_data import CmdData, CommandArgumentsException
@@ -83,7 +83,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
                 # Set the command arguments:
                 try:
                     cmd_time = TimeType(
-                        TimeBase["TB_DONT_CARE"].value,
+                        TimeType.TimeBase("TB_DONT_CARE").numeric_value,
                         seconds=seconds,
                         useconds=useconds,
                     )
