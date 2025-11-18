@@ -18,6 +18,7 @@ Based on the ConfigManager class written by Len Reder in the fprime Gse
 from fprime_gds.common.models.serialize.numerical_types import (
     U16Type,
     U32Type,
+    U8Type,
     ValueType,
 )
 from fprime_gds.common.models.serialize.enum_type import EnumType
@@ -184,6 +185,7 @@ class ConfigManager:
                 "FwOpcodeType": U32Type,
                 "FwTlmPacketizeIdType": U16Type,
                 "FwSizeStoreType": U16Type,
+                "FwTimeContextStoreType": U8Type,
                 "TimeBase": EnumType.construct_type(
                     "__GdsInternal_TimeBase_Fallback",
                     {

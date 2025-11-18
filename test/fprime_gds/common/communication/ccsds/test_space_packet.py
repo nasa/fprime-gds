@@ -2,6 +2,7 @@ import pytest
 from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
 from spacepackets.ccsds.spacepacket import SpacePacketHeader, PacketType, SpacePacket
 from fprime_gds.common.utils.config_manager import ConfigManager
+from fprime_gds.common.models.serialize.type_exceptions import TypeRangeException
 
 @pytest.fixture
 def framer_deframer():
@@ -26,8 +27,8 @@ def test_frame_invalid_data(framer_deframer):
     descriptor = ConfigManager().get_type("FwPacketDescriptorType")()
     descriptor.val = 0xFFFF  # invalid value
     data = descriptor.serialize() + b"test_payload"
-    # Invalid DataDescType, should raise ValueError
-    with pytest.raises(ValueError):
+    # Invalid DataDescType, should raise TypeRangeException
+    with pytest.raises(TypeRangeException):
         framer_deframer.frame(data)
 
 def test_deframe_valid_packet(framer_deframer):
