@@ -96,9 +96,7 @@ class Command(flask_restful.Resource):
             arg_list = []
         try:
             self.sender.send_command(command, arg_list)
-        except (
-            fprime_gds.common.models.serialize.type_exceptions.NotInitializedException
-        ):
+        except fprime_gds.common.models.serialize.type_exceptions.NotInitializedException:
             raise MissingArgumentException()
         except fprime_gds.common.data_types.cmd_data.CommandArgumentsException as exc:
             raise CommandArgumentsInvalidException(exc.errors)

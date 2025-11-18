@@ -77,11 +77,11 @@ class CmdData(sys_data.SysData):
         return self.template
 
     def get_time(self):
-        """Return time"""
+        """ Return time """
         return self.time
 
     def get_descriptor(self):
-        """Return the descriptor"""
+        """ Return the descriptor """
         return self.descriptor
 
     def get_id(self):
@@ -146,7 +146,7 @@ class CmdData(sys_data.SysData):
         return f"{time_str}: {name} : {arg_str}"
 
     def process_args(self, input_values):
-        """Process input arguments"""
+        """ Process input arguments """
         errors = []
         args = []
         for val, arg_tuple in zip(input_values, self.template.arguments):
@@ -163,7 +163,9 @@ class CmdData(sys_data.SysData):
     @staticmethod
     def convert_arg_value(arg_val, arg_instance):
         if arg_val is None:
-            raise CommandArgumentException("Argument was not set")
+            raise CommandArgumentException(
+                "Argument was not set"
+            )
         if isinstance(arg_instance, BoolType):
             value = str(arg_val).lower().strip()
             if value in {"true", "yes"}:
@@ -181,9 +183,7 @@ class CmdData(sys_data.SysData):
             arg_instance,
             (I64Type, U64Type, I32Type, U32Type, I16Type, U16Type, I8Type, U8Type),
         ):
-            arg_instance.val = (
-                int(arg_val, 0) if isinstance(arg_val, str) else int(arg_val)
-            )
+            arg_instance.val = int(arg_val, 0) if isinstance(arg_val, str) else int(arg_val)
         elif isinstance(arg_instance, StringType):
             arg_instance.val = arg_val
         elif isinstance(arg_instance, (ArrayType, SerializableType)):
@@ -194,12 +194,7 @@ class CmdData(sys_data.SysData):
             )
 
     def __str__(self):
-        arg_str = "".join(
-            f"{name} : {str(typ.val)} |"
-            for name, typ in zip(
-                [arg[0] for arg in self.template.get_args()], self.args
-            )
-        )
+        arg_str = "".join(f"{name} : {str(typ.val)} |" for name, typ in zip([arg[0] for arg in self.template.get_args()], self.args))
         arg_str = f"w/ args | {arg_str}"
 
         arg_info = f"{self.template.mnemonic} "

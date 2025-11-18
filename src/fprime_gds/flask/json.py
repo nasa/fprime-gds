@@ -145,7 +145,7 @@ def time_type(obj):
     """
     assert isinstance(obj, TimeType), "Incorrect type for serialization method"
     return {
-        "base": obj.timeBase.numeric_value,  # Fix here
+        "base": obj.timeBase.numeric_value,
         "context": obj.timeContext,
         "seconds": obj.seconds,
         "microseconds": obj.useconds,
