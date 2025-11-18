@@ -88,7 +88,7 @@ class ConfigManager:
 
     def get_type(
         self, name: str, fallback_type: Optional[type[BaseType]] = None
-    ) -> type[BaseType] | type[IntegerType]:
+    ) -> type[BaseType]:
         """
         Return the associated type class for the given name. If fallback_type is provided,
         it is returned if the type name is unknown. If no fallback_type is provided and the name
