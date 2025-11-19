@@ -1,5 +1,3 @@
-import os
-import sys
 import unittest
 
 from fprime_gds.common.models.serialize.time_type import TimeType
@@ -7,9 +5,9 @@ from fprime_gds.common.models.serialize.time_type import TimeType
 
 class TimeTypeTestCases(unittest.TestCase):
     def setUp(self):
-        self.t0 = TimeType(0, 0, 0, 0)
-        self.t1 = TimeType(0, 0, 1, 0)
-        self.t15 = TimeType(0, 0, 1, 500000)
+        self.t0 = TimeType(TimeType.TimeBase("TB_NONE"), 0, 0, 0)
+        self.t1 = TimeType(TimeType.TimeBase("TB_NONE"), 0, 1, 0)
+        self.t15 = TimeType(TimeType.TimeBase("TB_NONE"), 0, 1, 500000)
 
     def test_LessThan(self):
         assert self.t0 >= self.t0, "0 is not less than 0"

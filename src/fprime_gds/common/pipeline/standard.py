@@ -14,7 +14,7 @@ import os.path
 from pathlib import Path
 from typing import Type
 
-import fprime_gds.common.models.serialize.time_type
+from fprime_gds.common.models.serialize.time_type import TimeType
 
 import fprime_gds.common.data_types.cmd_data
 import fprime_gds.common.distributor.distributor
@@ -200,8 +200,8 @@ class StandardPipeline:
         cmd_data = fprime_gds.common.data_types.cmd_data.CmdData(
             tuple(args), command_template
         )
-        cmd_data.time = fprime_gds.common.models.serialize.time_type.TimeType()
-        cmd_data.time.set_datetime(datetime.datetime.now(), 2)
+        cmd_data.time = TimeType()
+        cmd_data.time.set_datetime(datetime.datetime.now(), TimeType.TimeBase("TB_WORKSTATION_TIME"))
         self.coders.send_command(cmd_data)
 
     @property

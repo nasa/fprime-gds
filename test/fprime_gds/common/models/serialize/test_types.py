@@ -140,7 +140,7 @@ def ser_deser_time_test(t_base, t_context, secs, usecs):
     of the formatted output.
 
     Args:
-        t_base (int): Time base for the new time type object
+        t_base (TimeType.TimeBase): Time base for the new time type object
         t_context (int): Time context for the new time type object
         secs (int): Seconds value for the new time type object
         usecs (int): Seconds value for the new time type object
@@ -156,7 +156,7 @@ def ser_deser_time_test(t_base, t_context, secs, usecs):
     val2 = TimeType()
     val2.deserialize(buff, 0)
 
-    assert val2.timeBase.numeric_value == t_base
+    assert val2.timeBase == t_base
     assert val2.timeContext == t_context
     assert val2.seconds == secs
     assert val2.useconds == usecs
@@ -454,18 +454,17 @@ def test_time_type():
     TIME_SIZE = 11
 
     in_no_err_list = [
-        (TimeType.TimeBase("TB_NONE").numeric_value, 1, 100, 999999),
-        (TimeType.TimeBase("TB_PROC_TIME").numeric_value, 0xFF, 1234567, 2952),
-        (TimeType.TimeBase("TB_WORKSTATION_TIME").numeric_value, 8, 1529430215, 12),
-        (TimeType.TimeBase("TB_SC_TIME").numeric_value, 231, 1344230277, 123456),
-        (TimeType.TimeBase("TB_FPGA_TIME").numeric_value, 78, 10395, 24556),
-        (TimeType.TimeBase("TB_DONT_CARE").numeric_value, 0xB3, 12390819, 12356),
+        (TimeType.TimeBase("TB_NONE"), 1, 100, 999999),
+        (TimeType.TimeBase("TB_PROC_TIME"), 0xFF, 1234567, 2952),
+        (TimeType.TimeBase("TB_WORKSTATION_TIME"), 8, 1529430215, 12),
+        (TimeType.TimeBase("TB_SC_TIME"), 231, 1344230277, 123456),
+        (TimeType.TimeBase("TB_FPGA_TIME"), 78, 10395, 24556),
+        (TimeType.TimeBase("TB_DONT_CARE"), 0xB3, 12390819, 12356),
     ]
 
     in_err_list = [
-        (10, 58, 15345, 0),
-        (TimeType.TimeBase("TB_NONE").numeric_value, 1, 3, -1),
-        (TimeType.TimeBase("TB_WORKSTATION_TIME").numeric_value, 1, 700000, 1234567),
+        (TimeType.TimeBase("TB_NONE"), 1, 3, -1),
+        (TimeType.TimeBase("TB_WORKSTATION_TIME"), 1, 700000, 1234567),
     ]
 
     val = TimeType()

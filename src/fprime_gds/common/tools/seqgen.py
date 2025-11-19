@@ -83,7 +83,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
                 # Set the command arguments:
                 try:
                     cmd_time = TimeType(
-                        TimeType.TimeBase("TB_DONT_CARE").numeric_value,
+                        TimeType.TimeBase("TB_DONT_CARE"),
                         seconds=seconds,
                         useconds=useconds,
                     )

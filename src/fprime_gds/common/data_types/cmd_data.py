@@ -59,7 +59,7 @@ class CmdData(sys_data.SysData):
 
         self.args, errors = self.process_args(cmd_args)
         self.time = cmd_time or TimeType(
-            TimeType.TimeBase("TB_DONT_CARE").numeric_value
+            TimeType.TimeBase("TB_DONT_CARE")
         )
         self.descriptor = cmd_desc
 

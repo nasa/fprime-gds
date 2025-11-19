@@ -19,7 +19,7 @@ def test_ch_encoder_1():
     """
 
     temp = ChTemplate(101, "test_ch", "test_comp", U32Type)
-    time_obj = TimeType(2, 0, 1533758629, 123456)
+    time_obj = TimeType(TimeType.TimeBase("TB_WORKSTATION_TIME", 0, 1533758629, 123456)
     ch_obj = ChData(U32Type(42), time_obj, temp)
 
     desc_bin = b"\x00\x01"  # U16 ComCfg.Apid for FW_PACKET_TELEM
@@ -53,7 +53,7 @@ def test_ch_encoder_1():
 
 def test_ch_encoder_2():
     temp = ChTemplate(102, "test_ch2", "test_comp2", U16Type)
-    time_obj = TimeType(2, 0, 1533758628, 123457)
+    time_obj = TimeType(TimeType.TimeBase("TB_WORKSTATION_TIME", 0, 1533758628, 123457)
     ch_obj = ChData(U16Type(40), time_obj, temp)
 
     desc_bin = b"\x00\x01"  # U16 ComCfg.Apid for FW_PACKET_TELEM
