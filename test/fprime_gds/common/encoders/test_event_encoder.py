@@ -27,7 +27,7 @@ def test_event_encoder_1():
         "%d %d",
     )
 
-    time_obj = TimeType(TimeType.TimeBase("TB_WORKSTATION_TIME", 0, 1533758629, 123456)
+    time_obj = TimeType(TimeType.TimeBase("TB_WORKSTATION_TIME"), 0, 1533758629, 123456)
     event_obj = EventData((U32Type(42), U32Type(10)), time_obj, temp)
 
     desc_bin = b"\x00\x02"  # U16 ComCfg.Apid for FW_PACKET_LOG
@@ -69,7 +69,7 @@ def test_event_encoder_2():
         "%d %d",
     )
 
-    time_obj = TimeType(TimeType.TimeBase("TB_WORKSTATION_TIME", 0, 1533758628, 123457)
+    time_obj = TimeType(TimeType.TimeBase("TB_WORKSTATION_TIME"), 0, 1533758628, 123457)
     event_obj = EventData((U8Type(128), U16Type(40)), time_obj, temp)
 
     desc_bin = b"\x00\x02"  # U16 ComCfg.Apid for FW_PACKET_LOG

@@ -25,7 +25,7 @@ def test_pkt_encoder():
 
     pkt_temp = PktTemplate(64, "test_pkt", [ch_temp_1, ch_temp_2, ch_temp_3])
 
-    time_obj = TimeType(TimeType.TimeBase("TB_WORKSTATION_TIME", 0, 1533758629, 123456)
+    time_obj = TimeType(TimeType.TimeBase("TB_WORKSTATION_TIME"), 0, 1533758629, 123456)
 
     ch_obj_1 = ChData(U32Type(1356), time_obj, ch_temp_1)
     ch_obj_2 = ChData(U8Type(143), time_obj, ch_temp_2)
