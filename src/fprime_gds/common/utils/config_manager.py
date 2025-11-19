@@ -24,7 +24,7 @@ from fprime_gds.common.models.serialize.numerical_types import (
 from fprime_gds.common.models.serialize.enum_type import EnumType
 from fprime_gds.common.models.serialize.type_exceptions import FprimeGdsException
 
-from typing import Any, Optional
+from typing import Any
 
 
 
@@ -82,9 +82,7 @@ class ConfigManager:
         Returns:
             The current ConfigManager object for this python application
         """
-        if ConfigManager.__instance is None:
-            ConfigManager.__instance = ConfigManager()
-        return ConfigManager.__instance
+        return ConfigManager()
 
     def get_type(self, name: str) -> type[ValueType]:
         """

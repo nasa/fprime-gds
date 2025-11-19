@@ -17,17 +17,7 @@ from .type_exceptions import (
 )
 
 from fprime_gds.common.utils.config_manager import ConfigManager
-
-
-"""
-In order to transmit data in a serialized format, string objects need to be encoded. Otherwise,
-it is unclear how the characters are translated into raw bytes on the wire. This value should be
-consistent with the encoding used on the flight software that is being communicated with.
-
-Traditional C/C++ strings typically use "ascii" encoding. Hence being used here.  However, should
-F prime be updated to use some other encoding, this value may be changed.
-"""
-DATA_ENCODING = "utf-8"
+from fprime_gds.constants import DATA_ENCODING
 
 
 class StringType(type_base.DictionaryType):
@@ -67,7 +57,7 @@ class StringType(type_base.DictionaryType):
         # Pack the string size first then return the encoded data buffer
         return struct.pack(
             ConfigManager().get_type("FwSizeStoreType").get_serialize_format(),
-            len(self.val),
+            len(self.val.encode(DATA_ENCODING)),
         ) + self.val.encode(DATA_ENCODING)
 
     def deserialize(self, data, offset):
@@ -76,9 +66,9 @@ class StringType(type_base.DictionaryType):
         """
         FwSizeStoreType: type[IntegerType] = ConfigManager().get_type("FwSizeStoreType")  # type: ignore
         try:
-            val_size = struct.unpack_from(
+            val_size, = struct.unpack_from(
                 FwSizeStoreType.get_serialize_format(), data, offset
-            )[0]
+            )
             # Deal with not enough data left in the buffer
             if len(data[offset + FwSizeStoreType.getSize() :]) < val_size:
                 msg = f"Not enough data to deserialize string data. Needed: {val_size} Left: {len(data[offset + FwSizeStoreType.getSize():])}"

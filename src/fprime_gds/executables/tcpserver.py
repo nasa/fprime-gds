@@ -10,7 +10,7 @@ import threading
 import time
 from optparse import OptionParser
 
-from fprime.constants import DATA_ENCODING
+from fprime_gds.constants import DATA_ENCODING
 
 try:
     import socketserver

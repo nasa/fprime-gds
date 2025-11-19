@@ -13,7 +13,7 @@ to the correct log files and destination files
 import logging
 import os
 
-import fprime.constants
+import fprime_gds.constants
 
 import fprime_gds.common.handlers
 from fprime_gds.common.data_types.file_data import FilePacketType
@@ -82,8 +82,8 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
         """
         # Initialize all relevant START packet attributes into variables from file_data
         size = data.size
-        source_path = data.sourcePath.decode(fprime.constants.DATA_ENCODING)
-        dest_path = data.destPath.decode(fprime.constants.DATA_ENCODING)
+        source_path = data.sourcePath.decode(fprime_gds.constants.DATA_ENCODING)
+        dest_path = data.destPath.decode(fprime_gds.constants.DATA_ENCODING)
         if self.state != FileStates.IDLE:
             LOGGER.warning("File transfer already inprogress. Aborting original.")
             self.finish()

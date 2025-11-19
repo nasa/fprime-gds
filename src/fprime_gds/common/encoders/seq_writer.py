@@ -54,7 +54,7 @@ class SeqBinaryWriter:
 
         def __descriptor(cmd_obj):
             # subtract 1 from the value because enum34 enums start at 1, and this can't be changed
-            # REVIEW NOTE: I haven't been to track down if this is configurable or not
+            # U8 hardcoded https://github.com/nasa/fprime/blob/402c0317b6297d7f436477132f3dc29f152d27a9/Svc/CmdSequencer/FPrimeSequence.cpp#L252
             return U8Type(cmd_obj.get_descriptor().value - 1).serialize()
 
         def __command(cmd_obj):
