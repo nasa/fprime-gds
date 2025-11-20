@@ -134,6 +134,14 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
                     self.sequence,
                     data.seqID,
                 )
+            # Log if there is likely a hole in the file
+            if offset != self.active.seek:
+                if offset > self.active.seek:
+                    LOGGER.warning("Missing data packet at offset: %d. Gap of %d bytes", self.active.seek, offset - self.active.seek)
+                else:
+                    LOGGER.warning("Received data packet at offset: %d. Expecting packet at offset: %d", offset, self.active.seek)
+
+
             data_bytes = data.dataVar
             # Write the data information to the file
             self.active.write(data_bytes, offset)
