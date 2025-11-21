@@ -23,6 +23,8 @@ export let config = {
     },
     // Summary counter fields containing object of field: bootstrap class
     summaryFields: {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"},
+    // Function to use for formatting timestamps in the tables. null provides default formatting
+    timeToStringFn: null,
 
     // Dashboards are a security vulnerability in that users are uploading artifacts that trigger
     // arbitrary rendering and code execution. This is explained in more detail here:

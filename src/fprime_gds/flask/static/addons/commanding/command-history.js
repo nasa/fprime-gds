@@ -71,7 +71,7 @@ Vue.component("command-history", {
             for (let i = 0; i < command_copy.args.length; i++) {
                 command_argument_assignment_helper(command_copy.args[i], item.args[i]);
             }
-            return [timeToString(item.datetime || item.time), command_display_string(command_copy)];
+            return [timeToString(item.time), command_display_string(command_copy)];
         },
         /**
          * Take the given item and converting it to a unique key by merging the id and time together with a prefix
