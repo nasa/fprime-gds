@@ -264,13 +264,11 @@ class RecordStruct(BaseModel):
     type: Union[AliasType, StructType, ArrayType, IntegerType, FloatType, BoolType, QualifiedType, StringType]
     array: bool
     id: int
-    annotation: str
 
 class ContainerStruct(BaseModel):
     name: str
     id: int
     defaultPriority: int
-    annotation: str
 
 # -------------------------------------------------------------------------------------
 # These Pydantic classes define the FPRIME_DICTIONARY_FILE
