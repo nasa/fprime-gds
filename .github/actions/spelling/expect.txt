@@ -140,6 +140,7 @@ exts
 fastentrypoints
 fbuild
 fd
+fdp
 FEEDNAME
 feq
 FFCC
