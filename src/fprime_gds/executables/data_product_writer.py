@@ -769,7 +769,6 @@ class DataProductWriter:
         rootDict['dataId'] = self.read_field(headerJSON.dataId.underlyingType)
         for record in dictJSON.records:
             if record.id == rootDict['dataId']:    
-                print(f'Processing Record ID {record.id}')
                 if record.array:
                     dataSize = self.read_field(headerJSON.dataSize.type)
                     rootDict['size'] = dataSize
