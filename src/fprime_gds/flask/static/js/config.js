@@ -1,36 +1,26 @@
 /**
  * config.js:
  *
- * Configuration for the F´ GDS. This allows projects to quickly set properties that change how the GDS is displayed in
- * the browser to customise some parts of the look and feel. It also provides the some basic functionality
- * configuration.
+ * Default configuration setup function for the F´ GDS. The GDS can be instructed to use a different file, in which the
+ * project can define its own configuration function.
+ *
+ * See ./config_init.js for details on setting up the configuration.
  */
-export let config = {
-    // Allows projects to brand the UI
-    projectName: "Infrastructure",
-    // Logo of the project. Will be grey when timed-out, otherwise will be full-color
-    logo: "/img/logo.svg",
-    // Time in seconds to wait before reporting data flow error
-    dataTimeout: 5,
-    // Set the icon for the condition when there is data flowing
-    dataSuccessIcon: "/img/success.svg",
-    // Set the icon for the condition when there is a data-flow error
-    dataErrorIcon: "/img/error.svg",
-    // Data polling interval in milliseconds
-    dataPollIntervalsMs: {
-        channels: 500,
-        default: 1000
-    },
-    // Summary counter fields containing object of field: bootstrap class
-    summaryFields: {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"},
-    // Function to use for formatting timestamps in the tables. null provides default formatting
-    timeToStringFn: null,
 
-    // Dashboards are a security vulnerability in that users are uploading artifacts that trigger
-    // arbitrary rendering and code execution. This is explained in more detail here:
-    //     https://v2.vuejs.org/v2/guide/security#Rule-No-1-Never-Use-Non-trusted-Templates
-    //
-    // Thus dashboards are disabled by default and projects must opt-in thus taking the responsibility
-    // to validate and review the safety of the dashboards they use.
-    enableDashboards: false
-};
+export function setConfig(config) {
+    // See fprime-gds/src/fprime_gds/flask/static/js/config_init.js for documentation on the purposes of these fields.
+
+    // config.projectName = "Infrastructure",
+    // config.logo = "/img/logo.svg",
+    // config.dataTimeout = 5,
+    // config.dataSuccessIcon = "/img/success.svg",
+    // config.dataErrorIcon = "/img/error.svg",
+    // config.dataPollIntervalsMs = {
+    //     channels: 500,
+    //     default: 1000
+    // },
+    // config.summaryFields = {"WARNING_HI": "warning", "FATAL": "danger", "GDS_Errors": "danger"},
+    // config.timeToStringFn = null,
+    // config.enableDashboards = false
+}
+

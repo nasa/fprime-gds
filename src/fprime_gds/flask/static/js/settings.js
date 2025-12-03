@@ -1,4 +1,4 @@
-import {config} from "./config.js";
+import {config} from "./config_init.js";
 
 /**
  * settings.js:

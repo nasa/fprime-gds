@@ -11,7 +11,7 @@
  *
  * @author mstarch
  */
-import {config} from "./config.js";
+import {config} from "./config_init.js";
 import {_settings} from "./settings.js";
 import {SaferParser} from "./json.js";
 SaferParser.register();

@@ -6,7 +6,8 @@
  *
  *  @author mstarch
  */
-import {config} from "./config.js";
+import {config} from "./config_init.js";
+import {setConfig} from "./config.js";
 import {_validator} from "./validate.js";
 import {_settings} from "./settings.js";
 import {_loader} from "./loader.js";
@@ -230,6 +231,9 @@ class DataStore {
                 handler: this.updateStats,
             }
         ];
+
+        setConfig(config);
+
         let polling_keys = this.polling_info.map((item) => { return item.endpoint; });
         _settings.setupPollingSettings(polling_keys);
     }
