@@ -149,7 +149,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
 
     CHUNK_SIZE = 256
 
-    def __init__(self, file_encoder, chunk=CHUNK_SIZE, timeout=20):
+    def __init__(self, file_encoder, chunk=CHUNK_SIZE, timeout=20, cooldown=0.01):
         """
         Constructor to build the file uplinker.
         """
@@ -163,6 +163,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
         self.__expected = []
         self.__timeout = Timeout()
         self.__timeout.setup(self.timeout, timeout)
+        self.cooldown = cooldown
 
     def enqueue(self, filepath, destination=None):
         """
@@ -262,6 +263,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
         # Ignore handshakes not for us
         if not self.valid_handshake(data):
             return
+        time.sleep(self.cooldown)
         # If it is an end-wait or a cancel state, respond without reading next chunk
         if self.state == FileStates.END_WAIT:
             self.active.state = (
