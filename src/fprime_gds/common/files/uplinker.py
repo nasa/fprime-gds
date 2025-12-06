@@ -149,7 +149,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
 
     CHUNK_SIZE = 256
 
-    def __init__(self, file_encoder, chunk=CHUNK_SIZE, timeout=20, cooldown=0.1):
+    def __init__(self, file_encoder, chunk=CHUNK_SIZE, timeout=20, cooldown=0.5):
         """
         Constructor to build the file uplinker.
         """
