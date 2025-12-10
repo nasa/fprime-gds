@@ -9,6 +9,7 @@
 import {listExistsAndItemNameNotInList, timeToString} from "./utils.js"
 import "./fptable.js";
 import {_datastore, _dictionaries} from "../datastore.js";
+
 /**
  * channel-table:
  *
@@ -67,7 +68,7 @@ Vue.component("channel-table", {
             if (item.time == null || item.val == null) {
                 return ["", "0x" + item.id.toString(16), template.full_name, ""];
             }
-            return [timeToString(item.time || item.datetime), "0x" + item.id.toString(16), template.full_name,
+            return [timeToString(item.time), "0x" + item.id.toString(16), template.full_name,
                 (typeof(item.display_text) !== "undefined")? item.display_text : item.val]
         },
         /**

@@ -103,17 +103,14 @@ export function timeToDate(time) {
 }
 
 /**
- * Convert a given F´ time into a string for display purposes.
+ * Default implementation to convert a given F´ time into a string for display purposes.
  * @param time: f´ time to convert
  * @return {string} stringified time
  */
-export function timeToString(time) {
+function timeToStringDefault(time) {
     let date = null;
     // If we have a workstation time, convert it to calendar time
-    if (time instanceof Date) {
-        date = time;
-    }
-    else if (time.base === 2) {
+    if (time.base === 2) {
         date = timeToDate(time);
     }
     // Convert date
@@ -122,6 +119,18 @@ export function timeToString(time) {
         return dateFn(date);
     }
     return time.seconds + "." + time.microseconds;
+}
+
+/**
+ * Convert a given F´ time into a string for display purposes.
+ * @param time: f´ time to convert
+ * @return {string} stringified time
+ */
+export function timeToString(time) {
+    let timeFn = (config.timeToStringFn instanceof Function
+                    ? config.timeToStringFn
+                    : timeToStringDefault);
+    return timeFn(time);
 }
 
 /**
