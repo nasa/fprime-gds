@@ -6,7 +6,7 @@
  *
  * @author mstarch
  */
-import {config} from "../config.js"
+import {config} from "../config_init.js"
 
 // Child component imports ensures that the Vue components exist before using them
 import "./channel.js"

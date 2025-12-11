@@ -4,7 +4,7 @@
  * This file contains utility functions used by various parts of the vue-support system. Each item here intended for use
  * elsewhere should be "export"ed as then they can then be imported for use elsewhere.
  */
-import {config} from "../config.js";
+import {config} from "../config_init.js";
 
 /**
  * Make it sentence case where the first letter is capitalized.
