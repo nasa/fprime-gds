@@ -245,7 +245,7 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <div class="form-group col-md-4 mt-2">
                             <div class="form-row">
                                 <div class="col-md-5">
-                                    <button type="button" class="btn btn-primary btn-block" v-on:click="uplinkFiles">
+                                    <button type="button" class="btn btn-primary btn-block" v-on:click="uplinkFiles" title="Begin uplinking all uploaded files">
                                         <i class="fas fa-satellite-dish"></i>
                                         <span class="d-md-none d-lg-inline">Uplink</span>
                                     </button>
@@ -255,27 +255,31 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
 
                         <div class="form-group col-md-4 mt-2">
                             <div class="form-row">
-                                <div class="col-md-4 mb-1"></div>
                                 <div class="col-md-4 mb-1">
                                     <input type="file" id="chooseUplinkFile" v-bind:files="selected" multiple
                                         v-on:change="handleFiles" style="display: none;">
-                                    <label for="chooseUplinkFile" class="btn btn-secondary btn-block">
+                                    <label for="chooseUplinkFile" class="btn btn-secondary btn-block" title="Select files to upload">
                                         <i class="fas fa-upload"></i>
                                         <span class="d-md-none d-lg-inline">Upload</span>
                                     </label>
                                 </div>
-                                <div class="col-md-4 mb-1" v-if="flags.uploading">
-                                    <button type="button" class="btn btn-secondary btn-block"
-                                    v-on:click="pauseUplink">
+                                <div class="col-md-4 mb-1">
+                                    <button v-if="flags.uploading" type="button" class="btn btn-secondary btn-block"
+                                    v-on:click="pauseUplink" title="Pause file uplink">
                                         <i class="fas fa-pause"></i>
                                         <span class="d-md-none d-lg-inline">Pause</span>
                                     </button>
-                                </div>
-                                <div class="col-md-4 mb-1" v-if="!flags.uploading">
-                                    <button type="button" class="btn btn-secondary btn-block"
-                                    v-on:click="unpauseUplink">
+                                    <button v-if="!flags.uploading" type="button" class="btn btn-secondary btn-block"
+                                    v-on:click="unpauseUplink" title="Resume file uplink">
                                         <i class="fas fa-play"></i>
                                         <span class="d-md-none d-lg-inline">Unpause</span>
+                                    </button>
+                                </div>
+                                <div class="col-md-4 mb-1">
+                                    <button type="button" class="btn btn-secondary btn-block"
+                                    v-on:click="sendCancelPacket" title="Send a cancel packet to FSW">
+                                        <i class="fas fa-stop"></i>
+                                        <span class="d-md-none d-lg-inline">Send Cancel Packet</span>
                                     </button>
                                 </div>
                             </div>

@@ -57,6 +57,12 @@ Vue.component("uplink", {
             _uploader.unpause();
         },
         /**
+         * Calls the uploader to send a cancel packet to FSW.
+         */
+        sendCancelPacket() {
+            _uploader.sendCancelPacket();
+        },
+        /**
          * Handles the files event to add input files into the list being curated. This takes each file, and creates a
          * mock file object so that it displays nicely in the curateable "NOT STARTED" state.
          * @param event: event to add files

@@ -89,6 +89,8 @@ class UplinkQueue:
         try:
             first = None
             found = self.queue.get_nowait()
+            # TODO: there is a bug here? remove() is never reached in Python through the GUI
+            # because Javascript handles the file form, but this loop seems off
             while found != first and found.source != source:
                 if first is None:
                     first = found
@@ -155,7 +157,7 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
         """
         self.state = FileStates.IDLE
         self.queue = UplinkQueue(self)
-        self.active = None
+        self.active: TransmitFile = None
         self.sequence = 0
         self.chunk = chunk
         self.file_encoder = file_encoder
@@ -208,6 +210,12 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
             self.cancel()
         else:
             self.queue.remove(file)
+
+    def send_cancel_packet(self):
+        """
+        Sends a cancel packet regardless of state. This is to be manually used by the user.
+        """
+        self.send(CancelPacketData(self.get_next_sequence()))
 
     def current_files(self):
         """

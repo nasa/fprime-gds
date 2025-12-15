@@ -52,6 +52,13 @@ export class Uploader {
         return _loader.load("/upload/files", "PUT", {"action": "unpause-all"});
     }
     /**
+     * Request to send a single cancel packet
+     * @return {Promise<any> | number | Promise<boolean> | void | boolean}
+     */
+    sendCancelPacket() {
+        return _loader.load("/upload/files", "PUT", {"action": "send-cancel-packet"});
+    }
+    /**
      * Send a command to the server to command a specific file. This  allows files to be canceled and/or removed from
      * the uplink queue.
      * @param file: file to operate on (source of uplinking file)
