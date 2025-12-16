@@ -114,8 +114,7 @@ Vue.component("chart-display", {
 
             chart: null,
             timespan: 3600,
-            timeMode: "realtime",
-            firstSampleTime: null
+            timeMode: "realtime",  // mode for X-axis chart rendering: realtime, ert, anchored
         };
     },
     mounted() {
@@ -137,8 +136,6 @@ Vue.component("chart-display", {
          * Handle time mode change
          */
         onTimeModeChange() {
-            // Reset first sample time when switching modes
-            this.firstSampleTime = null;
             // Re-register the chart to reset it with the new time mode
             if (this.chart && this.selected) {
                 this.registerChart();
@@ -150,11 +147,9 @@ Vue.component("chart-display", {
         registerChart() {
             // If there is a chart object destroy it to reset the chart
             this.destroy();
-            // Reset first sample time when registering new chart
-            this.firstSampleTime = null;
             _datastore.registerConsumer("channels", this);
-            // Use realtime scale for Realtime and ERT modes, standard time scale for First Sample
-            const useRealtimeScale = this.timeMode !== "firstSample";
+            // Use realtime scale for Realtime and ERT modes, standard time scale for Anchored mode
+            const useRealtimeScale = this.timeMode !== "anchored";
             let config = generate_chart_config(this.selected, useRealtimeScale);
             config.options.plugins.zoom.zoom.onZoom = this.siblings.syncToAll;
             config.options.plugins.zoom.pan.onPan = this.siblings.syncToAll;
@@ -269,7 +264,7 @@ Vue.component("chart-display", {
             data_array.push(...new_channels);
 
             // Only set TTL for realtime scale (Realtime and ERT modes)
-            if (this.timeMode !== "firstSample") {
+            if (this.timeMode !== "anchored") {
                 this.chart.options.scales.x.realtime.ttl = this.timespan * 1000;
             }
             this.chart.update("quiet");

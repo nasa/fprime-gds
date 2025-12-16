@@ -51,13 +51,19 @@ export let chart_wrapper_template = `
             <div v-if="isHelpActive">
                 <div class="alert alert-warning alert-dismissible mt-2 fade show" role="alert">
                     <div class="row">
-                        <div class="col-6">
+                        <div class="col-4">
                             <strong>Zoom in and out</strong> by holding <strong>ALT</strong> and using mouse wheel to scroll while hovering over an axis <br/>
                             <strong>Zoom in</strong> by holding <strong>ALT</strong> and clicking and dragging a selection on the chart
                         </div>
-                        <div class="col-6">
+                        <div class="col-4">
                             <strong>Pan</strong> by holding <strong>SHIFT</strong> and clicking and dragging the chart <br/>
                             <strong>Change size</strong> by clicking and dragging the icon at the bottom right of the chart box
+                        </div>
+                        <div class="col-4">
+                            <strong>Time Modes:</strong><br/>
+                            <strong>Realtime</strong> - Chart scrolls and displays data using channel timestamps (scrolling based off of workstation time)<br/>
+                            <strong>Realtime (anchored)</strong> - No scrolling, chart redraws and centers around all data points using channel timestamp<br/>
+                            <strong>Earth Received Time</strong> - Chart scrolls and displays data using ground station receive time<br/>
                         </div>
                         <button type="button" class="close" v-on:click="isHelpActive = !isHelpActive">
                             <li class="fas fa-times" style="font-size: 0.75em"></i>
@@ -109,8 +115,8 @@ export let chart_display_template = `
                         </div>
                         <select v-model="timeMode" class="form-control" v-on:change="onTimeModeChange">
                             <option value="realtime">Realtime</option>
+                            <option value="anchored">Realtime (anchored)</option>
                             <option value="ert">Earth Received Time</option>
-                            <option value="firstSample">Anchored on First Sample</option>
                         </select>
                     </div>
                 </div>
