@@ -96,12 +96,22 @@ export let chart_display_template = `
                                   v-bind:value="selected" v-on:input="updateSelected($event)">
                         </v-select>
                     </div>
-                    <div class="col-md-4 input-group">
+                    <div class="col-md-3 input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text">Data Window:</span>
                         </div>
                         <input name="timespan" type="number" v-model="timespan" class="form-control" />
                         <span class="input-group-text">(S)</span>
+                    </div>
+                    <div class="col-md-3 input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">Time:</span>
+                        </div>
+                        <select v-model="timeMode" class="form-control" v-on:change="onTimeModeChange">
+                            <option value="realtime">Realtime</option>
+                            <option value="ert">Earth Received Time</option>
+                            <option value="firstSample">Anchored on First Sample</option>
+                        </select>
                     </div>
                 </div>
 

@@ -113,7 +113,9 @@ Vue.component("chart-display", {
             pause: false,
 
             chart: null,
-            timespan: 3600
+            timespan: 3600,
+            timeMode: "realtime",
+            firstSampleTime: null
         };
     },
     mounted() {
@@ -132,17 +134,35 @@ Vue.component("chart-display", {
             this.siblings.pause(realtimeOpts.pause);
         },
         /**
+         * Handle time mode change
+         */
+        onTimeModeChange() {
+            // Reset first sample time when switching modes
+            this.firstSampleTime = null;
+            // Re-register the chart to reset it with the new time mode
+            if (this.chart && this.selected) {
+                this.registerChart();
+            }
+        },
+        /**
          * Register a new chart object
          */
         registerChart() {
             // If there is a chart object destroy it to reset the chart
             this.destroy();
+            // Reset first sample time when registering new chart
+            this.firstSampleTime = null;
             _datastore.registerConsumer("channels", this);
-            let config = generate_chart_config(this.selected);
+            // Use realtime scale for Realtime and ERT modes, standard time scale for First Sample
+            const useRealtimeScale = this.timeMode !== "firstSample";
+            let config = generate_chart_config(this.selected, useRealtimeScale);
             config.options.plugins.zoom.zoom.onZoom = this.siblings.syncToAll;
             config.options.plugins.zoom.pan.onPan = this.siblings.syncToAll;
-            // Category IV magic: do not alter
-            config.options.scales.x.realtime.onRefresh = this.siblings.sync;
+            // Only set onRefresh callback for realtime scale
+            if (useRealtimeScale) {
+                // Category IV magic: do not alter
+                config.options.scales.x.realtime.onRefresh = this.siblings.sync;
+            }
             this.showControlBtns = true;
             try {
                 this.chart = new Chart(
@@ -230,8 +250,16 @@ Vue.component("chart-display", {
 
             // Convert to chart JS format
             new_channels = new_channels.map((channel) => {
+                let timeValue;
+                if (this.timeMode === "ert" && channel.ert) {
+                    // Use Earth Received Time (ground receive time)
+                    timeValue = new Date(channel.ert);
+                } else {
+                    // Other mode - use current time (default behavior)
+                    timeValue = channel.datetime || timeToDate(channel.time);
+                }
                 return {
-                    x: channel.datetime || timeToDate(channel.time),
+                    x: timeValue,
                     y: getValue(channel, serial_path),
                 };
             });
@@ -240,7 +268,10 @@ Vue.component("chart-display", {
             let data_array = this.chart.data.datasets[0].data;
             data_array.push(...new_channels);
 
-            this.chart.options.scales.x.realtime.ttl = this.timespan * 1000;
+            // Only set TTL for realtime scale (Realtime and ERT modes)
+            if (this.timeMode !== "firstSample") {
+                this.chart.options.scales.x.realtime.ttl = this.timespan * 1000;
+            }
             this.chart.update("quiet");
 
             // Calculate the window span by max samples
