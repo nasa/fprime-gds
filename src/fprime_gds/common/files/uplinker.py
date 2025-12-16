@@ -89,13 +89,11 @@ class UplinkQueue:
         try:
             first = None
             found = self.queue.get_nowait()
-            # TODO: there is a bug here? remove() is never reached in Python through the GUI
-            # because Javascript handles the file form, but this loop seems off
             while found != first and found.source != source:
                 if first is None:
                     first = found
-            self.queue.put_nowait(found)
-            found = self.queue.get_nowait()
+                self.queue.put_nowait(found)
+                found = self.queue.get_nowait()
         except queue.Empty:
             return
         self.__file_store.remove(found)
@@ -215,7 +213,8 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
         """
         Sends a cancel packet regardless of state. This is to be manually used by the user.
         """
-        self.send(CancelPacketData(self.get_next_sequence()))
+        self.send(CancelPacketData(self.get_next_sequence()), handshake=False)
+        self.sequence = 0
 
     def current_files(self):
         """
@@ -251,14 +250,18 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
             )
         )
 
-    def send(self, packet_data):
+    def send(self, packet_data, handshake=True):
         """
         A function to send the packet out.  Starts timeout and then pushes the packet to the file encoder.
 
         :param packet_data: packet data to send that will be pushed to the encoder
+        :param handshake: (optional) if true, expect a handshake back. Default: True
         """
-        self.__timeout.restart()
-        self.__expected = self.file_encoder.data_callback(packet_data)[8:]
+        ret = self.file_encoder.data_callback(packet_data)[8:]
+        if handshake:
+            self.__timeout.restart()
+            # only expect it back if not no_timeout
+            self.__expected = ret
 
     def data_callback(self, data, sender=None):
         """

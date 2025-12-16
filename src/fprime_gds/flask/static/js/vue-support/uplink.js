@@ -24,7 +24,7 @@ Vue.component("uplink", {
             "upfiles": _datastore.upfiles, 
             "flags": _datastore.flags,
             "selected": [], 
-            "destination": "/", 
+            "destination": "", 
             "error": null
         }
     },
@@ -116,6 +116,16 @@ Vue.component("uplink", {
          */
         elements() {
             return this.selected.concat(this.upfiles.reverse());
+        },
+
+        /**
+         * Returns true if any uplinks are currently TRANSMITTING, false otherwise.
+         * @returns boolean true if any uplinks are active
+         */
+        isActive() {
+            return this.upfiles.reduce((acc, item) => {
+                return acc || (item.state == "TRANSMITTING");
+            }, false);
         }
     }
 });
