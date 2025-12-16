@@ -41,6 +41,7 @@ class EnumType(DictionaryType):
             name: name of the enumeration type
             enum_dict: enumeration: value dictionary defining the enumeration
             rep_type: representation type (standard Fprime integer types)
+            default: default enumeration member (string - must be a key in enum_dict)
         """
         if not isinstance(enum_dict, dict):
             raise TypeMismatchException(dict, type(enum_dict))

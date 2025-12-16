@@ -39,6 +39,7 @@ class SerializableType(DictionaryType):
         Args:
             name: name of the new sub-type
             member_list: list of member definitions in form list of tuples (name, type, format string, description)
+            default: default value for the serializable (dict of values)
         """
         # Check that we are dealing with a list
         if not isinstance(member_list, list):
