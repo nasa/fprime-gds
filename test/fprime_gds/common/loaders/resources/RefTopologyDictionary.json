@@ -330,7 +330,7 @@
         "kind" : "qualifiedIdentifier"
       },
       "default" : [
-        "Ref.Choice.ONE",
+        "Ref.Choice.TWO",
         "Ref.Choice.ONE"
       ],
       "annotation" : "Enumeration array"
@@ -934,7 +934,7 @@
       "default" : "Svc.PrmDb.PrmReadError.OPEN",
       "annotation" : "Parameter read error"
     },
-    {
+        {
       "kind" : "struct",
       "qualifiedName" : "Ref.ChoiceSlurry",
       "members" : {
@@ -944,6 +944,7 @@
             "kind" : "qualifiedIdentifier"
           },
           "index" : 0,
+          "format" : "Too Many Choices: {}",
           "annotation" : "A large set of disorganized choices"
         },
         "separateChoice" : {
@@ -952,6 +953,7 @@
             "kind" : "qualifiedIdentifier"
           },
           "index" : 1,
+          "format" : "Separate Choice: {}",
           "annotation" : "A singular choice"
         },
         "choicePair" : {
@@ -960,6 +962,7 @@
             "kind" : "qualifiedIdentifier"
           },
           "index" : 2,
+          "format" : "Choice Pair: {}",
           "annotation" : "A pair of choices"
         },
         "choiceAsMemberArray" : {
@@ -971,6 +974,7 @@
           },
           "index" : 3,
           "size" : 2,
+          "format" : "Choice as Member Array: {}",
           "annotation" : "An array of choices defined as member array"
         }
       },
@@ -978,19 +982,19 @@
         "tooManyChoices" : [
           [
             "Ref.Choice.ONE",
-            "Ref.Choice.ONE"
+            "Ref.Choice.RED"
           ],
           [
-            "Ref.Choice.ONE",
-            "Ref.Choice.ONE"
+            "Ref.Choice.BLUE",
+            "Ref.Choice.TWO"
           ]
         ],
         "separateChoice" : "Ref.Choice.ONE",
         "choicePair" : {
-          "firstChoice" : "Ref.Choice.ONE",
-          "secondChoice" : "Ref.Choice.ONE"
+          "firstChoice" : "Ref.Choice.RED",
+          "secondChoice" : "Ref.Choice.BLUE"
         },
-        "choiceAsMemberArray" : 0
+        "choiceAsMemberArray" : 42
       },
       "annotation" : "Structure of enums (with an multi-dimensional array and structure)"
     },
@@ -1062,8 +1066,8 @@
         }
       },
       "default" : {
-        "firstChoice" : "Ref.Choice.ONE",
-        "secondChoice" : "Ref.Choice.ONE"
+        "firstChoice" : "Ref.Choice.RED",
+        "secondChoice" : "Ref.Choice.BLUE"
       },
       "annotation" : "Structure of enums"
     },

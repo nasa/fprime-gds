@@ -111,6 +111,11 @@ export function squashify_argument(argument) {
     // Base assignment of the value
     let value = argument.value;
 
+    // If already a number, return as-is
+    if (typeof value === "number") {
+        return value;
+    }
+
     if (argument.type.LENGTH) {
         value = argument.value.map((argument) => squashify_argument(argument));
     } else if (argument.type.MEMBER_LIST) {

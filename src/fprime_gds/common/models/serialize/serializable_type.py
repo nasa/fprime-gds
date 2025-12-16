@@ -30,7 +30,7 @@ class SerializableType(DictionaryType):
     """
 
     @classmethod
-    def construct_type(cls, name, member_list):
+    def construct_type(cls, name, member_list, default=None):
         """Construct a new serializable sub-type
 
         Constructs a new serializable subtype from the supplied member list and name. Member list may optionally exclude
@@ -55,7 +55,7 @@ class SerializableType(DictionaryType):
                 raise TypeMismatchException(str, type(format_string))
             if description is not None and not isinstance(description, str):
                 raise TypeMismatchException(str, type(description))
-        return DictionaryType.construct_type(cls, name, MEMBER_LIST=member_list)
+        return DictionaryType.construct_type(cls, name, MEMBER_LIST=member_list, DEFAULT=default)
 
     @classmethod
     def validate(cls, val):

@@ -110,6 +110,10 @@ def test_construct_array_type(loader):
         "BLUE": 3,
     }
     assert ref_many_choices.MEMBER_TYPE.REP_TYPE == "I32"
+    assert ref_many_choices.DEFAULT == [
+        "Ref.Choice.TWO",
+        "Ref.Choice.ONE"
+    ]
 
 
 def test_construct_serializable_type(loader):
@@ -136,6 +140,46 @@ def test_construct_serializable_type(loader):
     }
     assert ref_choice_pair.MEMBER_LIST[1][1].REP_TYPE == "I32"
     assert ref_choice_pair.MEMBER_LIST[1][2] == "{}"
+    assert ref_choice_pair.DEFAULT == {
+        "firstChoice": "Ref.Choice.RED",
+        "secondChoice": "Ref.Choice.BLUE",
+    }
+
+def test_construct_complex_serializable_type(loader):
+    ref_choice_slurry = loader.parse_type(
+        {"name": "Ref.ChoiceSlurry", "kind": "qualifiedIdentifier"}
+    )
+    assert issubclass(ref_choice_slurry, SerializableType)
+    assert ref_choice_slurry.__name__ == "Ref.ChoiceSlurry"
+    # Verify member structure
+    assert len(ref_choice_slurry.MEMBER_LIST) == 4
+    assert ref_choice_slurry.MEMBER_LIST[0][0] == "tooManyChoices"
+    assert issubclass(ref_choice_slurry.MEMBER_LIST[0][1], ArrayType)
+    assert ref_choice_slurry.MEMBER_LIST[0][2] == "Too Many Choices: {}"
+    assert ref_choice_slurry.MEMBER_LIST[1][0] == "separateChoice"
+    assert issubclass(ref_choice_slurry.MEMBER_LIST[1][1], EnumType)
+    assert ref_choice_slurry.MEMBER_LIST[1][2] == "Separate Choice: {}"
+    assert ref_choice_slurry.MEMBER_LIST[2][0] == "choicePair"
+    assert issubclass(ref_choice_slurry.MEMBER_LIST[2][1], SerializableType)
+    assert ref_choice_slurry.MEMBER_LIST[2][2] == "Choice Pair: {}"
+    assert ref_choice_slurry.MEMBER_LIST[3][0] == "choiceAsMemberArray"
+    assert issubclass(ref_choice_slurry.MEMBER_LIST[3][1], ArrayType)
+    assert ref_choice_slurry.MEMBER_LIST[3][1].LENGTH == 2
+    assert ref_choice_slurry.MEMBER_LIST[3][1].MEMBER_TYPE == numerical_types.U8Type
+    assert ref_choice_slurry.MEMBER_LIST[3][2] == "Choice as Member Array: {}"
+    # Verify default values
+    assert ref_choice_slurry.DEFAULT == {
+        "tooManyChoices": [
+            ["Ref.Choice.ONE", "Ref.Choice.RED"],
+            ["Ref.Choice.BLUE", "Ref.Choice.TWO"]
+        ],
+        "separateChoice": "Ref.Choice.ONE",
+        "choicePair": {
+            "firstChoice": "Ref.Choice.RED",
+            "secondChoice": "Ref.Choice.BLUE"
+        },
+        "choiceAsMemberArray": 42
+    }
 
 
 def test_struct_with_unordered_members(loader):
