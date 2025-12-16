@@ -934,7 +934,7 @@
       "default" : "Svc.PrmDb.PrmReadError.OPEN",
       "annotation" : "Parameter read error"
     },
-        {
+    {
       "kind" : "struct",
       "qualifiedName" : "Ref.ChoiceSlurry",
       "members" : {
