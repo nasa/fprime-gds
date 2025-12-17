@@ -74,6 +74,7 @@ def test_construct_enum_type(loader):
         "NOISE": 3,
     }
     assert ref_signal_type.REP_TYPE == "I32"
+    assert ref_signal_type.DEFAULT == "TRIANGLE"
 
 
 def test_construct_alias_type(loader):
