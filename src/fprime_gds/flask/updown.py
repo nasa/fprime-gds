@@ -93,6 +93,8 @@ class FileUploads(flask_restful.Resource):
             self.uplinker.pause()
         elif action == "unpause-all":
             self.uplinker.unpause()
+        elif action == "send-cancel-packet":
+            self.uplinker.send_cancel_packet()
 
     def post(self):
         """

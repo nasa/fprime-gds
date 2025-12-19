@@ -24,7 +24,7 @@ Vue.component("uplink", {
             "upfiles": _datastore.upfiles, 
             "flags": _datastore.flags,
             "selected": [], 
-            "destination": "/", 
+            "destination": "", 
             "error": null
         }
     },
@@ -55,6 +55,12 @@ Vue.component("uplink", {
          */
         unpauseUplink() {
             _uploader.unpause();
+        },
+        /**
+         * Calls the uploader to send a cancel packet to FSW.
+         */
+        sendCancelPacket() {
+            _uploader.sendCancelPacket();
         },
         /**
          * Handles the files event to add input files into the list being curated. This takes each file, and creates a
@@ -110,6 +116,16 @@ Vue.component("uplink", {
          */
         elements() {
             return this.selected.concat(this.upfiles.reverse());
+        },
+
+        /**
+         * Returns true if any uplinks are currently TRANSMITTING, false otherwise.
+         * @returns boolean true if any uplinks are active
+         */
+        isActive() {
+            return this.upfiles.reduce((acc, item) => {
+                return acc || (item.state == "TRANSMITTING");
+            }, false);
         }
     }
 });
