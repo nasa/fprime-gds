@@ -1086,7 +1086,7 @@ class FileHandlingParser(ParserBase):
             ("--file-uplink-cooldown",): {
                 "dest": "file_uplink_cooldown",
                 "action": "store",
-                "default": 0.5,
+                "default": 0,
                 "required": False,
                 "type": float,
                 "help": "Cooldown period between file uplink packets. Default: %(default)s S",
