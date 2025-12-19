@@ -68,6 +68,7 @@ combuffer
 commandsi
 configs
 Consolas
+cooldown
 creatingdocsetswithdoxygen
 csum
 ctx
