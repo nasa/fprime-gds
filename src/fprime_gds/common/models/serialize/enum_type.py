@@ -32,7 +32,7 @@ class EnumType(DictionaryType):
     """
 
     @classmethod
-    def construct_type(cls, name, enum_dict, rep_type="I32"):
+    def construct_type(cls, name, enum_dict, rep_type="I32", default=None):
         """Construct the custom enum type
 
         Constructs the custom enumeration type, with the supplied enumeration dictionary.
@@ -41,6 +41,7 @@ class EnumType(DictionaryType):
             name: name of the enumeration type
             enum_dict: enumeration: value dictionary defining the enumeration
             rep_type: representation type (standard Fprime integer types)
+            default: default enumeration member (string - must be a key in enum_dict)
         """
         if not isinstance(enum_dict, dict):
             raise TypeMismatchException(dict, type(enum_dict))
@@ -55,6 +56,9 @@ class EnumType(DictionaryType):
                 rep_type, REPRESENTATION_TYPE_MAP.keys()
             )
 
+        if default is not None and default not in enum_dict.keys():
+            raise EnumMismatchException(name, default)
+
         for member in enum_dict.keys():
             type_range = REPRESENTATION_TYPE_MAP[rep_type].range()
             if enum_dict[member] < type_range[0] or enum_dict[member] > type_range[1]:
@@ -63,7 +67,7 @@ class EnumType(DictionaryType):
                 )
 
         return DictionaryType.construct_type(
-            cls, name, ENUM_DICT=enum_dict, REP_TYPE=rep_type
+            cls, name, ENUM_DICT=enum_dict, REP_TYPE=rep_type, DEFAULT=default
         )
 
     @classmethod

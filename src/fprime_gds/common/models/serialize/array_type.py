@@ -20,7 +20,7 @@ class ArrayType(DictionaryType):
     """
 
     @classmethod
-    def construct_type(cls, name, member_type, length, format):
+    def construct_type(cls, name, member_type, length, format, default=None):
         """Constructs a sub-array type
 
         Constructs a new sub-type of array to represent an array of the given name, member type, length, and format
@@ -31,9 +31,10 @@ class ArrayType(DictionaryType):
             member_type: type of the members of the array subtype
             length: length of the array subtype
             format: format string for members of the array subtype
+            default [list]: default value for the array
         """
         return DictionaryType.construct_type(
-            cls, name, MEMBER_TYPE=member_type, LENGTH=length, FORMAT=format
+            cls, name, MEMBER_TYPE=member_type, LENGTH=length, FORMAT=format, DEFAULT=default
         )
 
     @classmethod

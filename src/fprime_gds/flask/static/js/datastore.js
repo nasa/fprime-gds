@@ -285,12 +285,18 @@ class DataStore {
      * @param argument: argument to set up.
      */
     setupCommandArgument(argument) {
-        let def = argument.value || null;
+        let inputValue = argument.value || null;
         argument.error = "";
-        argument.value = def;
-        // Enums are initialized to the first listed item
+        argument.value = inputValue;
+        // Enums are initialized prioritizing: (1) supplied value, (2) type default, (3) first value
         if (argument.type.ENUM_DICT) {
-            argument.value = Object.keys(argument.type.ENUM_DICT)[0];
+            if (inputValue !== null && typeof inputValue === "string") {
+                argument.value = inputValue.split('.').pop();
+            } else if (argument.type.DEFAULT !== undefined && argument.type.DEFAULT !== null) {
+                argument.value = argument.type.DEFAULT;
+            } else {
+                argument.value = Object.keys(argument.type.ENUM_DICT)[0];
+            }
         }
         // Booleans are initialized to True
         else if (argument.type.name === "BoolType") {
@@ -299,13 +305,21 @@ class DataStore {
         // Arrays expand to a set length of N pseudo-arguments
         else if (argument.type.LENGTH) {
             let array_length = argument.type.LENGTH;
-            let values = Array(array_length).fill(def);
+            let values;
+            if (Array.isArray(inputValue)) {
+                values = inputValue;
+            } else if (Array.isArray(argument.type.DEFAULT)) {
+                values = argument.type.DEFAULT;
+            } else {
+                values = new Array(array_length).fill(inputValue);
+            }
             argument.value = values.map((value, index) => {
                 let append = "[" + index +"]";
                 return this.setupCommandArgument({
                     "description": (argument.description) ? (argument.description + append) : argument.description,
                     "name": argument.name + append,
                     "type": argument.type.MEMBER_TYPE,
+                    "value": value,
                 });
             });
         }
@@ -315,11 +329,17 @@ class DataStore {
                 let name = field_list[0];
                 let type = field_list[1];
                 let description = field_list[3];
-                return [name, this.setupCommandArgument({
+                let default_val = argument.type.DEFAULT[name];
+                if (inputValue && typeof inputValue === "object" && name in inputValue) {
+                    default_val = inputValue[name];
+                }
+                let cmd_arg = this.setupCommandArgument({
                     "description": (description) ? description : argument.description,
                     "name": argument.name + "." + name,
                     "type": type,
-                })];
+                    "value": default_val,
+                })
+                return [name, cmd_arg];
             });
             argument.value = Object.fromEntries(argument_list);
         }

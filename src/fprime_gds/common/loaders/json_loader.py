@@ -185,10 +185,12 @@ class JsonLoader(dict_loader.DictLoader):
         enum_dict = {}
         for member in qualified_type.get("enumeratedConstants"):
             enum_dict[member["name"]] = member.get("value")
+        default = get_unqualified_name(qualified_type.get("default", "")) if qualified_type.get("default") else None
         enum_type = EnumType.construct_type(
             type_name,
             enum_dict,
             qualified_type["representationType"].get("name"),
+            default
         )
         self.parsed_types[type_name] = enum_type
         return enum_type
@@ -213,6 +215,7 @@ class JsonLoader(dict_loader.DictLoader):
             JsonLoader.preprocess_format_str(
                 qualified_type["elementType"].get("format", "{}")
             ),
+            qualified_type.get("default"),
         )
         self.parsed_types[type_name] = array_type
         return array_type
@@ -251,9 +254,9 @@ class JsonLoader(dict_loader.DictLoader):
                     ),
                 )
             fmt_str = JsonLoader.preprocess_format_str(
-                member_type_obj.FORMAT if hasattr(member_type_obj, "FORMAT") else "{}"
+                member_dict.get("format", "{}")
             )
-            description = member_type_dict.get("annotation", "")
+            description = member_dict.get("annotation", "")
             member_index = member_dict["index"]
             if member_index in struct_members:
                 raise KeyError(
@@ -265,6 +268,7 @@ class JsonLoader(dict_loader.DictLoader):
         ser_type = SerializableType.construct_type(
             type_name,
             [struct_members[i] for i in sorted(struct_members.keys())],
+            qualified_type.get("default"),
         )
         self.parsed_types[type_name] = ser_type
         return ser_type
@@ -283,3 +287,17 @@ class JsonLoader(dict_loader.DictLoader):
         if format_str is None:
             return None
         return preprocess_fpp_format_str(format_str)
+
+
+def get_unqualified_name(qualified_name: str) -> str:
+    """Get the unqualified name from a fully qualified name.
+
+    For example, given "Module.Submodule.TypeName", this function returns "TypeName".
+    Names without qualification are returned as-is.
+
+    Args:
+        qualified_name (str): Fully qualified name (e.g. Component.TypeName)
+    Returns:
+        str: Unqualified name (e.g. TypeName)
+    """
+    return qualified_name.split(".")[-1]
