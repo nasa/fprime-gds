@@ -7,6 +7,8 @@
 @bug No known bugs
 """
 
+import datetime
+
 from fprime_gds.common.models.serialize import time_type
 from fprime_gds.common.models.serialize.array_type import ArrayType
 from fprime_gds.common.models.serialize.serializable_type import SerializableType
@@ -41,6 +43,8 @@ class ChData(sys_data.SysData):
         self.template = ch_temp
         self.pkt = None
         self.display_text = self._compute_display_text(ch_val_obj, ch_temp)
+        # Earth Received Time - timestamp when GDS created this channel data object
+        self.ert = datetime.datetime.now(datetime.timezone.utc)
 
     @staticmethod
     def get_empty_obj(ch_temp):

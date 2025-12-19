@@ -100,14 +100,24 @@ export let zoom_config = {
 /**
  * Returns a new chart config object for the given labeled data set.
  * @param label
+ * @param useRealtimeScale - If true, use realtime streaming scale; if false, use standard time scale
  * @return {{data: {datasets: [*]}, options: *, type: string}}
  */
-export function generate_chart_config(label) {
-    let final_realtime_config = Object.assign({}, realtime_config);
-    let scales = {
-        x: {type: "realtime", realtime: final_realtime_config, ticks: ticks_config},
-        y: {title: {display: true, text: "Value"}}
-    };
+export function generate_chart_config(label, useRealtimeScale = true) {
+    let scales;
+    if (useRealtimeScale) {
+        let final_realtime_config = Object.assign({}, realtime_config);
+        scales = {
+            x: {type: "realtime", realtime: final_realtime_config, ticks: ticks_config},
+            y: {title: {display: true, text: "Value"}}
+        };
+    } else {
+        // Use standard time scale for historical data
+        scales = {
+            x: {type: "time", time: {displayFormats: {millisecond: 'HH:mm:ss.SSS', second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm'}}, ticks: ticks_config},
+            y: {title: {display: true, text: "Value"}}
+        };
+    }
     let plugins = {zoom: zoom_config};
 
     let final_dataset_config = Object.assign({label: label}, dataset_config, {data: []});
