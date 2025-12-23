@@ -63,6 +63,7 @@ class StandardPipeline:
         logging_prefix=None,
         data_logging_enabled=True,
         cooldown=0.5,
+        chunk=256,
     ):
         """
         Setup the standard pipeline for moving data from the middleware layer through the GDS layers using the standard
@@ -74,6 +75,7 @@ class StandardPipeline:
         :param logging_prefix: logging prefix. Defaults to not logging at all.
         :param packet_spec: location of packetized telemetry XML specification.
         :param cooldown: cooldown period between file uplink packets
+        :param chunk: size of the data payload for a file uplink
         """
         self.distributor = fprime_gds.common.distributor.distributor.Distributor()
         self.client_socket = self.__transport_type()
@@ -99,6 +101,7 @@ class StandardPipeline:
             self.distributor,
             logging_prefix,
             cooldown=cooldown,
+            chunk=chunk,
         )
         # Register distributor to client socket
         self.client_socket.register(self.distributor)
