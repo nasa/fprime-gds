@@ -25,7 +25,9 @@ Vue.component("uplink", {
             "flags": _datastore.flags,
             "selected": [], 
             "destination": "", 
-            "error": null
+            "error": null,
+            "advanced": false,
+            "editFile": null,
         }
     },
     methods: {
@@ -82,7 +84,8 @@ Vue.component("uplink", {
                         "percent": 0,
                         "uplink": true,
                         "start": "",
-                        "end": ""
+                        "end": "",
+                        "packets": []
                     }
                 }));
             event.target.value = "";
@@ -106,6 +109,13 @@ Vue.component("uplink", {
 
         dismiss_alert() {
             this.error = null;
+        },
+
+        packetsSelected(selectedPackets) {
+            if (this.editFile != null) {
+                this.editFile.packets.splice(0, this.editFile.packets.length, ...selectedPackets);
+                this.editFile = null;
+            }
         }
     },
     computed: {
