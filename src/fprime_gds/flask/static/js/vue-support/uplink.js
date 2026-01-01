@@ -40,6 +40,7 @@ Vue.component("uplink", {
             if (this.selected.length == 0) {
                 return;
             }
+            this.editFile = null;
             let _self = this;
             _uploader.upload(this.selected, this.destination).catch(
                 function(error) {
