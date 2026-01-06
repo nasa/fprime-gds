@@ -138,5 +138,18 @@ Vue.component("uplink", {
                 return acc || (item.state == "TRANSMITTING");
             }, false);
         }
+    },
+    watch: {
+        /**
+         * Watch upfiles to clear the selection if the currently selected file is removed.
+         */
+        selected: {
+            handler(newFiles) {
+                if (this.editFile != null && !newFiles.includes(this.editFile)) {
+                    this.editFile = null;
+                }
+            },
+            deep: true
+        }
     }
 });
