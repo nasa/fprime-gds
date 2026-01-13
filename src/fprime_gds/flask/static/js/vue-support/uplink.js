@@ -25,7 +25,9 @@ Vue.component("uplink", {
             "flags": _datastore.flags,
             "selected": [], 
             "destination": "", 
-            "error": null
+            "error": null,
+            "advanced": false,
+            "editFile": null,
         }
     },
     methods: {
@@ -38,6 +40,7 @@ Vue.component("uplink", {
             if (this.selected.length == 0) {
                 return;
             }
+            this.editFile = null;
             let _self = this;
             _uploader.upload(this.selected, this.destination).catch(
                 function(error) {
@@ -82,7 +85,8 @@ Vue.component("uplink", {
                         "percent": 0,
                         "uplink": true,
                         "start": "",
-                        "end": ""
+                        "end": "",
+                        "packets": []
                     }
                 }));
             event.target.value = "";
@@ -106,6 +110,13 @@ Vue.component("uplink", {
 
         dismiss_alert() {
             this.error = null;
+        },
+
+        packetsSelected(selectedPackets) {
+            if (this.editFile != null) {
+                this.editFile.packets.splice(0, this.editFile.packets.length, ...selectedPackets);
+                this.editFile = null;
+            }
         }
     },
     computed: {
@@ -126,6 +137,19 @@ Vue.component("uplink", {
             return this.upfiles.reduce((acc, item) => {
                 return acc || (item.state == "TRANSMITTING");
             }, false);
+        }
+    },
+    watch: {
+        /**
+         * Watch upfiles to clear the selection if the currently selected file is removed.
+         */
+        selected: {
+            handler(newFiles) {
+                if (this.editFile != null && !newFiles.includes(this.editFile)) {
+                    this.editFile = null;
+                }
+            },
+            deep: true
         }
     }
 });

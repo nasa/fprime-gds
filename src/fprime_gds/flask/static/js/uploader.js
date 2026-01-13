@@ -26,13 +26,16 @@ export class Uploader {
      * @return {Promise} what to do when the download is done and the uplinking is started
      */
     upload(files, destination) {
+        // The file uplink processes depends on the file array being emptied out once the files are sent to the
+        // server. Failure to do this will result in duplicate entries.
+        let consumed_files = files.splice(0, files.length);
         return new Promise((success, error) => {
             _loader.load("/upload/destination", "PUT", {"destination": destination}).then( () => {
                 let data = new FormData();
-                while(0 < files.length) {
-                    let file = files.shift();
-                    data.append(file.file.name, file.file);
-                }
+                consumed_files.forEach((file, i) => {
+                    data.append(`files[${i}]`, file.file);
+                    data.append(`packets[${i}]`, JSON.stringify(file.packets));
+                });
                 _loader.load(this.endpoint, "POST", data, false).then(success).catch(error);
             });
         });

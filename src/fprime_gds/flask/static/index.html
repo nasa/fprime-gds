@@ -238,23 +238,26 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                         <h2>File Uplink</h2>
                     </div>
                     <div class="form-row">
-                        <div class="form-group col-md-4 mt-2">
+                        <div class="form-group col-md-3 mt-2">
                             <input class="form-control" type="text" v-model.trim="destination" pattern="/.*" 
                                    placeholder="/path/to/destination/folder"
                                    title="Destination folder path on the spacecraft where files will be uploaded" id="file-uplink-destination"/>
                             <label for="file-uplink-destination">Destination Folder</label>
                         </div>
-                        <div class="form-group col-md-4 mt-2">
+                        <div class="form-group col-md-6 mt-2">
                             <div class="form-row">
-                                <div class="col-md-6 mb-1">
+                                <!-- Display note: only 3 items in this row, as the file select is display: none-->
+                                <div class="col-md-0">
                                     <input type="file" id="chooseUplinkFile" v-bind:files="selected" multiple
                                         v-on:change="handleFiles" style="display: none;">
+                                </div>
+                                <div class="col-md-5 mb-1">
                                     <label for="chooseUplinkFile" class="btn btn-secondary btn-block" title="Select files to upload">
                                         <i class="fas fa-upload"></i>
                                         <span class="d-md-none d-lg-inline">Add Files</span>
                                     </label>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-5">
                                     <button type="button" class="btn btn-primary btn-block" v-on:click="uplinkFiles" title="Begin uplinking all uploaded files">
                                         <i class="fas fa-satellite-dish"></i>
                                         <span class="d-md-none d-lg-inline">Begin Uplink</span>
@@ -262,7 +265,6 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                 </div>
                             </div>
                         </div>
-                        <div class="form-group col-md-1 mt-2"></div>
                         <div class="form-group col-md-3 mt-2">
                             <div class="form-row">
                                 <div class="col-md-6 mb-1">
@@ -287,6 +289,9 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <div v-if="editFile != null">
+                        <packet-selection :selected="editFile" @packets-selected="packetsSelected"></packet-selection>
                     </div>
                     <div v-if="error != null" class="alert alert-danger" role="alert">
                         {{ this.error }}
@@ -346,12 +351,15 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                 <tr>
                     <td>{{ item.start }}</td>
                     <td>{{ item.end }}</td>
-                    <td>{{ item.source }}</td>
+                    <td>{{ item.source }}<span v-if="item.packets && item.packets.length > 0"> [{{ item.packets.join(', ') }}]</span></td>
                     <td>{{ item.destination }}</td>
                     <td>{{ item.state }}</td>
                     <td v-if="item.uplink">
                         <button v-if="item.state != 'FINISHED' && item.state != 'CANCELED' && item.state != 'TIMEOUT'" class="btn btn-secondary" v-on:click="fileAction">
                             {{ (item.state == "TRANSMITTING" ) ? "Cancel" : "Remove" }}
+                        </button>
+                        <button v-if="item.state == 'NOT STARTED'" class="btn btn-secondary" v-on:click="fileAction">
+                            Select Packets
                         </button>
                     </td>
                     <td v-if="!item.uplink">

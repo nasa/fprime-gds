@@ -67,6 +67,7 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         self.device = device
         self.baud = baud
         self.serial = None
+        self.warning_throttled = False
 
     def __repr__(self):
         """ String representation for logging """

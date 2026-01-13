@@ -32,6 +32,9 @@ Vue.component("file-row", {
          * Performs an action on a given file. This allows for the "Remove" and "Cancel" actions to be sent via the
          * uploader to control the file's state on the server. If the file is being curated in JavaScript before uplink
          * was started, then it will just be removed locally.
+         * 
+         * Support was added for "Select Packets", which opens the select packet dialog.
+         * 
          * @param event: button event to look at for the action.
          */
         fileAction(event) {
@@ -41,6 +44,8 @@ Vue.component("file-row", {
             // Local javascript file, removeit from the selected (curation) list
             if (action === "Remove" && index !== -1) {
                 uplinkvue.selected.splice(index, 1);
+            } else if (action === "Select Packets") {
+                uplinkvue.editFile = this.item;
             } else {
                 _uploader.command(this.item.source, action);
             }

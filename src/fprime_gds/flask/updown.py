@@ -7,13 +7,17 @@ uplinked to.
 
 @author mstarch
 """
+import json
 import os
-
+import re
 import flask
 import flask_restful
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 from pathlib import Path
+
+
+FILE_PATTERN = re.compile(r"^files\[(\d+)\]$")
 
 
 class Destination(flask_restful.Resource):
@@ -104,15 +108,27 @@ class FileUploads(flask_restful.Resource):
         failed = []
         for key, file in flask.request.files.items():
             try:
+                matcher = FILE_PATTERN.match(key)
+                if not matcher:
+                    raise ValueError(f"Invalid file key format: {key}")
+                # Get the packet specifications for this file. If empty, or unspecified, then pass
+                # None to indicate default behavior.
+                index = int(matcher.group(1))
+                packets_string = flask.request.form.get(f"packets[{index}]", "[]")
+                
                 filename = self.save(file)
-                flask.current_app.logger.info(f"Received file. Saved to: {filename}")
-                self.uplinker.enqueue(os.path.join(self.dest_dir, filename))
+                packet_string = f" with packets: {packets_string}"
+                flask.current_app.logger.info(f"Received file: {filename}{packet_string}")
+                packets = json.loads(packets_string) if packets_string else None
+                packets = packets if packets else None
+                self.uplinker.enqueue(os.path.join(self.dest_dir, filename), packets=packets)
                 successful.append(key)
             except Exception as exc:
                 flask.current_app.logger.warning(
                     f"Failed to save file {key} with error: {exc}"
                 )
                 failed.append(key)
+                raise exc
         return {"successful": successful, "failed": failed}
 
     def save(self, file_storage: FileStorage):

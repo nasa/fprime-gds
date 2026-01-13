@@ -116,7 +116,7 @@ class TransmitFile:
     Wraps the file information needed for the uplink and downlinking processes.
     """
 
-    def __init__(self, source, destination, size=None, log_dir=None):
+    def __init__(self, source, destination, size=None, log_dir=None, packets=None):
         """Construct the uplink file"""
         self.__mode = None
         self.__start = None
@@ -130,6 +130,8 @@ class TransmitFile:
         self.__checksum = CFDPChecksum()
         self.__log_dir = log_dir
         self.__log_handler = None
+        self.__packets = sorted(list(set(packets))) if packets is not None else None
+        self.__transmit_packets = [packet for packet in self.__packets] if packets is not None else None
 
     def open(self, mode):
         """
@@ -158,7 +160,26 @@ class TransmitFile:
         """Read the chunk from the file"""
         assert self.__fd is not None, "Must open file before reading"
         assert self.__mode == TransmitFileState.READ, "Cannot read in WRITE mode"
-        return self.__fd.read(chunk)
+        self.__seek = self.__fd.tell()
+        if self.__packets is None:
+            # In sequential mode, the data is read and the seek is updated to the position of the file pointer before
+            # the read is performed.
+            self.__seek = self.__fd.tell()
+            return_data = self.__fd.read(chunk)
+        else:
+            try:
+                # Packets ate 1-indexed because the start packet uses a packet number. Thus we need to subtract 1
+                # to get the correct seek position, which is 0-indexed.
+                current_packet = self.__transmit_packets.pop(0) - 1
+                seek_to = current_packet * chunk
+                new_pos = self.__fd.seek(seek_to)
+                return_data = self.__fd.read(chunk) if new_pos == seek_to else b""
+                # In packet mode, the seek is the final position after the seek is performed.
+                self.__seek = new_pos
+            except Exception:
+                self.__seek = self.__fd.tell()
+                return b""
+        return return_data
 
     def write(self, chunk, offset):
         """
@@ -203,10 +224,24 @@ class TransmitFile:
     @property
     def size(self):
         return self.__size
+    
+    @property
+    def percent(self):
+        if (self.__packets is not None and len(self.__packets) == 0) or self.__size == 0:
+            return 1.0
+        if self.__transmit_packets is not None:
+            return (1.0 - (len(self.__transmit_packets) / len(self.__packets)))
+        if self.__size == 0:
+            return 1.0
+        return (self.__seek / self.__size)
 
     @property
     def seek(self):
         return self.__seek
+
+    @property
+    def packets(self):
+        return self.__packets
 
     @seek.setter
     def seek(self, seek):
@@ -244,12 +279,11 @@ def file_to_dict(files, uplink=True):
             "size": item.size,
             "current": item.seek,
             "state": item.state,
-            "percent": 100
-            if item.size == 0
-            else int(item.seek / item.size * 100.0),
+            "percent": int(item.percent * 100.0),
             "uplink": uplink,
             "start": item.start,
             "end": item.end,
+            "packets": item.packets if item.packets is not None else [],
         }
         for item in files
     ]

@@ -52,14 +52,14 @@ class UplinkQueue:
         )
         self.__thread.start()
 
-    def enqueue(self, filepath, destination):
+    def enqueue(self, filepath, destination, packets):
         """
         Enqueue the file and destination pair onto the queue
 
         :param filepath: filepath to upload to the given destination
         :param destination: destination path to upload the filepath to
         """
-        file_obj = TransmitFile(filepath, destination)
+        file_obj = TransmitFile(filepath, destination, packets=packets)
         self.queue.put(file_obj)
         self.__file_store.append(file_obj)
 
@@ -165,19 +165,20 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
         self.__timeout.setup(self.timeout, timeout)
         self.cooldown = cooldown
 
-    def enqueue(self, filepath, destination=None):
+    def enqueue(self, filepath, destination=None, packets=None):
         """
         Enqueue files for the upload. This tunnels into the upload queue, which unblocks once files have been enqueued
         and begins to upload each file sequentially.
 
         :param filepath: filepath to upload to the system
         :param destination: (optional) destination to uplink to. Default: current destination + file's basename
+        :param packets: (optional) packet specifications for the file
         """
         if destination is None:
             destination = os.path.join(
                 self.__destination_dir, os.path.basename(filepath)
             )
-        self.queue.enqueue(filepath, destination)
+        self.queue.enqueue(filepath, destination, packets)
 
     def exit(self):
         """Exit this uplinker by killing the thread"""
@@ -301,7 +302,6 @@ class FileUplinker(fprime_gds.common.handlers.DataHandler):
             self.send(
                 DataPacketData(self.get_next_sequence(), self.active.seek, outgoing)
             )
-            self.active.seek += len(outgoing)
 
     def cancel(self):
         """
