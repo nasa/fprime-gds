@@ -141,6 +141,8 @@ class TransmitFile:
         self.__mode = mode
         if mode == TransmitFileState.WRITE:
             filepath = self.__destination
+            if os.path.exists(filepath):
+                os.remove(filepath)
             Path(filepath).touch(exist_ok=True)
             filemode = "rb+"
         else:
