@@ -1,5 +1,7 @@
 import { _datastore } from "../../js/datastore.js";
 import { tsParticles } from "../../third-party/js/tsparticles-v3.9.1.engine.esm.js";
+
+// TODO(nateinaction): Make this work offline with local files
 import { loadAll } from "https://cdn.jsdelivr.net/npm/@tsparticles/all@3.9.1/+esm";
 // import { loadAll } from "../../third-party/js/tsparticles-v3.9.1.all.bundle.esm.js";
 
