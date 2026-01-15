@@ -6,7 +6,7 @@
 # Author: Gerik Kubiak
 #
 #   The "Data Product Validator" program is designed to validate F Prime Data Product files.
-#   The program validates both the header and data checksums of the given data proudct and
+#   The program validates both the header and data checksums of the given data product and
 #   returns a 0 error code on success and a non-zero error code on failure.
 #
 #   The size of the data product header may vary between F Prime deployments. There are
