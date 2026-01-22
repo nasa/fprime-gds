@@ -89,7 +89,6 @@ class StandardPipeline:
                 f"{file_store} is not writable. Fix permissions or change storage directory with --file-storage-directory."
             )
         self.__dictionaries = dictionaries
-        self.dictionary_path = getattr(self.dictionaries,"_dictionary_path")
         self.coders.setup_coders(
             self.dictionaries, self.distributor, self.client_socket
         )
