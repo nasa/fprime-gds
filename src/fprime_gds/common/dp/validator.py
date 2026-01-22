@@ -26,7 +26,7 @@ import sys
 from fprime_gds.common.dp.common import (
     ChecksumConfig,
     calculate_crc32,
-    DataProductHeaderFields,
+    get_dp_header_type
 )
 from fprime_gds.common.utils.config_manager import ConfigManager
 
@@ -133,20 +133,8 @@ class DataProductValidator:
         """
 
         # Calculate header size using ConfigManager and common field definitions
-        header_size = 0
-
-        # Add fixed-size fields
-        for const_size in DataProductHeaderFields.FIELD_CONST_SIZES.values():
-            header_size += const_size
-        
-        # Add constant-defined fields
-        for const_name in DataProductHeaderFields.FIELD_CONSTANTS.values():
-            header_size += ConfigManager().get_constant(const_name)
-        
-        # Add type-defined fields
-        for field_type in DataProductHeaderFields.FIELD_TYPES.values():
-            field_size = ConfigManager().get_type(field_type)().getSize()
-            header_size += field_size
+        # This uses the loaded dictionary under the hood
+        header_size = get_dp_header_type()().getMaxSize()
 
         if self.verbose:
             print(f'Calculated a header size of {header_size}')

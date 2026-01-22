@@ -2,7 +2,8 @@ import argparse
 import os
 
 from fprime_gds.executables.cli import DictionaryParser
-from fprime_gds.common.dp.parser import DataProductParser
+from fprime_gds.common.dp.new_parser import DataProductParser
+from fprime_gds.common.dp.parser import DataProductParser as DataProductParserOld
 from fprime_gds.common.dp.validator import DataProductValidator
 
 
@@ -14,6 +15,7 @@ def main():
     write_parser.add_argument("-b", "--binFile", required=True, help="Path to input data product binary file (.fdp)")
     write_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
     write_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json)")
+    write_parser.add_argument("--old", required=False, action="store_true")
 
     validate_parser = subcommands_parser.add_parser('validate', help='Validate a data product')
     validate_parser.add_argument("-b", "--binFile", required=True, help="Path to input data product binary file (.fdp)")
@@ -29,7 +31,11 @@ def main():
         DictionaryParser().handle_arguments(args)
 
     if args.command == "parse":
-        DataProductParser(args.dictionary, args.binFile, args.output).process()
+        if args.old:
+            DataProductParserOld(args.dictionary, args.binFile, args.output).process()
+        else:
+            DataProductParser(args.binFile, args.output).parse()
+
 
     elif args.command == "validate":
         success = DataProductValidator(
