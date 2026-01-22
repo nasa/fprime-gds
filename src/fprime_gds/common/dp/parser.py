@@ -74,8 +74,9 @@ import sys
 from typing import List, Dict, Union, ForwardRef
 from pydantic import BaseModel, field_validator, computed_field, model_validator
 from typing import List, Union
-import argparse
+
 from binascii import crc32
+
 
 class bcolors:
     HEADER = '\033[95m'
@@ -109,22 +110,6 @@ header_hash_data = {
 
 # Deserialize the binary file big endian
 BIG_ENDIAN = ">"
-
-
-# -------------------------------------------------------------------------------------------------------------------------
-# Function parse_args
-#
-# Description: 
-#   Parse the input arguments either as passed into this function or on the command line
-# -------------------------------------------------------------------------------------------------------------------------
-def parse_args(args=None):
-    parser = argparse.ArgumentParser(description='Data Product Writer.')
-    parser.add_argument('binFile', help='Data Product Binary file')
-    parser.add_argument('jsonDict', help='JSON Dictionary')
-    if args is None:
-        args = sys.argv[1:]
-    return parser.parse_args(args)
-
 
 # -------------------------------------------------------------------------------------
 # These are common Pydantic classes that 
@@ -480,16 +465,17 @@ class DuplicateRecordID(Exception):
         return f"In the Dictionary JSON there is a duplicate Record identifier: {self.identifier}"
     
 # --------------------------------------------------------------------------------------------------------------------
-# class DataProductWriter
+# class DataProductParser
 #
 # Description:
 #   This is the main class that processes the data.  It is a container for managing global variables
 #
 # --------------------------------------------------------------------------------------------------------------------
-class DataProductWriter:
-    def __init__(self, jsonDict, binaryFileName):
+class DataProductParser:
+    def __init__(self, jsonDict, binaryFileName, outputJsonFile=None):
         self.jsonDict = jsonDict
         self.binaryFileName = binaryFileName
+        self.outputJsonFile = outputJsonFile
         self.totalBytesRead = 0
         self.calculatedCRC = 0
         self.headerJSON = None
@@ -921,13 +907,14 @@ class DataProductWriter:
     def write_records(self, recordList):
         # Output the generated json to a file
         baseName = os.path.basename(self.binaryFileName)
-        outputJsonFile = os.path.splitext(baseName)[0] + '.json'
-        if outputJsonFile.startswith('._'):
-            outputJsonFile = outputJsonFile.replace('._', '')
-        with open(outputJsonFile, 'w') as file:
+        if self.outputJsonFile is None:
+            self.outputJsonFile = os.path.splitext(baseName)[0] + '.json'
+        if self.outputJsonFile.startswith('._'):
+            self.outputJsonFile = self.outputJsonFile.replace('._', '')
+        with open(self.outputJsonFile, 'w') as file:
             json.dump(recordList, file, indent=2)
 
-        print(f'Output data generated in {outputJsonFile}')
+        print(f'Output data generated in {self.outputJsonFile}')
 
     # -------------------------------------------------------------------------------------------------------------------------
     # Function process
@@ -939,17 +926,4 @@ class DataProductWriter:
         recordList = self.get_records()
 
         self.write_records(recordList)
-
-
-# ------------------------------------------------------------------------------------------
-# main program
-#
-# ------------------------------------------------------------------------------------------
-def main():
-    args = parse_args()
-    DataProductWriter(args.jsonDict, args.binFile).process()
-
-if __name__ == "main":
-    sys.exit(main())
-
 

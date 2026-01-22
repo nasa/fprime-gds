@@ -1042,7 +1042,7 @@ class DictionaryParser(DetectionParser):
         dictionaries = Dictionaries()
 
         dictionaries.load_dictionaries(
-            args.dictionary, args.packet_spec, args.packet_set_name
+            args.dictionary, getattr(args, "packet_spec", None), getattr(args, "packet_set_name", None)
         )
         config = ConfigManager.get_instance()
         # Update config to use type definitions defined in the JSON dictionary

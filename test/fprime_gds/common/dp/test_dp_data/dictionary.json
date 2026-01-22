@@ -10142,5 +10142,10 @@
       "defaultPriority" : 10,
       "annotation" : "Container 1"
     }
-  ]
+  ],
+  "telemetryPacketSets": [{
+    "name" : "PacketSet1",
+    "members" : [
+    ]
+  }]
 }
