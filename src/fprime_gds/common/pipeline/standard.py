@@ -45,7 +45,6 @@ class StandardPipeline:
         self.distributor = None
         self.client_socket = None
         self.logger = None
-        self.dictionary_path = None
         self.up_store = None
         self.down_store = None
 
@@ -251,3 +250,8 @@ class StandardPipeline:
     def dictionaries(self):
         """Dictionaries member"""
         return self.__dictionaries
+
+    @property
+    def dictionary_path(self):
+        """Dictionary file path"""
+        return self.dictionaries.dictionary_path if self.dictionaries else None
