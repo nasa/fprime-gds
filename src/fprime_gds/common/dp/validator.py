@@ -20,12 +20,17 @@
 #   This script assumes the standard CRC32 checksum used by default in F Prime. Extended the
 #   script to work with other checksums is future work
 
-import struct
 import os
 import sys
-from binascii import crc32
 
+from fprime_gds.common.dp.common import (
+    ChecksumConfig,
+    calculate_crc32,
+    DataProductHeaderFields,
+)
 from fprime_gds.common.utils.config_manager import ConfigManager
+
+import struct
 
 
 
@@ -53,13 +58,8 @@ class DataProductValidator:
         self.guess_size = guess_size
         self.verbose = verbose
 
-        # Note: These values are technically configurable by F Prime end users
-        # but this script assumes they are constants. Future work could
-        # parameterize these values
-        self.checksum_len = 4
-        self.checksum_struct = ">I"
-        self.checksum_init = 0
-        self.checksum_xorOut = 0xFFFFFFFF
+        # Checksum configuration from common module
+        self.checksum_len = ChecksumConfig.CHECKSUM_LEN
 
 
     def validate_payload_checksum(self, payload):
@@ -73,13 +73,17 @@ class DataProductValidator:
                     Item 1: Checksum calculated from the non-checksum payload bytes
         """
         payload_data = payload[:-self.checksum_len]
-        payload_checksum = struct.unpack(self.checksum_struct, payload[-self.checksum_len:])[0]
-
-        payload_checksum_calc = crc32(payload_data, self.checksum_init) & self.checksum_xorOut
+        payload_checksum = struct.unpack(
+            ChecksumConfig.CHECKSUM_STRUCT,
+            payload[-self.checksum_len:]
+        )[0]
+        
+        payload_checksum_calc = calculate_crc32(payload_data)
+        
         if payload_checksum != payload_checksum_calc:
-            return (False,(payload_checksum, payload_checksum_calc))
+            return (False, (payload_checksum, payload_checksum_calc))
         else:
-            return (True,(payload_checksum, payload_checksum_calc))
+            return (True, (payload_checksum, payload_checksum_calc))
 
     def validate_data_product(self, dp_f, header_size):
         """Validate both the header and data checksums in a data product file
@@ -122,41 +126,26 @@ class DataProductValidator:
         """Validate a data product file using a provided F Prime dictionary
         to derive the header size
 
+        Dictionary information is pulled from ConfigManager
+
         Returns True if both the header and data checksums match calculated values
         and False otherwise
         """
 
-        # TODO: this is ugly, find a better way and share with dp/parser.py
-        field_types = {
-            "PacketDescriptor": "FwPacketDescriptorType",
-            "Id": "FwDpIdType",
-            "Priority": "FwDpPriorityType",
-            "TimeBase": "TimeBase",
-            "TimeContext": "FwTimeContextStoreType",
-            "ProcTypes": "Fw.DpCfg.ProcType",
-            "DpState": "Fw.DpState",
-            "DataSize": "FwSizeStoreType",
-        }
-        field_constants = {
-            "UserData": "Fw.DpCfg.CONTAINER_USER_DATA_SIZE",
-        }
-        field_const_sizes = {
-            "TimeSeconds": 4,
-            "TimeUseconds": 4,
-            "Checksum": 4
-        }
-
+        # Calculate header size using ConfigManager and common field definitions
         header_size = 0
 
-        for const_size in field_const_sizes.values():
+        # Add fixed-size fields
+        for const_size in DataProductHeaderFields.FIELD_CONST_SIZES.values():
             header_size += const_size
-
-        for const_name in field_constants.values():
+        
+        # Add constant-defined fields
+        for const_name in DataProductHeaderFields.FIELD_CONSTANTS.values():
             header_size += ConfigManager().get_constant(const_name)
-
-        for field_type in field_types.values():
+        
+        # Add type-defined fields
+        for field_type in DataProductHeaderFields.FIELD_TYPES.values():
             field_size = ConfigManager().get_type(field_type)().getSize()
-            
             header_size += field_size
 
         if self.verbose:
@@ -190,9 +179,10 @@ class DataProductValidator:
         # DataSize         | FwSizeType             | 8  | 2 | 8
         # Header Hash      | HASH_DIGEST_LENGTH     | 4  | 4 | 4
 
-        default_guess_size = 2+4+4+11+1+32+1+8+4
-        min_guess_size = 1+2+2+8+1+0+1+2+4
-        max_guess_size = 4+8+8+11+1+256+1+8+4
+        # Header size guessing ranges
+        default_guess_size = 2+4+4+11+1+32+1+8+4  # 67 bytes (typical config)
+        min_guess_size = 1+2+2+8+1+0+1+2+4        # 21 bytes (minimum)
+        max_guess_size = 4+8+8+11+1+256+1+8+4     # 301 bytes (maximum)
 
         dp_f.seek(0, os.SEEK_END)
         dp_size = dp_f.tell()
@@ -238,7 +228,7 @@ class DataProductValidator:
             raise e
 
         # See validate_with_guess for this calculation
-        min_header_size = 1+2+2+8+1+0+1+2+4
+        min_header_size = 1+2+2+8+1+0+1+2+4  # 21 bytes
         # Minimum data product is a header, one byte of payload and 4 bytes of checksum
         min_dp_size = min_header_size + 1 + 4
 

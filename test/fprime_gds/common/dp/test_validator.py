@@ -125,12 +125,6 @@ class TestDataProductValidatorWithDictionary:
         result = validator.process(str(TEST_DATA_DIR / "makeComplex.bin"))
         assert result is True
     
-    def test_validate_wrongMakeBool_with_dict(self, load_dictionary):
-        """Test validation of wrongMakeBool.bin (corrupted) using dictionary."""
-        validator = DataProductValidator(dictionary=str(DICTIONARY_PATH))
-        result = validator.process(str(TEST_DATA_DIR / "wrongMakeBool.bin"))
-        assert result is False
-    
     def test_validate_with_dict_verbose(self, load_dictionary, capsys):
         """Test validation with verbose output enabled."""
         validator = DataProductValidator(
@@ -244,7 +238,7 @@ class TestDataProductValidatorErrorCases:
     def test_validate_corrupted_file(self, load_dictionary):
         """Test validation of corrupted data product file."""
         validator = DataProductValidator(dictionary=str(DICTIONARY_PATH))
-        result = validator.process(str(TEST_DATA_DIR / "wrongMakeBool.bin"))
+        result = validator.process(str(TEST_DATA_DIR / "CRC_FAILURE_EXPECTED.bin"))
         assert result is False
     
     def test_validate_with_no_validation_method(self):
@@ -285,15 +279,6 @@ class TestDataProductValidatorOptions:
         """Test initialization with verbose mode."""
         validator = DataProductValidator(verbose=True)
         assert validator.verbose is True
-    
-    def test_init_checksum_defaults(self):
-        """Test that checksum configuration has correct defaults."""
-        validator = DataProductValidator()
-        assert validator.checksum_len == 4
-        assert validator.checksum_struct == ">I"
-        assert validator.checksum_init == 0
-        assert validator.checksum_xorOut == 0xFFFFFFFF
-
 
 class TestDataProductValidatorIntegration:
     """Integration tests combining multiple validation methods."""

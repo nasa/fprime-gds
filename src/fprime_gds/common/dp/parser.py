@@ -75,7 +75,7 @@ from typing import List, Dict, Union, ForwardRef
 from pydantic import BaseModel, field_validator, computed_field, model_validator
 from typing import List, Union
 
-from binascii import crc32
+from fprime_gds.common.dp.common import BIG_ENDIAN, calculate_crc32, ChecksumConfig
 
 
 class bcolors:
@@ -107,9 +107,6 @@ header_hash_data = {
         }
     }
 }
-
-# Deserialize the binary file big endian
-BIG_ENDIAN = ">"
 
 # -------------------------------------------------------------------------------------
 # These are common Pydantic classes that 
@@ -506,7 +503,7 @@ class DataProductParser:
         if len(bytes_read) != nbytes:
             raise IOError(f"Tried to read {nbytes} bytes from the binary file, but failed.")
 
-        self.calculatedCRC = crc32(bytes_read, self.calculatedCRC) & 0xffffffff
+        self.calculatedCRC = calculate_crc32(bytes_read, self.calculatedCRC)
         self.totalBytesRead += nbytes
 
         try:
@@ -531,7 +528,7 @@ class DataProductParser:
         if len(bytes_read) != string_size_data:
             raise IOError(f"Tried to read {string_size_data} bytes from the binary file, but failed.")
 
-        self.calculatedCRC = crc32(bytes_read_store + bytes_read, self.calculatedCRC) & 0xffffffff
+        self.calculatedCRC = calculate_crc32(bytes_read_store + bytes_read, self.calculatedCRC)
         self.totalBytesRead += string_size_data
 
         format_str = f'{BIG_ENDIAN}{string_size_data}s'
