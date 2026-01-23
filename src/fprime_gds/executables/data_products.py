@@ -2,8 +2,8 @@ import argparse
 import os
 
 from fprime_gds.executables.cli import DictionaryParser
-from fprime_gds.common.dp.new_parser import DataProductParser
-from fprime_gds.common.dp.parser import DataProductParser as DataProductParserOld
+from fprime_gds.common.dp.old_parser import DataProductParser as DataProductParserOld
+from fprime_gds.common.dp.parser import DataProductParser
 from fprime_gds.common.dp.validator import DataProductValidator
 
 
@@ -31,10 +31,12 @@ def main():
         DictionaryParser().handle_arguments(args)
 
     if args.command == "parse":
+        # For testing during development, TODO: remove
         if args.old:
             DataProductParserOld(args.dictionary, args.binFile, args.output).process()
         else:
-            DataProductParser(args.binFile, args.output).parse()
+            assert args.dictionaries is not None, "DictionaryParser must load Dictionaries object"
+            DataProductParser(args.dictionaries, args.binFile, args.output).process()
 
 
     elif args.command == "validate":
