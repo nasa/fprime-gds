@@ -15,7 +15,6 @@ def main():
     write_parser.add_argument("-b", "--binFile", required=True, help="Path to input data product binary file (.fdp)")
     write_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
     write_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json)")
-    write_parser.add_argument("--old", required=False, action="store_true")
 
     validate_parser = subcommands_parser.add_parser('validate', help='Validate a data product')
     validate_parser.add_argument("-b", "--binFile", required=True, help="Path to input data product binary file (.fdp)")
@@ -31,13 +30,8 @@ def main():
         DictionaryParser().handle_arguments(args)
 
     if args.command == "parse":
-        # For testing during development, TODO: remove
-        if args.old:
-            DataProductParserOld(args.dictionary, args.binFile, args.output).process()
-        else:
-            assert args.dictionaries is not None, "DictionaryParser must load Dictionaries object"
-            DataProductParser(args.dictionaries, args.binFile, args.output).process()
-
+        assert args.dictionaries is not None, "DictionaryParser must load Dictionaries object"
+        DataProductParser(args.dictionaries, args.binFile, args.output).process()
 
     elif args.command == "validate":
         success = DataProductValidator(
