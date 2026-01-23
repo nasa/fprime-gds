@@ -15,7 +15,6 @@ Key differences from parser.py:
 """
 
 import json
-import os
 import sys
 from typing import Dict, List, Any, Optional
 
@@ -27,7 +26,9 @@ from fprime_gds.common.dp.common import (
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.templates.dp_record_template import DpRecordTemplate
-
+from fprime_gds.common.models.serialize.string_type import StringType
+from fprime_gds.common.models.serialize.serializable_type import SerializableType
+from fprime_gds.common.models.serialize.array_type import ArrayType
 
 # ==============================================================================
 # Custom Exceptions
@@ -110,11 +111,18 @@ class DataProductParser:
             CRCError: If header checksum validation fails
         """
         header = get_dp_header_type()()
-        header_bin_data = file_handle.read(header.getMaxSize())
+        max_header_size = header.getMaxSize()
+        header_bin_data = file_handle.read(max_header_size)
         header.deserialize(header_bin_data, 0)
+        
+        # Get actual header size and adjust file position
+        actual_header_size = header.getSize()
+        if actual_header_size < max_header_size:
+            # Seek back to correct position (we read too much)
+            file_handle.seek(file_handle.tell() - (max_header_size - actual_header_size))
 
         # Compute hash on header (from beginning until we hit the checksum)
-        computed_hash = calculate_crc32(header_bin_data[:-ChecksumConfig.CHECKSUM_LEN])
+        computed_hash = calculate_crc32(header_bin_data[:actual_header_size - ChecksumConfig.CHECKSUM_LEN])
 
         # Validate hash
         if header.to_jsonable()["Checksum"]["value"] != computed_hash:
@@ -149,11 +157,46 @@ class DataProductParser:
         
         # Get the record type
         record_type = record_template.get_type()
+        
+        def read_element(element_type):
+            """Read a single element from file, handling variable-length types.
+            
+            Variable-length types (strings, structs with strings, arrays) require special handling:
+            1. Read getMaxSize() bytes into a buffer
+            2. Deserialize from the buffer (handles nested variable-length members)
+            3. Get actual bytes consumed via getSize()
+            4. Seek to correct absolute position
+            
+            This avoids cumulative position errors from relative seeking.
+            """
+
+            element_instance = element_type()
+            
+            # For types that may have variable length, read max size and adjust
+            if issubclass(element_type, (StringType, SerializableType, ArrayType)):
+                start_pos = file_handle.tell()
+                max_size = element_instance.getMaxSize()
+                buffer = file_handle.read(max_size)
+                
+                # Deserialize from buffer
+                element_instance.deserialize(buffer, 0)
+                
+                # Get actual size consumed
+                actual_size = element_instance.getSize()
+                
+                # Seek to correct position (start + actual_size)
+                file_handle.seek(start_pos + actual_size)
+            else:
+                # For fixed-size types, just read the exact size
+                element_data = file_handle.read(element_instance.getMaxSize())
+                element_instance.deserialize(element_data, 0)
+            
+            return element_instance
 
         # Parse based on whether it's an array or scalar
         if record_template.is_array():
             # For array records, read the array size first
-            array_size_type = ConfigManager().get_type("FwSizeStoreType")() # TODO: verify this is correct
+            array_size_type = ConfigManager().get_type("FwSizeStoreType")()
             array_size_data = file_handle.read(array_size_type.getSize())
             array_size_type.deserialize(array_size_data, 0)
             array_size = array_size_type.val
@@ -163,16 +206,12 @@ class DataProductParser:
 
             # Read each array element
             for _ in range(array_size):
-                element_instance = record_type()
-                element_data = file_handle.read(element_instance.getMaxSize())
-                element_instance.deserialize(element_data, 0)
+                element_instance = read_element(record_type)
                 record['Data'].append(element_instance.to_jsonable())
         else:
             # For scalar records, read the single value
-            type_instance = record_type()
-            type_data = file_handle.read(type_instance.getMaxSize())
-            type_instance.deserialize(type_data, 0)
-            record['Data'] = type_instance.to_jsonable()
+            element_instance = read_element(record_type)
+            record['Data'] = element_instance.to_jsonable()
         
         return record
 
