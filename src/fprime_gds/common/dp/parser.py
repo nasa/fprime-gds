@@ -16,6 +16,7 @@ Key differences from parser.py:
 
 import json
 import sys
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from fprime_gds.common.dp.common import (
@@ -96,7 +97,13 @@ class DataProductParser:
         """
         self.dictionaries = dictionaries
         self.binary_file_path = binary_file_path
-        self.output_json_path = output_json_path
+        
+        # Generate default output path if not provided
+        if output_json_path is None:
+            binary_path = Path(binary_file_path)
+            self.output_json_path = str(binary_path.with_suffix('.json'))
+        else:
+            self.output_json_path = output_json_path
         
     def parse_header(self, file_handle) -> Dict[str, Any]:
         """Parse the data product header.
