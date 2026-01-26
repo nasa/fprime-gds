@@ -97,11 +97,9 @@ class DataProductParser:
         """
         self.dictionaries = dictionaries
         self.binary_file_path = binary_file_path
-        
-        # Generate default output path if not provided
         if output_json_path is None:
-            binary_path = Path(binary_file_path)
-            self.output_json_path = str(binary_path.with_suffix('.json'))
+            # Generate default output path if not provided as same path with .json extension
+            self.output_json_path = str(Path(binary_file_path).with_suffix('.json'))
         else:
             self.output_json_path = output_json_path
         
