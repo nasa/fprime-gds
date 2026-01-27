@@ -10,7 +10,7 @@ Key differences from parser.py:
 - No JSON dictionary parsing - assumes ConfigManager is already loaded
 - Simplified type resolution through ConfigManager
 
-@author: Thomas Boyer-Chammard
+@author: thomas-bc
 @date: January 2026
 """
 

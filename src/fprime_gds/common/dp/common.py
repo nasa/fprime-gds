@@ -7,7 +7,7 @@ and Validator, including:
 - Header field definitions  
 - Binary format constants
 
-@author: Gerik Kubiak, Garth Watney, Thomas Boyer-Chammard
+@author: thomas-bc
 """
 
 from binascii import crc32
