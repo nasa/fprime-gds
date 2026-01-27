@@ -122,7 +122,7 @@ class DpJsonLoader(JsonLoader):
             record_id=record_id,
             record_name=record_name,
             record_type=record_type,
-            array=is_array,
+            is_array=is_array,
             description=description,
         )
 

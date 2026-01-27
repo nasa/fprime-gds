@@ -3,8 +3,8 @@ Tests for DataProductDecoder
 
 Tests the decoding of F Prime Data Product binary files into JSON format:
 - Basic decoding of various data types (primitives, arrays, structs)
-- Header parsing and validation
-- Record parsing for scalar and array types
+- Header decoding and validation
+- Record decoding for scalar and array types
 - CRC validation during decoding
 - Error handling for corrupted files
 
@@ -46,7 +46,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeBool.bin"),
             str(tmp_path / "makeBool.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         # Verify structure
         assert "Header" in result
@@ -66,7 +66,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeU32.bin"),
             str(tmp_path / "makeU32.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -79,7 +79,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeI8.bin"),
             str(tmp_path / "makeI8.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -91,7 +91,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeI16.bin"),
             str(tmp_path / "makeI16.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -103,7 +103,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeI32.bin"),
             str(tmp_path / "makeI32.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -115,7 +115,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeI64.bin"),
             str(tmp_path / "makeI64.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -127,7 +127,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeF32.bin"),
             str(tmp_path / "makeF32.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -139,7 +139,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeF64.bin"),
             str(tmp_path / "makeF64.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -151,7 +151,7 @@ class TestDataProductDecoderBasicTypes:
             str(TEST_DATA_DIR / "makeEnum.bin"),
             str(tmp_path / "makeEnum.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -167,7 +167,7 @@ class TestDataProductDecoderArrayTypes:
             str(TEST_DATA_DIR / "makeU8Array.bin"),
             str(tmp_path / "makeU8Array.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -186,7 +186,7 @@ class TestDataProductDecoderArrayTypes:
             str(TEST_DATA_DIR / "makeU32Array.bin"),
             str(tmp_path / "makeU32Array.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -202,7 +202,7 @@ class TestDataProductDecoderArrayTypes:
             str(TEST_DATA_DIR / "makeDataArray.bin"),
             str(tmp_path / "makeDataArray.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -214,7 +214,7 @@ class TestDataProductDecoderArrayTypes:
             str(TEST_DATA_DIR / "makeFppArray.bin"),
             str(tmp_path / "makeFppArray.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -230,7 +230,7 @@ class TestDataProductDecoderComplexTypes:
             str(TEST_DATA_DIR / "makeComplex.bin"),
             str(tmp_path / "makeComplex.json")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         assert "Header" in result
         assert "Records" in result
@@ -302,7 +302,7 @@ class TestDataProductDecoderErrorHandling:
         
         # Corrupted file should raise some kind of error
         with pytest.raises((CRCError, RecordNotFoundError)):
-            decoder.parse()
+            decoder.decode()
     
     def test_decode_nonexistent_file(self, load_dictionary, tmp_path):
         """Test decoding of non-existent file raises FileNotFoundError."""
@@ -313,7 +313,7 @@ class TestDataProductDecoderErrorHandling:
         )
         
         with pytest.raises(FileNotFoundError):
-            decoder.parse()
+            decoder.decode()
     
     def test_decode_file_too_small(self, load_dictionary, tmp_path):
         """Test decoding of file that is too small."""
@@ -329,21 +329,21 @@ class TestDataProductDecoderErrorHandling:
         
         # Should raise some exception (likely struct.error or similar)
         with pytest.raises(Exception):
-            decoder.parse()
+            decoder.decode()
 
 
-class TestDataProductDecoderRecordParsing:
-    """Test specific record parsing functionality."""
+class TestDataProductDecoderRecordDecoding:
+    """Test specific record decoding functionality."""
     
-    def test_parse_header(self, load_dictionary):
-        """Test header parsing returns expected fields."""
+    def test_decode_header(self, load_dictionary):
+        """Test header decoding returns expected fields."""
         decoder = DataProductDecoder(
             load_dictionary,
             str(TEST_DATA_DIR / "makeBool.bin")
         )
         
         with open(TEST_DATA_DIR / "makeBool.bin", 'rb') as f:
-            header = decoder.parse_header(f)
+            header = decoder.decode_header(f)
             header_json = header.to_jsonable()
         
         # Verify all expected header fields are present
@@ -352,13 +352,13 @@ class TestDataProductDecoderRecordParsing:
         for field in expected_fields:
             assert field in header_json, f"Missing header field: {field}"
     
-    def test_parse_scalar_record(self, load_dictionary):
-        """Test parsing of scalar (non-array) record."""
+    def test_decode_scalar_record(self, load_dictionary):
+        """Test decoding of scalar (non-array) record."""
         decoder = DataProductDecoder(
             load_dictionary,
             str(TEST_DATA_DIR / "makeU32.bin")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         # Find a scalar record (should not have Size field)
         records = result["Records"]
@@ -368,13 +368,13 @@ class TestDataProductDecoderRecordParsing:
         assert "Record" in record
         assert "Data" in record
     
-    def test_parse_array_record(self, load_dictionary):
-        """Test parsing of array record."""
+    def test_decode_array_record(self, load_dictionary):
+        """Test decoding of array record."""
         decoder = DataProductDecoder(
             load_dictionary,
             str(TEST_DATA_DIR / "makeU8Array.bin")
         )
-        result = decoder.parse()
+        result = decoder.decode()
         
         # Array records should have Size and Data fields
         records = result["Records"]
@@ -417,7 +417,7 @@ class TestDataProductDecoderIntegration:
                     str(file_path),
                     str(tmp_path / f"{test_file}.json")
                 )
-                result = decoder.parse()
+                result = decoder.decode()
                 
                 # Basic validation
                 assert "Header" in result, f"Failed to decode {test_file}: missing Header"

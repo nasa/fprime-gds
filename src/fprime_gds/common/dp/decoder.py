@@ -37,7 +37,7 @@ from fprime_gds.common.models.serialize.array_type import ArrayType
 # ==============================================================================
 
 class DataProductError(Exception):
-    """Base exception for data product parsing errors."""
+    """Base exception for data product decoding errors."""
     pass
 
 
@@ -70,13 +70,13 @@ class DataProductDecoder:
     This decoder reads binary data product files and converts them to human-readable format.
 
     This currently only supports a JSON representation of the data product.
-    
+
     Data Product Structure:
     1. Header (variable size based on configuration)
        - See common.py: get_dp_header_type()
     
     2. Data Records (repeated until DataSize bytes consumed)
-       - RecordId
+       - Record metadata (id, type, etc.)
        - Record data (type depends on record definition)
 
     3. Data Hash (CRC32 of all record data)
@@ -104,9 +104,9 @@ class DataProductDecoder:
         else:
             self.output_json_path = output_json_path
         
-    def parse_header(self, file_handle) -> Dict[str, Any]:
-        """Parse the data product header.
-        
+    def decode_header(self, file_handle) -> Dict[str, Any]:
+        """Decode the data product header.
+
         Args:
             file_handle: file handle to the data product binary
             
@@ -136,16 +136,16 @@ class DataProductDecoder:
 
         return header
     
-    def parse_record(self, file_handle, record_id: int) -> Dict[str, Any]:
-        """Parse a single data record. file_handle is expected to be positioned at beginning of data
-        and will be moved to end of data after parsing.
+    def decode_record(self, file_handle, record_id: int) -> Dict[str, Any]:
+        """Decode a single data record. file_handle is expected to be positioned at beginning of data
+        and will be moved to end of data after decoding.
 
         Note: Dp records are retrieved through the dictionaries member, which is expected to have been
         loaded with dictionary information.
         
         Args:
             file_handle: file handle for binary dp - assuming it is positioned at beginning of data
-            record_id: ID of the record to parse
+            record_id: ID of the record to decode
             
         Returns:
             Dictionary containing record data
@@ -179,30 +179,27 @@ class DataProductDecoder:
             """
 
             element_instance = element_type()
-            
+
             # For types that may have variable length, read max size and adjust
             if issubclass(element_type, (StringType, SerializableType, ArrayType)):
                 start_pos = file_handle.tell()
                 max_size = element_instance.getMaxSize()
                 buffer = file_handle.read(max_size)
-                
                 # Deserialize from buffer
                 element_instance.deserialize(buffer, 0)
-                
                 # Get actual size consumed
                 actual_size = element_instance.getSize()
-                
                 # Seek to correct position (start + actual_size)
                 file_handle.seek(start_pos + actual_size)
             else:
                 # For fixed-size types, just read the exact size
                 element_data = file_handle.read(element_instance.getMaxSize())
                 element_instance.deserialize(element_data, 0)
-            
+
             return element_instance
 
-        # Parse based on whether it's an array or scalar
-        if record_template.is_array():
+        # decode based on whether it's an array or scalar
+        if record_template.get_is_array():
             # For array records, read the array size first
             array_size_type = ConfigManager().get_type("FwSizeStoreType")()
             array_size_data = file_handle.read(array_size_type.getSize())
@@ -223,29 +220,29 @@ class DataProductDecoder:
         
         return record
 
-    def parse(self) -> List[Dict[str, Any]]:
-        """Parse the entire data product file.
+    def decode(self) -> List[Dict[str, Any]]:
+        """decode the entire data product file.
         
         Returns:
-            List of dictionaries containing header and all records
+            Dict object containing header and list of all records
             
         Raises:
             FileNotFoundError: If binary file doesn't exist
             CRCError: If checksum validation fails
-            DataProductError: For other parsing errors
+            DataProductError: For other decoding errors
         """
         results = {"Header": None, "Records": []}
         
         with open(self.binary_file_path, 'rb') as f:
             ##################
-            #  Parse header  #
+            #  decode header  #
             ##################
-            header_obj = self.parse_header(f)
+            header_obj = self.decode_header(f)
             header_json = header_obj.to_jsonable()
             results["Header"] = header_json
 
             #####################
-            # Parse all records #
+            # decode all records #
             #####################
             data_size = header_json['DataSize']["value"]
             position_at_start = f.tell()
@@ -256,8 +253,8 @@ class DataProductDecoder:
                 record_id_obj.deserialize(record_id_bin, 0)
                 record_id = record_id_obj.val
 
-                # Parse the record
-                record = self.parse_record(f, record_id)
+                # decode the record
+                record = self.decode_record(f, record_id)
                 results["Records"].append(record)
 
             #####################
@@ -282,7 +279,7 @@ class DataProductDecoder:
         """Main processing: decode binary file and write JSON output."""
         try:
             print(f"Decoding {self.binary_file_path}...")
-            data = self.parse()
+            data = self.decode()
             with open(self.output_json_path, 'w') as f:
                 json.dump(data, f, indent=2, default=str)
             print("Decoding complete!")

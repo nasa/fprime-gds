@@ -9,7 +9,7 @@ F Prime dictionary. Each record has an ID, name, type, and whether it's an array
 
 @bug No known bugs
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from fprime_gds.common.templates.data_template import DataTemplate
@@ -22,9 +22,14 @@ class DpRecordTemplate(DataTemplate):
 
     record_id: int
     record_name: str
+    record_type_name: str = field(init=False)  # Type name in FPP, computed from record_type
     record_type: DictionaryType
-    array: bool
+    is_array: bool
     description: Optional[str] = None
+
+    def __post_init__(self):
+        """Enables record_type_name property to be computed from record_type info"""
+        self.record_type_name = self.record_type.__name__
 
     def get_id(self) -> int:
         """Get the record's ID"""
@@ -42,14 +47,11 @@ class DpRecordTemplate(DataTemplate):
         """Get the record's type"""
         return self.record_type
 
-    def is_array(self) -> bool:
+    def get_is_array(self) -> bool:
         """Check if this record is an array"""
-        return self.array
+        return self.is_array
 
     def get_description(self) -> Optional[str]:
         """Get the record's description"""
         return self.description
 
-    def __str__(self) -> str:
-        array_str = "[]" if self.array else ""
-        return f"DpRecord({self.record_id}, {self.record_name}, {self.record_type.__name__}{array_str})"

@@ -99,7 +99,8 @@ class ValueType(BaseType):
         """
         Converts this type to a JSON serializable object
         """
-        return {"value": self.val, "type": str(self.__class__)}
+        # Uses BaseType.__repr__()
+        return {"value": self.val, "type": repr(self)}
 
 
 class DictionaryType(ValueType, abc.ABC):
