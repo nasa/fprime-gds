@@ -19,6 +19,8 @@ from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.event_template import EventTemplate
 from fprime_gds.common.templates.pkt_template import PktTemplate
 
+from test.fprime_gds.utils import globals_cleanup
+
 
 REF_JSON_DICTIONARY = str(
     Path(__file__).resolve().parent / "resources" / "RefTopologyDictionary.json"
@@ -27,32 +29,45 @@ REF_JSON_DICTIONARY = str(
 
 @pytest.fixture
 def loader():
-    return JsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
+    yield JsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
+
 
 
 @pytest.fixture
 def cmd_loader():
-    return CmdJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
+    yield CmdJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
 
 
 @pytest.fixture
 def event_loader():
-    return EventJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
+    yield EventJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
 
 
 @pytest.fixture
 def ch_loader():
-    return ChJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
+    yield ChJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
 
 
 @pytest.fixture
 def pkt_loader():
-    return PktJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
+    yield PktJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
 
 
 @pytest.fixture
 def fw_type_loader():
-    return TypeJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
+    yield TypeJsonLoader(REF_JSON_DICTIONARY)
+    globals_cleanup()
 
 
 @pytest.fixture

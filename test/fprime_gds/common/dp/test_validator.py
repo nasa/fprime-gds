@@ -10,14 +10,13 @@ Tests the validation of F Prime Data Product files using various methods:
 @Created on January 22, 2026
 """
 
-import os
 import pytest
-import tempfile
 from pathlib import Path
 
 from fprime_gds.common.dp.validator import DataProductValidator
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.utils.config_manager import ConfigManager
+from test.fprime_gds.utils import globals_cleanup
 
 
 # Path to test data directory
@@ -30,13 +29,14 @@ TEST_HEADER_SIZE = 63
 
 @pytest.fixture
 def load_dictionary():
-    """Fixture to load the test dictionary into ConfigManager before tests."""
-    # Cleanup ConfigManager singleton before test out of caution
-    ConfigManager._reset_singleton()
+    """Fixture to load the test dictionary into ConfigManager before tests.
+    Also uses the globals_cleanup utility to reset global state and not interfere 
+    with other tests."""
+    globals_cleanup()
     Dictionaries.load_dictionaries_into_config(str(DICTIONARY_PATH))
     yield
-    # Cleanup ConfigManager singleton after test
-    ConfigManager._reset_singleton()
+    globals_cleanup()
+
 
 
 class TestDataProductValidatorWithDictionary:
