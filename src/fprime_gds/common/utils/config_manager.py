@@ -84,6 +84,18 @@ class ConfigManager:
         """
         return ConfigManager()
 
+    @classmethod
+    def _reset_singleton(cls):
+        """
+        DO NOT USE OUTSIDE OF TESTING!
+        Reset the singleton instance. This should ONLY be used in testing contexts
+        to ensure test isolation. Not intended for production use.
+
+        WARNING: This will destroy the current ConfigManager instance and all its
+        stored configuration.
+        """
+        cls._ConfigManager__instance = None
+
     def get_type(self, name: str) -> type[ValueType]:
         """
         Return the associated type class for the given name.

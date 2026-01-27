@@ -17,6 +17,7 @@ from pathlib import Path
 
 from fprime_gds.common.dp.validator import DataProductValidator
 from fprime_gds.common.models.dictionaries import Dictionaries
+from fprime_gds.common.utils.config_manager import ConfigManager
 
 
 # Path to test data directory
@@ -30,9 +31,12 @@ TEST_HEADER_SIZE = 63
 @pytest.fixture
 def load_dictionary():
     """Fixture to load the test dictionary into ConfigManager before tests."""
+    # Cleanup ConfigManager singleton before test out of caution
+    ConfigManager._reset_singleton()
     Dictionaries.load_dictionaries_into_config(str(DICTIONARY_PATH))
     yield
-    # Cleanup is handled by ConfigManager singleton
+    # Cleanup ConfigManager singleton after test
+    ConfigManager._reset_singleton()
 
 
 class TestDataProductValidatorWithDictionary:
