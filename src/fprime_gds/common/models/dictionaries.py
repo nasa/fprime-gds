@@ -165,6 +165,32 @@ class Dictionaries:
         else:
             self._packet_dict = None
 
+    @staticmethod
+    def load_dictionaries_into_config(dictionary_path: str, packet_spec: str = None, packet_set_name: str = None) -> "Dictionaries":
+        """
+        Static helper method load a dictionary JSON file, update the ConfigManager with types and constants
+        defined in the dictionary, and return the loaded Dictionaries object.
+
+        :param dictionary_path: Path to the dictionary JSON file
+        :param packet_spec: Optional path to packet specification file, passed down to load_dictionaries
+        :param packet_set_name: Optional name of packet set to use, passed down to load_dictionaries
+
+        :return: Loaded Dictionaries object
+        """
+        from fprime_gds.common.utils.config_manager import ConfigManager
+
+        dictionaries = Dictionaries()
+        dictionaries.load_dictionaries(dictionary_path, packet_spec, packet_set_name)
+        config = ConfigManager.get_instance()
+        # Update config to use type definitions defined in the JSON dictionary
+        if dictionaries.typedefs_name:
+            for type_name, type_dict in dictionaries.typedefs_name.items():
+                config.set_type(type_name, type_dict)
+        if dictionaries.constant_name:
+            for name, value in dictionaries.constant_name.items():
+                config.set_constant(name, value)
+        return dictionaries
+
     @property
     def command_id(self):
         """Command dictionary by ID"""

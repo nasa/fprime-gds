@@ -1,8 +1,6 @@
 import argparse
-import os
 
-from fprime_gds.executables.cli import DictionaryParser
-from fprime_gds.common.dp.old_parser import DataProductParser as DataProductParserOld
+from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.dp.parser import DataProductParser
 from fprime_gds.common.dp.validator import DataProductValidator
 
@@ -25,9 +23,9 @@ def main():
 
     args = root_parser.parse_args()
 
-    # If a dictionary is passed, load it into ConfigManager
+    # If a dictionary is passed, load it into ConfigManager and add to args for convenient access
     if args.dictionary:
-        DictionaryParser().handle_arguments(args)
+        args.dictionaries = Dictionaries.load_dictionaries_into_config(args.dictionary)
 
     if args.command == "parse":
         assert args.dictionaries is not None, "DictionaryParser must load Dictionaries object"
