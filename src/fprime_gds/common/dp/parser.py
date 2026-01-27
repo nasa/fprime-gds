@@ -18,6 +18,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+import dataclasses
 
 from fprime_gds.common.dp.common import (
     ChecksumConfig,
@@ -152,14 +153,16 @@ class DataProductParser:
         Raises:
             RecordNotFoundError: If record ID not found
         """
-        record = {'RecordId': record_id}
         
         # Query ConfigManager for record definition
         record_template: DpRecordTemplate = self.dictionaries.dp_record_id.get(record_id)
 
         if record_template is None:
             raise RecordNotFoundError(record_id)
-        
+
+        # Record object to return
+        record: dict = {'Record': dataclasses.asdict(record_template)}
+
         # Get the record type
         record_type = record_template.get_type()
         
