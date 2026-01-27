@@ -19,7 +19,7 @@ from fprime_gds.common.templates.ch_template import ChTemplate
 from fprime_gds.common.templates.event_template import EventTemplate
 from fprime_gds.common.templates.pkt_template import PktTemplate
 
-from test.fprime_gds.utils import globals_cleanup
+from fprime_gds.common.utils.cleanup import globals_cleanup
 
 
 REF_JSON_DICTIONARY = str(

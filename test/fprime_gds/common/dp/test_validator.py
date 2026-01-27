@@ -15,8 +15,7 @@ from pathlib import Path
 
 from fprime_gds.common.dp.validator import DataProductValidator
 from fprime_gds.common.models.dictionaries import Dictionaries
-from fprime_gds.common.utils.config_manager import ConfigManager
-from test.fprime_gds.utils import globals_cleanup
+from fprime_gds.common.utils.cleanup import globals_cleanup
 
 
 # Path to test data directory
