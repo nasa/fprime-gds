@@ -1,7 +1,7 @@
 """
 Common utilities and constants for Data Product processing.
 
-This module contains shared functionality between the Data Product Parser
+This module contains shared functionality between the Data Product Decoder
 and Validator, including:
 - Checksum configuration and CRC32 utilities
 - Header field definitions  
@@ -50,7 +50,7 @@ class ChecksumConfig:
 def calculate_crc32(data: bytes, init_value: int = ChecksumConfig.CHECKSUM_INIT) -> int:
     """Calculate CRC32 checksum for given data.
     
-    Used by both parser (for accumulating CRC during read) and validator
+    Used by both decoder (for accumulating CRC during read) and validator
     (for validating checksums).
     
     Args:
@@ -69,7 +69,12 @@ def calculate_crc32(data: bytes, init_value: int = ChecksumConfig.CHECKSUM_INIT)
 
 def get_dp_header_type() -> type[SerializableType]:
     """Returns a dictionary-configured DataProduct header serializable type
-    As defined per https://fprime.jpl.nasa.gov/latest/Fw/Dp/docs/sdd """
+    As defined per https://fprime.jpl.nasa.gov/latest/Fw/Dp/docs/sdd 
+    Ideally this should be part of the dictionary, but it is not currently."""
+    # The reason to return construct_type() is that we want the type to be constructed
+    # after the ConfigManager has been initialized, so we can't easily just define a type
+    # statically and return it (or use it directly). 
+    # So we construct the type here the first time this function is called
     return SerializableType.construct_type("DataProductHeaderType",
         [
             ("PacketDescriptor", ConfigManager().get_type("FwPacketDescriptorType"), "{}", "The F Prime packet descriptor"),

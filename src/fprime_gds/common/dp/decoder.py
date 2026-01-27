@@ -1,11 +1,11 @@
 """
-Data Product Parser using ConfigManager
+Data Product Decoder using ConfigManager
 
-This module provides a ConfigManager-based parser for F Prime Data Product files.
-Unlike the original parser.py which uses Pydantic models and JSON parsing,
+This module provides a ConfigManager-based decoder for F Prime Data Product files.
+Unlike the original implementation which uses Pydantic models and JSON parsing,
 this implementation queries type information directly from ConfigManager.
 
-Key differences from parser.py:
+Key differences from the original implementation:
 - Uses ConfigManager.get_type() and get_constant() instead of Pydantic models
 - No JSON dictionary parsing - assumes ConfigManager is already loaded
 - Simplified type resolution through ConfigManager
@@ -61,13 +61,13 @@ class RecordNotFoundError(DataProductError):
         super().__init__(f"Record ID {record_id} not found in dictionary")
 
 # ==============================================================================
-# Data Product Parser (ConfigManager-based)
+# Data Product Decoder (ConfigManager-based)
 # ==============================================================================
 
-class DataProductParser:
-    """Parser for F Prime Data Product binary files.
+class DataProductDecoder:
+    """Decoder for F Prime Data Product binary files.
     
-    This parser reads binary data product files and converts them to human-readable format.
+    This decoder reads binary data product files and converts them to human-readable format.
 
     This currently only supports a JSON representation of the data product.
     
@@ -84,11 +84,11 @@ class DataProductParser:
     Assumptions:
         - ConfigManager is already loaded with dictionary information
         - dictionaries property (see constructor) is loaded with data product dictionary info
-        - both these assumptions can be resolved by using the DictionaryParser (see executables/data_products.py)
+        - both these assumptions can be resolved by loading dictionaries (see executables/data_products.py)
     """
     
     def __init__(self, dictionaries: Dictionaries, binary_file_path: str, output_json_path: Optional[str] = None):
-        """Initialize the parser.
+        """Initialize the decoder.
         
         Args:
             dictionaries: Dictionaries object containing dictionary information
@@ -279,13 +279,13 @@ class DataProductParser:
         return results
 
     def process(self):
-        """Main processing: parse binary file and write JSON output."""
+        """Main processing: decode binary file and write JSON output."""
         try:
-            print(f"Parsing {self.binary_file_path}...")
+            print(f"Decoding {self.binary_file_path}...")
             data = self.parse()
             with open(self.output_json_path, 'w') as f:
                 json.dump(data, f, indent=2, default=str)
-            print("Parsing complete!")
+            print("Decoding complete!")
             
         except DataProductError as e:
             print(f"Error: {e}", file=sys.stderr)

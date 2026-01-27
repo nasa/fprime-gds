@@ -1,7 +1,7 @@
 import argparse
 
 from fprime_gds.common.models.dictionaries import Dictionaries
-from fprime_gds.common.dp.parser import DataProductParser
+from fprime_gds.common.dp.decoder import DataProductDecoder
 from fprime_gds.common.dp.validator import DataProductValidator
 
 
@@ -9,10 +9,10 @@ def main():
     root_parser = argparse.ArgumentParser(description='Data Product CLI')
     subcommands_parser = root_parser.add_subparsers(dest='command')
 
-    write_parser = subcommands_parser.add_parser('parse', help='Parse a data product binary into a human-readable format')
-    write_parser.add_argument("-b", "--binFile", required=True, help="Path to input data product binary file (.fdp)")
-    write_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
-    write_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json)")
+    decode_parser = subcommands_parser.add_parser('decode', help='Decode a data product binary into a human-readable format')
+    decode_parser.add_argument("-b", "--binFile", required=True, help="Path to input data product binary file (.fdp)")
+    decode_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
+    decode_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json)")
 
     validate_parser = subcommands_parser.add_parser('validate', help='Validate a data product')
     validate_parser.add_argument("-b", "--binFile", required=True, help="Path to input data product binary file (.fdp)")
@@ -27,9 +27,9 @@ def main():
     if args.dictionary:
         args.dictionaries = Dictionaries.load_dictionaries_into_config(args.dictionary)
 
-    if args.command == "parse":
-        assert args.dictionaries is not None, "DictionaryParser must load Dictionaries object"
-        DataProductParser(args.dictionaries, args.binFile, args.output).process()
+    if args.command == "decode":
+        assert args.dictionaries is not None, "Dictionaries must be loaded"
+        DataProductDecoder(args.dictionaries, args.binFile, args.output).process()
 
     elif args.command == "validate":
         success = DataProductValidator(
