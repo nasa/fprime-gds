@@ -28,7 +28,6 @@ from fprime_gds.common.dp.common import (
     calculate_crc32,
     get_dp_header_type
 )
-from fprime_gds.common.utils.config_manager import ConfigManager
 
 import struct
 

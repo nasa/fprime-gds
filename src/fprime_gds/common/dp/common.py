@@ -81,7 +81,7 @@ def get_dp_header_type() -> type[SerializableType]:
             ("Id", ConfigManager().get_type("FwDpIdType"), "{}", "The container ID"),
             ("Priority", ConfigManager().get_type("FwDpPriorityType"), "{}", "The container priority"),
             ("Time", TimeType, "{}", "Fw.Time object"),
-            ("ProcTypes", ConfigManager().get_type("Fw.DpCfg.ProcType"), "{}", "Processing types bit mask"),
+            ("ProcTypes", ConfigManager().get_type("Fw.DpCfg.ProcType").REP_TYPE, "{}", "Processing types bit mask"),
             ("UserData", ArrayType.construct_type("UserData", U8Type, ConfigManager().get_constant("Fw.DpCfg.CONTAINER_USER_DATA_SIZE"), "{}"), "{}", "User-configurable data"),
             ("DpState", ConfigManager().get_type("Fw.DpState"), "{}", "Data product state"),
             ("DataSize", ConfigManager().get_type("FwSizeStoreType"), "{}", "Size of data payload in bytes"),

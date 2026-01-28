@@ -88,7 +88,7 @@ def test_construct_enum_type(loader):
         "SINE": 2,
         "NOISE": 3,
     }
-    assert ref_signal_type.REP_TYPE == "I32"
+    assert ref_signal_type.REP_TYPE == numerical_types.I32Type
     assert ref_signal_type.DEFAULT == "TRIANGLE"
 
 
@@ -125,7 +125,7 @@ def test_construct_array_type(loader):
         "RED": 2,
         "BLUE": 3,
     }
-    assert ref_many_choices.MEMBER_TYPE.REP_TYPE == "I32"
+    assert ref_many_choices.MEMBER_TYPE.REP_TYPE == numerical_types.I32Type
     assert ref_many_choices.DEFAULT == [
         "Ref.Choice.TWO",
         "Ref.Choice.ONE"
@@ -145,7 +145,7 @@ def test_construct_serializable_type(loader):
         "RED": 2,
         "BLUE": 3,
     }
-    assert ref_choice_pair.MEMBER_LIST[0][1].REP_TYPE == "I32"
+    assert ref_choice_pair.MEMBER_LIST[0][1].REP_TYPE == numerical_types.I32Type
     assert ref_choice_pair.MEMBER_LIST[0][2] == "{}"
     assert ref_choice_pair.MEMBER_LIST[1][0] == "secondChoice"
     assert ref_choice_pair.MEMBER_LIST[1][1].ENUM_DICT == {
@@ -154,7 +154,7 @@ def test_construct_serializable_type(loader):
         "RED": 2,
         "BLUE": 3,
     }
-    assert ref_choice_pair.MEMBER_LIST[1][1].REP_TYPE == "I32"
+    assert ref_choice_pair.MEMBER_LIST[1][1].REP_TYPE == numerical_types.I32Type
     assert ref_choice_pair.MEMBER_LIST[1][2] == "{}"
     assert ref_choice_pair.DEFAULT == {
         "firstChoice": "Ref.Choice.RED",
