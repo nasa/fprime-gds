@@ -1,3 +1,6 @@
+from fprime_gds.common.utils.config_manager import ConfigManager
+from fprime_gds.common.models.serialize.type_base import DictionaryType
+from fprime_gds.common.loaders.json_loader import JsonLoader
 
 def globals_cleanup():
     """Cleans up all global/cached constructs.
@@ -5,9 +8,6 @@ def globals_cleanup():
     This is useful for example to start fresh between tests that may load
     some of these up.
     """
-    from fprime_gds.common.utils.config_manager import ConfigManager
-    from fprime_gds.common.models.serialize.type_base import DictionaryType
-    from fprime_gds.common.loaders.json_loader import JsonLoader
 
     # Clear out ConfigManager singleton
     ConfigManager._ConfigManager__instance = None  # Python name mangling

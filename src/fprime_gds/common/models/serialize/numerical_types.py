@@ -29,32 +29,32 @@ class NumericalType(ValueType, abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def get_bits(cls):
+    def get_bits(cls) -> int:
         """Gets the integer bits of a given type"""
 
     @classmethod
-    def getSize(cls):
+    def getSize(cls) -> int:
         """Gets the size of the integer based on the size specified in the class name"""
         return int(cls.get_bits() >> 3)  # Divide by 8 quickly
 
     @classmethod
-    def getMaxSize(cls):
+    def getMaxSize(cls) -> int:
         """Maximum size of type"""
         return cls.getSize()  # Always the same as getSize
 
     @staticmethod
     @abc.abstractmethod
-    def get_serialize_format():
+    def get_serialize_format() -> str:
         """Gets the format serialization string such that the class can be serialized via struct"""
         raise NotImplementedError("get_serialize_format")
 
-    def serialize(self):
+    def serialize(self) -> bytes:
         """Serializes this type using struct and the val property"""
         if self._val is None:
             raise NotInitializedException(type(self))
         return struct.pack(self.get_serialize_format(), self._val)
 
-    def deserialize(self, data, offset):
+    def deserialize(self, data: bytes, offset: int):
         """Serializes this type using struct and the val property"""
         try:
             self._val = struct.unpack_from(self.get_serialize_format(), data, offset)[0]
@@ -67,7 +67,7 @@ class IntegerType(NumericalType, abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def range(cls):
+    def range(cls) -> tuple[int, int]:
         """Gets signed/unsigned of this type"""
 
     @classmethod
