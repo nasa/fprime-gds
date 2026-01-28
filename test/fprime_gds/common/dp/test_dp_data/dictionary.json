@@ -155,11 +155,6 @@
           },
           "enumeratedConstants" : [
             {
-              "name" : "PROC_TYPE_HARD_ZERO",
-              "value" : 0,
-              "annotation" : "Processing type hard 0"
-            },
-            {
               "name" : "PROC_TYPE_ZERO",
               "value" : 1,
               "annotation" : "Processing type 0"
