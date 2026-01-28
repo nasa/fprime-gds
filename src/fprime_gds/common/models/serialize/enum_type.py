@@ -3,6 +3,7 @@ Created on Dec 18, 2014
 @author: tcanham, reder
 """
 
+from typing import Optional
 import struct
 
 from .type_base import DictionaryType
@@ -28,7 +29,7 @@ class EnumType(DictionaryType):
     """
 
     @classmethod
-    def construct_type(cls, name: str, enum_dict: dict[str, int], rep_type: type[IntegerType] = I32Type, default: str | None = None) -> type["EnumType"]:
+    def construct_type(cls, name: str, enum_dict: dict[str, int], rep_type: type[IntegerType] = I32Type, default: Optional[str] = None) -> type["EnumType"]:
         """Construct the custom enum type
 
         Constructs the custom enumeration type, with the supplied enumeration dictionary.
