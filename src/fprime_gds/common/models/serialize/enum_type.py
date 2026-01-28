@@ -28,7 +28,7 @@ class EnumType(DictionaryType):
     """
 
     @classmethod
-    def construct_type(cls, name: str, enum_dict: dict[str, int], rep_type: type[IntegerType] = I32Type, default: str | None = None) -> type[EnumType]:
+    def construct_type(cls, name: str, enum_dict: dict[str, int], rep_type: type[IntegerType] = I32Type, default: str | None = None) -> type["EnumType"]:
         """Construct the custom enum type
 
         Constructs the custom enumeration type, with the supplied enumeration dictionary.

@@ -199,7 +199,7 @@ class ConfigManager:
                         # Don't care value for sequences
                         "TB_DONT_CARE": 0xFFFF,
                     },
-                    rep_type="U16",
+                    rep_type=U16Type,
                 ),
                 "ComCfg.Apid": EnumType.construct_type(
                     "__GdsInternal_Apid_Fallback",
@@ -223,7 +223,7 @@ class ConfigManager:
                         # Space Packet Idle APID
                         "CCSDS_SPACE_PACKET_IDLE_APID": 0x7FF,
                     },
-                    rep_type="U16",
+                    rep_type=U16Type,
                 ),
             }
         )
