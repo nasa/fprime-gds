@@ -28,9 +28,6 @@ from fprime_gds.common.dp.common import (
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.templates.dp_record_template import DpRecordTemplate
-from fprime_gds.common.models.serialize.string_type import StringType
-from fprime_gds.common.models.serialize.serializable_type import SerializableType
-from fprime_gds.common.models.serialize.array_type import ArrayType
 
 # ==============================================================================
 # Custom Exceptions
