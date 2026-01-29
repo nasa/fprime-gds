@@ -16,6 +16,7 @@ helper functions
 
 import os
 
+from fprime_gds.common.models.serialize import numerical_types
 from fprime_gds.common.models.serialize.array_type import ArrayType
 from fprime_gds.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.models.serialize.enum_type import EnumType
@@ -45,6 +46,20 @@ from fprime_gds.version import (
 # Custom Python Modules
 from . import dict_loader
 
+# Mapping from primitive type name in JSON dictionary to Python type
+PRIMITIVE_TYPE_MAP = {
+    "I8": numerical_types.I8Type,
+    "I16": numerical_types.I16Type,
+    "I32": numerical_types.I32Type,
+    "I64": numerical_types.I64Type,
+    "U8": numerical_types.U8Type,
+    "U16": numerical_types.U16Type,
+    "U32": numerical_types.U32Type,
+    "U64": numerical_types.U64Type,
+    "F32": numerical_types.F32Type,
+    "F64": numerical_types.F64Type,
+    "bool": BoolType,
+}
 
 class XmlLoader(dict_loader.DictLoader):
     """Class to help load xml based dictionaries"""
@@ -206,7 +221,8 @@ class XmlLoader(dict_loader.DictLoader):
             # Check enum name
             if enum.get(self.ENUM_TYPE_TAG) == enum_name:
                 # Get serialize/representation type, if present
-                serialize_type = enum.get(self.ENUM_SERIALIZE_TYPE_TAG, "I32")
+                serialize_type_str = enum.get(self.ENUM_SERIALIZE_TYPE_TAG, "I32")
+                serialize_type = PRIMITIVE_TYPE_MAP.get(serialize_type_str, I32Type)
 
                 # Go through all possible values of the enum
                 members = {}

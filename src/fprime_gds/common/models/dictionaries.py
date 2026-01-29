@@ -23,6 +23,7 @@ from fprime_gds.common.loaders import cmd_json_loader
 from fprime_gds.common.loaders import event_json_loader
 from fprime_gds.common.loaders import type_json_loader
 from fprime_gds.common.loaders import constant_json_loader
+from fprime_gds.common.loaders import dp_json_loader
 
 
 class Dictionaries:
@@ -50,6 +51,10 @@ class Dictionaries:
         self._packet_dict = None
         self._typedefs_name_dict = None
         self._constant_name_dict = None
+        self._dp_record_id_dict = None
+        self._dp_record_name_dict = None
+        self._dp_container_id_dict = None
+        self._dp_container_name_dict = None
         self._versions = None
         self._metadata = None
         self._dictionary_path = None
@@ -89,6 +94,9 @@ class Dictionaries:
             # Load all constant definitions
             constant_loader = constant_json_loader.ConstantJsonLoader(dictionary)
             self._constant_name_dict = constant_loader.get_name_dict(None)
+            # Load data product records and containers
+            dp_loader = dp_json_loader.DpJsonLoader(dictionary)
+            (self._dp_record_id_dict, self._dp_record_name_dict, self._dp_container_id_dict, self._dp_container_name_dict, _) = dp_loader.construct_dicts(None)
             # Metadata
             self._versions = json_event_loader.get_versions()
             self._metadata = json_event_loader.get_metadata().copy()
@@ -156,6 +164,32 @@ class Dictionaries:
             )
         else:
             self._packet_dict = None
+
+    @staticmethod
+    def load_dictionaries_into_config(dictionary_path: str, packet_spec: str = None, packet_set_name: str = None) -> "Dictionaries":
+        """
+        Static helper method load a dictionary JSON file, update the ConfigManager with types and constants
+        defined in the dictionary, and return the loaded Dictionaries object.
+
+        :param dictionary_path: Path to the dictionary JSON file
+        :param packet_spec: Optional path to packet specification file, passed down to load_dictionaries
+        :param packet_set_name: Optional name of packet set to use, passed down to load_dictionaries
+
+        :return: Loaded Dictionaries object
+        """
+        from fprime_gds.common.utils.config_manager import ConfigManager
+
+        dictionaries = Dictionaries()
+        dictionaries.load_dictionaries(dictionary_path, packet_spec, packet_set_name)
+        config = ConfigManager.get_instance()
+        # Update config to use type definitions defined in the JSON dictionary
+        if dictionaries.typedefs_name:
+            for type_name, type_dict in dictionaries.typedefs_name.items():
+                config.set_type(type_name, type_dict)
+        if dictionaries.constant_name:
+            for name, value in dictionaries.constant_name.items():
+                config.set_constant(name, value)
+        return dictionaries
 
     @property
     def command_id(self):
@@ -241,3 +275,23 @@ class Dictionaries:
     def packet(self):
         """Packet dictionary"""
         return self._packet_dict
+
+    @property
+    def dp_record_id(self):
+        """Data Product Record dictionary by ID"""
+        return self._dp_record_id_dict
+
+    @property
+    def dp_record_name(self):
+        """Data Product Record dictionary by name"""
+        return self._dp_record_name_dict
+
+    @property
+    def dp_container_id(self):
+        """Data Product Container dictionary by ID"""
+        return self._dp_container_id_dict
+
+    @property
+    def dp_container_name(self):
+        """Data Product Container dictionary by name"""
+        return self._dp_container_name_dict

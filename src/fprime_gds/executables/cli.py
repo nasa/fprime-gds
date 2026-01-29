@@ -1038,21 +1038,10 @@ class DictionaryParser(DetectionParser):
             args = super().handle_arguments(args, **kwargs)
             args.dictionary = find_dict(args.deployment)
 
-        # Setup dictionaries encoders and decoders
-        dictionaries = Dictionaries()
-
-        dictionaries.load_dictionaries(
+        # Load dictionaries into global config and add it to args namespace
+        args.dictionaries = Dictionaries.load_dictionaries_into_config(
             args.dictionary, args.packet_spec, args.packet_set_name
         )
-        config = ConfigManager.get_instance()
-        # Update config to use type definitions defined in the JSON dictionary
-        if dictionaries.typedefs_name:
-            for type_name, type_dict in dictionaries.typedefs_name.items():
-                config.set_type(type_name, type_dict)
-        if dictionaries.constant_name:
-            for name, value in dictionaries.constant_name.items():
-                config.set_constant(name, value)
-        args.dictionaries = dictionaries
         return args
 
 

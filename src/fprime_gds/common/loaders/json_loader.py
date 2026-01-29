@@ -22,6 +22,7 @@ from fprime_gds.common.loaders import dict_loader
 from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
 
 
+# Mapping from primitive type name in JSON dictionary to Python type
 PRIMITIVE_TYPE_MAP = {
     "I8": numerical_types.I8Type,
     "I16": numerical_types.I16Type,
@@ -189,7 +190,7 @@ class JsonLoader(dict_loader.DictLoader):
         enum_type = EnumType.construct_type(
             type_name,
             enum_dict,
-            qualified_type["representationType"].get("name"),
+            PRIMITIVE_TYPE_MAP[qualified_type["representationType"].get("name")],
             default
         )
         self.parsed_types[type_name] = enum_type

@@ -3,6 +3,7 @@ Created on Dec 18, 2014
 @author: tcanham, reder
 """
 
+from typing import Optional
 import struct
 
 from .type_base import DictionaryType
@@ -15,11 +16,7 @@ from .type_exceptions import (
     InvalidRepresentationTypeException,
     RepresentationTypeRangeException,
 )
-from .numerical_types import IntegerType
-
-REPRESENTATION_TYPE_MAP = {
-    cls.get_canonical_name(): cls for cls in IntegerType.__subclasses__()
-}
+from .numerical_types import IntegerType, I32Type
 
 
 class EnumType(DictionaryType):
@@ -32,7 +29,7 @@ class EnumType(DictionaryType):
     """
 
     @classmethod
-    def construct_type(cls, name, enum_dict, rep_type="I32", default=None):
+    def construct_type(cls, name: str, enum_dict: dict[str, int], rep_type: type[IntegerType] = I32Type, default: Optional[str] = None) -> type["EnumType"]:
         """Construct the custom enum type
 
         Constructs the custom enumeration type, with the supplied enumeration dictionary.
@@ -51,16 +48,17 @@ class EnumType(DictionaryType):
             if not isinstance(enum_dict[member], int):
                 raise TypeMismatchException(int, enum_dict[member])
 
-        if rep_type not in REPRESENTATION_TYPE_MAP.keys():
+        # Representation type of an enum must be an integer type
+        if not issubclass(rep_type, IntegerType):
             raise InvalidRepresentationTypeException(
-                rep_type, REPRESENTATION_TYPE_MAP.keys()
+                rep_type, IntegerType.__subclasses__()
             )
 
         if default is not None and default not in enum_dict.keys():
             raise EnumMismatchException(name, default)
 
         for member in enum_dict.keys():
-            type_range = REPRESENTATION_TYPE_MAP[rep_type].range()
+            type_range = rep_type.range()
             if enum_dict[member] < type_range[0] or enum_dict[member] > type_range[1]:
                 raise RepresentationTypeRangeException(
                     member, enum_dict[member], rep_type, type_range
@@ -103,7 +101,7 @@ class EnumType(DictionaryType):
         ):
             raise NotInitializedException(type(self))
         return struct.pack(
-            REPRESENTATION_TYPE_MAP[self.REP_TYPE].get_serialize_format(),
+            self.REP_TYPE.get_serialize_format(),
             self.ENUM_DICT[self._val],
         )
 
@@ -113,7 +111,7 @@ class EnumType(DictionaryType):
         """
         try:
             int_val = struct.unpack_from(
-                REPRESENTATION_TYPE_MAP[self.REP_TYPE].get_serialize_format(),
+                self.REP_TYPE.get_serialize_format(),
                 data,
                 offset,
             )[0]
@@ -132,14 +130,14 @@ class EnumType(DictionaryType):
     def getSize(self):
         """Calculates the size based on the size of an integer used to store it"""
         return struct.calcsize(
-            REPRESENTATION_TYPE_MAP[self.REP_TYPE].get_serialize_format()
+            self.REP_TYPE.get_serialize_format()
         )
 
     @classmethod
     def getMaxSize(cls):
         """Maximum size of type"""
         return struct.calcsize(
-            REPRESENTATION_TYPE_MAP[cls.REP_TYPE].get_serialize_format()
+            cls.REP_TYPE.get_serialize_format()
         )
 
     @classmethod
