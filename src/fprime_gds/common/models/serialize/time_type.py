@@ -134,8 +134,8 @@ class TimeType(type_base.BaseType):
         """
         return {
             "type": self.__repr__(),
-            "base": self.__timeBase.numeric_value,
-            "context": self.__timeContext,
+            "base": self.timeBase.numeric_value,
+            "context": self.timeContext,
             "seconds": self.seconds,
             "microseconds": self.useconds,
         }
