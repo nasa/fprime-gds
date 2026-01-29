@@ -117,22 +117,16 @@ class DataProductDecoder:
             CRCError: If header checksum validation fails
         """
         header = get_dp_header_type()()
-        max_header_size = header.getMaxSize()
-        header_bin_data = file_handle.read(max_header_size)
+        header_size = header.getMaxSize()
+        header_bin_data = file_handle.read(header_size)
         header.deserialize(header_bin_data, 0)
-        
-        # Get actual header size and adjust file position
-        actual_header_size = header.getSize()
-        if actual_header_size < max_header_size:
-            # Seek back to correct position (we read too much)
-            file_handle.seek(file_handle.tell() - (max_header_size - actual_header_size))
 
         # Compute hash on header (from beginning until we hit the checksum)
-        computed_hash = calculate_crc32(header_bin_data[:actual_header_size - ChecksumConfig.CHECKSUM_LEN])
+        computed_hash = calculate_crc32(header_bin_data[:header_size - ChecksumConfig.CHECKSUM_LEN])
 
         # Validate hash
         if header.to_jsonable()["Checksum"]["value"] != computed_hash:
-            raise CRCError("Header", header['HeaderHash'], computed_hash)
+            raise CRCError("Header", header.to_jsonable()["Checksum"]["value"], computed_hash)
 
         return header
     
@@ -167,35 +161,21 @@ class DataProductDecoder:
         record_type = record_template.get_type()
         
         def read_element(element_type):
-            """Read a single element from file, handling variable-length types.
-            
-            Variable-length types (strings, structs with strings, arrays) require special handling:
-            1. Read getMaxSize() bytes into a buffer
-            2. Deserialize from the buffer (handles nested variable-length members)
-            3. Get actual bytes consumed via getSize()
-            4. Seek to correct absolute position
-            
-            This avoids cumulative position errors from relative seeking.
+            """Inner function of decode_record
+            Read a single element from file_handle, handling variable-length types.
             """
-
             element_instance = element_type()
-
-            # For types that may have variable length, read max size and adjust
-            if issubclass(element_type, (StringType, SerializableType, ArrayType)):
-                start_pos = file_handle.tell()
-                max_size = element_instance.getMaxSize()
-                buffer = file_handle.read(max_size)
-                # Deserialize from buffer
-                element_instance.deserialize(buffer, 0)
-                # Get actual size consumed
-                actual_size = element_instance.getSize()
-                # Seek to correct position (start + actual_size)
+            # Save start position and read MaxSize into a buffer
+            start_pos = file_handle.tell()
+            max_size = element_instance.getMaxSize()
+            buffer = file_handle.read(max_size)
+            # Deserialize from buffer
+            element_instance.deserialize(buffer, 0)
+            # If actual deserialized size is different than what was read, seek to correct position
+            actual_size = element_instance.getSize()
+            if actual_size != max_size:
+                # Seek to true end of element that was just read
                 file_handle.seek(start_pos + actual_size)
-            else:
-                # For fixed-size types, just read the exact size
-                element_data = file_handle.read(element_instance.getMaxSize())
-                element_instance.deserialize(element_data, 0)
-
             return element_instance
 
         # decode based on whether it's an array or scalar

@@ -303,7 +303,23 @@ class TestDataProductDecoderErrorHandling:
         # Corrupted file should raise some kind of error
         with pytest.raises((CRCError, RecordNotFoundError)):
             decoder.decode()
-    
+
+    def test_decode_corrupted_header(self, load_dictionary, tmp_path):
+        """Test decoding of corrupted data product file raises an error.
+        
+        Corrupted files may raise CRCError (if checksum fails) or 
+        RecordNotFoundError (if record IDs are corrupted).
+        """
+        decoder = DataProductDecoder(
+            load_dictionary,
+            str(TEST_DATA_DIR / "CRC_HEADER_FAILURE_EXPECTED.bin"),
+            str(tmp_path / "corrupted.json")
+        )
+
+        # Corrupted file should raise some kind of error
+        with pytest.raises((CRCError, RecordNotFoundError)):
+            decoder.decode()
+
     def test_decode_nonexistent_file(self, load_dictionary, tmp_path):
         """Test decoding of non-existent file raises FileNotFoundError."""
         decoder = DataProductDecoder(

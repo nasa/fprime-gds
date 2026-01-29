@@ -209,36 +209,35 @@ class DataProductValidator:
             bool: True if validation succeeds, False otherwise
         """
         try:
-            dp_f = open(data_product_path, 'rb')
+            with open(data_product_path, 'rb') as dp_f:
+                # See validate_with_guess for this calculation
+                min_header_size = 1+2+2+8+1+0+1+2+4  # 21 bytes
+                # Minimum data product is a header, one byte of payload and 4 bytes of checksum
+                min_dp_size = min_header_size + 1 + 4
+
+                dp_f.seek(0, os.SEEK_END)
+                dp_size = dp_f.tell()
+                dp_f.seek(0, os.SEEK_SET)
+
+                if dp_size < min_dp_size:
+                    print(f'Data Product file size below minimum {min_dp_size}', file=sys.stderr)
+                    return False
+
+                if self.header_size is not None and self.header_size > 0:
+                    min_dp_size = self.header_size + 1 + 4
+                    if dp_size < min_dp_size:
+                        print(f'Data Product file size below minimum {min_dp_size}', file=sys.stderr)
+                        return False
+
+                    checksum_ok = self.validate_with_size(dp_f)
+                elif self.dictionary is not None:
+                    checksum_ok = self.validate_with_dict(dp_f)
+                else:
+                    checksum_ok = self.validate_with_guess(dp_f)
+                
+                if checksum_ok:
+                    print("Validation OK!")
+                return checksum_ok
         except Exception as e:
-            print(f'Unable to open Data Product file {data_product_path}', file=sys.stderr)
+            print(f'Unable to validate Data Product file {data_product_path}', file=sys.stderr)
             raise e
-
-        # See validate_with_guess for this calculation
-        min_header_size = 1+2+2+8+1+0+1+2+4  # 21 bytes
-        # Minimum data product is a header, one byte of payload and 4 bytes of checksum
-        min_dp_size = min_header_size + 1 + 4
-
-        dp_f.seek(0, os.SEEK_END)
-        dp_size = dp_f.tell()
-        dp_f.seek(0, os.SEEK_SET)
-
-        if dp_size < min_dp_size:
-            print(f'Data Product file size below minimum {min_dp_size}', file=sys.stderr)
-            return False
-
-        if self.header_size is not None and self.header_size > 0:
-            min_dp_size = self.header_size + 1 + 4
-            if dp_size < min_dp_size:
-                print(f'Data Product file size below minimum {min_dp_size}', file=sys.stderr)
-                return False
-
-            checksum_ok = self.validate_with_size(dp_f)
-        elif self.dictionary is not None:
-            checksum_ok = self.validate_with_dict(dp_f)
-        else:
-            checksum_ok = self.validate_with_guess(dp_f)
-        dp_f.close()
-        if checksum_ok:
-            print("Validation OK!")
-        return checksum_ok
