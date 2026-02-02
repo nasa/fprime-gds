@@ -149,7 +149,7 @@ class TransmitFile:
 
         self.__state = "TRANSMITTING"
         self.__fd = open(filepath, filemode)
-        self.__start = datetime.datetime.utcnow()
+        self.__start = datetime.datetime.now(datetime.UTC)
         if self.__log_dir is not None:
             self.__log_handler = logging.FileHandler(
                 os.path.join(self.__log_dir, f"{os.path.basename(filepath)}.log"),
@@ -203,7 +203,7 @@ class TransmitFile:
         if self.__fd is not None:
             self.__fd.close()
             self.__fd = None
-            self.__end = datetime.datetime.utcnow()
+            self.__end = datetime.datetime.now(datetime.UTC)
 
     @property
     def start(self):
