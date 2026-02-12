@@ -11,7 +11,7 @@ from fprime_gds.common.models.serialize import time_type
 
 from fprime_gds.common.data_types import sys_data
 from fprime_gds.common.utils.string_util import format_string_template
-
+import subprocess
 
 class EventData(sys_data.SysData):
     """
@@ -40,10 +40,29 @@ class EventData(sys_data.SysData):
         self.args = event_args
         self.time = event_time
         self.template = event_temp
+
         if event_args is None:
             self.display_text = event_temp.description
-        elif event_temp.format_str == "":
-            args_template = self.template.get_args()
+            return
+
+        args_template = self.template.get_args()
+        for index, arg in enumerate(event_args):
+
+            # determine if args contain a hashed file
+            if args_template[index][0] != 'file':
+                continue
+            try:
+                int(arg.val, 16)
+            except ValueError:
+                continue
+
+            # if so decode the filename and insert into arg
+            command = ['fprime-util', 'hash-to-file', arg.val]
+            result = subprocess.run(command, capture_output=True, text=True)
+            file = result.stdout.split('\n')[-2].split(':')[0].strip()
+            event_args[index].val = file
+
+        if event_temp.format_str == "":
             self.display_text = str(
                 [
                     {args_template[index][0]: arg.val}
