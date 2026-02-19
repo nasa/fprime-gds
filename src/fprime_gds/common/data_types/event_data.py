@@ -48,30 +48,12 @@ class EventData(sys_data.SysData):
             self.display_text = event_temp.description
             return
 
-        args_template = self.template.get_args()
-        if event_temp.name.startswith('AF_'):
-            for index, arg in enumerate(event_args):
-
-                # determine if args contain a hashed file
-                if args_template[index][0] != 'file':
-                    continue
-                try:
-                    hash_value = int(arg.val, 16)
-                except ValueError:
-                    continue
-
-                # if so decode the filename and insert into arg
-                build_dir = Path(os.environ['BUILD_DIR'])
-                parent_dir = build_dir.parent
-
-                build = Build(0, Build.find_nearest_parent_project(build_dir))
-                build.build_dir = build_dir
-                lines = build.find_hashed_file(hash_value)
-
-                file = parent_dir / Path(lines[0].split(':')[0].strip())
-                event_args[index].val = str(file)
-
+        if event_temp.name.startswith('AF_ASSERT') or event_temp.name == "AF_UNEXPECTED_ASSERT":
+            self._decode_hashed_files()
+                
         if event_temp.format_str == "":
+            args_template = self.template.get_args()
+
             self.display_text = str(
                 [
                     {args_template[index][0]: arg.val}
@@ -82,6 +64,30 @@ class EventData(sys_data.SysData):
             self.display_text = format_string_template(
                 event_temp.format_str, tuple([arg.val for arg in event_args])
             )
+
+    def _decode_hashed_files(self):
+        args_template = self.template.get_args()
+
+        for index, arg in enumerate(self.args):
+
+            # determine if args contain a hashed file
+            if args_template[index][0] != 'file':
+                continue
+            try:
+                hash_value = int(arg.val, 16)
+            except ValueError:
+                continue
+
+            # if so decode the filename and insert into arg
+            build_dir = Path(os.environ['BUILD_DIR'])
+            parent_dir = build_dir.parent
+
+            build = Build(0, Build.find_nearest_parent_project(build_dir))
+            build.build_dir = build_dir
+            lines = build.find_hashed_file(hash_value)
+
+            file = parent_dir / Path(lines[0].split(':')[0].strip())
+            self.args[index].val = str(file)
 
     def get_args(self):
         return self.args
