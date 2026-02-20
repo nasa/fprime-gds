@@ -478,6 +478,27 @@ class DetectionParser(ParserBase):
         args.deployment = child_directories[0]
         return args
 
+class HashFileParser(ParserBase):
+    """Parser for detecting and/or loading the hashes.txt file for hash decoding"""
+
+    def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
+        return {
+            ("--hash-file",): {
+                "dest": "hash_file",
+                "action": "store",
+                "required": False,
+                "type": str,
+                "help": "File containing maps between program files and their hash codes",
+            }
+        }
+    
+    def handle_arguments(self, args, **kwargs):
+        if args.hash_file:
+            args.hash_file = Path(args.hash_file)
+        elif args.deployment:
+            hash_file = args.deployment.parent.parent / "hashes.txt"
+            args.hash_file = hash_file if hash_file.exists() else None
+        return args
 
 class BareArgumentParser(ParserBase):
     """Takes in the argument specification (used in plugins and get_arguments) to parse args
@@ -1106,6 +1127,7 @@ class StandardPipelineParser(CompositeParser):
 
     CONSTITUENTS = [
         DictionaryParser,
+        HashFileParser,
         FileHandlingParser,
         MiddleWareParser,
         LogDeployParser,
@@ -1148,6 +1170,7 @@ class CommParser(CompositeParser):
 
     CONSTITUENTS = [
         DictionaryParser,  # needed to get types from dictionary for framing
+        HashFileParser,
         CommExtraParser,
         MiddleWareParser,
         LogDeployParser,

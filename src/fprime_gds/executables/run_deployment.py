@@ -122,9 +122,10 @@ def launch_html(parsed_args):
             "FLASK_APP": "fprime_gds.flask.app",
             "STANDARD_PIPELINE_ARGUMENTS": "|".join(reproduced_arguments),
             "SERVE_LOGS": "YES",
-            "BUILD_DIR": parsed_args.deployment.parent.parent
         }
     )
+    if parsed_args.hash_file:
+        flask_env.update({"HASH_FILE": parsed_args.hash_file})
     gse_args = BASE_MODULE_ARGUMENTS + [
         "flask",
         "run",

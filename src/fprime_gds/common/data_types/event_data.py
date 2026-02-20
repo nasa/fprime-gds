@@ -11,7 +11,6 @@ from fprime_gds.common.models.serialize import time_type
 
 from fprime_gds.common.data_types import sys_data
 from fprime_gds.common.utils.string_util import format_string_template
-from fprime.fbuild.builder import Build
 from pathlib import Path
 
 import os
@@ -48,7 +47,10 @@ class EventData(sys_data.SysData):
             self.display_text = event_temp.description
             return
 
-        if event_temp.name.startswith('AF_ASSERT') or event_temp.name == "AF_UNEXPECTED_ASSERT":
+        if (
+            (event_temp.name.startswith('AF_ASSERT') or event_temp.name == "AF_UNEXPECTED_ASSERT") and
+            'HASH_FILE' in os.environ
+        ):
             self._decode_hashed_files()
                 
         if event_temp.format_str == "":
@@ -66,11 +68,11 @@ class EventData(sys_data.SysData):
             )
 
     def _decode_hashed_files(self):
-        args_template = self.template.get_args()
+        "Searches event args for hashed files and replaces them with their corresponding file names"
 
+        args_template = self.template.get_args()
         for index, arg in enumerate(self.args):
 
-            # determine if args contain a hashed file
             if args_template[index][0] != 'file':
                 continue
             try:
@@ -78,16 +80,14 @@ class EventData(sys_data.SysData):
             except ValueError:
                 continue
 
-            # if so decode the filename and insert into arg
-            build_dir = Path(os.environ['BUILD_DIR'])
-            parent_dir = build_dir.parent
-
-            build = Build(0, Build.find_nearest_parent_project(build_dir))
-            build.build_dir = build_dir
-            lines = build.find_hashed_file(hash_value)
-
-            file = parent_dir / Path(lines[0].split(':')[0].strip())
-            self.args[index].val = str(file)
+            hash_file = Path(os.environ['HASH_FILE'])
+            
+            with open(hash_file) as file_handle:
+                lines = filter(
+                    lambda line: hash_value == int(line.split(" ")[-1], 0),
+                    file_handle.readlines(),
+                )
+            self.args[index].val = next(lines).split(':')[0].strip()
 
     def get_args(self):
         return self.args
