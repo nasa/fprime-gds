@@ -479,7 +479,7 @@ class DetectionParser(ParserBase):
         return args
 
 class HashFileParser(ParserBase):
-    """Parser for detecting and/or loading the hashes.txt file for hash decoding"""
+    """Parser for detecting and loading the hashes.txt file for hash decoding"""
 
     def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
         return {
@@ -488,13 +488,17 @@ class HashFileParser(ParserBase):
                 "action": "store",
                 "required": False,
                 "type": str,
-                "help": "File containing maps between program files and their hash codes",
+                "help": "File containing map between hash codes and their corresponding program files",
             }
         }
     
     def handle_arguments(self, args, **kwargs):
         if args.hash_file:
             args.hash_file = Path(args.hash_file)
+            if not args.hash_file.exists():
+                msg = f"[ERROR] hash file location {args.hash_file} does not exist"
+                print(msg, file=sys.stderr)
+                sys.exit(-1)
         elif args.deployment:
             hash_file = args.deployment.parent.parent / "hashes.txt"
             args.hash_file = hash_file if hash_file.exists() else None

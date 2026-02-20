@@ -68,7 +68,7 @@ class EventData(sys_data.SysData):
             )
 
     def _decode_hashed_files(self):
-        "Searches event args for hashed files and replaces them with their corresponding file names"
+        "Searches event args for hashed files and replaces each with its corresponding file name"
 
         args_template = self.template.get_args()
         for index, arg in enumerate(self.args):
@@ -81,13 +81,13 @@ class EventData(sys_data.SysData):
                 continue
 
             hash_file = Path(os.environ['HASH_FILE'])
-            
             with open(hash_file) as file_handle:
                 lines = filter(
                     lambda line: hash_value == int(line.split(" ")[-1], 0),
                     file_handle.readlines(),
                 )
-            self.args[index].val = next(lines).split(':')[0].strip()
+            if len(list(lines)) > 0:
+                self.args[index].val = next(lines).split(':')[0].strip()
 
     def get_args(self):
         return self.args
