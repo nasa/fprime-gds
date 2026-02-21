@@ -196,3 +196,129 @@ def test_decode_empty_file():
     params = decode_dat_to_params(empty_data, id_dict)
 
     assert len(params) == 0, "Empty file should decode to empty list"
+
+
+def test_encoder_format_conversion_array():
+    """Test converting array to_jsonable format to encoder format."""
+    from fprime_gds.common.templates.prm_template import PrmTemplate
+    from fprime_gds.common.models.serialize.numerical_types import U32Type
+
+    # Simulate array to_jsonable() output
+    template = PrmTemplate(1, "arrayParam", "comp1", U32Type, None)
+    array_value = {
+        "name": "Array_U32_3",
+        "type": "Array_U32_3",
+        "size": 3,
+        "values": [
+            {"value": 10, "type": "U32"},
+            {"value": 20, "type": "U32"},
+            {"value": 30, "type": "U32"}
+        ]
+    }
+
+    params = [(template, array_value)]
+    result = params_to_json(params)
+
+    # Should convert to simple list format
+    assert result == {"comp1": {"arrayParam": [10, 20, 30]}}
+
+
+def test_encoder_format_conversion_struct():
+    """Test converting struct to_jsonable format to encoder format."""
+    from fprime_gds.common.templates.prm_template import PrmTemplate
+    from fprime_gds.common.models.serialize.numerical_types import U32Type
+
+    # Simulate struct to_jsonable() output
+    template = PrmTemplate(1, "structParam", "comp1", U32Type, None)
+    struct_value = {
+        "x": {"value": 1.0, "format": "{f}", "description": "X component"},
+        "y": {"value": 2.0, "format": "{f}", "description": "Y component"},
+        "z": {"value": 3.0, "format": "{f}", "description": "Z component"}
+    }
+
+    params = [(template, struct_value)]
+    result = params_to_json(params)
+
+    # Should convert to simple dict format
+    assert result == {"comp1": {"structParam": {"x": 1.0, "y": 2.0, "z": 3.0}}}
+
+
+def test_encoder_format_conversion_primitive():
+    """Test converting primitive wrapper to encoder format."""
+    from fprime_gds.common.templates.prm_template import PrmTemplate
+    from fprime_gds.common.models.serialize.numerical_types import U32Type
+
+    # Simulate primitive to_jsonable() output
+    template = PrmTemplate(1, "intParam", "comp1", U32Type, None)
+    primitive_value = {"value": 42, "type": "U32"}
+
+    params = [(template, primitive_value)]
+    result = params_to_json(params)
+
+    # Should extract just the value
+    assert result == {"comp1": {"intParam": 42}}
+
+
+def test_encoder_format_conversion_passthrough():
+    """Test that simple values pass through unchanged."""
+    from fprime_gds.common.templates.prm_template import PrmTemplate
+    from fprime_gds.common.models.serialize.numerical_types import U32Type
+
+    # Simple values should pass through unchanged
+    template1 = PrmTemplate(1, "numParam", "comp1", U32Type, None)
+    template2 = PrmTemplate(2, "strParam", "comp1", U32Type, None)
+    template3 = PrmTemplate(3, "listParam", "comp1", U32Type, None)
+
+    params = [
+        (template1, 123),
+        (template2, "test"),
+        (template3, [1, 2, 3])
+    ]
+    result = params_to_json(params)
+
+    assert result == {
+        "comp1": {
+            "numParam": 123,
+            "strParam": "test",
+            "listParam": [1, 2, 3]
+        }
+    }
+
+
+def test_encoder_format_nested_structures():
+    """Test converting nested structures (array of structs)."""
+    from fprime_gds.common.templates.prm_template import PrmTemplate
+    from fprime_gds.common.models.serialize.numerical_types import U32Type
+
+    # Array of structs
+    template = PrmTemplate(1, "nestedParam", "comp1", U32Type, None)
+    nested_value = {
+        "name": "Array_Vector3_2",
+        "type": "Array_Vector3_2",
+        "size": 2,
+        "values": [
+            {
+                "x": {"value": 1.0, "format": "{f}", "description": "X"},
+                "y": {"value": 2.0, "format": "{f}", "description": "Y"},
+                "z": {"value": 3.0, "format": "{f}", "description": "Z"}
+            },
+            {
+                "x": {"value": 4.0, "format": "{f}", "description": "X"},
+                "y": {"value": 5.0, "format": "{f}", "description": "Y"},
+                "z": {"value": 6.0, "format": "{f}", "description": "Z"}
+            }
+        ]
+    }
+
+    params = [(template, nested_value)]
+    result = params_to_json(params)
+
+    # Should convert to nested simple format
+    assert result == {
+        "comp1": {
+            "nestedParam": [
+                {"x": 1.0, "y": 2.0, "z": 3.0},
+                {"x": 4.0, "y": 5.0, "z": 6.0}
+            ]
+        }
+    }

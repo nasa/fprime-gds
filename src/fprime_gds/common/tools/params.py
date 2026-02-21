@@ -345,12 +345,39 @@ def params_to_json(params: list[tuple[PrmTemplate, Any]]) -> dict:
         ...
     }
 
+    Complex types from to_jsonable() are converted to simple format that
+    instantiate_prm_type() expects for round-trip compatibility.
+
     Args:
         params: List of (PrmTemplate, value) tuples
 
     Returns:
         Dictionary in the JSON format used by fprime-prm-write
     """
+    def to_encoder_format(value):
+        """Convert to_jsonable() output to format expected by instantiate_prm_type()."""
+        if value is None:
+            return None
+
+        # Handle lists recursively
+        if isinstance(value, list):
+            return [to_encoder_format(v) for v in value]
+
+        # Only process dicts from here
+        if not isinstance(value, dict):
+            return value
+
+        # Array: {"values": [...]} -> [...]
+        if "values" in value and isinstance(value.get("values"), list):
+            return [to_encoder_format(v) for v in value["values"]]
+
+        # Any dict with "value" key (primitive wrapper or struct member) -> extract value
+        if "value" in value:
+            return to_encoder_format(value["value"])
+
+        # Plain dict (struct without metadata): recursively process all fields
+        return {k: to_encoder_format(v) for k, v in value.items()}
+
     result = {}
 
     for prm_template, value in params:
@@ -361,8 +388,8 @@ def params_to_json(params: list[tuple[PrmTemplate, Any]]) -> dict:
         if comp_name not in result:
             result[comp_name] = {}
 
-        # Add parameter to component
-        result[comp_name][prm_name] = value
+        # Add parameter to component with encoder-compatible format
+        result[comp_name][prm_name] = to_encoder_format(value)
 
     return result
 
