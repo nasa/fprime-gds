@@ -500,7 +500,7 @@ class HashFileParser(ParserBase):
                 print(msg, file=sys.stderr)
                 sys.exit(-1)
         elif args.deployment:
-            hash_file = args.deployment.parent.parent / "hashes.txt"
+            hash_file = (Path(args.deployment) / ".."/ ".." / "hashes.txt").resolve()
             args.hash_file = hash_file if hash_file.exists() else None
         return args
 
