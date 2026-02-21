@@ -64,7 +64,7 @@ fprime-cli = "fprime_gds.executables.fprime_cli:main"
 fprime-seqgen = "fprime_gds.common.tools.seqgen:main"
 fprime-dp = "fprime_gds.executables.data_products:main"
 fprime-gds = "fprime_gds.executables.run_deployment:main"
-fprime-prm-write = "fprime_gds.common.tools.params:main"
+fprime-prm-write = "fprime_gds.common.tools.params:main_encode"
 fprime-prm-decode = "fprime_gds.common.tools.params:main_decode"
 fprime-merge-dictionary = "fprime_gds.executables.dictionary_merge:main"
 

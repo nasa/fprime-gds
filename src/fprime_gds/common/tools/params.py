@@ -154,7 +154,12 @@ def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_impl
     return templates_to_values
 
 
-def main():
+def main_encode():
+    """CLI entry point for fprime-prm-write (encoding).
+
+    Encodes parameter JSON files into binary .dat files or command sequence .seq files.
+    This is the inverse operation of fprime-prm-decode.
+    """
     arg_parser = ArgumentParser()
     subparsers = arg_parser.add_subparsers(dest="subcmd", required=True)
 
@@ -438,15 +443,15 @@ def params_to_csv(params: list[tuple[PrmTemplate, Any]]) -> str:
 
 
 def main_decode():
-    """CLI entry point for fprime-prm-decode."""
-    arg_parser = ArgumentParser(
-        description="Decode binary parameter database (.dat) files into human-readable formats"
-    )
+    """CLI entry point for fprime-prm-decode (decoding).
+
+    Decodes binary parameter database (.dat) files into human-readable formats.
+    This is the inverse operation of fprime-prm-write.
+    """
+    arg_parser = ArgumentParser()
 
     arg_parser.add_argument(
-        "dat_file",
-        type=Path,
-        help="The .dat file to decode"
+        "dat_file", type=Path, help="The .dat file to decode", default=None
     )
     arg_parser.add_argument(
         "--dictionary",
@@ -455,80 +460,62 @@ def main_decode():
         help="The dictionary file of the FSW",
         required=True,
     )
-    arg_parser.add_argument(
-        "--format",
-        "-f",
-        type=str,
-        choices=["json", "text", "csv"],
-        default="json",
-        help="Output format (default: json)"
-    )
-    arg_parser.add_argument(
-        "--output",
-        "-o",
-        type=Path,
-        help="The output file (default: <dat_file>.<format>)",
-        default=None
-    )
+    arg_parser.add_argument("--format", "-f", type=str, choices=["json", "text", "csv"], default="json", help="Output format (default: json)")
+    arg_parser.add_argument("--output", "-o", type=Path, help="The output file", default=None)
+
 
     args = arg_parser.parse_args()
 
-    # Validate input file
-    if not args.dat_file.exists():
-        print(f"Error: Unable to find {args.dat_file}")
+    if args.dat_file is None or not args.dat_file.exists():
+        print("Unable to find", args.dat_file)
         exit(1)
 
     if args.dat_file.is_dir():
-        print(f"Error: {args.dat_file} is a directory, not a file")
+        print("dat-file is a dir", args.dat_file)
         exit(1)
 
-    # Validate dictionary
     if not args.dictionary.exists():
-        print(f"Error: Unable to find dictionary {args.dictionary}")
+        print("Unable to find", args.dictionary)
         exit(1)
 
-    # Determine output path
+    output_format = args.format
+
+    # determine output path
     if args.output is None:
-        output_path = args.dat_file.with_suffix(f".{args.format}")
+        output_path = args.dat_file.with_suffix("." + output_format)
     else:
         output_path = args.output
 
-    print(f"Decoding {args.dat_file} to {output_path} (format: {args.format})")
+    print("Decoding", args.dat_file, "to", output_path, "(format: ." + output_format + ")")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        # Load dictionary
-        dict_parser = PrmJsonLoader(str(args.dictionary.resolve()))
-        id_dict, name_dict, versions = dict_parser.construct_dicts(
-            str(args.dictionary.resolve())
-        )
+    # Load dictionary
+    dict_parser = PrmJsonLoader(str(args.dictionary.resolve()))
+    id_dict, name_dict, versions = dict_parser.construct_dicts(
+        str(args.dictionary.resolve())
+    )
 
-        # Read .dat file
-        dat_bytes = args.dat_file.read_bytes()
+    # Read and decode .dat file
+    dat_bytes = args.dat_file.read_bytes()
+    params = decode_dat_to_params(dat_bytes, id_dict)
 
-        # Decode parameters
-        params = decode_dat_to_params(dat_bytes, id_dict)
+    # Format output based on requested format
+    if output_format == "json":
+        output_data = params_to_json(params)
+        output_content = js.dumps(output_data, indent=4)
+    elif output_format == "text":
+        output_content = params_to_text(params)
+    elif output_format == "csv":
+        output_content = params_to_csv(params)
+    else:
+        raise RuntimeError("Invalid output format " + str(output_format))
 
-        # Format output
-        if args.format == "json":
-            output_data = params_to_json(params)
-            output_content = js.dumps(output_data, indent=4)
-        elif args.format == "text":
-            output_content = params_to_text(params)
-        elif args.format == "csv":
-            output_content = params_to_csv(params)
-        else:
-            raise RuntimeError(f"Invalid output format: {args.format}")
-
-        # Write output
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(output_content)
-
-        print(f"Done! Decoded {len(params)} parameter(s)")
-
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        exit(1)
+    # Write output
+    print("Done, writing to", output_path.resolve())
+    output_path.write_text(output_content)
 
 
 if __name__ == "__main__":
-    main()
+    # This file was originally created to encode parameter database files
+    # Keep this backwards compatibility
+    main_encode()
