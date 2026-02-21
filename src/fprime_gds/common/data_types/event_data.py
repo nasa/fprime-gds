@@ -80,14 +80,16 @@ class EventData(sys_data.SysData):
             except ValueError:
                 continue
 
-            hash_file = Path(os.environ['HASH_FILE'])
+            hash_file = os.environ['HASH_FILE']
             with open(hash_file) as file_handle:
                 lines = filter(
                     lambda line: hash_value == int(line.split(" ")[-1], 0),
                     file_handle.readlines(),
                 )
-            if len(list(lines)) > 0:
-                self.args[index].val = next(lines).split(':')[0].strip()
+            line = next(lines, None)
+            if line is not None:
+                file = Path(line.split(':')[0].strip()).absolute()
+                self.args[index].val = str(file)
 
     def get_args(self):
         return self.args
