@@ -96,10 +96,15 @@ def fprime_test_api_session(request):
         fprime test API connected to the GDS.  Note: a second call will shut down that object.
     """
     pipeline_parser = StandardPipelineParser()
+
+    # The next few lines use the ConfigDrivenParser to retrieve default configuration from a file. 
+    # ConfigDrivenParser.parse_args() can NOT be used directly because it includes validation 
+    # of all arguments (including defaults) which is not applicable here
+    
     # Get configuration file data
     config_args, _, remaining = ConfigDrivenParser.parse_config_options()
 
-    # Create a parser that **parses but does not validate** the standard pipeline options
+    # Create a parser for the standard pipeline options
     aparser = argparse.ArgumentParser()
     for flags, specifiers in StandardPipelineParser().get_arguments().items():
         # Reduce flags to only the long option (i.e. --something) form
