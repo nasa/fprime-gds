@@ -478,33 +478,6 @@ class DetectionParser(ParserBase):
         args.deployment = child_directories[0]
         return args
 
-class HashFileParser(ParserBase):
-    """Parser for detecting and loading the hashes.txt file for hash decoding"""
-
-    DESCRIPTION = "Hash file options"
-
-    def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
-        return {
-            ("--hash-file",): {
-                "dest": "hash_file",
-                "action": "store",
-                "required": False,
-                "type": str,
-                "help": "Path to hashes.txt file map (found under build-artifacts dir by default)",
-            }
-        }
-    
-    def handle_arguments(self, args, **kwargs):
-        if args.hash_file:
-            args.hash_file = Path(args.hash_file)
-            if not args.hash_file.exists():
-                msg = f"[ERROR] hash file location {args.hash_file} does not exist"
-                print(msg, file=sys.stderr)
-                sys.exit(-1)
-        elif args.deployment:
-            hash_file = (Path(args.deployment) / ".."/ ".." / "hashes.txt").resolve()
-            args.hash_file = hash_file if hash_file.exists() else None
-        return args
 
 class BareArgumentParser(ParserBase):
     """Takes in the argument specification (used in plugins and get_arguments) to parse args
@@ -1069,6 +1042,39 @@ class DictionaryParser(DetectionParser):
         args.dictionaries = Dictionaries.load_dictionaries_into_config(
             args.dictionary, args.packet_spec, args.packet_set_name
         )
+        return args
+
+
+class HashFileParser(DetectionParser):
+    """Parser for detecting and loading the hashes.txt file for hash decoding"""
+
+    DESCRIPTION = "Hash file options"
+
+    def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
+        return {
+            ("--hash-file",): {
+                "dest": "hash_file",
+                "action": "store",
+                "required": False,
+                "type": str,
+                "help": "Path to hashes.txt file map (found under build-artifacts dir by default)",
+            }
+        }
+
+    def handle_arguments(self, args, **kwargs):
+        if args.hash_file:
+            args.hash_file = Path(args.hash_file)
+            if not args.hash_file.exists():
+                msg = f"[ERROR] hash file location {args.hash_file} does not exist"
+                print(msg, file=sys.stderr)
+                sys.exit(-1)
+            return args
+
+        if args.deployment is None:
+            super().handle_arguments(args, **kwargs)
+        if args.deployment:
+            hash_file = (Path(args.deployment) / ".."/ ".." / "hashes.txt").resolve()
+            args.hash_file = hash_file if hash_file.exists() else None
         return args
 
 
