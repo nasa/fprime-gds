@@ -49,7 +49,7 @@ class EventData(sys_data.SysData):
 
         if (
             (event_temp.name.startswith('AF_ASSERT') or event_temp.name == "AF_UNEXPECTED_ASSERT") and
-            'HASH_FILE' in os.environ
+            'FPRIME_HASHES_TXT_FILE' in os.environ
         ):
             self._decode_hashed_files()
                 
@@ -80,7 +80,7 @@ class EventData(sys_data.SysData):
             except ValueError:
                 continue
 
-            hash_file = Path(os.environ['HASH_FILE'])
+            hash_file = Path(os.environ['FPRIME_HASHES_TXT_FILE'])
             with hash_file.open() as file_handle:
                 for line in file_handle:
                     if hash_value == int(line.split(" ")[-1], 0):
