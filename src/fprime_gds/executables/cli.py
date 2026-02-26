@@ -1176,7 +1176,6 @@ class CommParser(CompositeParser):
 
     CONSTITUENTS = [
         DictionaryParser,  # needed to get types from dictionary for framing
-        HashFileParser,
         CommExtraParser,
         MiddleWareParser,
         LogDeployParser,
