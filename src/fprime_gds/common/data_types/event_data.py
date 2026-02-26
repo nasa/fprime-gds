@@ -11,7 +11,6 @@ from fprime_gds.common.models.serialize import time_type
 
 from fprime_gds.common.data_types import sys_data
 from fprime_gds.common.utils.string_util import format_string_template
-from pathlib import Path
 
 import os
 
@@ -83,7 +82,7 @@ class EventData(sys_data.SysData):
                 continue
 
             hash_file = os.environ['FPRIME_HASHES_TXT_FILE']
-            with hash_file.open() as file_handle:
+            with open(hash_file) as file_handle:
                 for line in file_handle:
                     if hash_value == int(line.split(" ")[-1], 0):
                         arg.val = line.split(':')[0].strip()
