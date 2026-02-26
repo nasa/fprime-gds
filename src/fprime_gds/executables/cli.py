@@ -18,6 +18,7 @@ import os
 import platform
 import re
 import sys
+import pathlib
 
 import yaml
 
@@ -315,16 +316,56 @@ class ConfigDrivenParser(ParserBase):
     line arguments will still take precedence over the configured values.
     """
 
+    #
     DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
+
+    # Takes precendence over default path
+    DEFAULT_CONFIGURATION_PATH_ENV = "FPRIME_GDS_CONFIG_PATH"
 
     @classmethod
     def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
 
         Set the path for default configuration file. If unset, will use 'fprime-gds.yml'. Set to None to disable default
-        configuration.
+        configuration.Calling this function disables the environment variable override
         """
         cls.DEFAULT_CONFIGURATION_PATH = path
+        del os.environ[cls.DEFAULT_CONFIGURATION_PATH_ENV]
+
+    @classmethod
+    def get_default_configuration(cls):
+        """get path for (global) default configuration file
+        If set, the environment variable (cls.DEFAULT_CONFIGURATION_PATH) overrides default config.
+
+        Get the path for default configuration file. If unset, will use 'fprime-gds.yml'. Set to None to disable default
+        configuration.Calling this function disables the environment variable override
+        """
+        if cls.DEFAULT_CONFIGURATION_PATH_ENV in os.environ:
+            return pathlib.Path(os.environ[cls.DEFAULT_CONFIGURATION_PATH_ENV])
+        else:
+            return cls.DEFAULT_CONFIGURATION_PATH
+
+    @classmethod
+    def parse_config_options(
+        cls, description="No tool description provided", arguments=None, **kwargs
+    ):
+        """Parse the arguments from the configuraiton file
+
+        Parse the configuration data, return the configuration file settings converted to
+        cmd line arguments, the name-space for config arguments, and the remaining unknown
+        arguments
+
+         Args:
+             description: description passed ot the argument parser
+             arguments: arguments to process, None to use command line input
+         Returns: list of command line options, namespace for config arguments, list of unknown arguments
+        """
+        ns_config, _, remaining = ParserBase.parse_known_args(
+            [ConfigDrivenParser], description, arguments, **kwargs
+        )
+        config_options = ns_config.config_values.get("command-line-options", {})
+        config_args = cls.flatten_options(config_options)
+        return config_args, ns_config, remaining
 
     @classmethod
     def parse_args(
@@ -345,6 +386,8 @@ class ConfigDrivenParser(ParserBase):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
+        # If the FPRIME_GDS_CONFIG_PATH environment variable is set, set its value to be the default
+        # config path
         arguments = sys.argv[1:] if arguments is None else arguments
 
         # Help should spill all the arguments, so delegate to the normal parsing flow including
@@ -353,14 +396,12 @@ class ConfigDrivenParser(ParserBase):
             parsers = [ConfigDrivenParser] + parser_classes
             ParserBase.parse_args(parsers, description, arguments, **kwargs)
             sys.exit(0)
-
         # Custom flow involving parsing the arguments of this parser first, then passing the configured values
         # as part of the argument source
-        ns_config, _, remaining = ParserBase.parse_known_args(
-            [ConfigDrivenParser], description, arguments, **kwargs
+        config_args, ns_config, remaining = cls.parse_config_options(
+            description=description, arguments=arguments, **kwargs
         )
-        config_options = ns_config.config_values.get("command-line-options", {})
-        config_args = cls.flatten_options(config_options)
+
         # Argparse allows repeated (overridden) arguments, thus the CLI override is accomplished by providing
         # remaining arguments after the configured ones
         ns_full, parser = ParserBase.parse_args(
@@ -389,7 +430,7 @@ class ConfigDrivenParser(ParserBase):
             ("-c", "--config"): {
                 "dest": "config",
                 "required": False,
-                "default": self.DEFAULT_CONFIGURATION_PATH,
+                "default": self.get_default_configuration(),
                 "type": Path,
                 "help": "Argument configuration file path. [default: %(default)s]",
             }
@@ -971,7 +1012,6 @@ class MiddleWareParser(ParserBase):
             if is_client
             else args.tts_addr
         )
-
         args.connection_uri = f"tcp://{tts_connection_address}:{args.tts_port}"
         args.connection_transport = ThreadedTCPSocketClient
         if args.zmq:
@@ -1038,10 +1078,21 @@ class DictionaryParser(DetectionParser):
             args = super().handle_arguments(args, **kwargs)
             args.dictionary = find_dict(args.deployment)
 
-        # Load dictionaries into global config and add it to args namespace
-        args.dictionaries = Dictionaries.load_dictionaries_into_config(
+        # Setup dictionaries encoders and decoders
+        dictionaries = Dictionaries()
+
+        dictionaries.load_dictionaries(
             args.dictionary, args.packet_spec, args.packet_set_name
         )
+        config = ConfigManager.get_instance()
+        # Update config to use type definitions defined in the JSON dictionary
+        if dictionaries.typedefs_name:
+            for type_name, type_dict in dictionaries.typedefs_name.items():
+                config.set_type(type_name, type_dict)
+        if dictionaries.constant_name:
+            for name, value in dictionaries.constant_name.items():
+                config.set_constant(name, value)
+        args.dictionaries = dictionaries
         return args
 
 
