@@ -1045,7 +1045,7 @@ class DictionaryParser(DetectionParser):
         return args
 
 
-class HashFileParser(DetectionParser):
+class HashFileParser(DictionaryParser):
     """Parser for detecting and loading the hashes.txt file for hash decoding"""
 
     DESCRIPTION = "Hash file options"
