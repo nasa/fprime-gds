@@ -481,6 +481,8 @@ class DetectionParser(ParserBase):
 class HashFileParser(ParserBase):
     """Parser for detecting and loading the hashes.txt file for hash decoding"""
 
+    DESCRIPTION = "Hash file options"
+
     def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
         return {
             ("--hash-file",): {
@@ -488,7 +490,7 @@ class HashFileParser(ParserBase):
                 "action": "store",
                 "required": False,
                 "type": str,
-                "help": "File containing map between hash codes and their corresponding program files",
+                "help": "Path to hashes.txt file map (found under build-artifacts dir by default)",
             }
         }
     
