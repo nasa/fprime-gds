@@ -478,33 +478,6 @@ class DetectionParser(ParserBase):
         args.deployment = child_directories[0]
         return args
 
-class HashFileParser(ParserBase):
-    """Parser for detecting and loading the hashes.txt file for hash decoding"""
-
-    DESCRIPTION = "Hash file options"
-
-    def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
-        return {
-            ("--hash-file",): {
-                "dest": "hash_file",
-                "action": "store",
-                "required": False,
-                "type": str,
-                "help": "Path to hashes.txt file map (found under build-artifacts dir by default)",
-            }
-        }
-    
-    def handle_arguments(self, args, **kwargs):
-        if args.hash_file:
-            args.hash_file = Path(args.hash_file)
-            if not args.hash_file.exists():
-                msg = f"[ERROR] hash file location {args.hash_file} does not exist"
-                print(msg, file=sys.stderr)
-                sys.exit(-1)
-        elif args.deployment:
-            hash_file = (Path(args.deployment) / ".."/ ".." / "hashes.txt").resolve()
-            args.hash_file = hash_file if hash_file.exists() else None
-        return args
 
 class BareArgumentParser(ParserBase):
     """Takes in the argument specification (used in plugins and get_arguments) to parse args
@@ -1126,6 +1099,87 @@ class FileHandlingParser(ParserBase):
                 f"{args.files_storage_directory} is not writable. Fix permissions or change storage directory with --file-storage-directory."
             )
         return args
+    
+
+class BinaryDeployment(DetectionParser):
+    """
+    Parsing subclass used to read the arguments of the binary application. This derives functionality from a comm parser
+    and represents the flight-side of the equation.
+    """
+
+    DESCRIPTION = "FPrime binary options"
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """Return arguments necessary to run a binary deployment via the GDS"""
+        return {
+            **super().get_arguments(),
+            **{
+                ("-n", "--no-app"): {
+                    "dest": "noapp",
+                    "action": "store_true",
+                    "default": False,
+                    "help": "Do not run deployment binary. Overrides --app.",
+                },
+                ("--app",): {
+                    "dest": "app",
+                    "action": "store",
+                    "required": False,
+                    "type": str,
+                    "help": "Path to app to run. Overrides automatic app detection.",
+                },
+            },
+        }
+    
+    def handle_arguments(self, args, **kwargs):
+        """
+        Takes the arguments from the parser, and processes them into the needed map of key to dictionaries for the
+        program. This will throw if there is an error.
+
+        :param args: parsed arguments in namespace
+        :return: args namespaces
+        """
+        # No app, stop processing now
+        if args.noapp:
+            return args
+        args = super().handle_arguments(args, **kwargs)
+        args.app = Path(args.app) if args.app else Path(find_app(args.deployment))
+        if not args.app.is_file():
+            msg = f"F prime binary '{args.app}' does not exist or is not a file"
+            raise ValueError(msg)
+        return args
+
+
+class HashFileParser(BinaryDeployment):
+    """Parser for detecting and loading the hashes.txt file for hash decoding"""
+
+    DESCRIPTION = "Hash file options"
+
+    def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
+        return {
+            ("--hash-file",): {
+                "dest": "hash_file",
+                "action": "store",
+                "required": False,
+                "type": str,
+                "help": "Path to hashes.txt file map (found under build-artifacts dir by default)",
+            }
+        }
+    
+    def handle_arguments(self, args, **kwargs):
+        if args.hash_file:
+            args.hash_file = Path(args.hash_file)
+            if not args.hash_file.exists():
+                msg = f"[ERROR] hash file location {args.hash_file} does not exist"
+                print(msg, file=sys.stderr)
+                sys.exit(-1)
+            return args
+        
+        if not args.deployment:
+            args = super().handle_arguments(args, **kwargs)
+        if args.deployment:
+            hash_file = (Path(args.deployment) / ".."/ ".." / "hashes.txt").resolve()
+            args.hash_file = hash_file if hash_file.exists() else None
+        return args
 
 
 class StandardPipelineParser(CompositeParser):
@@ -1176,7 +1230,6 @@ class CommParser(CompositeParser):
 
     CONSTITUENTS = [
         DictionaryParser,  # needed to get types from dictionary for framing
-        HashFileParser,
         CommExtraParser,
         MiddleWareParser,
         LogDeployParser,
@@ -1243,54 +1296,6 @@ class GdsParser(ParserBase):
         :param args: parsed args into a namespace
         :return: args namespace
         """
-        return args
-
-
-class BinaryDeployment(DetectionParser):
-    """
-    Parsing subclass used to read the arguments of the binary application. This derives functionality from a comm parser
-    and represents the flight-side of the equation.
-    """
-
-    DESCRIPTION = "FPrime binary options"
-
-    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """Return arguments necessary to run a binary deployment via the GDS"""
-        return {
-            **super().get_arguments(),
-            **{
-                ("-n", "--no-app"): {
-                    "dest": "noapp",
-                    "action": "store_true",
-                    "default": False,
-                    "help": "Do not run deployment binary. Overrides --app.",
-                },
-                ("--app",): {
-                    "dest": "app",
-                    "action": "store",
-                    "required": False,
-                    "type": str,
-                    "help": "Path to app to run. Overrides automatic app detection.",
-                },
-            },
-        }
-
-    def handle_arguments(self, args, **kwargs):
-        """
-        Takes the arguments from the parser, and processes them into the needed map of key to dictionaries for the
-        program. This will throw if there is an error.
-
-        :param args: parsed arguments in namespace
-        :return: args namespaces
-        """
-        # No app, stop processing now
-        if args.noapp:
-            return args
-        args = super().handle_arguments(args, **kwargs)
-        args.app = Path(args.app) if args.app else Path(find_app(args.deployment))
-        if not args.app.is_file():
-            msg = f"F prime binary '{args.app}' does not exist or is not a file"
-            raise ValueError(msg)
         return args
 
 
