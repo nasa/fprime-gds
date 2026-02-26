@@ -15,9 +15,10 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 @author lestarch
 """
 
+import argparse
+import pytest
 import sys
 from pathlib import Path
-import pytest
 
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.executables.cli import StandardPipelineParser, ConfigDrivenParser
@@ -73,9 +74,6 @@ def pytest_configure(config):
         config.option.xmlpath = Path(config.getoption("--logs")) / config.getoption(
             "--junit-xml-file"
         )
-
-
-import argparse
 
 
 @pytest.fixture(scope="session")
