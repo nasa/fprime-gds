@@ -73,6 +73,8 @@ class EventData(sys_data.SysData):
         args_template = self.template.get_args()
         for index, arg in enumerate(self.args):
 
+            if not args_template[index]:
+                continue
             if args_template[index][0] != 'file':
                 continue
             try:
@@ -80,13 +82,11 @@ class EventData(sys_data.SysData):
             except ValueError:
                 continue
 
-            hash_file = Path(os.environ['FPRIME_HASHES_TXT_FILE'])
+            hash_file = os.environ['FPRIME_HASHES_TXT_FILE']
             with hash_file.open() as file_handle:
                 for line in file_handle:
                     if hash_value == int(line.split(" ")[-1], 0):
-                        rel_file_path = line.split(':')[0].strip()
-                        abs_file_path = (hash_file.parent.parent / rel_file_path).absolute()
-                        arg.val = str(abs_file_path) if abs_file_path.exists() else rel_file_path
+                        arg.val = line.split(':')[0].strip()
                         break
 
     def get_args(self):
