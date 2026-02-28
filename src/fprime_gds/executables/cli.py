@@ -18,6 +18,7 @@ import os
 import platform
 import re
 import sys
+from importlib.metadata import version
 
 import yaml
 
@@ -353,6 +354,11 @@ class ConfigDrivenParser(ParserBase):
             parsers = [ConfigDrivenParser] + parser_classes
             ParserBase.parse_args(parsers, description, arguments, **kwargs)
             sys.exit(0)
+        
+        if "-v" in arguments or "--version" in arguments:
+            print(version("fprime_gds"))
+            sys.exit(0)
+
 
         # Custom flow involving parsing the arguments of this parser first, then passing the configured values
         # as part of the argument source
