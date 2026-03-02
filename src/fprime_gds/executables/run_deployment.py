@@ -124,6 +124,8 @@ def launch_html(parsed_args):
             "SERVE_LOGS": "YES",
         }
     )
+    if parsed_args.hash_file:
+        flask_env.update({"FPRIME_HASHES_TXT_FILE": parsed_args.hash_file})
     gse_args = BASE_MODULE_ARGUMENTS + [
         "flask",
         "run",

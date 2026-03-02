@@ -1045,6 +1045,39 @@ class DictionaryParser(DetectionParser):
         return args
 
 
+class HashFileParser(DictionaryParser):
+    """Parser for detecting and loading the hashes.txt file for hash decoding"""
+
+    DESCRIPTION = "Hash file options"
+
+    def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
+        return {
+            ("--hash-file",): {
+                "dest": "hash_file",
+                "action": "store",
+                "required": False,
+                "type": str,
+                "help": "Path to hashes.txt file map (found under build-artifacts dir by default)",
+            }
+        }
+
+    def handle_arguments(self, args, **kwargs):
+        if args.hash_file:
+            args.hash_file = Path(args.hash_file)
+            if not args.hash_file.exists():
+                msg = f"[ERROR] hash file location {args.hash_file} does not exist"
+                print(msg, file=sys.stderr)
+                sys.exit(-1)
+            return args
+
+        if args.deployment is None:
+            super().handle_arguments(args, **kwargs)
+        if args.deployment:
+            hash_file = (Path(args.deployment) / ".."/ ".." / "hashes.txt").resolve()
+            args.hash_file = hash_file if hash_file.exists() else None
+        return args
+
+
 class FileHandlingParser(ParserBase):
     """Parser for deployments"""
 
@@ -1106,6 +1139,7 @@ class StandardPipelineParser(CompositeParser):
 
     CONSTITUENTS = [
         DictionaryParser,
+        HashFileParser,
         FileHandlingParser,
         MiddleWareParser,
         LogDeployParser,
