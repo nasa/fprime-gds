@@ -444,3 +444,13 @@ export class ScrollHandler {
         return user_scrolled;
     }
 }
+
+// converts id to proper hex string, handles both number and string ids
+// since js object keys are always strings, .toString(16) on a string
+// just returns the string as-is wich causes the decimal-with-0x-prefix bug
+export function formatHexId(id) {
+    if (id == null) {
+        return "";
+    }
+    return "0x" + BigInt(id).toString(16);
+}

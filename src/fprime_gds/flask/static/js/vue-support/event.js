@@ -7,7 +7,7 @@
  *
  * @author mstarch
  */
-import {listExistsAndItemNameNotInList, timeToString} from "./utils.js";
+import {listExistsAndItemNameNotInList, timeToString, formatHexId} from "./utils.js";
 import {_datastore,_dictionaries} from "../datastore.js";
 
 let OPREG = /Opcode (0x[0-9a-fA-F]+)/;
@@ -80,7 +80,7 @@ Vue.component("event-list", {
                 const msg = '<span title="' + groups[0] + '">' + command_mnemonic + '</span>'
                 display_text = display_text.replace(OPREG, msg);
             }
-            return [timeToString(item.time), "0x" + item.id.toString(16), template.full_name,
+            return [timeToString(item.time), formatHexId(item.id), template.full_name,
                 template.severity.value.replace("EventSeverity.", ""), display_text];
         },
         /**
