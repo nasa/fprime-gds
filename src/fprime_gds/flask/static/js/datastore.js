@@ -263,7 +263,7 @@ class DataStore {
         // because rendering of edit-views is still possible.
         let channels = {};
         for (let key in _dictionaries.channels) {
-            channels[key] = {id: key, time: null, datetime: null, val: null};
+            channels[key] = {id: Number(key), time: null, datetime: null, val: null};
         }
         Object.assign(this.channels, channels); // Forces new channel map into Vue maintaining the original object
         this.commands = _dictionaries.commands;
