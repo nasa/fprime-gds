@@ -14,11 +14,12 @@ Key differences from the original implementation:
 @date: January 2026
 """
 
+import dataclasses
 import json
+import struct
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-import dataclasses
 
 from fprime_gds.common.dp.common import (
     ChecksumConfig,
@@ -26,6 +27,7 @@ from fprime_gds.common.dp.common import (
     get_dp_header_type,
 )
 from fprime_gds.common.models.dictionaries import Dictionaries
+from fprime_gds.common.models.serialize.numerical_types import NumericalType
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.templates.dp_record_template import DpRecordTemplate
 
@@ -101,6 +103,34 @@ class DataProductDecoder:
         else:
             self.output_json_path = output_json_path
         
+    @staticmethod
+    def _batch_deserialize_numerical_array(file_handle, record_type, array_size) -> List[Dict[str, Any]]:
+        """Batch-read and deserialize an array of fixed-size numerical types.
+
+        Reads the entire array in one I/O operation and uses struct.unpack_from
+        with a batched format string, avoiding per-element overhead.
+
+        Args:
+            file_handle: file handle positioned at the start of the array data
+            record_type: NumericalType subclass (e.g. U8Type, U32Type, F64Type)
+            array_size: number of elements in the array
+
+        Returns:
+            List of JSON-serializable dicts, one per element
+        """
+        element_size = record_type.getSize()
+        total_bytes = array_size * element_size
+        buffer = file_handle.read(total_bytes)
+
+        # Build a batch format string (e.g. ">10000B" for 10000 U8s)
+        base_format = record_type.get_serialize_format().lstrip(">")
+        batch_format = f">{array_size}{base_format}"
+        values = struct.unpack_from(batch_format, buffer, 0)
+
+        # Build JSON list with type name computed once
+        type_name = record_type.get_canonical_name()
+        return [{"value": val, "type": type_name} for val in values]
+
     def decode_header(self, file_handle) -> Dict[str, Any]:
         """Decode the data product header.
 
@@ -184,12 +214,17 @@ class DataProductDecoder:
             array_size = array_size_type.val
 
             record['Size'] = array_size
-            record['Data'] = []
 
-            # Read each array element
-            for _ in range(array_size):
-                element_instance = read_element(record_type)
-                record['Data'].append(element_instance.to_jsonable())
+            if issubclass(record_type, NumericalType) and array_size > 0:
+                record['Data'] = self._batch_deserialize_numerical_array(
+                    file_handle, record_type, array_size
+                )
+            else:
+                # General path for complex or variable-length types
+                record['Data'] = []
+                for _ in range(array_size):
+                    element_instance = read_element(record_type)
+                    record['Data'].append(element_instance.to_jsonable())
         else:
             # For scalar records, read the single value
             element_instance = read_element(record_type)
@@ -267,4 +302,3 @@ class DataProductDecoder:
         except Exception as e:
             print(f"Unexpected error: {e}", file=sys.stderr)
             raise
-
