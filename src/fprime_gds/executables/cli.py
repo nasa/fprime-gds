@@ -345,6 +345,42 @@ class ConfigDrivenParser(ParserBase):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
+        ns, parser, _ = cls._parse_args(
+            parser_classes, description, arguments, **kwargs
+        )
+        return ns, parser
+
+    @classmethod
+    def parse_known_args(
+        cls,
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        **kwargs,
+    ):
+        """Parse and post-process known arguments using inputs and config
+
+        Parse the arguments in two stages: first parse the configuration data, ignoring unknown inputs, then parse the
+        full argument set with the supplied configuration to fill in additional options.
+
+        Args:
+            parser_classes: a list of ParserBase subclasses that will be used to
+            description: description passed ot the argument parser
+            arguments: arguments to process, None to use command line input
+        Returns: namespace with all parsed arguments from all provided ParserBase subclasses
+        """
+        return cls._parse_args(
+            parser_classes, description, arguments, use_parse_known=True, **kwargs
+        )
+
+    @staticmethod
+    def _parse_args(
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        use_parse_known=False,
+        **kwargs,
+    ):
         arguments = sys.argv[1:] if arguments is None else arguments
 
         # Help should spill all the arguments, so delegate to the normal parsing flow including
@@ -360,14 +396,21 @@ class ConfigDrivenParser(ParserBase):
             [ConfigDrivenParser], description, arguments, **kwargs
         )
         config_options = ns_config.config_values.get("command-line-options", {})
-        config_args = cls.flatten_options(config_options)
+        config_args = ConfigDrivenParser.flatten_options(config_options)
+
         # Argparse allows repeated (overridden) arguments, thus the CLI override is accomplished by providing
         # remaining arguments after the configured ones
-        ns_full, parser = ParserBase.parse_args(
-            parser_classes, description, config_args + remaining, **kwargs
-        )
+        if use_parse_known:
+            ns_full, parser, remaining = ParserBase.parse_known_args(
+                parser_classes, description, config_args + remaining, **kwargs
+            )
+        else:
+            ns_full, parser = ParserBase.parse_args(
+                parser_classes, description, config_args + remaining, **kwargs
+            )
+            remaining = []
         ns_final = argparse.Namespace(**vars(ns_config), **vars(ns_full))
-        return ns_final, parser
+        return ns_final, parser, remaining
 
     @staticmethod
     def flatten_options(configured_options):
@@ -1050,7 +1093,7 @@ class HashFileParser(DictionaryParser):
 
     DESCRIPTION = "Hash file options"
 
-    def get_arguments(self)-> Dict[Tuple[str, ...], Dict[str, Any]]:
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         return {
             ("--hash-file",): {
                 "dest": "hash_file",
@@ -1073,7 +1116,7 @@ class HashFileParser(DictionaryParser):
         if args.deployment is None:
             super().handle_arguments(args, **kwargs)
         if args.deployment:
-            hash_file = (Path(args.deployment) / ".."/ ".." / "hashes.txt").resolve()
+            hash_file = (Path(args.deployment) / ".." / ".." / "hashes.txt").resolve()
             args.hash_file = hash_file if hash_file.exists() else None
         return args
 
