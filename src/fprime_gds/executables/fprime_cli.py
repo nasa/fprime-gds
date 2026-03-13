@@ -21,6 +21,7 @@ import importlib.metadata
 # import fprime_gds.common.gds_cli.channels as channels
 # import fprime_gds.common.gds_cli.command_send as command_send
 # import fprime_gds.common.gds_cli.events as events
+# import fprime_gds.common.gds_cli.send_raw as send_raw
 # from fprime_gds.common.pipeline.dictionaries import Dictionaries
 from fprime_gds.executables.cli import (
     RetrievalArgumentsParser,
@@ -318,6 +319,53 @@ class EventsSubparserInjector(CliSubparserInjectorBase):
         events.EventsCommand.handle_arguments(parsed_args, **kwargs)
 
 
+class SendRawSubparserInjector(CliSubparserInjectorBase):
+    """
+    A parser for the "send-raw" CLI command, which lets users send raw data
+    packets to an F' instance, either in the CCSDS format, native F' format, or
+    raw hex values. This is used for off-nominal command testing of an F' instance.
+    """
+    @classmethod
+    def create_subparser(cls, parent_parser: argparse.ArgumentParser):
+        return parent_parser.add_parser(
+            "send-raw",
+            description="Send raw hex bytes into the FSW stream with optional framing",
+        )
+
+    @classmethod
+    def add_arguments(cls, parser: argparse.ArgumentParser):
+        add_connection_arguments(parser)
+        add_search_arguments(parser, "send-raw") 
+        
+        parser.add_argument(
+            "hex_strings", 
+            nargs="+", 
+            help="Hex strings to send (e.g., DEADBEEF)"
+        )
+        parser.add_argument(
+            "--format",
+            choices=["ccsds", "native", "none"],
+            default="ccsds",
+            help="Framing format: 'ccsds' (6-byte), 'native' (F-Prime 8-byte), or 'none' (verbatim)"
+        )
+        parser.add_argument(
+            "--bypass-framer",
+            action="store_true",
+            help="Shortcut for --format none (Adversary Mode)"
+        )
+
+    @classmethod
+    def validate_args(cls, parser: argparse.ArgumentParser, args: argparse.Namespace):
+        if args.bypass_framer:
+            args.format = "none"
+        return super().validate_args(parser, args)
+
+    @classmethod
+    def command_func(cls, parsed_args, **kwargs):
+        import fprime_gds.common.gds_cli.send_raw as send_raw
+        send_raw.SendRawCommand.handle_arguments(parsed_args, **kwargs)
+
+
 def create_parser():
     parser = argparse.ArgumentParser(
         description="provides utilities for interacting with the F' Ground Data System (GDS)"
@@ -330,7 +378,7 @@ def create_parser():
     ChannelsSubparserInjector.inject_subparser(subparser_root)
     CommandSubparserInjector.inject_subparser(subparser_root)
     EventsSubparserInjector.inject_subparser(subparser_root)
-
+    SendRawSubparserInjector.inject_subparser(subparser_root)
     return parser
 
 
