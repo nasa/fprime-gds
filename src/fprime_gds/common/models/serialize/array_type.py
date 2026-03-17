@@ -64,7 +64,7 @@ class ArrayType(DictionaryType):
         if self._val is None:
             return None
         elif self._is_numerical_array():
-            return [item for item in self._val]
+            return list(self._val)
         else:
             return [item.val for item in self._val]
 
@@ -95,7 +95,7 @@ class ArrayType(DictionaryType):
         """
         self.validate(val)
         if self._is_numerical_array():
-            items = [item for item in val]
+            items = list(val)
         else:
             items = [self.MEMBER_TYPE(item) for item in val]
         self._val = items
@@ -104,11 +104,12 @@ class ArrayType(DictionaryType):
         """
         JSONable array object format
         """
-        if self._is_numerical_array():
-            vals = self._val
+        if self._val is None:
+            vals = None
+        elif self._is_numerical_array():
+            vals = list(self._val)
         else:
-            vals = None if self._val is None \
-                        else [member.val for member in self._val] 
+            vals = [member.val for member in self._val]
         return {
             "name": self.__class__.__name__,
             "type": self.__class__.__name__,
@@ -149,7 +150,7 @@ class ArrayType(DictionaryType):
                 value_format = value_format_raw.strip('><')
 
                 array_format = f"{value_endian}{self.LENGTH}{value_format}"
-                values = struct.unpack_from(array_format, data, offset)
+                values = list(struct.unpack_from(array_format, data, offset))
             except Exception as exc:
                 raise DeserializeException(
                     f"Array NumericalType optimization failed to deserialize: {exc}"
