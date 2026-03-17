@@ -26,6 +26,7 @@ from fprime_gds.common.dp.common import (
     get_dp_header_type,
 )
 from fprime_gds.common.models.dictionaries import Dictionaries
+from fprime_gds.common.models.serialize.array_type import ArrayType
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.common.templates.dp_record_template import DpRecordTemplate
 
@@ -183,13 +184,12 @@ class DataProductDecoder:
             array_size_type.deserialize(array_size_data, 0)
             array_size = array_size_type.val
 
-            record['Size'] = array_size
-            record['Data'] = []
+            element_array_type = ArrayType.construct_type(
+                record_template.get_name(), record_type, array_size, "{}"
+            )
 
-            # Read each array element
-            for _ in range(array_size):
-                element_instance = read_element(record_type)
-                record['Data'].append(element_instance.to_jsonable())
+            element_instance = read_element(element_array_type)
+            record['Data'] = element_instance.to_jsonable()
         else:
             # For scalar records, read the single value
             element_instance = read_element(record_type)
