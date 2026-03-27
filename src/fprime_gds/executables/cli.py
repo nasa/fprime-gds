@@ -355,10 +355,6 @@ class ConfigDrivenParser(ParserBase):
             ParserBase.parse_args(parsers, description, arguments, **kwargs)
             sys.exit(0)
         
-        if "-v" in arguments or "--version" in arguments:
-            print(version("fprime_gds"))
-            sys.exit(0)
-
 
         # Custom flow involving parsing the arguments of this parser first, then passing the configured values
         # as part of the argument source
@@ -398,7 +394,11 @@ class ConfigDrivenParser(ParserBase):
                 "default": self.DEFAULT_CONFIGURATION_PATH,
                 "type": Path,
                 "help": "Argument configuration file path. [default: %(default)s]",
-            }
+            },
+            ("-v", "--version"): {
+                "action": "version",
+                "version": version("fprime_gds"),
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
