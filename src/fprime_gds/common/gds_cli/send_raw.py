@@ -2,6 +2,7 @@
 Handles executing the "send-raw" CLI command for the GDS
 """
 
+import struct
 import sys
 from pathlib import Path
 
@@ -72,10 +73,18 @@ class SendRawCommand(BaseCommand):
             cls._log("Error: Either --bin-path or --hex-string must be provided")
             sys.exit(1)
 
-        # Send raw data through the client socket (framing layer)
+        # Send raw data through the client socket (to comm.py)
+        # The ZMQ transport strips the
+        # first 4 bytes on the receiving end (ZmqGround.receive_all) because the
+        # normal encoder path (via CmdEncoder) includes them after the ZZZZ marker.
         try:
-            cls._log(f"Sending {len(raw_data)} bytes of raw data...")
-            api.pipeline.client_socket.send(raw_data)
+            data_to_send = raw_data
+            if args.zmq:
+                # If using ZMQ, prepend the length of the data as a 4-byte big-endian integer
+                data_to_send = struct.pack(">I", len(raw_data)) + raw_data
+            
+            cls._log(f"Sending {len(raw_data)} bytes of raw data: {raw_data.hex()}")
+            api.pipeline.client_socket.send(data_to_send)
             cls._log("Raw data sent successfully")
         except Exception as e:
             cls._log(f"Error sending raw data: {e}")
