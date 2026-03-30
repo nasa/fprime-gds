@@ -342,7 +342,11 @@ class SendRawSubparserInjector(CliSubparserInjectorBase):
         given parser
         """
         add_connection_arguments(parser)
-        
+        parser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="print the raw data being sent in hex format before sending",
+        )
         input_group = parser.add_mutually_exclusive_group(required=True)
         input_group.add_argument(
             "--bin-path",
@@ -353,7 +357,7 @@ class SendRawSubparserInjector(CliSubparserInjectorBase):
         input_group.add_argument(
             "--hex-string",
             type=str,
-            help="hex string of raw data to send (e.g., '0xDEADBEEF' or 'DEADBEEF')",
+            help="hex string of raw data to send (e.g., '0xDEADBEEF', 'deadbeef')",
             metavar="HEX",
         )
 

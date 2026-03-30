@@ -65,7 +65,6 @@ class SendRawCommand(BaseCommand):
                 # Remove '0x' prefix if present and any whitespace
                 hex_str = args.hex_string.replace('0x', '').replace('0X', '').replace(' ', '')
                 raw_data = bytes.fromhex(hex_str)
-                cls._log(f"Parsed {len(raw_data)} bytes from hex string")
             except ValueError as e:
                 cls._log(f"Error parsing hex string: {e}")
                 sys.exit(1)
@@ -82,10 +81,9 @@ class SendRawCommand(BaseCommand):
             if args.zmq:
                 # If using ZMQ, prepend the length of the data as a 4-byte big-endian integer
                 data_to_send = struct.pack(">I", len(raw_data)) + raw_data
-            
-            cls._log(f"Sending {len(raw_data)} bytes of raw data: {raw_data.hex()}")
+            if args.verbose:
+                cls._log(f"Sending {len(raw_data)} bytes of raw data: {raw_data.hex()}")
             api.pipeline.client_socket.send(data_to_send)
-            cls._log("Raw data sent successfully")
         except Exception as e:
             cls._log(f"Error sending raw data: {e}")
             sys.exit(1)
