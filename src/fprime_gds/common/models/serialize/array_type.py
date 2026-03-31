@@ -77,11 +77,15 @@ class ArrayType(DictionaryType):
         :return a formatted array
         """
         result = []
-        for item in self._val:
-            if hasattr(item, "formatted_val"):
-                result.append(item.formatted_val)
-            else:
-                result.append(self.FORMAT.format(item.val))
+        if self._is_numerical_array():
+            for item in self._val:
+                result.append(self.FORMAT.format(item))
+        else:
+            for item in self._val:
+                if hasattr(item, "formatted_val"):
+                    result.append(item.formatted_val)
+                else:
+                    result.append(self.FORMAT.format(item.val))
         return result
 
     @val.setter
