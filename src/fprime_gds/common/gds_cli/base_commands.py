@@ -149,7 +149,7 @@ class BaseCommand(abc.ABC):
             pipeline_parser.handle_arguments(args, **kwargs, client=True)
 
             # If the user is just listing all possible items, do that and exit
-            if args.is_printing_list:
+            if hasattr(args, "is_printing_list") and args.is_printing_list:
                 search_filter = cls._get_search_filter(
                     args.ids, args.components, args.search, args.json
                 )
@@ -164,6 +164,13 @@ class BaseCommand(abc.ABC):
             pipeline = pipeline_parser.pipeline_factory(args)
             api = IntegrationTestAPI(pipeline)
             api.setup()
+
+            if hasattr(args, "zmq") and args.zmq:
+                import time
+                # Brief delay to allow ZMQ PUB/SUB subscription propagation to complete.
+                # Without this, one-shot commands are silently dropped due to the
+                # ZMQ "slow joiner" problem.
+                time.sleep(0.1)
 
             # Execute the command logic
             cls._execute_command(args, api)
