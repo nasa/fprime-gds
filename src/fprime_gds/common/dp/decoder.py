@@ -185,7 +185,7 @@ class DataProductDecoder:
             array_size = array_size_type.val
 
             element_array_type = ArrayType.construct_type(
-                record_template.get_name(), record_type, array_size, "{}"
+                f'{record_template.get_name()}_{array_size}', record_type, array_size, "{}"
             )
 
             element_instance = read_element(element_array_type)
