@@ -143,7 +143,7 @@ class ArrayType(DictionaryType):
 
     def deserialize(self, data, offset):
         """Deserialize the members of the array"""
-        if issubclass(self.MEMBER_TYPE, NumericalType) and self.LENGTH > 0:
+        if self._is_numerical_array() and self.LENGTH > 0:
             try:
                 value_format_raw = self.MEMBER_TYPE().get_serialize_format()
                 value_endian = ''
