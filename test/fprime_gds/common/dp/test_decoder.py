@@ -175,9 +175,9 @@ class TestDataProductDecoderArrayTypes:
         
         # Array records should have a Size field
         record = result["Records"][0]
-        assert "Size" in record
         assert "Data" in record
-        assert isinstance(record["Data"], list)
+        assert "size" in record["Data"]
+        assert isinstance(record["Data"]["values"], list)
     
     def test_decode_u32_array(self, load_dictionary, tmp_path):
         """Test decoding of U32 array data product."""
@@ -191,9 +191,9 @@ class TestDataProductDecoderArrayTypes:
         assert "Header" in result
         assert "Records" in result
         record = result["Records"][0]
-        assert "Size" in record
         assert "Data" in record
-        assert isinstance(record["Data"], list)
+        assert "size" in record["Data"]
+        assert isinstance(record["Data"]["values"], list)
     
     def test_decode_data_array(self, load_dictionary, tmp_path):
         """Test decoding of Data array data product."""
@@ -397,10 +397,10 @@ class TestDataProductDecoderRecordDecoding:
         assert len(records) > 0
         
         record = records[0]
-        assert "Size" in record
         assert "Data" in record
-        assert isinstance(record["Data"], list)
-        assert len(record["Data"]) == record["Size"]
+        assert "size" in record["Data"]
+        assert isinstance(record["Data"]["values"], list)
+        assert len(record["Data"]["values"]) == record["Data"]["size"]
 
 
 class TestDataProductDecoderIntegration:

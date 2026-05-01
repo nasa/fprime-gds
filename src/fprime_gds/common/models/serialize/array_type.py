@@ -4,6 +4,8 @@ Created on May 29, 2020
 @author: jishii
 """
 
+import struct
+
 from .type_base import DictionaryType
 from .type_exceptions import (
     ArrayLengthException,
@@ -11,6 +13,7 @@ from .type_exceptions import (
     TypeMismatchException,
     DeserializeException,
 )
+from .numerical_types import NumericalType
 
 
 class ArrayType(DictionaryType):
@@ -47,6 +50,9 @@ class ArrayType(DictionaryType):
         for i in range(cls.LENGTH):
             cls.MEMBER_TYPE.validate(val[i])
 
+    def _is_numerical_array(self) -> bool:
+        return issubclass(self.MEMBER_TYPE, NumericalType)
+
     @property
     def val(self) -> list:
         """
@@ -55,7 +61,12 @@ class ArrayType(DictionaryType):
 
         :return dictionary of member names to python values of member keys
         """
-        return None if self._val is None else [item.val for item in self._val]
+        if self._val is None:
+            return None
+        elif self._is_numerical_array():
+            return list(self._val)
+        else:
+            return [item.val for item in self._val]
 
     @property
     def formatted_val(self) -> list:
@@ -66,11 +77,15 @@ class ArrayType(DictionaryType):
         :return a formatted array
         """
         result = []
-        for item in self._val:
-            if hasattr(item, "formatted_val"):
-                result.append(item.formatted_val)
-            else:
-                result.append(self.FORMAT.format(item.val))
+        if self._is_numerical_array():
+            for item in self._val:
+                result.append(self.FORMAT.format(item))
+        else:
+            for item in self._val:
+                if hasattr(item, "formatted_val"):
+                    result.append(item.formatted_val)
+                else:
+                    result.append(self.FORMAT.format(item.val))
         return result
 
     @val.setter
@@ -83,49 +98,87 @@ class ArrayType(DictionaryType):
         :param val: dictionary containing python types to key names. This
         """
         self.validate(val)
-        items = [self.MEMBER_TYPE(item) for item in val]
+        if self._is_numerical_array():
+            items = list(val)
+        else:
+            items = [self.MEMBER_TYPE(item) for item in val]
         self._val = items
 
     def to_jsonable(self):
         """
         JSONable array object format
         """
+        if self._val is None:
+            vals = None
+        elif self._is_numerical_array():
+            vals = list(self._val)
+        else:
+            vals = [member.val for member in self._val]
         return {
             "name": self.__class__.__name__,
             "type": self.__class__.__name__,
             "size": self.LENGTH,
             "format": self.FORMAT,
-            "values": (
-                None
-                if self._val is None
-                else [member.to_jsonable() for member in self._val]
-            ),
+            "value_type": repr(self.MEMBER_TYPE()),
+            "values": vals,
         }
 
     def serialize(self):
         """Serialize the array by serializing the elements one by one"""
         if self.val is None:
             raise NotInitializedException(type(self))
-        return b"".join([item.serialize() for item in self._val])
+        if self._is_numerical_array():
+            value_format_raw = self.MEMBER_TYPE().get_serialize_format()
+            value_endian = ''
+            if self.MEMBER_TYPE.getSize() > 1:
+                assert value_format_raw[0] in ('>', '<'), \
+                       f'Expected explicit endian numerical type format but found {value_format_raw}'
+                value_endian = value_format_raw[0]
+            value_format = value_format_raw.strip('><')
+
+            array_format = f"{value_endian}{self.LENGTH}{value_format}"
+            return struct.pack(array_format, *self._val)
+        else:
+            return b"".join([item.serialize() for item in self._val])
 
     def deserialize(self, data, offset):
         """Deserialize the members of the array"""
-        values = []
-        for field_index in range(self.LENGTH):
+        if self._is_numerical_array() and self.LENGTH > 0:
             try:
-                item = self.MEMBER_TYPE()
-                item.deserialize(data, offset)
-                offset += item.getSize()
-                values.append(item)
+                value_format_raw = self.MEMBER_TYPE().get_serialize_format()
+                value_endian = ''
+                if self.MEMBER_TYPE.getSize() > 1:
+                    assert value_format_raw[0] in ('>', '<'), \
+                           f'Expected explicit endian numerical type format but found {value_format_raw}'
+                    value_endian = value_format_raw[0]
+                value_format = value_format_raw.strip('><')
+
+                array_format = f"{value_endian}{self.LENGTH}{value_format}"
+                values = list(struct.unpack_from(array_format, data, offset))
             except Exception as exc:
                 raise DeserializeException(
-                    f"Array index {field_index} failed to deserialize: {exc}"
+                    f"Array NumericalType optimization failed to deserialize: {exc}"
                 )
+        else:
+            values = []
+            for field_index in range(self.LENGTH):
+                try:
+                    item = self.MEMBER_TYPE()
+                    item.deserialize(data, offset)
+                    offset += item.getSize()
+                    values.append(item)
+                except Exception as exc:
+                    raise DeserializeException(
+                        f"Array index {field_index} failed to deserialize: {exc}"
+                    )
         self._val = values
 
     def getSize(self):
         """Return the size in bytes of the array"""
-        return sum(item.getSize() for item in self._val)
+        if self._is_numerical_array():
+            return self.MEMBER_TYPE.getMaxSize() * len(self._val)
+        else:
+            return sum(item.getSize() for item in self._val)
 
     @classmethod
     def getMaxSize(cls):
