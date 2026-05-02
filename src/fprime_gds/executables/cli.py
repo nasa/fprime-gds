@@ -1287,6 +1287,13 @@ class GdsParser(ParserBase):
                 "type": str,
                 "help": "Set the GUI server address [default: %(default)s]",
             },
+            ("--gui-auto-open",):{
+                "dest": "gui_auto_open",
+                "default": False,
+                "required": False,
+                "type": bool,
+                "help": "Initializes GUI server without auto opening browser [default: %(default)s]"
+                }
         }
 
     def handle_arguments(self, args, **kwargs):
