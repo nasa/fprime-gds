@@ -1289,9 +1289,10 @@ class GdsParser(ParserBase):
             },
             ("--gui-auto-open",):{
                 "dest": "gui_auto_open",
-                "default": False,
+                "action": "store",
+                "default": "True",
                 "required": False,
-                "type": bool,
+                "type": str,
                 "help": "Initializes GUI server without auto opening browser [default: %(default)s]"
                 }
         }
