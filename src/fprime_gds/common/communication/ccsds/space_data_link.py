@@ -31,7 +31,6 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         init_value=0xFFFF,
         final_xor_value=0x0000,
     )
-    CRC_CALCULATOR = crc.Calculator(CRC_CCITT_CONFIG)
 
     # For backwards compatibility if not found in dictionary (loaded by ConfigManager)
     FALLBACK_SCID = 0x44
@@ -68,6 +67,8 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         # Priority order: command line arg > dictionary value > fallback value
         self.scid = scid or dict_scid or self.FALLBACK_SCID
         self.frame_size = frame_size or dict_frame_size or self.FALLBACK_FRAME_SIZE
+        self.framing_crc_calculator = crc.Calculator(self.CRC_CCITT_CONFIG)
+        self.deframing_crc_calculator = crc.Calculator(self.CRC_CCITT_CONFIG)
 
     def frame(self, data):
         """Frame the supplied data in a TC frame"""
@@ -114,7 +115,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         ), "Malformed packet generated"
 
         full_bytes = full_bytes_no_crc + struct.pack(
-            ">H", self.CRC_CALCULATOR.checksum(full_bytes_no_crc)
+            ">H", self.framing_crc_calculator.checksum(full_bytes_no_crc)
         )
         return full_bytes
 
@@ -150,7 +151,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             # Spacecraft ID and Virtual Channel ID match, so we look at end of frame for CRC
             crc_offset = self.frame_size - self.TM_TRAILER_SIZE
             transmitted_crc = struct.unpack_from(">H", data, crc_offset)[0]
-            if transmitted_crc == self.CRC_CALCULATOR.checksum(data[:crc_offset]):
+            if transmitted_crc == self.deframing_crc_calculator.checksum(data[:crc_offset]):
                 # CRC is valid, so we return the deframed data
                 deframed_data_len = (
                     self.frame_size

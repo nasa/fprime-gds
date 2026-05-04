@@ -4,6 +4,7 @@ import struct
 from fprime_gds.common.communication.ccsds.space_data_link import (
     SpaceDataLinkFramerDeframer,
 )
+from crc import Calculator
 
 SCID_TEST_VALUE = 0x77
 VCID_TEST_VALUE = 5
@@ -53,7 +54,8 @@ def test_deframe_valid_frame(framer_deframer):
         )
         + payload
     )
-    crc = framer_deframer.CRC_CALCULATOR.checksum(input_data_no_crc)
+    crc_calculator = Calculator(framer_deframer.CRC_CCITT_CONFIG)
+    crc = crc_calculator.checksum(input_data_no_crc)
     input_data = input_data_no_crc + struct.pack(">H", crc)
     deframed_data, remaining_data, discarded = framer_deframer.deframe(input_data)
     assert deframed_data == payload
@@ -82,7 +84,8 @@ def test_deframe_incorrect_crc(framer_deframer):
         )
         + payload
     )
-    crc = framer_deframer.CRC_CALCULATOR.checksum(input_data_no_crc) + 1  # Intentionally incorrect CRC
+    crc_calculator = Calculator(framer_deframer.CRC_CCITT_CONFIG)
+    crc = crc_calculator.checksum(input_data_no_crc) + 1  # Intentionally incorrect CRC
     input_data = input_data_no_crc + struct.pack(">H", crc)
     deframed_data, remaining_data, discarded = framer_deframer.deframe(input_data)
     assert deframed_data is None
