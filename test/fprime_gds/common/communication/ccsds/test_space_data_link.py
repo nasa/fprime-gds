@@ -4,7 +4,6 @@ import struct
 from fprime_gds.common.communication.ccsds.space_data_link import (
     SpaceDataLinkFramerDeframer,
 )
-from crc import Calculator
 
 SCID_TEST_VALUE = 0x77
 VCID_TEST_VALUE = 5
