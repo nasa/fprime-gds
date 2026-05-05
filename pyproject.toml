@@ -45,7 +45,7 @@ dependencies = [
     "pydantic>=2.6",
     "PyYAML>=6.0.2",
     "spacepackets>=0.30.0",
-    "crc>=7.0.0"
+    "crcmod==1.7"
 ]
 
 [project.urls]
