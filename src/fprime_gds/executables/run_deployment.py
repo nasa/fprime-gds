@@ -137,11 +137,14 @@ def launch_html(parsed_args):
     ret = launch_process(gse_args, name="HTML GUI", env=flask_env, launch_time=2)
     ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/"
     print(f"[INFO] Launched UI at: {ui_url}")
-    webbrowser.open(
-        ui_url,
-        new=0,
-        autoraise=True,
-    )
+    
+    if parsed_args.browser_auto_open:
+        webbrowser.open(
+            ui_url,
+            new=0,
+            autoraise=True,
+        )
+
     return ret
 
 
