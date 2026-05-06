@@ -138,12 +138,13 @@ def launch_html(parsed_args):
     ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/"
     print(f"[INFO] Launched UI at: {ui_url}")
     
-    if parsed_args.gui_auto_open in ["TRUE","True", "true", "t"]:
+    if parsed_args.browser_auto_open:
         webbrowser.open(
             ui_url,
             new=0,
             autoraise=True,
         )
+
     return ret
 
 

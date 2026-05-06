@@ -1287,13 +1287,10 @@ class GdsParser(ParserBase):
                 "type": str,
                 "help": "Set the GUI server address [default: %(default)s]",
             },
-            ("--gui-auto-open",):{
-                "dest": "gui_auto_open",
-                "action": "store",
-                "default": "True",
-                "required": False,
-                "type": str,
-                "help": "Initializes GUI server without auto opening browser [default: %(default)s]"
+            ("--skip-browser-open",):{
+                "dest": "browser_auto_open",
+                "action": "store_false",
+                "help": "Run server without auto-launching the default web browser"
                 }
         }
 
