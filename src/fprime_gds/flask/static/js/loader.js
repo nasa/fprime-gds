@@ -289,6 +289,20 @@ class Loader {
         interval = interval || config.dataPollIntervalsMs.default || 1000;
         current_endpoint.interval = setInterval(handler, interval);
     }
+
+    /**
+     * Stop the polling timer for an endpoint without otherwise disturbing it.
+     * Used by the datastore when switching to the streaming transport so the
+     * high-rate endpoints stop hitting the REST API.
+     * @param endpoint: name of the endpoint to stop polling
+     */
+    stopPoller(endpoint) {
+        let current_endpoint = this.endpoints[endpoint];
+        if (current_endpoint && "interval" in current_endpoint) {
+            clearInterval(current_endpoint.interval);
+            delete current_endpoint.interval;
+        }
+    }
 }
 export let _loader = new Loader();
 

@@ -35,9 +35,22 @@ Vue.component("advanced-settings", {
                     settings: _settings.miscellaneous
                 }
             },
+            transport: _settings.transport,
+            stream_status: {active: null, enabled: null, clients: 0, dropped: 0},
+            stream_status_interval: null,
             old_polling: {..._settings.polling_intervals},
             errors: _validator.errors
         };
+    },
+    mounted() {
+        this.refreshStreamStatus();
+        this.stream_status_interval = setInterval(this.refreshStreamStatus.bind(this), 2000);
+    },
+    beforeDestroy() {
+        if (this.stream_status_interval) {
+            clearInterval(this.stream_status_interval);
+            this.stream_status_interval = null;
+        }
     },
     methods: {
         /**
@@ -46,6 +59,23 @@ Vue.component("advanced-settings", {
         clearErrors() {
             _validator.errors.splice(0, _validator.errors.length);
             _validator.counts.GDS_Errors = 0;
+        },
+        /**
+         * Refresh the visible stream-status panel from the /api/stream/status endpoint.
+         */
+        refreshStreamStatus() {
+            fetch("/api/stream/status")
+                .then((response) => response.ok ? response.json() : null)
+                .then((data) => {
+                    if (!data) {
+                        this.stream_status = {active: false, enabled: false, clients: 0, dropped: 0};
+                        return;
+                    }
+                    this.stream_status = Object.assign({active: null, enabled: null, clients: 0, dropped: 0}, data);
+                })
+                .catch(() => {
+                    this.stream_status = {active: false, enabled: false, clients: 0, dropped: 0};
+                });
         }
     },
     watch: {
@@ -66,6 +96,17 @@ Vue.component("advanced-settings", {
             },
             // Must watch sub-keys
             deep: true
+        },
+        /**
+         * Live transport toggle. Persist the change and let the datastore
+         * swap between the WebSocket stream and the REST poller without a
+         * page reload.
+         */
+        "transport.mode": {
+            handler(mode) {
+                _settings.setTransport(mode);
+                _datastore.applyTransport();
+            }
         }
     }
 });

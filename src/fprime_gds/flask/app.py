@@ -28,6 +28,7 @@ import fprime_gds.flask.json
 import fprime_gds.flask.logs
 import fprime_gds.flask.sequence
 import fprime_gds.flask.stats
+import fprime_gds.flask.streams
 import fprime_gds.flask.updown
 from fprime_gds.executables.cli import ParserBase, StandardPipelineParser, ConfigDrivenParser
 
@@ -183,6 +184,26 @@ def construct_app():
             "/logdata/<name>",
             resource_class_args=[args_ns.logs],
         )
+
+    # WebSocket telemetry stream. The endpoint is registered conditional on
+    # the optional flask-sock dependency being installed and on the
+    # STREAM_ENABLED config flag (default: True). If unavailable, the front
+    # end falls back to REST polling automatically.
+    hub = fprime_gds.flask.streams.StreamHub(
+        max_depth=int(app.config.get("STREAM_QUEUE_DEPTH", fprime_gds.flask.streams.DEFAULT_QUEUE_DEPTH))
+    )
+    hub.attach_to_pipeline(pipeline)
+    app.config["STREAM_ACTIVE"] = fprime_gds.flask.streams.register_stream_routes(app, hub)
+
+    @app.route("/api/stream/status")
+    def _stream_status():
+        return {
+            "enabled": bool(app.config.get("STREAM_ENABLED", True)),
+            "active": bool(app.config.get("STREAM_ACTIVE", False)),
+            "queue_depth": int(app.config.get("STREAM_QUEUE_DEPTH", fprime_gds.flask.streams.DEFAULT_QUEUE_DEPTH)),
+            **hub.stats(),
+        }
+
     return app, api
 
 

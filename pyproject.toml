@@ -33,6 +33,7 @@ classifiers = [
 dependencies = [
     "flask>=3.0.0",
     "flask_compress>=1.11",
+    "flask-sock>=0.7.0",
     "pyzmq>=24.0.1",
     "pexpect>=4.8.0",
     "pytest>=6.2.4",

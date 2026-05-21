@@ -18,4 +18,16 @@ MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # Max length of request is 32MiB
 
 JS_CONFIGURATION_FILE = os.path.join(os.path.dirname(__file__), "static", "js", "config.js")
 
+# WebSocket telemetry stream (see fprime_gds.flask.streams). When True the
+# /api/stream WebSocket route is registered (provided ``flask-sock`` is
+# installed) and the front-end may use it instead of polling /channels and
+# /events. When False the route is omitted and the front-end falls back to
+# REST polling regardless of its own configuration.
+STREAM_ENABLED = os.environ.get("FP_STREAM_ENABLED", "YES") == "YES"
+
+# Per-client outbox depth used by the stream hub. When a client's outbox
+# fills, the oldest message is dropped (and a counter is incremented) so
+# the F Prime decoder threads are never blocked by a slow consumer.
+STREAM_QUEUE_DEPTH = int(os.environ.get("FP_STREAM_QUEUE_DEPTH", "1024"))
+
 # TODO: load real config

@@ -63,6 +63,9 @@ class StandardPipeline:
         data_logging_enabled=True,
         cooldown=0.5,
         chunk=256,
+        log_batch_ms=None,
+        log_batch_bytes=None,
+        log_disable_channels=None,
     ):
         """
         Setup the standard pipeline for moving data from the middleware layer through the GDS layers using the standard
@@ -106,7 +109,12 @@ class StandardPipeline:
         self.client_socket.register(self.distributor)
         # Final setup step is to make a logging directory, and register in the logger
         if logging_prefix and data_logging_enabled:
-            self.setup_logging(logging_prefix)
+            self.setup_logging(
+                logging_prefix,
+                batch_ms=log_batch_ms,
+                batch_bytes=log_batch_bytes,
+                disable_channel_patterns=log_disable_channels,
+            )
 
     @property
     def transport_implementation(self):
@@ -137,16 +145,34 @@ class StandardPipeline:
             os.makedirs(log_dir)
         return log_dir
 
-    def setup_logging(self, log_dir):
+    def setup_logging(
+        self,
+        log_dir,
+        batch_ms=None,
+        batch_bytes=None,
+        disable_channel_patterns=None,
+    ):
         """
-        Setup logging based on the logging prefix supplied
+        Setup logging based on the logging prefix supplied.
 
         :param log_dir: logging output directory
+        :param batch_ms: maximum time (ms) a buffered byte may sit before flush.
+            ``None`` selects the :class:`DataLogger` default.
+        :param batch_bytes: maximum bytes buffered per file before flush.
+            ``None`` selects the :class:`DataLogger` default.
+        :param disable_channel_patterns: glob patterns; matching channels are
+            dropped from ``channel.log`` entirely.
         """
         # Setup the logging pipeline (register it to all its data sources)
-        logger = fprime_gds.common.logger.data_logger.DataLogger(
-            log_dir, verbose=True, csv=True
-        )
+        data_logger_module = fprime_gds.common.logger.data_logger
+        kwargs = {"verbose": True, "csv": True}
+        if batch_ms is not None:
+            kwargs["batch_ms"] = batch_ms
+        if batch_bytes is not None:
+            kwargs["batch_bytes"] = batch_bytes
+        if disable_channel_patterns:
+            kwargs["disable_channel_patterns"] = disable_channel_patterns
+        logger = data_logger_module.DataLogger(log_dir, **kwargs)
         self.logger = logger
         self.coders.register_channel_consumer(self.logger)
         self.coders.register_event_consumer(self.logger)

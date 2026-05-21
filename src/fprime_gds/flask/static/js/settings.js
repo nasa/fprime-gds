@@ -16,6 +16,33 @@ class Settings {
             channels_display_last_received: true
          };
          this.polling_intervals = {};
+         // Transport for the events/channels/command_history endpoints.
+         // "stream" uses a WebSocket push from the GDS (when available),
+         // "poll" uses the legacy REST polling. The advanced settings UI
+         // exposes a live switch backed by this value, and the choice is
+         // persisted to localStorage so it survives reloads.
+         this.transport = {
+             mode: (config.defaultTransport === "poll") ? "poll" : "stream",
+         };
+         try {
+             let persisted = window.localStorage.getItem("fprime-gds-transport");
+             if (persisted === "stream" || persisted === "poll") {
+                 this.transport.mode = persisted;
+             }
+         } catch (e) { /* localStorage unavailable; ignore */ }
+    }
+
+    /**
+     * Persist the transport choice. Intended to be called by the UI live switch.
+     */
+    setTransport(mode) {
+         if (mode !== "stream" && mode !== "poll") {
+             return;
+         }
+         this.transport.mode = mode;
+         try {
+             window.localStorage.setItem("fprime-gds-transport", mode);
+         } catch (e) { /* ignore */ }
     }
 
     /**

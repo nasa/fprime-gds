@@ -49,6 +49,12 @@ export let config = {
     //
     // Thus dashboards are disabled by default and projects must opt-in thus taking the responsibility
     // to validate and review the safety of the dashboards they use.
-    enableDashboards: false
+    enableDashboards: false,
+
+    // Default transport for events / channels / command_history. "stream" uses the WebSocket
+    // push endpoint at /api/stream when available (with automatic fallback to polling if the
+    // server has the route disabled or unavailable). "poll" uses the historical REST polling.
+    // The advanced settings tab exposes a live toggle that overrides this default per browser.
+    defaultTransport: "stream"
 };
 

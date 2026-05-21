@@ -926,6 +926,43 @@ class LogDeployParser(ParserBase):
                 "default": False,
                 "help": "Disable logging of each data item",
             },
+            ("--log-batch-ms",): {
+                "dest": "log_batch_ms",
+                "action": "store",
+                "type": int,
+                "default": None,
+                "help": (
+                    "Maximum time (in milliseconds) a buffered byte may sit "
+                    "in the data logger's per-file buffer before being "
+                    "flushed to disk. ``0`` disables the background flusher "
+                    "thread. [default: 100]"
+                ),
+            },
+            ("--log-batch-bytes",): {
+                "dest": "log_batch_bytes",
+                "action": "store",
+                "type": int,
+                "default": None,
+                "help": (
+                    "Maximum bytes that may accumulate in any one data "
+                    "logger file buffer before that file is flushed "
+                    "immediately. [default: 1048576]"
+                ),
+            },
+            ("--log-disable-channels",): {
+                "dest": "log_disable_channels",
+                "action": "store",
+                "nargs": "*",
+                "default": [],
+                "help": (
+                    "Glob pattern(s) (matched against the fully-qualified "
+                    "channel name) of channels that should NOT be persisted "
+                    "to channel.log. Accepts one or more patterns separated by "
+                    "whitespace. Useful for high-rate channels (image/frame "
+                    "multiplex telemetry) where on-disk persistence is not "
+                    "desired."
+                ),
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -1211,6 +1248,9 @@ class StandardPipelineParser(CompositeParser):
             "data_logging_enabled": not args_ns.disable_data_logging,
             "cooldown": args_ns.file_uplink_cooldown,
             "chunk": args_ns.file_uplink_chunk_size,
+            "log_batch_ms": getattr(args_ns, "log_batch_ms", None),
+            "log_batch_bytes": getattr(args_ns, "log_batch_bytes", None),
+            "log_disable_channels": getattr(args_ns, "log_disable_channels", None) or None,
         }
         pipeline = pipeline if pipeline else StandardPipeline()
         pipeline.transport_implementation = args_ns.connection_transport
