@@ -54,7 +54,16 @@ class _BufferedFile:
         self.path = path
         self._fh = open(path, mode)  # noqa: SIM115 - intentional, closed in close()
         self._buf = bytearray()
+        # ``_lock`` is held only for short buffer mutations so writers are
+        # never blocked on slow disk I/O. ``_flush_lock`` serializes
+        # flush() callers (the background flusher thread, sized-flush
+        # callers from write(), explicit flushes from close()) so that
+        # two flushes cannot snapshot overlapping ranges of the buffer
+        # and double-write to the underlying file. ``_flush_lock`` is
+        # only contended between flush callers, never between writers
+        # and flushers, so it preserves the lock-free write hot path.
         self._lock = threading.Lock()
+        self._flush_lock = threading.Lock()
         self._batch_bytes = batch_bytes
         self._retry_max_bytes = retry_max_bytes
 
@@ -73,46 +82,61 @@ class _BufferedFile:
     def flush(self):
         """Drain the in-memory buffer to the underlying file.
 
-        The buffer is snapshotted under the lock, the I/O is performed
-        without the lock held (so new ``write`` callers do not block on
-        a slow disk), and on success the snapshotted bytes are removed
-        from the front of the buffer. On failure the buffer is left
-        intact so the flusher thread genuinely retries on its next
-        tick. To bound memory under a permanently-wedged disk, the
-        buffer is dropped once it exceeds ``_retry_max_bytes``; this is
-        logged at WARNING level.
+        Held under ``_flush_lock`` so concurrent flush callers (the
+        background flusher thread plus any sized-flush from ``write``
+        and the close drain) serialize -- otherwise two callers could
+        snapshot overlapping buffer ranges, double-write to the
+        underlying file, and double-delete the buffer.
+
+        Inside the flush-lock, the buffer is snapshotted under the
+        short-lived buffer lock, the I/O is performed with the buffer
+        lock released (so new ``write`` callers never block on a slow
+        disk), and on success the snapshotted bytes are removed from
+        the front of the buffer. On failure the buffer is left intact
+        so the flusher thread genuinely retries on its next tick. To
+        bound memory under a permanently-wedged disk the buffer is
+        capped at ``_retry_max_bytes``; bytes past the cap are dropped
+        (newest first, preserving the oldest in-flight chunk) and the
+        loss is logged at WARNING level.
         """
-        with self._lock:
-            if not self._buf:
-                return
-            chunk_len = len(self._buf)
-            chunk = bytes(self._buf)
-        is_binary = "b" in self._fh.mode
-        try:
-            self._fh.write(chunk if is_binary else chunk.decode("utf-8", errors="replace"))
-            self._fh.flush()
-        except Exception:
-            # Disk write failed; keep the data in the buffer so the
-            # next flush tick (or call site) can try again. Don't take
-            # down the data pipeline.
-            logger.exception("DataLogger: deferred flush to %s", self.path)
+        # Blocking acquisition. The flush lock is only contended
+        # between flush callers (the background flusher, sized
+        # flushes from write(), and the close drain) -- writers
+        # are never blocked here because they hit ``_lock`` only,
+        # not ``_flush_lock``. ``close()`` relies on this being
+        # blocking to guarantee a full drain at shutdown.
+        with self._flush_lock:
             with self._lock:
-                if len(self._buf) > self._retry_max_bytes:
-                    dropped = len(self._buf) - chunk_len
-                    # Drop everything that accumulated since the failed
-                    # chunk (newer data is less useful than the older
-                    # in-flight chunk we are still trying to write) and
-                    # surface the loss.
-                    self._buf = bytearray(chunk)
-                    logger.warning(
-                        "DataLogger: dropping %d bytes from %s (disk wedged; "
-                        "retry buffer cap %d bytes reached)",
-                        dropped, self.path, self._retry_max_bytes,
-                    )
-            return
-        # Success -- discard the bytes we just wrote.
-        with self._lock:
-            del self._buf[:chunk_len]
+                if not self._buf:
+                    return
+                chunk_len = len(self._buf)
+                chunk = bytes(self._buf)
+            is_binary = "b" in self._fh.mode
+            try:
+                self._fh.write(chunk if is_binary else chunk.decode("utf-8", errors="replace"))
+                self._fh.flush()
+            except Exception:
+                # Disk write failed; keep the data in the buffer so
+                # the next flush tick (or call site) can try again.
+                # Don't take down the data pipeline.
+                logger.exception("DataLogger: deferred flush to %s", self.path)
+                with self._lock:
+                    if len(self._buf) > self._retry_max_bytes:
+                        dropped = len(self._buf) - chunk_len
+                        # Drop everything that accumulated since the
+                        # failed chunk (newer data is less useful than
+                        # the older in-flight chunk we are still
+                        # trying to write) and surface the loss.
+                        self._buf = bytearray(chunk)
+                        logger.warning(
+                            "DataLogger: dropping %d bytes from %s (disk wedged; "
+                            "retry buffer cap %d bytes reached)",
+                            dropped, self.path, self._retry_max_bytes,
+                        )
+                return
+            # Success -- discard the bytes we just wrote.
+            with self._lock:
+                del self._buf[:chunk_len]
 
     def close(self):
         try:

@@ -96,5 +96,75 @@ def test_default_retry_max_bytes_constant_is_sane():
     assert DEFAULT_RETRY_MAX_BYTES >= (1 << 20)
 
 
+def test_concurrent_flush_does_not_double_write_or_lose_data(tmp_path):
+    """Two threads calling flush() simultaneously must not double-write
+    overlapping buffer ranges nor drop data due to double-delete.
+
+    Regression test for the race where flush() snapshots under _lock,
+    releases _lock for I/O, and another flush() can snapshot the same
+    bytes before the first one deletes them.
+    """
+    import threading
+    bf = _BufferedFile(str(tmp_path / "race.log"), "a", batch_bytes=10_000_000)
+
+    # Slow the I/O down so the second flusher reliably overlaps with
+    # the first one. We deliberately use a sleep here -- the bug only
+    # appears when the I/O is slow enough that another thread's flush
+    # call interleaves between the snapshot and the delete.
+    real_write = bf._fh.write
+    def slow_write(payload):
+        time.sleep(0.05)
+        real_write(payload)
+    bf._fh.write = slow_write
+
+    # Fill the buffer with deterministic content we can audit.
+    payload = "".join(f"line-{i:04d}\n" for i in range(200))
+    bf.write(payload)
+    expected_bytes = payload.encode()
+
+    # Launch many concurrent flushes; without the flush lock the file
+    # will contain duplicated ranges and the buffer will be missing data.
+    errors = []
+    def flusher():
+        try:
+            bf.flush()
+        except Exception as exc:  # pragma: no cover - defensive
+            errors.append(exc)
+    threads = [threading.Thread(target=flusher) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    bf._fh.flush = lambda: None  # already drained above; avoid re-flush
+    bf.close()
+
+    assert errors == [], f"flush raised: {errors}"
+    # The file should contain *exactly* the payload, once -- no
+    # duplicated lines and no missing lines.
+    on_disk = (tmp_path / "race.log").read_bytes()
+    assert on_disk == expected_bytes, (
+        f"file content corrupted: len(on_disk)={len(on_disk)}, "
+        f"len(expected)={len(expected_bytes)}"
+    )
+
+
+def test_close_drains_buffer_even_when_flusher_is_active(tmp_path):
+    """Calling close() must always result in a fully drained buffer,
+    even if the background flusher thread happens to be running.
+    """
+    dl = DataLogger(
+        str(tmp_path),
+        batch_ms=1,   # very aggressive flusher
+        batch_bytes=10_000_000,
+    )
+    # Inject some data into the channel.log file
+    dl.f_telem.write("close-drain-test\n")
+    # close() should drain everything no matter what the flusher is doing
+    dl.close()
+    content = (tmp_path / "channel.log").read_text()
+    assert "close-drain-test" in content
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
