@@ -14,6 +14,7 @@ on-disk channel log entirely.
 """
 
 import fnmatch
+import logging
 import os
 import threading
 
@@ -24,11 +25,21 @@ from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.data_types.pkt_data import PktData
 
 
+logger = logging.getLogger("fprime_gds.common.logger.data_logger")
+
+
 DEFAULT_LOG_BATCH_MS = 100
 """Default upper bound on the time a buffered byte may sit before flushing."""
 
 DEFAULT_LOG_BATCH_BYTES = 1 << 20  # 1 MiB
 """Default upper bound on the number of buffered bytes before flushing."""
+
+DEFAULT_RETRY_MAX_BYTES = 16 << 20  # 16 MiB
+"""Upper bound on the per-file retry buffer when disk writes are failing.
+
+Once the buffered (still-unwritten) data exceeds this size we drop the
+newest bytes and keep retrying the oldest chunk. Bounding the buffer
+prevents an unbounded memory leak when the disk is permanently wedged."""
 
 
 class _BufferedFile:
@@ -39,12 +50,13 @@ class _BufferedFile:
     :class:`DataLogger` flusher thread fires (every ``batch_ms``).
     """
 
-    def __init__(self, path, mode, batch_bytes):
+    def __init__(self, path, mode, batch_bytes, retry_max_bytes=DEFAULT_RETRY_MAX_BYTES):
         self.path = path
         self._fh = open(path, mode)  # noqa: SIM115 - intentional, closed in close()
         self._buf = bytearray()
         self._lock = threading.Lock()
         self._batch_bytes = batch_bytes
+        self._retry_max_bytes = retry_max_bytes
 
     def write(self, data):
         """Append text or bytes to the buffer; flush if over threshold."""
@@ -59,19 +71,48 @@ class _BufferedFile:
             self.flush()
 
     def flush(self):
-        """Drain the in-memory buffer to the underlying file."""
+        """Drain the in-memory buffer to the underlying file.
+
+        The buffer is snapshotted under the lock, the I/O is performed
+        without the lock held (so new ``write`` callers do not block on
+        a slow disk), and on success the snapshotted bytes are removed
+        from the front of the buffer. On failure the buffer is left
+        intact so the flusher thread genuinely retries on its next
+        tick. To bound memory under a permanently-wedged disk, the
+        buffer is dropped once it exceeds ``_retry_max_bytes``; this is
+        logged at WARNING level.
+        """
         with self._lock:
             if not self._buf:
                 return
+            chunk_len = len(self._buf)
             chunk = bytes(self._buf)
-            self._buf.clear()
+        is_binary = "b" in self._fh.mode
         try:
-            self._fh.write(chunk if "b" in self._fh.mode else chunk.decode("utf-8", errors="replace"))
+            self._fh.write(chunk if is_binary else chunk.decode("utf-8", errors="replace"))
             self._fh.flush()
         except Exception:
-            # Avoid taking down the data pipeline if the disk is wedged.
-            # The flusher thread will retry on its next tick.
-            pass
+            # Disk write failed; keep the data in the buffer so the
+            # next flush tick (or call site) can try again. Don't take
+            # down the data pipeline.
+            logger.exception("DataLogger: deferred flush to %s", self.path)
+            with self._lock:
+                if len(self._buf) > self._retry_max_bytes:
+                    dropped = len(self._buf) - chunk_len
+                    # Drop everything that accumulated since the failed
+                    # chunk (newer data is less useful than the older
+                    # in-flight chunk we are still trying to write) and
+                    # surface the loss.
+                    self._buf = bytearray(chunk)
+                    logger.warning(
+                        "DataLogger: dropping %d bytes from %s (disk wedged; "
+                        "retry buffer cap %d bytes reached)",
+                        dropped, self.path, self._retry_max_bytes,
+                    )
+            return
+        # Success -- discard the bytes we just wrote.
+        with self._lock:
+            del self._buf[:chunk_len]
 
     def close(self):
         try:
