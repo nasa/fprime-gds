@@ -1,0 +1,4 @@
+; Test valid relative time formats
+R00:00:00 cmdDisp.CMD_NO_OP
+R01:30:45 cmdDisp.CMD_NO_OP
+R00:00:05.123456 cmdDisp.CMD_NO_OP_STRING "Hello"

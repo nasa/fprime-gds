@@ -1,0 +1,7 @@
+; This is a full-line comment
+; Another comment
+
+R00:00:00 cmdDisp.CMD_NO_OP ; Trailing comment
+R00:00:01 cmdDisp.CMD_NO_OP_STRING "arg with ; semicolon" ; Another trailing comment
+
+; More comments at the end

@@ -1,0 +1,4 @@
+; Test various argument types
+R00:00:00 cmdDisp.CMD_NO_OP
+R00:00:01 cmdDisp.CMD_NO_OP_STRING "hello world"
+R00:00:02 cmdDisp.CMD_NO_OP_STRING "test"

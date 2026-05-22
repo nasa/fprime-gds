@@ -1,0 +1,4 @@
+; File with multiple errors
+X00:00:00 CMD_BAD_DESCRIPTOR
+R99:99:99 CMD_BAD_TIME
+R00:00:00
