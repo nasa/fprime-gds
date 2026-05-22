@@ -83,7 +83,7 @@ function autocomplete(commands, node, siblings, state) {
         return autoArg(commands, node, siblings, state);
     }
     else if (siblings.length === 0) {
-        let snips = ["R${hours}:${minutes}:${seconds}", "A${year}-${doy}T${hours}:${minutes}:${seconds}"];
+        let snips = ["R${hours}:${minutes}:${seconds}", "A${year}-${day}T${hours}:${minutes}:${seconds}"];
         return {options: snips.map((item) => {return snippetCompletion(item, {label: item})})};
     }
     return null;
