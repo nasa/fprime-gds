@@ -121,7 +121,7 @@ Vue.component("sequencer", {
                 let type = message.type || "validation";
                 let content = message.error || message;
                 _self.messages[type] = content;
-                if (type !== "error") {
+                if (!message.error && !message.type) {
                     let binName = _self.sequence.name.replace(/\.seq$/, ".bin");
                     let dir = _self.destination || "/seq";
                     _self.lastUplinkedSequence = dir.replace(/\/$/, "") + "/" + binName;
