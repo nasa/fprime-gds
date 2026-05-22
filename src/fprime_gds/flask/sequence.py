@@ -61,6 +61,16 @@ class SequenceCompiler(flask_restful.Resource):
         self.parser.add_argument(
             "uplink", required=True, help="Text of sequence file to create"
         )
+        self.parser.add_argument(
+            "destination",
+            required=False,
+            default=None,
+            help="Remote directory to uplink the compiled sequence to",
+        )
+
+    def get(self):
+        """Returns the default remote sequence directory."""
+        return {"destination": self.destination}
 
     def put(self):
         args = self.parser.parse_args()
@@ -81,6 +91,7 @@ class SequenceCompiler(flask_restful.Resource):
         temp_seq_path = self.tempdir / Path(name).name
         temp_bin_path = temp_seq_path.with_suffix(".bin")
         messages = ""
+        uplink_destination = args.get("destination", None) or self.destination
         try:
             with open(temp_seq_path, "w") as file_handle:
                 file_handle.write(text)
@@ -91,7 +102,7 @@ class SequenceCompiler(flask_restful.Resource):
                 )
             messages += thief.output
             if uplink:
-                destination = Path(self.destination) / temp_bin_path.name
+                destination = Path(uplink_destination) / temp_bin_path.name
                 self.uplinker.enqueue(str(temp_bin_path), str(destination))
                 messages += f"Uplinking to {destination}. Please confirm uplink EVRs before running.\n"
         except OSError as ose:
