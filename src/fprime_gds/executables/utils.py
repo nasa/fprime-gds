@@ -85,7 +85,9 @@ def register_process_assassin(process, log=None):
     atexit.register(assassin)
 
 
-def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None):
+def run_wrapped_application(
+    arguments, logfile=None, env=None, launch_time=None, cwd=None
+):
     """
     Run an application and ensure that it is logged immediately to the logfile. This will allow the application to have
     up-to-date logs. This is a wrapper for pexpect to ensure that the application runs and log effectively. It has been
@@ -95,6 +97,7 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
     :param logfile: (optional) path to logfile to log to. Will overwrite.
     :param env: (optional) environment for the subprocess
     :param launch_time: (optional) time to wait before declaring the process stable
+    :param cwd: (optional) working directory to run the process from.
     :return: child process should it be needed.
     """
     # Write out run information for the calling user
@@ -112,7 +115,7 @@ def run_wrapped_application(arguments, logfile=None, env=None, launch_time=None)
     # the output. That way the log file is fully up-to-date.
     try:
         child = subprocess.Popen(
-            arguments, stdout=file_handler, stderr=subprocess.STDOUT, env=env
+            arguments, stdout=file_handler, stderr=subprocess.STDOUT, env=env, cwd=cwd
         )
         register_process_assassin(child, file_handler)
         # If launch time is specified, then wait for it to be stable

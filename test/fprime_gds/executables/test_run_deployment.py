@@ -2,6 +2,7 @@ import platform
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from fprime_gds.executables import run_deployment
@@ -17,6 +18,36 @@ class TestRunDeployment(unittest.TestCase):
             self.create_fake_deployment_structure(temporary_directory)
             with mock.patch("sys.argv", ["main", "-g", "html", "-d", str(Path(temporary_directory) / platform.system() / "Test")]):
                 run_deployment.parse_args()
+
+    def test_launch_app_runs_from_app_directory(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            app_path = Path(temporary_directory) / "bin" / "TestApp"
+            app_path.parent.mkdir()
+            logs_path = Path(temporary_directory) / "logs"
+            logs_path.mkdir()
+            parsed_args = SimpleNamespace(
+                app=app_path,
+                logs=str(logs_path),
+                port=50000,
+                address="127.0.0.1",
+            )
+
+            with mock.patch.object(run_deployment, "launch_process") as launch_process:
+                run_deployment.launch_app(parsed_args)
+
+            launch_process.assert_called_once_with(
+                [
+                    app_path.absolute(),
+                    "-p",
+                    str(parsed_args.port),
+                    "-a",
+                    parsed_args.address,
+                ],
+                name=f"{app_path.name} Application",
+                logfile=str(logs_path / f"{app_path.name}.log"),
+                launch_time=1,
+                cwd=app_path.parent,
+            )
 
     def create_fake_deployment_structure(self, temporary_directory):
         system_dir = Path(temporary_directory) / platform.system() / "Test"

@@ -53,7 +53,7 @@ def parse_args():
     return args
 
 
-def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5):
+def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5, cwd=None):
     """
     Launch a child subprocess. This subprocess will allow the child to run outside of the memory context of Python.
 
@@ -62,13 +62,14 @@ def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5):
     :param name: (optional) short name for printing messages.
     :param env: (optional) environment to run in. Allows for special environment contexts.
     :param launch_time: (optional) time to launch the process, before rendering an error.
+    :param cwd: (optional) working directory to run the process from.
     :return: running process
     """
     if name is None:
         name = str(cmd)
     print(f"[INFO] Ensuring {name} is stable for at least {launch_time} seconds")
     try:
-        return run_wrapped_application(cmd, logfile, env, launch_time)
+        return run_wrapped_application(cmd, logfile, env, launch_time, cwd=cwd)
     except AppWrapperException as awe:
         print(f"[ERROR] {str(awe)}.", file=sys.stderr)
         try:
@@ -166,7 +167,11 @@ def launch_app(parsed_args):
         parsed_args.address,
     ]
     return launch_process(
-        app_cmd, name=f"{app_path.name} Application", logfile=logfile, launch_time=1
+        app_cmd,
+        name=f"{app_path.name} Application",
+        logfile=logfile,
+        launch_time=1,
+        cwd=app_path.parent,
     )
 
 
