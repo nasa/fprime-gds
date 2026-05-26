@@ -491,7 +491,16 @@ class DetectionParser(ParserBase):
                 "required": False,
                 "type": str,
                 "help": "Deployment installation/build output directory. [default: install_dest field in settings.ini]",
-            }
+            },
+            ("--toolchain",): {
+                "dest": "toolchain",
+                "action": "store",
+                "required": False,
+                "type": str,
+                "default": None,
+                "help": "Toolchain used to build the deployment. "
+                "Overrides automatic platform detection. [default: %(default)s]",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -499,7 +508,8 @@ class DetectionParser(ParserBase):
         if args.deployment:
             args.deployment = Path(args.deployment)
             return args
-        detected_toolchain = get_artifacts_root() / platform.system()
+        toolchain_name = args.toolchain if args.toolchain else platform.system()
+        detected_toolchain = get_artifacts_root() / toolchain_name
         if not detected_toolchain.exists():
             msg = f"{detected_toolchain} does not exist. Make sure to build."
             raise Exception(msg)
@@ -1330,6 +1340,20 @@ class BinaryDeployment(DetectionParser):
                     "type": str,
                     "help": "Path to app to run. Overrides automatic app detection.",
                 },
+                ("--full-path",): {
+                    "dest": "full_path",
+                    "action": "store",
+                    "required": False,
+                    "type": str,
+                    "default": None,
+                    "help": "Full path to the application executable. Bypasses all deployment-based app detection.",
+                },
+                ("--application-arguments",): {
+                    "dest": "application_arguments",
+                    "nargs": "*",
+                    "default": None,
+                    "help": "Arguments to pass to the application binary, replacing the default -p/-a arguments.",
+                },
             },
         }
 
@@ -1343,6 +1367,13 @@ class BinaryDeployment(DetectionParser):
         """
         # No app, stop processing now
         if args.noapp:
+            return args
+        # Full path takes highest precedence
+        if args.full_path:
+            args.app = Path(args.full_path)
+            if not args.app.is_file():
+                msg = f"F prime binary '{args.app}' does not exist or is not a file"
+                raise ValueError(msg)
             return args
         args = super().handle_arguments(args, **kwargs)
         args.app = Path(args.app) if args.app else Path(find_app(args.deployment))

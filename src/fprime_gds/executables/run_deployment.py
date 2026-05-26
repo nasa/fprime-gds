@@ -159,13 +159,16 @@ def launch_app(parsed_args):
     """
     app_path = parsed_args.app
     logfile = os.path.join(parsed_args.logs, f"{app_path.name}.log")
-    app_cmd = [
-        app_path.absolute(),
-        "-p",
-        str(parsed_args.port),
-        "-a",
-        parsed_args.address,
-    ]
+    if parsed_args.application_arguments is not None:
+        app_cmd = [app_path.absolute()] + parsed_args.application_arguments
+    else:
+        app_cmd = [
+            app_path.absolute(),
+            "-p",
+            str(parsed_args.port),
+            "-a",
+            parsed_args.address,
+        ]
     return launch_process(
         app_cmd,
         name=f"{app_path.name} Application",
