@@ -980,7 +980,7 @@ class MiddleWareParser(ParserBase):
             ("--zmq-transport",): {
                 "dest": "zmq_transport",
                 "nargs": 2,
-                "help": "Pair of URls used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
+                "help": "Pair of URLs used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
                 "default": [
                     f"ipc:///tmp/fprime-server-in-{getpass.getuser()}-{os.getpid()}",
                     f"ipc:///tmp/fprime-server-out-{getpass.getuser()}-{os.getpid()}",
