@@ -292,9 +292,10 @@ class DataStore {
     }
 
     /**
-     * Probe whether the WebSocket stream route is available on this GDS. The
-     * probe is best-effort: a missing endpoint is interpreted as "not
-     * available" and falls the datastore back to polling.
+     * Probe whether the WebSocket stream route is available on this GDS, and
+     * read the server-side default transport. The probe is best-effort: a
+     * missing endpoint is interpreted as "not available" and falls the
+     * datastore back to polling.
      */
     _probeStreamAvailability() {
         return new Promise((resolve) => {
@@ -302,6 +303,9 @@ class DataStore {
                 .then((response) => response.ok ? response.json() : null)
                 .then((data) => {
                     this._streamAvailable = !!(data && data.active);
+                    if (data && typeof data.default_transport === "string") {
+                        _settings.applyServerDefaultTransport(data.default_transport);
+                    }
                     resolve();
                 })
                 .catch(() => {
@@ -311,26 +315,40 @@ class DataStore {
         });
     }
 
+    /**
+     * Build a wrapped processor for a given polling-info entry. Shared by
+     * the streaming and polling paths so the event severity counter and
+     * error wrapping stay in lockstep across transports.
+     *
+     * @param item {endpoint, handler} entry from this.polling_info
+     * @returns processor function with signature (items, errors)
+     */
+    _buildProcessor(item) {
+        let bound = (item.handler instanceof HistoryHelper)
+            ? item.handler.update.bind(item.handler)
+            : item.handler.bind(this);
+        let processor = _validator.wrapResponseHandler(item.endpoint, bound);
+        if (item.endpoint === "events") {
+            let severity_processor = (severity) => severity.value.replace("EventSeverity.", "");
+            processor = _validator.wrapFieldCounter(
+                "severity",
+                processor,
+                severity_processor,
+                Object.fromEntries(Object.keys(config.summaryFields).map((field_key) => [field_key, 0]))
+            );
+        }
+        return processor;
+    }
+
     _buildStreamHandlers() {
         let handlers = {};
         for (let item of this.polling_info) {
             if (!STREAMED_ENDPOINTS.has(item.endpoint)) {
                 continue;
             }
-            let handler = item.handler;
-            let bound = (handler instanceof HistoryHelper) ? handler.update.bind(handler) : handler.bind(this);
-            let processor = _validator.wrapResponseHandler(item.endpoint, bound);
-            if (item.endpoint === "events") {
-                let severity_processor = (severity) => severity.value.replace("EventSeverity.", "");
-                processor = _validator.wrapFieldCounter(
-                    "severity",
-                    processor,
-                    severity_processor,
-                    Object.fromEntries(Object.keys(config.summaryFields).map((field_key) => [field_key, 0]))
-                );
-            }
-            // The stream handler is invoked with a single-element array per
-            // pushed sample. Wrap to match the (items, errors) signature
+            let processor = this._buildProcessor(item);
+            // The stream handler is invoked with an array of items per
+            // pushed envelope; wrap to match the (items, errors) signature
             // used by the REST poller's callback.
             handlers[item.endpoint] = (items) => processor(items, []);
         }
@@ -449,21 +467,9 @@ class DataStore {
             this.applyTransport();
             return;
         }
-        let handler = ((this.polling_info.filter((item) => item.endpoint === endpoint)[0]) || {}).handler;
-        if (handler && _settings.polling_intervals[endpoint] > -1) {
-            let bound = (handler instanceof HistoryHelper) ? handler.update.bind(handler) : handler.bind(this);
-            let processor = _validator.wrapResponseHandler(endpoint, bound);
-            if (endpoint === "events") {
-                let severity_processor = (severity) => {
-                    return severity.value.replace("EventSeverity.", "");
-                };
-                processor = _validator.wrapFieldCounter(
-                    "severity",
-                    processor,
-                    severity_processor,
-                    Object.fromEntries(Object.keys(config.summaryFields).map((field_key) => [field_key, 0]))
-                );
-            }
+        let item = this.polling_info.filter((entry) => entry.endpoint === endpoint)[0];
+        if (item && _settings.polling_intervals[endpoint] > -1) {
+            let processor = this._buildProcessor(item);
             let error_fn = _validator.getErrorHandler();
             _loader.registerPoller(endpoint, processor, error_fn, _settings.polling_intervals[endpoint]);
         }

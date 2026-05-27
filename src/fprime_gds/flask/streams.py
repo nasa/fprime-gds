@@ -3,21 +3,26 @@
 The default REST API exposes channel and event histories that the front-end
 polls on a timer. For high-rate deployments (many channels at high cadence)
 polling is a poor fit: every poll re-serializes the full per-client history
-and the browser parses a multi-megabyte response while still arriving
+and the browser parses a multi-megabyte response while still-arriving
 samples accumulate behind the request. This module supplements the REST
 API with a WebSocket push channel.
 
 A single :class:`StreamHub` registers itself with the F Prime pipeline as a
-channel, event, command, and packet consumer. As data arrives the hub
-enqueues a JSON envelope into the per-client outbox of each subscriber
-whose subscription matches. A WebSocket route, registered on the Flask app
+channel, event, and command consumer. As data arrives the hub enqueues a
+JSON envelope into the per-client outbox of each subscriber whose
+subscription matches. A WebSocket route, registered on the Flask app
 through :func:`register_stream_routes`, runs the per-client I/O loop and
 drains the outbox to the wire.
 
-The hub is designed to *never block* the F Prime decoder threads. Per-client
-outboxes are bounded; on overflow the oldest item is dropped and a counter
-is incremented so that overruns surface as telemetry rather than as a
-stalled pipeline.
+The hub is designed to **never block** the F Prime decoder threads.
+Per-client outboxes are bounded; channel samples are coalesced per id
+(the front-end ``MappedHistory`` already retains only the latest sample
+per channel id, so coalescing on the way *in* preserves identical display
+semantics while bounding the channel state by the number of *unique* ids
+instead of the incoming sample *rate*). Events and commands are unique
+and ride a bounded FIFO; on overflow the oldest item is dropped and a
+counter is incremented so that overruns surface as telemetry rather than
+as a stalled pipeline.
 
 The WebSocket support is conditional on the optional ``flask-sock``
 dependency. If unavailable, :func:`register_stream_routes` is a no-op and
@@ -32,7 +37,7 @@ import threading
 import time
 import uuid
 from collections import deque
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.cmd_data import CmdData
@@ -51,6 +56,23 @@ except Exception:  # pragma: no cover - import-time fallback
 logger = logging.getLogger("fprime_gds.flask.streams")
 
 
+# ---------------------------------------------------------------------------
+# Envelope kinds. The names are part of the wire protocol; the values are
+# also used as the discriminator in :func:`StreamHub._to_envelope` and on
+# the client side in ``stream.js`` (see ``ENVELOPE_TYPE_*``).
+# ---------------------------------------------------------------------------
+KIND_CHANNEL = "channel"
+KIND_EVENT = "event"
+KIND_COMMAND = "command"
+KIND_HELLO = "hello"
+KIND_ERROR = "error"
+
+#: Kinds that are coalesced into a per-kind batched ``ws.send`` payload by
+#: the sender thread. Other kinds are passed through individually so future
+#: envelope types don't silently merge into something they shouldn't.
+_BATCHABLE_KINDS = (KIND_CHANNEL, KIND_EVENT, KIND_COMMAND)
+
+
 DEFAULT_QUEUE_DEPTH = 1024
 """Default per-client outbox depth (in messages)."""
 
@@ -60,8 +82,8 @@ DEFAULT_DRAIN_TIMEOUT_S = 0.05
 DEFAULT_BATCH_WINDOW_S = 0.028
 """After the first envelope wakes the sender, wait this long for more to
 accumulate before draining. Coalesces same-kind samples into a single
-ws.send so the browser does one JSON.parse / handler dispatch per kind
-per window instead of one per sample.
+``ws.send`` so the browser does one ``JSON.parse`` / handler dispatch per
+kind per window instead of one per sample.
 
 Default is sized to one F Prime frame at 35 Hz (1/35 s = 28.6 ms).
 For live-rendering consumers like the DOOM display addon, this lets
@@ -81,8 +103,23 @@ DEFAULT_RECEIVE_TIMEOUT_S = 1.0
 """Wait timeout for the receive loop between subscription updates."""
 
 
+# ---------------------------------------------------------------------------
+# Per-client subscriber state
+# ---------------------------------------------------------------------------
+
 class _Subscriber:
-    """Per-WebSocket subscriber state held by :class:`StreamHub`."""
+    """Per-WebSocket subscriber state held by :class:`StreamHub`.
+
+    Holds:
+
+    * the subscription filter (which channels / events / commands this
+      client wants),
+    * a bounded outbox for events and commands (FIFO, drop-oldest on
+      overflow),
+    * a per-id coalescing dict for channel samples (the front-end
+      ``MappedHistory`` only keeps the latest per id, so we coalesce on
+      the way in rather than letting bursts overflow the outbox).
+    """
 
     __slots__ = (
         "id",
@@ -92,7 +129,6 @@ class _Subscriber:
         "commands",
         "_outbox",
         "_latest_channels",
-        "_outbox_lock",
         "_outbox_cv",
         "_max_depth",
         "dropped",
@@ -111,58 +147,115 @@ class _Subscriber:
         self.subscribe_all_channels = True
         self.events = True
         self.commands = True
-        # Events and commands are unique and must be delivered in order,
-        # so they ride a bounded deque. Channel samples, by contrast,
-        # are dense and lossy by nature: the front-end ``MappedHistory``
-        # only keeps the latest sample per channel id anyway, so we
-        # coalesce on the way in and store ``{id: latest_envelope}``.
-        # That bounds the channel state by the number of *unique* ids
-        # (a few hundred in a typical deployment) instead of by the
-        # incoming sample *rate*, which is what was producing tens of
-        # thousands of "dropped" entries on the outbox at high cadence.
+        # See the per-id coalescing rationale on the class docstring.
         self._outbox: deque = deque()
         self._latest_channels: Dict[int, Dict[str, Any]] = {}
-        self._outbox_lock = threading.Lock()
-        self._outbox_cv = threading.Condition(self._outbox_lock)
+        self._outbox_cv = threading.Condition()
         self._max_depth = max_depth
         self.dropped = 0
         self.active = True
 
+    # ------------------------------------------------------------------
+    # Subscription filter
+    # ------------------------------------------------------------------
+    def matches(self, kind: str, target_id: Optional[int]) -> bool:
+        """Return whether an envelope of ``kind`` should fan out to us."""
+        if kind == KIND_CHANNEL:
+            if self.subscribe_all_channels:
+                return True
+            return target_id is not None and target_id in self.channels
+        if kind == KIND_EVENT:
+            return self.events
+        if kind == KIND_COMMAND:
+            return self.commands
+        return False
+
+    def apply_subscription(self, message: Dict[str, Any]) -> None:
+        """Apply a single subscription operation from the client.
+
+        Supports three operations:
+
+        * ``"subscribe"`` / ``"sub"`` — add to the current subscription
+          (a channel list extends the set; ``"all"``/``True`` broadens
+          to all channels; ``events``/``commands`` toggle on).
+        * ``"unsubscribe"`` / ``"unsub"`` — remove from the current
+          subscription (a channel list shrinks the set; ``"all"`` clears
+          the channels; ``events``/``commands`` toggle off if falsy).
+        * ``"replace"`` — replace the subscription wholesale.
+
+        Unknown ops are ignored silently, leaving the door open for
+        protocol extensions.
+        """
+        op = (message.get("op") or "").lower()
+        channels = message.get("channels")
+        events = message.get("events")
+        commands = message.get("commands")
+        if op in ("subscribe", "sub"):
+            if channels == "all" or channels is True:
+                self.subscribe_all_channels = True
+            elif isinstance(channels, list):
+                self.channels.update(int(c) for c in channels)
+            if events is not None:
+                self.events = bool(events)
+            if commands is not None:
+                self.commands = bool(commands)
+        elif op in ("unsubscribe", "unsub"):
+            if channels == "all" or channels is True:
+                self.subscribe_all_channels = False
+                self.channels.clear()
+            elif isinstance(channels, list):
+                self.channels.difference_update(int(c) for c in channels)
+            if events is not None and not events:
+                self.events = False
+            if commands is not None and not commands:
+                self.commands = False
+        elif op == "replace":
+            self.subscribe_all_channels = channels == "all" or channels is True
+            self.channels = set()
+            if isinstance(channels, list):
+                self.channels = set(int(c) for c in channels)
+            self.events = bool(events) if events is not None else False
+            self.commands = bool(commands) if commands is not None else False
+
+    # ------------------------------------------------------------------
+    # Outbox
+    # ------------------------------------------------------------------
     def enqueue(self, envelope: Dict[str, Any]) -> None:
+        """Enqueue an envelope into this subscriber's outbox.
+
+        For channel envelopes with a known id, coalesces with any prior
+        sample for the same id (latest wins). All other envelopes ride a
+        FIFO deque bounded to ``max_depth``; overflow drops the oldest
+        entry and bumps the ``dropped`` counter.
+        """
         with self._outbox_cv:
             if not self.active:
                 return
             kind = envelope.get("type") if isinstance(envelope, dict) else None
-            if kind == "channel":
+            if kind == KIND_CHANNEL:
                 cid = envelope.get("id")
                 if cid is not None:
-                    # Replace any earlier sample for this channel.
-                    # MappedHistory.send already discards everything but
-                    # the latest per id; we just do it earlier so the
-                    # wire and the drain stay small.
                     self._latest_channels[cid] = envelope
                 else:
-                    # Fallback path: channel without an id; treat as
-                    # ordinary unique sample.
-                    if len(self._outbox) >= self._max_depth:
-                        try:
-                            self._outbox.popleft()
-                        except IndexError:
-                            pass
-                        self.dropped += 1
-                    self._outbox.append(envelope)
+                    self._push_bounded(envelope)
             else:
-                if len(self._outbox) >= self._max_depth:
-                    # Drop oldest to keep latency bounded under sustained overrun.
-                    try:
-                        self._outbox.popleft()
-                    except IndexError:
-                        pass
-                    self.dropped += 1
-                self._outbox.append(envelope)
+                self._push_bounded(envelope)
             self._outbox_cv.notify()
 
-    def drain(self, timeout_s: float, batch_window_s: float = 0.0):
+    def _push_bounded(self, envelope: Dict[str, Any]) -> None:
+        """Append to the FIFO outbox, drop-oldest on overflow.
+
+        Caller must hold ``self._outbox_cv``.
+        """
+        if len(self._outbox) >= self._max_depth:
+            try:
+                self._outbox.popleft()
+            except IndexError:
+                pass
+            self.dropped += 1
+        self._outbox.append(envelope)
+
+    def drain(self, timeout_s: float, batch_window_s: float = 0.0) -> List[Dict[str, Any]]:
         """Drain queued envelopes, blocking up to ``timeout_s`` for the first.
 
         Once at least one envelope has arrived, the call sleeps for
@@ -173,17 +266,14 @@ class _Subscriber:
         within ``timeout_s``.
         """
         with self._outbox_cv:
-            if not self._outbox and not self._latest_channels:
+            if self._empty_locked():
                 self._outbox_cv.wait(timeout=timeout_s)
-            if not self.active:
-                return []
-            if not self._outbox and not self._latest_channels:
+            if not self.active or self._empty_locked():
                 return []
         if batch_window_s > 0:
             # Sleep outside the cv lock so the decoder thread can keep
-            # enqueueing. The added latency (default ~50 ms) is the
-            # window in which we coalesce same-kind samples into one
-            # batched ws.send.
+            # enqueueing. The added latency is the window in which we
+            # coalesce same-kind samples into one batched ws.send.
             time.sleep(batch_window_s)
         with self._outbox_cv:
             if not self.active:
@@ -194,13 +284,35 @@ class _Subscriber:
             self._latest_channels.clear()
             return drained
 
+    def _empty_locked(self) -> bool:
+        """Whether both the outbox and the per-id channel slot are empty.
+
+        Caller must hold ``self._outbox_cv``.
+        """
+        return not self._outbox and not self._latest_channels
+
     def close(self) -> None:
+        """Mark the subscriber inactive and wake any blocked drain."""
         with self._outbox_cv:
             self.active = False
             self._outbox.clear()
             self._latest_channels.clear()
             self._outbox_cv.notify_all()
 
+
+# ---------------------------------------------------------------------------
+# Backward-compatible module-level alias. Tests and older callers may still
+# call ``_apply_subscription(sub, message)``; new code should use
+# ``sub.apply_subscription(message)`` directly.
+# ---------------------------------------------------------------------------
+
+def _apply_subscription(sub: _Subscriber, message: Dict[str, Any]) -> None:
+    sub.apply_subscription(message)
+
+
+# ---------------------------------------------------------------------------
+# StreamHub: pipeline integration + fan-out
+# ---------------------------------------------------------------------------
 
 class StreamHub(DataHandler):
     """Fan-out of F Prime decoded data to WebSocket subscribers."""
@@ -265,45 +377,29 @@ class StreamHub(DataHandler):
         target_id = envelope.get("id")
         kind = envelope["type"]
         for sub in subscribers:
-            if not self._matches(sub, kind, target_id):
-                continue
-            # Enqueue the raw envelope; the sender thread coalesces
-            # multiple same-kind envelopes drained together into a
-            # single batched ws.send() payload.
-            sub.enqueue(envelope)
+            if sub.matches(kind, target_id):
+                sub.enqueue(envelope)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
     @staticmethod
-    def _matches(sub: _Subscriber, kind: str, target_id: Optional[int]) -> bool:
-        if kind == "channel":
-            if sub.subscribe_all_channels:
-                return True
-            return target_id is not None and target_id in sub.channels
-        if kind == "event":
-            return sub.events
-        if kind == "command":
-            return sub.commands
-        return False
-
-    @staticmethod
     def _to_envelope(data) -> Optional[Dict[str, Any]]:
         if isinstance(data, ChData):
             return {
-                "type": "channel",
+                "type": KIND_CHANNEL,
                 "id": data.id,
                 "data": flask_json.minimal_channel(data),
             }
         if isinstance(data, EventData):
             return {
-                "type": "event",
+                "type": KIND_EVENT,
                 "id": data.id,
                 "data": flask_json.minimal_event(data),
             }
         if isinstance(data, CmdData):
             return {
-                "type": "command",
+                "type": KIND_COMMAND,
                 "id": data.id,
                 "data": flask_json.minimal_command(data),
             }
@@ -313,46 +409,164 @@ class StreamHub(DataHandler):
         return None
 
 
-def _apply_subscription(sub: _Subscriber, message: Dict[str, Any]) -> None:
-    """Apply a single subscription operation from the client."""
-    op = (message.get("op") or "").lower()
-    channels = message.get("channels")
-    events = message.get("events")
-    commands = message.get("commands")
-    if op in ("subscribe", "sub"):
-        if channels == "all" or channels is True:
-            sub.subscribe_all_channels = True
-        elif isinstance(channels, list):
-            sub.channels.update(int(c) for c in channels)
-        if events is not None:
-            sub.events = bool(events)
-        if commands is not None:
-            sub.commands = bool(commands)
-    elif op in ("unsubscribe", "unsub"):
-        if channels == "all" or channels is True:
-            sub.subscribe_all_channels = False
-            sub.channels.clear()
-        elif isinstance(channels, list):
-            sub.channels.difference_update(int(c) for c in channels)
-        if events is not None and not events:
-            sub.events = False
-        if commands is not None and not commands:
-            sub.commands = False
-    elif op == "replace":
-        sub.subscribe_all_channels = channels == "all" or channels is True
-        sub.channels = set()
-        if isinstance(channels, list):
-            sub.channels = set(int(c) for c in channels)
-        sub.events = bool(events) if events is not None else False
-        sub.commands = bool(commands) if commands is not None else False
-    # Unknown ops are ignored silently; future-proofing.
+# ---------------------------------------------------------------------------
+# Wire encoding helpers (shared by sender thread + tests)
+# ---------------------------------------------------------------------------
 
+def _encode(payload: Any) -> str:
+    """JSON-encode an envelope (or batched envelope) for the wire.
+
+    Centralized so the encoder options stay consistent across the
+    grouped and pass-through paths.
+    """
+    return json.dumps(payload, default=flask_json.default, allow_nan=True)
+
+
+def _group_batch(envelopes: Iterable[Dict[str, Any]]):
+    """Split a drained batch into per-kind grouped lists + a passthrough.
+
+    Returns ``(grouped, passthrough)`` where:
+
+    * ``grouped`` is ``{kind: [data, ...]}`` containing the inner
+      ``data`` payload of each envelope, suitable for sending as one
+      batched ``{"type": kind, "data": [...]}`` envelope.
+    * ``passthrough`` is a list of envelopes whose kind is not in
+      :data:`_BATCHABLE_KINDS` (future envelope types); these are
+      forwarded individually so unknown kinds don't get silently
+      merged.
+
+    Order is preserved within each kind.
+    """
+    grouped: Dict[str, list] = {}
+    passthrough: List[Dict[str, Any]] = []
+    for envelope in envelopes:
+        kind = envelope.get("type") if isinstance(envelope, dict) else None
+        if kind in _BATCHABLE_KINDS:
+            grouped.setdefault(kind, []).append(envelope.get("data"))
+        else:
+            passthrough.append(envelope)
+    return grouped, passthrough
+
+
+# ---------------------------------------------------------------------------
+# Per-connection session (sender + receiver threads)
+# ---------------------------------------------------------------------------
+
+class _StreamSession:
+    """Run the sender + receiver loops for one WebSocket connection.
+
+    Lifecycle:
+
+    1. ``__init__`` registers a subscriber on the hub and creates the
+       lock used to serialize ``ws.send`` calls across the two threads.
+    2. ``run`` greets the client, spawns the sender thread, and blocks
+       in the receive loop processing subscription updates from the
+       client until the connection closes or an error trips
+       ``stop_event``.
+    3. On exit the subscriber is unregistered and the sender thread
+       joined.
+
+    Pulled into a class so the long-running loops are testable in
+    isolation rather than living as nested closures inside
+    :func:`register_stream_routes`.
+    """
+
+    def __init__(
+        self,
+        ws,
+        hub: StreamHub,
+        max_depth: int,
+        drain_timeout: float,
+        batch_window: float,
+        receive_timeout: float,
+    ) -> None:
+        self._ws = ws
+        self._hub = hub
+        self._drain_timeout = drain_timeout
+        self._batch_window = batch_window
+        self._receive_timeout = receive_timeout
+        self._sub = hub.register(max_depth=max_depth)
+        self._ws_lock = threading.Lock()
+        self._stop = threading.Event()
+
+    def run(self) -> None:
+        thread = threading.Thread(
+            target=self._sender_loop,
+            name=f"fprime-gds-stream-sender-{self._sub.id[:8]}",
+            daemon=True,
+        )
+        try:
+            self._send({"type": KIND_HELLO, "subscriber_id": self._sub.id})
+            thread.start()
+            self._receiver_loop()
+        finally:
+            self._stop.set()
+            self._hub.unregister(self._sub)
+            thread.join(timeout=1.0)
+
+    # ------------------------------------------------------------------
+    # Threads
+    # ------------------------------------------------------------------
+    def _sender_loop(self) -> None:
+        try:
+            while not self._stop.is_set() and self._sub.active:
+                batch = self._sub.drain(self._drain_timeout, self._batch_window)
+                if not batch:
+                    continue
+                grouped, passthrough = _group_batch(batch)
+                for kind, items in grouped.items():
+                    if self._stop.is_set():
+                        return
+                    self._send_raw(_encode({"type": kind, "data": items}))
+                for envelope in passthrough:
+                    if self._stop.is_set():
+                        return
+                    self._send_raw(_encode(envelope))
+        except Exception:
+            logger.exception("StreamHub sender thread crashed")
+            self._stop.set()
+
+    def _receiver_loop(self) -> None:
+        while not self._stop.is_set() and self._sub.active:
+            try:
+                message = self._ws.receive(timeout=self._receive_timeout)
+            except Exception:
+                break
+            if message is None:
+                continue
+            try:
+                parsed = json.loads(message)
+            except Exception:
+                self._send({"type": KIND_ERROR, "message": "invalid JSON"})
+                continue
+            if isinstance(parsed, dict):
+                self._sub.apply_subscription(parsed)
+
+    # ------------------------------------------------------------------
+    # Wire I/O
+    # ------------------------------------------------------------------
+    def _send(self, payload: Dict[str, Any]) -> None:
+        """Encode + send a single envelope. Mirrors the sender path so
+        the hello / error frames go out under the same lock."""
+        self._send_raw(_encode(payload))
+
+    def _send_raw(self, payload: str) -> None:
+        with self._ws_lock:
+            self._ws.send(payload)
+
+
+# ---------------------------------------------------------------------------
+# Flask route registration
+# ---------------------------------------------------------------------------
 
 def register_stream_routes(app, hub: StreamHub) -> bool:
     """Register the WebSocket route on the Flask app.
 
     Returns ``True`` if the route was registered, ``False`` if WebSocket
-    support is unavailable or disabled via app configuration.
+    support is unavailable or disabled via app configuration. When this
+    returns ``False`` the ``/api/stream`` URL is **not** added to the
+    app, so a client that probes ``/api/stream/status`` will see
+    ``active: False`` and the front-end will stay on REST polling.
     """
     if not HAVE_FLASK_SOCK:
         logger.info("flask-sock not installed; WebSocket stream disabled")
@@ -365,84 +579,18 @@ def register_stream_routes(app, hub: StreamHub) -> bool:
     drain_timeout = float(app.config.get("STREAM_DRAIN_TIMEOUT_S", DEFAULT_DRAIN_TIMEOUT_S))
     batch_window = float(app.config.get("STREAM_BATCH_WINDOW_S", DEFAULT_BATCH_WINDOW_S))
     max_depth = int(app.config.get("STREAM_QUEUE_DEPTH", DEFAULT_QUEUE_DEPTH))
-
     receive_timeout = float(app.config.get("STREAM_RECEIVE_TIMEOUT_S", DEFAULT_RECEIVE_TIMEOUT_S))
 
     @sock.route("/api/stream")
     def _stream(ws):  # pragma: no cover - exercised via integration tests
-        sub = hub.register(max_depth=max_depth)
-        ws_lock = threading.Lock()
-        stop_event = threading.Event()
-
-        def sender():
-            try:
-                while not stop_event.is_set() and sub.active:
-                    batch = sub.drain(drain_timeout, batch_window)
-                    if not batch:
-                        continue
-                    # Coalesce same-kind envelopes into a single batched
-                    # payload so the browser does one JSON.parse + one
-                    # handler dispatch per kind per drain, instead of
-                    # one per sample. Order is preserved within each
-                    # kind. Unknown-kind envelopes are passed through
-                    # individually so we don't silently drop future
-                    # envelope types.
-                    grouped: Dict[str, list] = {}
-                    passthrough = []
-                    for envelope in batch:
-                        kind = envelope.get("type") if isinstance(envelope, dict) else None
-                        if kind in ("channel", "event", "command"):
-                            grouped.setdefault(kind, []).append(envelope.get("data"))
-                        else:
-                            passthrough.append(envelope)
-                    for kind, items in grouped.items():
-                        if stop_event.is_set():
-                            return
-                        payload = json.dumps(
-                            {"type": kind, "data": items},
-                            default=flask_json.default,
-                            allow_nan=True,
-                        )
-                        with ws_lock:
-                            ws.send(payload)
-                    for envelope in passthrough:
-                        if stop_event.is_set():
-                            return
-                        payload = json.dumps(
-                            envelope, default=flask_json.default, allow_nan=True
-                        )
-                        with ws_lock:
-                            ws.send(payload)
-            except Exception:
-                logger.exception("StreamHub sender thread crashed")
-                stop_event.set()
-
-        sender_thread = threading.Thread(
-            target=sender, name=f"fprime-gds-stream-sender-{sub.id[:8]}", daemon=True
+        session = _StreamSession(
+            ws=ws,
+            hub=hub,
+            max_depth=max_depth,
+            drain_timeout=drain_timeout,
+            batch_window=batch_window,
+            receive_timeout=receive_timeout,
         )
-
-        try:
-            with ws_lock:
-                ws.send(json.dumps({"type": "hello", "subscriber_id": sub.id}))
-            sender_thread.start()
-            while not stop_event.is_set() and sub.active:
-                try:
-                    message = ws.receive(timeout=receive_timeout)
-                except Exception:
-                    break
-                if message is None:
-                    continue
-                try:
-                    parsed = json.loads(message)
-                except Exception:
-                    with ws_lock:
-                        ws.send(json.dumps({"type": "error", "message": "invalid JSON"}))
-                    continue
-                if isinstance(parsed, dict):
-                    _apply_subscription(sub, parsed)
-        finally:
-            stop_event.set()
-            hub.unregister(sub)
-            sender_thread.join(timeout=1.0)
+        session.run()
 
     return True
