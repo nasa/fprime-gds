@@ -470,3 +470,12 @@ zeromq
 zmq
 ziext
 zimri
+BATCHABLE
+autouse
+eid
+minimisers
+popleft
+statechange
+syscalls
+unsub
+wss
