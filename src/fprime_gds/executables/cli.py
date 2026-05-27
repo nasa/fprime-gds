@@ -982,8 +982,8 @@ class MiddleWareParser(ParserBase):
                 "nargs": 2,
                 "help": "Pair of URls used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
                 "default": [
-                    "ipc:///tmp/fprime-server-in",
-                    "ipc:///tmp/fprime-server-out",
+                    f"ipc:///tmp/fprime-server-in-{getpass.getuser()}-{os.getpid()}",
+                    f"ipc:///tmp/fprime-server-out-{getpass.getuser()}-{os.getpid()}",
                 ],
                 "metavar": ("serverInUrl", "serverOutUrl"),
             },
