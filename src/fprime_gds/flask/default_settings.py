@@ -38,4 +38,13 @@ STREAM_QUEUE_DEPTH = int(os.environ.get("FP_STREAM_QUEUE_DEPTH", "1024"))
 # resource-constrained dashboards.
 STREAM_BATCH_WINDOW_S = float(os.environ.get("FP_STREAM_BATCH_WINDOW_S", "0.028"))
 
+# Default transport advertised to the front-end via /api/stream/status.
+# Accepts "stream" or "poll". The browser picks this up on first load only;
+# the Advanced settings tab toggle then persists a per-browser choice that
+# wins on subsequent loads. Set to "poll" to ship a deployment where the
+# default first impression is the legacy REST poll (the WS route still
+# exists and can be opted into through the UI toggle); set to "stream"
+# (default) for the push transport.
+STREAM_DEFAULT_TRANSPORT = os.environ.get("FP_STREAM_DEFAULT_TRANSPORT", "stream").lower()
+
 # TODO: load real config

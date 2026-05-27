@@ -21,15 +21,35 @@ class Settings {
          // "poll" uses the legacy REST polling. The advanced settings UI
          // exposes a live switch backed by this value, and the choice is
          // persisted to localStorage so it survives reloads.
+         //
+         // Resolution order: persisted localStorage > server default
+         // (set later via ``applyServerDefaultTransport``) > config default.
+         // The persisted flag is recorded so a later server-default does
+         // not stomp a user's per-browser choice.
          this.transport = {
              mode: (config.defaultTransport === "poll") ? "poll" : "stream",
+             userPersisted: false,
          };
          try {
              let persisted = window.localStorage.getItem("fprime-gds-transport");
              if (persisted === "stream" || persisted === "poll") {
                  this.transport.mode = persisted;
+                 this.transport.userPersisted = true;
              }
          } catch (e) { /* localStorage unavailable; ignore */ }
+    }
+
+    /**
+     * Apply a server-provided default transport. Only takes effect when no
+     * per-browser choice has been persisted; this lets a CLI flag
+     * (``--ws-default-transport poll``) ship a poll-first first-load
+     * experience without overriding a user's prior toggle.
+     */
+    applyServerDefaultTransport(mode) {
+         if ((mode !== "stream" && mode !== "poll") || this.transport.userPersisted) {
+             return;
+         }
+         this.transport.mode = mode;
     }
 
     /**
@@ -40,6 +60,7 @@ class Settings {
              return;
          }
          this.transport.mode = mode;
+         this.transport.userPersisted = true;
          try {
              window.localStorage.setItem("fprime-gds-transport", mode);
          } catch (e) { /* ignore */ }

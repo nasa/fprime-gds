@@ -124,6 +124,17 @@ def launch_html(parsed_args):
             "SERVE_LOGS": "YES",
         }
     )
+    # WebSocket telemetry stream controls. These mirror the CLI flags
+    # parsed on the launcher side into env vars consumed by
+    # ``fprime_gds.flask.default_settings``. We only set values that
+    # diverge from the env var defaults so callers can still override
+    # via env var when running flask outside of ``fprime-gds``.
+    flask_env["FP_STREAM_ENABLED"] = (
+        "YES" if getattr(parsed_args, "ws_enabled", True) else "NO"
+    )
+    flask_env["FP_STREAM_DEFAULT_TRANSPORT"] = str(
+        getattr(parsed_args, "ws_default_transport", "stream")
+    ).lower()
     if parsed_args.hash_file:
         flask_env.update({"FPRIME_HASHES_TXT_FILE": parsed_args.hash_file})
     gse_args = BASE_MODULE_ARGUMENTS + [

@@ -19,15 +19,20 @@ export let advanced_template = `
                         <span class="input-group-text col-12">Transport</span>
                     </div>
                     <select class="form-control col-3" v-model="transport.mode">
-                        <option value="stream">Stream (WebSocket push)</option>
+                        <option value="stream" :disabled="stream_status.active === false">
+                            Stream (WebSocket push)
+                        </option>
                         <option value="poll">Poll (REST)</option>
                     </select>
                     <small class="ml-3 align-self-center">
                         <strong>Server status:</strong>
                         <span v-if="stream_status.active === null">probing…</span>
                         <span v-else-if="stream_status.active">stream available
-                            ({{ stream_status.clients }} client(s), {{ stream_status.dropped }} dropped)</span>
-                        <span v-else>stream unavailable; falling back to polling</span>
+                            ({{ stream_status.clients }} client(s),
+                            {{ stream_status.dropped }} dropped,
+                            {{ Math.round((stream_status.batch_window_s || 0) * 1000) }} ms batch)</span>
+                        <span v-else>stream disabled at startup; using REST polling
+                            (re-run the GDS with <code>--ws</code> to enable)</span>
                     </small>
                 </div>
             </div>

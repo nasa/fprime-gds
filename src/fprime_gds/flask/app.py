@@ -197,11 +197,19 @@ def construct_app():
 
     @app.route("/api/stream/status")
     def _stream_status():
+        # When the WS route is *not* active the server's "default transport"
+        # is meaningless to the client (poll is the only option). We surface
+        # ``"poll"`` in that case so the front-end stays on REST without
+        # needing a second probe.
+        default_transport = str(app.config.get("STREAM_DEFAULT_TRANSPORT", "stream")).lower()
+        if not app.config.get("STREAM_ACTIVE", False):
+            default_transport = "poll"
         return {
             "enabled": bool(app.config.get("STREAM_ENABLED", True)),
             "active": bool(app.config.get("STREAM_ACTIVE", False)),
             "queue_depth": int(app.config.get("STREAM_QUEUE_DEPTH", fprime_gds.flask.streams.DEFAULT_QUEUE_DEPTH)),
             "batch_window_s": float(app.config.get("STREAM_BATCH_WINDOW_S", fprime_gds.flask.streams.DEFAULT_BATCH_WINDOW_S)),
+            "default_transport": default_transport,
             **hub.stats(),
         }
 

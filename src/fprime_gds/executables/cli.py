@@ -1331,7 +1331,52 @@ class GdsParser(ParserBase):
                 "dest": "browser_auto_open",
                 "action": "store_false",
                 "help": "Run server without auto-launching the default web browser"
-                }
+                },
+            # ---------------------------------------------------------------
+            # WebSocket telemetry stream controls.
+            #
+            # ``--no-ws`` disables the WebSocket route entirely (the front-end
+            # then sees ``/api/stream/status`` return ``active: false`` and
+            # never opens a WebSocket connection). ``--ws`` is the default
+            # and registers the route at startup.
+            #
+            # ``--ws-default-transport`` lets a deployment ship with the WS
+            # route alive but with the browser starting in REST-poll mode --
+            # users can still opt in via the Advanced settings tab toggle.
+            # Useful when the WS server-side cost is small but the live
+            # rendering load is not desired by default.
+            # ---------------------------------------------------------------
+            ("--ws", "--stream"): {
+                "dest": "ws_enabled",
+                "action": "store_true",
+                "default": True,
+                "help": (
+                    "Enable the /api/stream WebSocket telemetry route "
+                    "(default). The browser uses it instead of polling "
+                    "/channels and /events for high-rate deployments."
+                ),
+            },
+            ("--no-ws", "--no-stream"): {
+                "dest": "ws_enabled",
+                "action": "store_false",
+                "help": (
+                    "Disable the /api/stream WebSocket telemetry route. "
+                    "When set, the GDS does not register the WebSocket "
+                    "endpoint and the front-end stays on REST polling. "
+                    "No WebSocket connection is opened from the browser."
+                ),
+            },
+            ("--ws-default-transport",): {
+                "dest": "ws_default_transport",
+                "choices": ["stream", "poll"],
+                "default": "stream",
+                "type": str,
+                "help": (
+                    "Front-end default transport on first load when "
+                    "no per-browser preference has been persisted. "
+                    "[default: %(default)s]"
+                ),
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -1342,6 +1387,11 @@ class GdsParser(ParserBase):
         :param args: parsed args into a namespace
         :return: args namespace
         """
+        # ``--no-ws`` implies that the browser must not even consider opening
+        # a WebSocket on startup, regardless of what ``--ws-default-transport``
+        # is set to. Pin it to ``poll`` for downstream consumers.
+        if not getattr(args, "ws_enabled", True):
+            args.ws_default_transport = "poll"
         return args
 
 
