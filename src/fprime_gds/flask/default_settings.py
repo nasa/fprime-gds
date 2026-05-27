@@ -30,4 +30,12 @@ STREAM_ENABLED = os.environ.get("FP_STREAM_ENABLED", "YES") == "YES"
 # the F Prime decoder threads are never blocked by a slow consumer.
 STREAM_QUEUE_DEPTH = int(os.environ.get("FP_STREAM_QUEUE_DEPTH", "1024"))
 
+# Batch window the stream sender thread waits, after the first envelope
+# wakes it up, for more envelopes to accumulate before draining. Smaller
+# values give faster updates but more ws.send / browser JSON.parse calls.
+# Default (28 ms) is sized for one F Prime frame at 35 Hz; raise this to
+# 0.2 (200 ms) to match the legacy ``/channels`` REST poll cadence on
+# resource-constrained dashboards.
+STREAM_BATCH_WINDOW_S = float(os.environ.get("FP_STREAM_BATCH_WINDOW_S", "0.028"))
+
 # TODO: load real config

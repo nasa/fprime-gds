@@ -57,22 +57,24 @@ DEFAULT_QUEUE_DEPTH = 1024
 DEFAULT_DRAIN_TIMEOUT_S = 0.05
 """Wait timeout for the sender thread between drains."""
 
-DEFAULT_BATCH_WINDOW_S = 0.2
+DEFAULT_BATCH_WINDOW_S = 0.028
 """After the first envelope wakes the sender, wait this long for more to
 accumulate before draining. Coalesces same-kind samples into a single
 ws.send so the browser does one JSON.parse / handler dispatch per kind
 per window instead of one per sample.
 
-The window is intentionally close to the legacy ``/channels`` REST
-poll cadence (500 ms by default) -- the front-end ``MappedHistory``
-display only retains the latest sample per channel id, so anything
-finer than a poll-interval is wasted work in the browser. Combined
-with the per-id coalescing in ``_Subscriber``, this collapses
-2800 channel samples/sec from the F Prime stress reference (80
-``FrameOutNN`` channels at 35 Hz plus the rest of the deployment)
-down to ~5 ws messages/sec carrying ~100 unique-id samples each.
-Interactive command response still lands inside one window, so a
-``Send Command`` click round-trips visibly in under half a second.
+Default is sized to one F Prime frame at 35 Hz (1/35 s = 28.6 ms).
+For live-rendering consumers like the DOOM display addon, this lets
+the browser observe each emitted frame instead of a coalesced ~7-frame
+window; for table-style consumers (the channels tab, etc.) it is
+harmless because the front-end ``MappedHistory`` still retains only
+the latest sample per channel id.
+
+For deployments that do not need that update rate, set
+``STREAM_BATCH_WINDOW_S`` in the Flask config (or the
+``FP_STREAM_BATCH_WINDOW_S`` env var) to a larger value -- e.g.
+``0.2`` to match the legacy ``/channels`` REST poll cadence and cut
+the browser-side dispatch rate roughly 7x.
 """
 
 DEFAULT_RECEIVE_TIMEOUT_S = 1.0

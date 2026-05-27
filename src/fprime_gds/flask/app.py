@@ -201,6 +201,7 @@ def construct_app():
             "enabled": bool(app.config.get("STREAM_ENABLED", True)),
             "active": bool(app.config.get("STREAM_ACTIVE", False)),
             "queue_depth": int(app.config.get("STREAM_QUEUE_DEPTH", fprime_gds.flask.streams.DEFAULT_QUEUE_DEPTH)),
+            "batch_window_s": float(app.config.get("STREAM_BATCH_WINDOW_S", fprime_gds.flask.streams.DEFAULT_BATCH_WINDOW_S)),
             **hub.stats(),
         }
 
