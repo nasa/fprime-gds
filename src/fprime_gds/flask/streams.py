@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 import uuid
 from collections import deque
 from typing import Any, Dict, Optional, Set
@@ -56,6 +57,17 @@ DEFAULT_QUEUE_DEPTH = 1024
 DEFAULT_DRAIN_TIMEOUT_S = 0.05
 """Wait timeout for the sender thread between drains."""
 
+DEFAULT_BATCH_WINDOW_S = 0.05
+"""After the first envelope wakes the sender, wait this long for more to
+accumulate before draining. Coalesces same-kind samples into a single
+ws.send so the browser does one JSON.parse / handler dispatch per kind
+per window instead of one per sample. At 2800 channel samples/sec
+this collapses ~140 ws messages down to ~3 per window. The window is
+long enough that ~all unique channel ids show up at least once per
+batch (so per-id coalescing in the sender keeps the wire compact)
+without being so long that interactive command response feels laggy.
+"""
+
 DEFAULT_RECEIVE_TIMEOUT_S = 1.0
 """Wait timeout for the receive loop between subscription updates."""
 
@@ -70,6 +82,7 @@ class _Subscriber:
         "events",
         "commands",
         "_outbox",
+        "_latest_channels",
         "_outbox_lock",
         "_outbox_cv",
         "_max_depth",
@@ -89,47 +102,94 @@ class _Subscriber:
         self.subscribe_all_channels = True
         self.events = True
         self.commands = True
+        # Events and commands are unique and must be delivered in order,
+        # so they ride a bounded deque. Channel samples, by contrast,
+        # are dense and lossy by nature: the front-end ``MappedHistory``
+        # only keeps the latest sample per channel id anyway, so we
+        # coalesce on the way in and store ``{id: latest_envelope}``.
+        # That bounds the channel state by the number of *unique* ids
+        # (a few hundred in a typical deployment) instead of by the
+        # incoming sample *rate*, which is what was producing tens of
+        # thousands of "dropped" entries on the outbox at high cadence.
         self._outbox: deque = deque()
+        self._latest_channels: Dict[int, Dict[str, Any]] = {}
         self._outbox_lock = threading.Lock()
         self._outbox_cv = threading.Condition(self._outbox_lock)
         self._max_depth = max_depth
         self.dropped = 0
         self.active = True
 
-    def enqueue(self, message: str) -> None:
+    def enqueue(self, envelope: Dict[str, Any]) -> None:
         with self._outbox_cv:
             if not self.active:
                 return
-            if len(self._outbox) >= self._max_depth:
-                # Drop oldest to keep latency bounded under sustained overrun.
-                try:
-                    self._outbox.popleft()
-                except IndexError:
-                    pass
-                self.dropped += 1
-            self._outbox.append(message)
+            kind = envelope.get("type") if isinstance(envelope, dict) else None
+            if kind == "channel":
+                cid = envelope.get("id")
+                if cid is not None:
+                    # Replace any earlier sample for this channel.
+                    # MappedHistory.send already discards everything but
+                    # the latest per id; we just do it earlier so the
+                    # wire and the drain stay small.
+                    self._latest_channels[cid] = envelope
+                else:
+                    # Fallback path: channel without an id; treat as
+                    # ordinary unique sample.
+                    if len(self._outbox) >= self._max_depth:
+                        try:
+                            self._outbox.popleft()
+                        except IndexError:
+                            pass
+                        self.dropped += 1
+                    self._outbox.append(envelope)
+            else:
+                if len(self._outbox) >= self._max_depth:
+                    # Drop oldest to keep latency bounded under sustained overrun.
+                    try:
+                        self._outbox.popleft()
+                    except IndexError:
+                        pass
+                    self.dropped += 1
+                self._outbox.append(envelope)
             self._outbox_cv.notify()
 
-    def drain(self, timeout_s: float):
-        """Yield queued messages, blocking up to ``timeout_s`` for the first.
+    def drain(self, timeout_s: float, batch_window_s: float = 0.0):
+        """Drain queued envelopes, blocking up to ``timeout_s`` for the first.
 
-        Subsequent messages are yielded as long as they are immediately
-        available so a burst is delivered in a single batch. Returns an
-        empty iterable when the subscriber has been closed.
+        Once at least one envelope has arrived, the call sleeps for
+        ``batch_window_s`` outside the condition lock so producers can
+        add more envelopes to the batch before the drain runs. The
+        whole outbox is then snapshotted in one shot. Returns an empty
+        list when the subscriber has been closed or nothing arrived
+        within ``timeout_s``.
         """
         with self._outbox_cv:
-            if not self._outbox:
+            if not self._outbox and not self._latest_channels:
                 self._outbox_cv.wait(timeout=timeout_s)
+            if not self.active:
+                return []
+            if not self._outbox and not self._latest_channels:
+                return []
+        if batch_window_s > 0:
+            # Sleep outside the cv lock so the decoder thread can keep
+            # enqueueing. The added latency (default ~50 ms) is the
+            # window in which we coalesce same-kind samples into one
+            # batched ws.send.
+            time.sleep(batch_window_s)
+        with self._outbox_cv:
             if not self.active:
                 return []
             drained = list(self._outbox)
             self._outbox.clear()
+            drained.extend(self._latest_channels.values())
+            self._latest_channels.clear()
             return drained
 
     def close(self) -> None:
         with self._outbox_cv:
             self.active = False
             self._outbox.clear()
+            self._latest_channels.clear()
             self._outbox_cv.notify_all()
 
 
@@ -193,13 +253,15 @@ class StreamHub(DataHandler):
             subscribers = list(self._subscribers.values())
         if not subscribers:
             return
-        payload = json.dumps(envelope, default=flask_json.default, allow_nan=True)
         target_id = envelope.get("id")
         kind = envelope["type"]
         for sub in subscribers:
             if not self._matches(sub, kind, target_id):
                 continue
-            sub.enqueue(payload)
+            # Enqueue the raw envelope; the sender thread coalesces
+            # multiple same-kind envelopes drained together into a
+            # single batched ws.send() payload.
+            sub.enqueue(envelope)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -292,6 +354,7 @@ def register_stream_routes(app, hub: StreamHub) -> bool:
 
     sock = Sock(app)
     drain_timeout = float(app.config.get("STREAM_DRAIN_TIMEOUT_S", DEFAULT_DRAIN_TIMEOUT_S))
+    batch_window = float(app.config.get("STREAM_BATCH_WINDOW_S", DEFAULT_BATCH_WINDOW_S))
     max_depth = int(app.config.get("STREAM_QUEUE_DEPTH", DEFAULT_QUEUE_DEPTH))
 
     receive_timeout = float(app.config.get("STREAM_RECEIVE_TIMEOUT_S", DEFAULT_RECEIVE_TIMEOUT_S))
@@ -305,12 +368,40 @@ def register_stream_routes(app, hub: StreamHub) -> bool:
         def sender():
             try:
                 while not stop_event.is_set() and sub.active:
-                    batch = sub.drain(drain_timeout)
+                    batch = sub.drain(drain_timeout, batch_window)
                     if not batch:
                         continue
-                    for payload in batch:
+                    # Coalesce same-kind envelopes into a single batched
+                    # payload so the browser does one JSON.parse + one
+                    # handler dispatch per kind per drain, instead of
+                    # one per sample. Order is preserved within each
+                    # kind. Unknown-kind envelopes are passed through
+                    # individually so we don't silently drop future
+                    # envelope types.
+                    grouped: Dict[str, list] = {}
+                    passthrough = []
+                    for envelope in batch:
+                        kind = envelope.get("type") if isinstance(envelope, dict) else None
+                        if kind in ("channel", "event", "command"):
+                            grouped.setdefault(kind, []).append(envelope.get("data"))
+                        else:
+                            passthrough.append(envelope)
+                    for kind, items in grouped.items():
                         if stop_event.is_set():
                             return
+                        payload = json.dumps(
+                            {"type": kind, "data": items},
+                            default=flask_json.default,
+                            allow_nan=True,
+                        )
+                        with ws_lock:
+                            ws.send(payload)
+                    for envelope in passthrough:
+                        if stop_event.is_set():
+                            return
+                        payload = json.dumps(
+                            envelope, default=flask_json.default, allow_nan=True
+                        )
                         with ws_lock:
                             ws.send(payload)
             except Exception:

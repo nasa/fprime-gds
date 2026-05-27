@@ -247,15 +247,37 @@ class StreamClient {
         }
     }
 
-    _invoke(endpoint, datum) {
+    /**
+     * Dispatch a batched envelope's data to the registered handler.
+     *
+     * Servers running this build send ``data`` as an array of samples
+     * (potentially many per envelope, coalesced from a single drain
+     * tick on the sender). Older servers used a scalar ``data`` field
+     * with a single sample per envelope; the array form is the
+     * preferred shape but the scalar fallback is supported so a
+     * version-skewed client still works.
+     */
+    _invoke(endpoint, data) {
         let handler = this.handlers[endpoint];
-        if (handler) {
-            try {
-                handler([datum]);
-            } catch (e) {
-                this._counters.errors += 1;
-                console.error("[stream] handler error:", e);
-            }
+        if (!handler) {
+            return;
+        }
+        let items;
+        if (Array.isArray(data)) {
+            items = data;
+        } else if (data == null) {
+            return;
+        } else {
+            items = [data];
+        }
+        if (items.length === 0) {
+            return;
+        }
+        try {
+            handler(items);
+        } catch (e) {
+            this._counters.errors += 1;
+            console.error("[stream] handler error:", e);
         }
     }
 }
