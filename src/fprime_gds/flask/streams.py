@@ -57,15 +57,22 @@ DEFAULT_QUEUE_DEPTH = 1024
 DEFAULT_DRAIN_TIMEOUT_S = 0.05
 """Wait timeout for the sender thread between drains."""
 
-DEFAULT_BATCH_WINDOW_S = 0.05
+DEFAULT_BATCH_WINDOW_S = 0.2
 """After the first envelope wakes the sender, wait this long for more to
 accumulate before draining. Coalesces same-kind samples into a single
 ws.send so the browser does one JSON.parse / handler dispatch per kind
-per window instead of one per sample. At 2800 channel samples/sec
-this collapses ~140 ws messages down to ~3 per window. The window is
-long enough that ~all unique channel ids show up at least once per
-batch (so per-id coalescing in the sender keeps the wire compact)
-without being so long that interactive command response feels laggy.
+per window instead of one per sample.
+
+The window is intentionally close to the legacy ``/channels`` REST
+poll cadence (500 ms by default) -- the front-end ``MappedHistory``
+display only retains the latest sample per channel id, so anything
+finer than a poll-interval is wasted work in the browser. Combined
+with the per-id coalescing in ``_Subscriber``, this collapses
+2800 channel samples/sec from the F Prime stress reference (80
+``FrameOutNN`` channels at 35 Hz plus the rest of the deployment)
+down to ~5 ws messages/sec carrying ~100 unique-id samples each.
+Interactive command response still lands inside one window, so a
+``Send Command`` click round-trips visibly in under half a second.
 """
 
 DEFAULT_RECEIVE_TIMEOUT_S = 1.0
