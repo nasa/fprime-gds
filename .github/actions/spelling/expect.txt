@@ -176,6 +176,7 @@ gdiplus
 getattr
 getbootstrap
 getoption
+getpid
 github
 grayscales
 gse
