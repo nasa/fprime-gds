@@ -197,19 +197,23 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
 
     def recv(self, l):
         """
-        Read l bytes from socket.
+        Read exactly l bytes from the socket.
+
+        Returns the l bytes on success, or b"" if the connection is closed or
+        broken before l bytes arrive. Callers treat b"" as "client gone".
         """
-        chunk = b""
-        msg = b""
-        n = 0
-        while l > n:
+        # Accumulate into a bytearray instead of rebuilding an immutable bytes
+        # object each iteration. "msg = msg + chunk" is O(n^2) and, combined
+        # with an unbounded length field, lets a client drive quadratic CPU and
+        # memory use on a large read.
+        msg = bytearray()
+        while len(msg) < l:
             try:
-                chunk = self.request.recv(l - n)
+                chunk = self.request.recv(l - len(msg))
                 if chunk == b"":
                     print("read data from socket is empty!")
                     return b""
-                msg = msg + chunk
-                n = len(msg)
+                msg.extend(chunk)
             except socket.timeout:
                 if shutdown_event.is_set():
                     print("socket timed out and shutdown is requested")
@@ -222,7 +226,12 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
                     )
                 else:
                     print(f"Socket error {str(err.errno)} occurred on recv().")
-        return msg
+                # The socket is in a broken state; retrying recv() would raise
+                # the same error immediately and spin the thread at 100% CPU
+                # forever. Return b"" to signal a dead connection, consistent
+                # with the empty-read case above.
+                return b""
+        return bytes(msg)
 
     def readHeader(self):
         """
@@ -243,28 +252,77 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
             return header + header2
         return
 
+    #: Maximum accepted size (in bytes) for a single client-declared payload.
+    #:
+    #: The length prefix is an unbounded ``U32`` supplied by the connecting
+    #: client, so without this cap a malformed or malicious value (up to ~4 GiB)
+    #: would drive an unbounded socket read and allocation -- a memory/CPU denial
+    #: of service. The default (64 MiB) is far above any legitimate GDS packet.
+    #: Raise it only if a deployment genuinely sends larger single payloads (for
+    #: example, large file-downlink chunks); it bounds resource use, not protocol
+    #: correctness.
+    MAX_PAYLOAD_SIZE = 64 * 1024 * 1024
+
+    def _read_payload_size(self):
+        """
+        Read and validate a 4-byte big-endian length prefix.
+
+        Returns (size, raw_4_bytes) on success, or (None, raw) if the connection
+        died (short read) or the declared size exceeds MAX_PAYLOAD_SIZE.
+        """
+        sizeb = self.recv(4)
+        if len(sizeb) < 4:
+            return None, sizeb
+        (size,) = struct.unpack(">I", sizeb)
+        if size > self.MAX_PAYLOAD_SIZE:
+            print(
+                f"[WARNING] Declared payload size {size} exceeds maximum "
+                f"{self.MAX_PAYLOAD_SIZE}; dropping packet."
+            )
+            return None, sizeb
+        return size, sizeb
+
     def readData(self, header):
         """
         Read the data part of the message sent to either GUI or FSW.
         GUI receives telemetry.
         FSW receives commands of various lengths.
+
+        Returns b"" if the connection closed or the framing is malformed
+        (missing destination, truncated length prefix, out-of-range size, or a
+        short payload read).
         """
         data = b""
         if header in [b"List", b"Quit"]:
             return b""
-        dst = header.split(b" ")[1].strip(b" ")
+        parts = header.split(b" ")
+        if len(parts) < 2:
+            print("[WARNING] Malformed header, missing destination field.")
+            return b""
+        dst = parts[1].strip(b" ")
         if dst == b"FSW":
             # Read variable length command data here...
             desc = self.recv(4)
-            sizeb = self.recv(4)
-            size = struct.unpack(">I", sizeb)[0]
-            data = desc + sizeb + self.recv(size)
+            if len(desc) < 4:
+                return b""
+            size, sizeb = self._read_payload_size()
+            if size is None:
+                return b""
+            payload = self.recv(size)
+            if len(payload) < size:
+                print("[WARNING] Truncated FSW payload; dropping packet.")
+                return b""
+            data = desc + sizeb + payload
         elif dst == b"GUI":
             # Read telemetry data here...
-            tlm_packet_size = self.recv(4)
-            size = struct.unpack(">I", tlm_packet_size)[0]
-            data = tlm_packet_size + self.recv(size)
-
+            size, sizeb = self._read_payload_size()
+            if size is None:
+                return b""
+            payload = self.recv(size)
+            if len(payload) < size:
+                print("[WARNING] Truncated GUI payload; dropping packet.")
+                return b""
+            data = sizeb + payload
         else:
             msg = f"unrecognized client {dst.decode(DATA_ENCODING)}"
             raise RuntimeError(msg)
@@ -367,7 +425,15 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
         """
         Read the 9 byte header (e.g. "A5A5 GUI " or "A5A5 FSW "),
         or just read the "List\n" command.
+
+        Returns (b"", b"") if the datagram is too short to contain a header,
+        which the caller treats as "nothing to process".
         """
+        # Need at least the 9-byte "A5A5 XXX " header. Slicing a short datagram
+        # would otherwise yield a runt header and push the failure downstream.
+        if len(packet) < 9:
+            print("[WARNING] UDP datagram too short for header; dropping.")
+            return (b"", b"")
         header = packet[:4]
         header2 = packet[4:9]
         packet = packet[9:]
@@ -378,14 +444,28 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
         Read the data part of the message sent to either GUI or FSW.
         GUI receives telemetry.
         FSW receives commands of various lengths.
-        """
-        data = ""
-        header.split(b" ")[1].strip(b" ")
-        # Read telemetry data here...
-        tlm_packet_size = packet[:4]
-        size = struct.unpack(">I", tlm_packet_size)[0]
-        data = tlm_packet_size + packet[4 : 4 + size]
 
+        Returns b"" if the datagram is too short for a length prefix or the
+        declared size runs past the bytes actually delivered.
+        """
+        # A datagram must contain at least the 4-byte length prefix. Without
+        # this guard struct.unpack raises struct.error on a runt packet.
+        if len(packet) < 4:
+            print("[WARNING] UDP datagram too short for length prefix; dropping.")
+            return b""
+        tlm_packet_size = packet[:4]
+        (size,) = struct.unpack(">I", tlm_packet_size)
+        # UDP delivers the whole datagram at once, so anything beyond its length
+        # is simply absent; a bare slice would silently truncate. Reject rather
+        # than hand a short buffer downstream.
+        available = len(packet) - 4
+        if size > available:
+            print(
+                f"[WARNING] UDP declared size {size} exceeds datagram payload "
+                f"{available}; dropping."
+            )
+            return b""
+        data = tlm_packet_size + packet[4 : 4 + size]
         return data
 
     def processNewPkt(self, header, data):
@@ -397,11 +477,16 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
         """
         dest_list = []
         # Process data here...
-        head, dst = header.strip(b" ").split(b" ")
+        parts = header.strip(b" ").split(b" ")
+        if len(parts) != 2:
+            # Avoid a ValueError (and a dead handler) on a malformed header.
+            print("[WARNING] Malformed UDP header; dropping packet.")
+            return
+        head, dst = parts
         if head != b"A5A5":
             raise RuntimeError("Telemetry missing A5A5 header")
         # print "Received Packet: %s %s...\n" % (head,dst)
-        if data == "":
+        if data == b"":
             print(" Data is empty, returning.")
         if b"GUI" in dst:
             dest_list = GUI_clients
