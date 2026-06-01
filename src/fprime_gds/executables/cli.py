@@ -24,7 +24,7 @@ import yaml
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Required to set the checksum as a module variable
 import fprime_gds.common.logger
@@ -50,12 +50,12 @@ class ParserBase(ABC):
     handling arguments.
     """
 
-    DESCRIPTION = None
+    DESCRIPTION: Optional[str] = None
 
     @property
-    def description(self):
+    def description(self) -> str:
         """Return parser description"""
-        return self.DESCRIPTION if self.DESCRIPTION else "Unknown command line parser"
+        return self.DESCRIPTION if self.DESCRIPTION is not None else "Unknown command line parser"
 
     @abstractmethod
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -390,7 +390,6 @@ class ConfigDrivenParser(ParserBase):
             parsers = [ConfigDrivenParser] + parser_classes
             ParserBase.parse_args(parsers, description, arguments, **kwargs)
             sys.exit(0)
-        
 
         # Custom flow involving parsing the arguments of this parser first, then passing the configured values
         # as part of the argument source
