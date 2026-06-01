@@ -66,7 +66,10 @@ def instantiate_prm_type(prm_val_json, prm_type: type[BaseType]):
 
 def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, Any]]) -> bytes:
     """convert a list of (PrmTemplate, prm value json) to serialized bytes for a PrmDb"""
-    serialized = bytes()
+    import zlib
+
+    # Build parameter records (delimiter + size + id + value for each param)
+    param_data = bytes()
     for template_and_value in templates_and_values:
         template, json_value = template_and_value
         prm_instance = instantiate_prm_type(json_value, template.prm_type_obj)
@@ -77,16 +80,24 @@ def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, Any]]) -> b
         # for an explanation of the binary format of parameters in the .dat file
 
         # delimiter
-        serialized += b"\xA5"
+        param_data += b"\xA5"
 
         record_size = FW_PRM_ID_TYPE_SIZE + len(prm_instance_bytes)
 
         # size of following data
-        serialized += record_size.to_bytes(length=4, byteorder="big")
+        param_data += record_size.to_bytes(length=4, byteorder="big")
         # id of param
-        serialized += template.prm_id.to_bytes(length=4, byteorder="big")
+        param_data += template.prm_id.to_bytes(length=4, byteorder="big")
         # value of param
-        serialized += prm_instance_bytes
+        param_data += prm_instance_bytes
+
+    # Compute CRC32 over parameter data (matching PrmDb C++ implementation)
+    # PrmDb uses: initial value 0, then final XOR with 0xFFFFFFFF
+    crc = (zlib.crc32(param_data, 0) ^ 0xFFFFFFFF) & 0xFFFFFFFF
+
+    # Prepend CRC header (4 bytes, big-endian U32)
+    serialized = crc.to_bytes(length=4, byteorder="big") + param_data
+
     return serialized
 
 
