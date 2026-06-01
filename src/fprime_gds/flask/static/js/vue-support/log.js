@@ -43,7 +43,31 @@ Vue.component('v-select', VueSelect.VueSelect);
 
 Vue.component("logging", {
     template: template,
-    data() {return {"selected": "", "logs": _datastore.logs, text: "", "scroll": true, "error": ""}},
+    data() {
+        return {
+            "selected": "",
+            "logs": _datastore.logs,
+            "text": "",
+            "scroll": true,
+            "error": "",
+            // Bytes already pulled from the currently-selected log. Sent
+            // back to the server on each poll so it only returns the new
+            // tail rather than the full file. Reset when the selection
+            // changes or when the server reports a smaller file size
+            // (rotation / truncation).
+            "_offset": 0,
+        };
+    },
+    watch: {
+        selected() {
+            // New file selected -> blow away the in-memory view and
+            // restart from offset 0 so we get the full current contents
+            // on the next tick, then incremental tails after.
+            this.text = "";
+            this._offset = 0;
+            this.error = "";
+        },
+    },
     mounted() {
         setInterval(this.update, 1000); // Grab log updates once a second
     },
@@ -56,9 +80,28 @@ Vue.component("logging", {
             if (this.selected === "") {
                 return;
             }
-            _loader.load("/logdata/" + this.selected, "GET").then(
+            const name = this.selected;
+            const offset = this._offset | 0;
+            _loader.load("/logdata/" + name + "?offset=" + offset, "GET").then(
                 (result) => {
-                    _self.text = result[_self.selected];
+                    // Ignore late responses for a file the user has since
+                    // switched away from.
+                    if (_self.selected !== name) {
+                        return;
+                    }
+                    const delta = (result && result[name]) || "";
+                    const reportedSize = (result && typeof result.size === "number")
+                        ? result.size
+                        : (offset + delta.length);
+                    // Server reports the *current* file size; if it is
+                    // smaller than our last offset the file was rotated
+                    // or truncated and the delta is the new full content.
+                    if (reportedSize < offset) {
+                        _self.text = delta;
+                    } else {
+                        _self.text += delta;
+                    }
+                    _self._offset = reportedSize;
                     // Update on next-tick so that the updated content has been drawn already
                     _self.$nextTick(() => {
                         let panes = _self.$el.getElementsByClassName("fp-scrollable");

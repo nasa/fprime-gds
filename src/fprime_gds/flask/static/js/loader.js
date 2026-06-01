@@ -209,7 +209,11 @@ class Loader {
             let arg_pairs = [["session", session], ["limit", _settings.miscellaneous.response_object_limit]];
             arg_pairs = arg_pairs.filter(pair => pair[1]);
             let arg_string = arg_pairs.map(pair =>  pair[0] + "=" + pair[1]).join("&");
-            url += (arg_string !== "") ? ("?"+ arg_string) : "";
+            // If the caller already included a query string (e.g. ``/logdata/<name>?offset=N``)
+            // append with ``&`` so we don't produce a malformed URL with two ``?`` separators.
+            if (arg_string !== "") {
+                url += (url.indexOf("?") === -1 ? "?" : "&") + arg_string;
+            }
 
             let is_async = true; // all calls will be async
             xhttp.open(method, url , is_async); 
