@@ -47,4 +47,16 @@ STREAM_BATCH_WINDOW_S = float(os.environ.get("FP_STREAM_BATCH_WINDOW_S", "0.028"
 # (default) for the push transport.
 STREAM_DEFAULT_TRANSPORT = os.environ.get("FP_STREAM_DEFAULT_TRANSPORT", "stream").lower()
 
+# Server-side default for the GDS Logs tab. When False, the WS
+# PeriodicBroadcaster does not register a ``logdata`` source (so no log
+# file scan happens on the broadcast timer) and the front-end is told
+# (via /api/stream/status.log_poll_enabled) that log polling is off by
+# default. The Advanced settings tab toggle still lets a user re-enable
+# the front-end's interest in logs on a per-browser basis -- and the
+# /logdata REST endpoint is left intact for that case.
+#
+# Independent of the data logger (server-side on-disk channel/event/
+# command log writer, controlled by ``--disable-data-logging``).
+LOG_POLL_ENABLED = os.environ.get("FP_LOG_POLL_ENABLED", "YES") == "YES"
+
 # TODO: load real config

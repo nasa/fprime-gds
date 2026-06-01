@@ -22,6 +22,20 @@ const ENVELOPE_TYPE_COMMAND = "command";
 const ENVELOPE_TYPE_HELLO = "hello";
 const ENVELOPE_TYPE_ERROR = "error";
 
+// Map of high-rate stream kinds -> datastore endpoint name. Used for the
+// batched ``data: [...]`` payloads coalesced by the server's sender loop.
+const STREAM_KIND_TO_ENDPOINT = {
+    [ENVELOPE_TYPE_CHANNEL]: "channels",
+    [ENVELOPE_TYPE_EVENT]: "events",
+    [ENVELOPE_TYPE_COMMAND]: "command_history",
+};
+
+// Snapshot kinds pushed by the server's PeriodicBroadcaster -- one envelope
+// per kind per broadcast tick, ``data`` is the unwrapped REST response
+// shape. The endpoint name matches the legacy poll registration so the
+// datastore handler can be reused unchanged.
+const STREAM_SNAPSHOT_KINDS = new Set(["logdata", "upfiles", "downfiles", "stats"]);
+
 const RECONNECT_MS_MIN = 250;
 const RECONNECT_MS_MAX = 5000;
 
@@ -57,6 +71,17 @@ class StreamClient {
     static defaultUrl() {
         let proto = (window.location.protocol === "https:") ? "wss:" : "ws:";
         return `${proto}//${window.location.host}/api/stream`;
+    }
+
+    /**
+     * Replace the handlers map. Used by the datastore when the log
+     * polling toggle changes to add/remove the ``logdata`` handler
+     * without tearing the WebSocket down and back up. The
+     * StreamClient looks up ``this.handlers[endpoint]`` per dispatch
+     * so the new map takes effect on the next inbound envelope.
+     */
+    setHandlers(handlers) {
+        this.handlers = handlers || {};
     }
 
     /**
@@ -224,16 +249,16 @@ class StreamClient {
             return;
         }
         this._counters.received += 1;
-        switch (envelope.type) {
-            case ENVELOPE_TYPE_CHANNEL:
-                this._invoke("channels", envelope.data);
-                break;
-            case ENVELOPE_TYPE_EVENT:
-                this._invoke("events", envelope.data);
-                break;
-            case ENVELOPE_TYPE_COMMAND:
-                this._invoke("command_history", envelope.data);
-                break;
+        let kind = envelope.type;
+        if (kind in STREAM_KIND_TO_ENDPOINT) {
+            this._invoke(STREAM_KIND_TO_ENDPOINT[kind], envelope.data);
+            return;
+        }
+        if (STREAM_SNAPSHOT_KINDS.has(kind)) {
+            this._invokeSnapshot(kind, envelope.data);
+            return;
+        }
+        switch (kind) {
             case ENVELOPE_TYPE_HELLO:
                 // Server greeting; no-op
                 break;
@@ -244,6 +269,29 @@ class StreamClient {
             default:
                 // Future envelope types are silently ignored.
                 break;
+        }
+    }
+
+    /**
+     * Dispatch a snapshot envelope (logdata / upfiles / downfiles / stats).
+     *
+     * Snapshot ``data`` is the unwrapped REST response shape -- e.g.
+     * ``{logs: [...]}`` for logdata, ``{files: [...]}`` for upfiles/downfiles,
+     * or the stats blob itself. The registered handler is invoked with the
+     * full response and any errors so its signature mirrors the REST poller
+     * callback (``(data, errors)``).
+     */
+    _invokeSnapshot(endpoint, data) {
+        let handler = this.handlers[endpoint];
+        if (!handler || data == null) {
+            return;
+        }
+        let errors = (typeof data === "object" && Array.isArray(data.errors)) ? data.errors : [];
+        try {
+            handler(data, errors);
+        } catch (e) {
+            this._counters.errors += 1;
+            console.error("[stream] snapshot handler error:", e);
         }
     }
 

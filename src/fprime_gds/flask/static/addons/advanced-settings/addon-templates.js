@@ -18,7 +18,9 @@ export let advanced_template = `
                     <div class="input-group-prepend col-3">
                         <span class="input-group-text col-12">Transport</span>
                     </div>
-                    <select class="form-control col-3" v-model="transport.mode">
+                    <select class="form-control col-3"
+                            :value="transport.mode"
+                            @change="onTransportChange">
                         <option value="stream" :disabled="stream_status.active === false">
                             Stream (WebSocket push)
                         </option>
@@ -33,6 +35,35 @@ export let advanced_template = `
                             {{ Math.round((stream_status.batch_window_s || 0) * 1000) }} ms batch)</span>
                         <span v-else>stream disabled at startup; using REST polling
                             (re-run the GDS with <code>--ws</code> to enable)</span>
+                    </small>
+                </div>
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend col-3">
+                        <span class="input-group-text col-12">Log polling</span>
+                    </div>
+                    <div class="form-check form-check-inline align-self-center ml-2">
+                        <input class="form-check-input" type="checkbox"
+                            id="fp-log-polling-toggle"
+                            :checked="log_polling.enabled"
+                            @change="onLogPollingChange">
+                        <label class="form-check-label" for="fp-log-polling-toggle">
+                            Poll the GDS Logs tab
+                        </label>
+                    </div>
+                    <small class="ml-3 align-self-center">
+                        Controls only the GDS Logs tab
+                        (<code>/logdata</code> REST poll and the WS
+                        <code>logdata</code> snapshot push).
+                        <strong>Independent</strong> of the server-side
+                        on-disk data logger
+                        (<code>--disable-data-logging</code> /
+                        <code>disable-data-logging: true</code> under
+                        <code>command-line-options</code> in
+                        <code>fprime-gds.yml</code>).
+                        <span v-if="stream_status.log_poll_enabled === false">
+                            <br>Server default: <strong>off</strong>
+                            (started with <code>--no-log-poll</code>).
+                        </span>
                     </small>
                 </div>
             </div>

@@ -36,7 +36,8 @@ Vue.component("advanced-settings", {
                 }
             },
             transport: _settings.transport,
-            stream_status: {active: null, enabled: null, clients: 0, dropped: 0},
+            log_polling: _settings.logPolling,
+            stream_status: {active: null, enabled: null, clients: 0, dropped: 0, log_poll_enabled: null},
             stream_status_interval: null,
             old_polling: {..._settings.polling_intervals},
             errors: _validator.errors
@@ -61,6 +62,27 @@ Vue.component("advanced-settings", {
             _validator.counts.GDS_Errors = 0;
         },
         /**
+         * Apply a user-selected transport mode. Wired to the
+         * dropdown's @change event (rather than v-model) so the
+         * server's first-load default does not get mistakenly
+         * recorded as a per-browser preference.
+         */
+        onTransportChange(event) {
+            let mode = event.target.value;
+            _settings.setTransport(mode);
+            _datastore.applyTransport();
+        },
+        /**
+         * Apply a user-toggled log-polling change. Wired to the
+         * checkbox's @change event for the same reason as
+         * onTransportChange above.
+         */
+        onLogPollingChange(event) {
+            let enabled = !!event.target.checked;
+            _settings.setLogPolling(enabled);
+            _datastore.applyLogPolling();
+        },
+        /**
          * Refresh the visible stream-status panel from the /api/stream/status endpoint.
          */
         refreshStreamStatus() {
@@ -71,7 +93,7 @@ Vue.component("advanced-settings", {
                         this.stream_status = {active: false, enabled: false, clients: 0, dropped: 0};
                         return;
                     }
-                    this.stream_status = Object.assign({active: null, enabled: null, clients: 0, dropped: 0}, data);
+                    this.stream_status = Object.assign({active: null, enabled: null, clients: 0, dropped: 0, log_poll_enabled: null}, data);
                 })
                 .catch(() => {
                     this.stream_status = {active: false, enabled: false, clients: 0, dropped: 0};
@@ -97,16 +119,5 @@ Vue.component("advanced-settings", {
             // Must watch sub-keys
             deep: true
         },
-        /**
-         * Live transport toggle. Persist the change and let the datastore
-         * swap between the WebSocket stream and the REST poller without a
-         * page reload.
-         */
-        "transport.mode": {
-            handler(mode) {
-                _settings.setTransport(mode);
-                _datastore.applyTransport();
-            }
-        }
     }
 });

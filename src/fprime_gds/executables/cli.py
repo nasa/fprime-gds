@@ -1377,6 +1377,40 @@ class GdsParser(ParserBase):
                     "[default: %(default)s]"
                 ),
             },
+            # ---------------------------------------------------------------
+            # Log polling (UI Logs tab + WS ``logdata`` snapshot push).
+            #
+            # ``--no-log-poll`` removes the ``logdata`` source from the
+            # WS PeriodicBroadcaster and tells the front-end (via
+            # /api/stream/status) that log polling is off by default. The
+            # Advanced settings tab toggle still lets a user re-enable
+            # the front-end's interest in logs per browser.
+            #
+            # Independent of ``--disable-data-logging`` (which controls
+            # the *server-side* batched on-disk channel/event/command
+            # logger, not the Logs tab).
+            # ---------------------------------------------------------------
+            ("--log-poll",): {
+                "dest": "log_poll_enabled",
+                "action": "store_true",
+                "default": True,
+                "help": (
+                    "Enable the GDS Logs tab polling / WS snapshot push "
+                    "of the available log file list (default)."
+                ),
+            },
+            ("--no-log-poll",): {
+                "dest": "log_poll_enabled",
+                "action": "store_false",
+                "help": (
+                    "Disable the GDS Logs tab polling: the WS no longer "
+                    "pushes ``logdata`` snapshots and the front-end's "
+                    "Logs tab poll stays idle. Independent of "
+                    "``--disable-data-logging`` (which controls the "
+                    "server-side on-disk channel/event/command log "
+                    "writer, not the Logs tab)."
+                ),
+            },
         }
 
     def handle_arguments(self, args, **kwargs):

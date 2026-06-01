@@ -37,6 +37,24 @@ class Settings {
                  this.transport.userPersisted = true;
              }
          } catch (e) { /* localStorage unavailable; ignore */ }
+
+         // GDS Logs tab polling toggle (REST /logdata poll + WS logdata
+         // snapshot push). Independent of the disk data logger.
+         // Resolution order: persisted localStorage > server default
+         // (set later via ``applyServerLogPolling``) > on. The persisted
+         // flag is recorded so a later server-default does not stomp a
+         // user's per-browser choice.
+         this.logPolling = {
+             enabled: true,
+             userPersisted: false,
+         };
+         try {
+             let persisted = window.localStorage.getItem("fprime-gds-log-polling");
+             if (persisted === "on" || persisted === "off") {
+                 this.logPolling.enabled = (persisted === "on");
+                 this.logPolling.userPersisted = true;
+             }
+         } catch (e) { /* localStorage unavailable; ignore */ }
     }
 
     /**
@@ -50,6 +68,33 @@ class Settings {
              return;
          }
          this.transport.mode = mode;
+    }
+
+    /**
+     * Apply a server-provided default for log polling. Only takes
+     * effect when no per-browser choice has been persisted; lets
+     * ``--no-log-poll`` ship a deployment where the Logs tab is
+     * idle by default without overriding a user's prior toggle.
+     */
+    applyServerLogPolling(enabled) {
+         if (typeof enabled !== "boolean" || this.logPolling.userPersisted) {
+             return;
+         }
+         this.logPolling.enabled = enabled;
+    }
+
+    /**
+     * Persist the log polling choice. Intended to be called by the UI live switch.
+     */
+    setLogPolling(enabled) {
+         let normalized = !!enabled;
+         this.logPolling.enabled = normalized;
+         this.logPolling.userPersisted = true;
+         try {
+             window.localStorage.setItem(
+                 "fprime-gds-log-polling", normalized ? "on" : "off"
+             );
+         } catch (e) { /* ignore */ }
     }
 
     /**

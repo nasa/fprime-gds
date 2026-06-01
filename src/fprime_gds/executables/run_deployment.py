@@ -135,6 +135,13 @@ def launch_html(parsed_args):
     flask_env["FP_STREAM_DEFAULT_TRANSPORT"] = str(
         getattr(parsed_args, "ws_default_transport", "stream")
     ).lower()
+    # Log polling toggle. Independent of ``--disable-data-logging``:
+    # this only controls the GDS Logs tab (REST poll + WS ``logdata``
+    # snapshot push), not the server-side batched channel/event/command
+    # log writer.
+    flask_env["FP_LOG_POLL_ENABLED"] = (
+        "YES" if getattr(parsed_args, "log_poll_enabled", True) else "NO"
+    )
     if parsed_args.hash_file:
         flask_env.update({"FPRIME_HASHES_TXT_FILE": parsed_args.hash_file})
     gse_args = BASE_MODULE_ARGUMENTS + [

@@ -37,7 +37,7 @@ import threading
 import time
 import uuid
 from collections import deque
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.cmd_data import CmdData
@@ -60,17 +60,39 @@ logger = logging.getLogger("fprime_gds.flask.streams")
 # Envelope kinds. The names are part of the wire protocol; the values are
 # also used as the discriminator in :func:`StreamHub._to_envelope` and on
 # the client side in ``stream.js`` (see ``ENVELOPE_TYPE_*``).
+#
+# Two flavours:
+#
+# * High-rate kinds (``channel``/``event``/``command``) come from the
+#   F Prime pipeline as individual decoded objects. They are coalesced
+#   per ``_BATCHABLE_KINDS`` into one ``ws.send`` per drain window.
+# * Snapshot kinds (``logdata``/``upfiles``/``downfiles``/``stats``)
+#   come from REST resource getters that the GDS already exposes; the
+#   :class:`PeriodicBroadcaster` polls them on a server-side timer and
+#   pushes the full payload over the WS. The wire shape mirrors the
+#   REST response exactly so the front-end's existing processor
+#   pipeline runs unchanged regardless of transport.
 # ---------------------------------------------------------------------------
 KIND_CHANNEL = "channel"
 KIND_EVENT = "event"
 KIND_COMMAND = "command"
 KIND_HELLO = "hello"
 KIND_ERROR = "error"
+KIND_LOGDATA = "logdata"
+KIND_UPFILES = "upfiles"
+KIND_DOWNFILES = "downfiles"
+KIND_STATS = "stats"
 
 #: Kinds that are coalesced into a per-kind batched ``ws.send`` payload by
 #: the sender thread. Other kinds are passed through individually so future
 #: envelope types don't silently merge into something they shouldn't.
 _BATCHABLE_KINDS = (KIND_CHANNEL, KIND_EVENT, KIND_COMMAND)
+
+#: Kinds that are sent to **every** subscriber regardless of subscription
+#: filter. These are low-rate full snapshots replacing the legacy REST
+#: polls (logdata, file lists, stats) so that with the WebSocket open
+#: the front-end has no reason to keep any data-bearing poll alive.
+_BROADCAST_KINDS = (KIND_LOGDATA, KIND_UPFILES, KIND_DOWNFILES, KIND_STATS)
 
 
 DEFAULT_QUEUE_DEPTH = 1024
@@ -168,6 +190,10 @@ class _Subscriber:
             return self.events
         if kind == KIND_COMMAND:
             return self.commands
+        if kind in _BROADCAST_KINDS:
+            # Snapshot kinds are always fanned out so that an open WS
+            # client never falls behind the REST polls it replaces.
+            return True
         return False
 
     def apply_subscription(self, message: Dict[str, Any]) -> None:
@@ -360,6 +386,31 @@ class StreamHub(DataHandler):
             }
 
     # ------------------------------------------------------------------
+    # Snapshot fan-out
+    # ------------------------------------------------------------------
+    def broadcast(self, envelope: Dict[str, Any]) -> None:
+        """Fan a single pre-built envelope to all current subscribers.
+
+        Used by :class:`PeriodicBroadcaster` for the snapshot kinds
+        (logdata, file lists, stats) where a server-side timer pushes
+        full payloads instead of having the F Prime pipeline drive
+        delivery. The envelope ``type`` is matched per subscriber, so
+        the existing kind-filtering applies; for the snapshot kinds
+        :meth:`_Subscriber.matches` always returns ``True`` today.
+        """
+        if not isinstance(envelope, dict) or "type" not in envelope:
+            return
+        with self._lock:
+            subscribers = list(self._subscribers.values())
+        if not subscribers:
+            return
+        kind = envelope["type"]
+        target_id = envelope.get("id")
+        for sub in subscribers:
+            if sub.matches(kind, target_id):
+                sub.enqueue(envelope)
+
+    # ------------------------------------------------------------------
     # DataHandler API
     # ------------------------------------------------------------------
     def data_callback(self, data, sender=None) -> None:
@@ -407,6 +458,103 @@ class StreamHub(DataHandler):
         # individual :class:`ChData` objects by the packet decoder, so
         # there is no separate ``PktData`` envelope on the wire.
         return None
+
+
+# ---------------------------------------------------------------------------
+# Periodic broadcaster: replaces the front-end REST polls for snapshot data
+# ---------------------------------------------------------------------------
+
+#: Default cadence at which :class:`PeriodicBroadcaster` polls its sources.
+#: 1 Hz matches (and in practice slightly under-runs) the legacy REST poll
+#: cadence for ``/logdata``, ``/upload/files``, ``/download/files``, and
+#: ``/stats`` -- those endpoints serve small payloads whose freshness is
+#: not bound to the F Prime pipeline cadence, so 1 s is a fine default.
+DEFAULT_BROADCAST_INTERVAL_S = 1.0
+
+
+class PeriodicBroadcaster:
+    """Server-side timer that pushes snapshot envelopes over the hub.
+
+    The single WebSocket is now the canonical data path for the
+    front-end. The high-rate kinds (channel/event/command) are driven
+    by the F Prime pipeline through :meth:`StreamHub.data_callback`;
+    the low-rate snapshot kinds (``logdata``, ``upfiles``, ``downfiles``,
+    ``stats``) are driven by this class so that an open WS subscriber
+    sees up-to-date snapshots without the front-end having to keep any
+    parallel REST poll alive.
+
+    Sources are ``{kind: callable}`` where each callable returns the
+    same shape the corresponding REST resource returns from
+    ``Resource.get()``. A failed source logs an exception and is
+    skipped for that tick; the broadcaster keeps running so a single
+    misbehaving source can't take the rest down.
+    """
+
+    def __init__(
+        self,
+        hub: StreamHub,
+        sources: Optional[Dict[str, Callable[[], Any]]] = None,
+        interval_s: float = DEFAULT_BROADCAST_INTERVAL_S,
+    ) -> None:
+        self._hub = hub
+        self._sources: Dict[str, Callable[[], Any]] = dict(sources or {})
+        self._interval = float(interval_s)
+        self._stop = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    @property
+    def kinds(self) -> List[str]:
+        """Snapshot kinds currently being broadcast (test/diagnostic hook)."""
+        return list(self._sources.keys())
+
+    def register_source(self, kind: str, getter: Callable[[], Any]) -> None:
+        """Register or replace a snapshot source."""
+        self._sources[kind] = getter
+
+    def start(self) -> None:
+        """Start the background thread. Idempotent."""
+        if self._thread is not None:
+            return
+        if not self._sources:
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(
+            target=self._loop,
+            name="fprime-gds-stream-broadcaster",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def stop(self, join_timeout_s: float = 1.0) -> None:
+        """Stop the background thread. Safe to call multiple times."""
+        self._stop.set()
+        thread = self._thread
+        self._thread = None
+        if thread is not None:
+            thread.join(timeout=join_timeout_s)
+
+    def tick(self) -> None:
+        """Run one broadcast cycle synchronously.
+
+        Exposed for unit tests (so we don't have to wait for the timer)
+        and as a small hook future code can use to force a snapshot
+        push outside the timer cadence.
+        """
+        for kind, get_data in list(self._sources.items()):
+            try:
+                data = get_data()
+            except Exception:
+                logger.exception(
+                    "PeriodicBroadcaster: source %r raised; skipping tick", kind
+                )
+                continue
+            self._hub.broadcast({"type": kind, "data": data})
+
+    def _loop(self) -> None:
+        # Use ``Event.wait`` rather than ``time.sleep`` so ``stop()`` can
+        # wake the loop up promptly during shutdown.
+        while not self._stop.wait(self._interval):
+            self.tick()
 
 
 # ---------------------------------------------------------------------------
