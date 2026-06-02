@@ -1,0 +1,3 @@
+; Test valid absolute time formats
+A2024-001T00:00:00 cmdDisp.CMD_NO_OP
+A2024-365T23:59:59.999999 cmdDisp.CMD_NO_OP_STRING "End of year"
