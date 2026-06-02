@@ -66,7 +66,10 @@ def instantiate_prm_type(prm_val_json, prm_type: type[BaseType]):
 
 def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, Any]]) -> bytes:
     """convert a list of (PrmTemplate, prm value json) to serialized bytes for a PrmDb"""
-    serialized = bytes()
+    import zlib
+
+    # Build parameter records (delimiter + size + id + value for each param)
+    param_data = bytes()
     for template_and_value in templates_and_values:
         template, json_value = template_and_value
         prm_instance = instantiate_prm_type(json_value, template.prm_type_obj)
@@ -77,16 +80,24 @@ def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, Any]]) -> b
         # for an explanation of the binary format of parameters in the .dat file
 
         # delimiter
-        serialized += b"\xA5"
+        param_data += b"\xA5"
 
         record_size = FW_PRM_ID_TYPE_SIZE + len(prm_instance_bytes)
 
         # size of following data
-        serialized += record_size.to_bytes(length=4, byteorder="big")
+        param_data += record_size.to_bytes(length=4, byteorder="big")
         # id of param
-        serialized += template.prm_id.to_bytes(length=4, byteorder="big")
+        param_data += template.prm_id.to_bytes(length=4, byteorder="big")
         # value of param
-        serialized += prm_instance_bytes
+        param_data += prm_instance_bytes
+
+    # Compute CRC32 over parameter data (matching PrmDb C++ implementation)
+    # PrmDb uses: initial value 0, then final XOR with 0xFFFFFFFF
+    crc = (zlib.crc32(param_data, 0) ^ 0xFFFFFFFF) & 0xFFFFFFFF
+
+    # Prepend CRC header (4 bytes, big-endian U32)
+    serialized = crc.to_bytes(length=4, byteorder="big") + param_data
+
     return serialized
 
 
@@ -264,31 +275,51 @@ def decode_dat_to_params(dat_bytes: bytes, id_dict: dict[int, PrmTemplate]) -> l
     Raises:
         RuntimeError: If the file format is invalid or parameters cannot be decoded
     """
-    params = []
-    offset = 0
+    import zlib
 
-    while offset < len(dat_bytes):
+    params = []
+
+    # Read and validate CRC header (first 4 bytes)
+    if len(dat_bytes) < 4:
+        raise RuntimeError(
+            f"File too small to contain CRC header: expected at least 4 bytes, got {len(dat_bytes)}"
+        )
+
+    file_crc = int.from_bytes(dat_bytes[0:4], byteorder="big")
+    param_data = dat_bytes[4:]  # Parameter records start after CRC header
+
+    # Validate CRC
+    computed_crc = (zlib.crc32(param_data, 0) ^ 0xFFFFFFFF) & 0xFFFFFFFF
+    if file_crc != computed_crc:
+        raise RuntimeError(
+            f"CRC mismatch: file header has 0x{file_crc:08x}, computed 0x{computed_crc:08x}"
+        )
+
+    # Parse parameter records starting after CRC header
+    offset = 0  # Now relative to param_data (after CRC)
+
+    while offset < len(param_data):
         # Check for delimiter
-        if dat_bytes[offset] != 0xA5:
+        if param_data[offset] != 0xA5:
             raise RuntimeError(
-                f"Invalid delimiter at offset {offset}: expected 0xA5, got {dat_bytes[offset]:#x}"
+                f"Invalid delimiter at offset {offset + 4}: expected 0xA5, got {param_data[offset]:#x}"
             )
         offset += 1
 
         # Read record size (4 bytes, big endian)
-        if offset + 4 > len(dat_bytes):
+        if offset + 4 > len(param_data):
             raise RuntimeError(
-                f"Incomplete record size at offset {offset}: expected 4 bytes, got {len(dat_bytes) - offset}"
+                f"Incomplete record size at offset {offset + 4}: expected 4 bytes, got {len(param_data) - offset}"
             )
-        record_size = int.from_bytes(dat_bytes[offset:offset+4], byteorder="big")
+        record_size = int.from_bytes(param_data[offset:offset+4], byteorder="big")
         offset += 4
 
         # Read parameter ID (4 bytes, big endian)
-        if offset + 4 > len(dat_bytes):
+        if offset + 4 > len(param_data):
             raise RuntimeError(
-                f"Incomplete parameter ID at offset {offset}: expected 4 bytes, got {len(dat_bytes) - offset}"
+                f"Incomplete parameter ID at offset {offset + 4}: expected 4 bytes, got {len(param_data) - offset}"
             )
-        param_id = int.from_bytes(dat_bytes[offset:offset+4], byteorder="big")
+        param_id = int.from_bytes(param_data[offset:offset+4], byteorder="big")
         offset += 4
 
         # Look up parameter template
@@ -302,16 +333,16 @@ def decode_dat_to_params(dat_bytes: bytes, id_dict: dict[int, PrmTemplate]) -> l
         value_size = record_size - FW_PRM_ID_TYPE_SIZE
 
         # Check if we have enough data
-        if offset + value_size > len(dat_bytes):
+        if offset + value_size > len(param_data):
             raise RuntimeError(
-                f"Incomplete parameter value for {prm_template.get_full_name()} at offset {offset}: "
-                f"expected {value_size} bytes, got {len(dat_bytes) - offset}"
+                f"Incomplete parameter value for {prm_template.get_full_name()} at offset {offset + 4}: "
+                f"expected {value_size} bytes, got {len(param_data) - offset}"
             )
 
         # Deserialize the value
         prm_instance = prm_template.prm_type_obj()
         try:
-            prm_instance.deserialize(dat_bytes, offset)
+            prm_instance.deserialize(param_data, offset)
         except Exception as e:
             raise RuntimeError(
                 f"Failed to deserialize parameter {prm_template.get_full_name()} "

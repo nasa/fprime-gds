@@ -120,8 +120,9 @@ def test_decode_invalid_delimiter():
     dict_parser = PrmJsonLoader(str(dict_file.resolve()))
     id_dict, name_dict, versions = dict_parser.construct_dicts(str(dict_file.resolve()))
 
-    # Create invalid data with wrong delimiter
-    invalid_data = b"\xFF\x00\x00\x00\x12\x00\x00\x11\x01test"
+    # Create invalid data with CRC header but wrong delimiter
+    # CRC placeholder (4 bytes) + wrong delimiter
+    invalid_data = b"\x00\x00\x00\x00" + b"\xFF\x00\x00\x00\x12\x00\x00\x11\x01test"
 
     with pytest.raises(RuntimeError, match="Invalid delimiter"):
         decode_dat_to_params(invalid_data, id_dict)
@@ -135,8 +136,12 @@ def test_decode_unknown_param_id():
     dict_parser = PrmJsonLoader(str(dict_file.resolve()))
     id_dict, name_dict, versions = dict_parser.construct_dicts(str(dict_file.resolve()))
 
-    # Create data with unknown parameter ID (0xFFFFFFFF)
-    invalid_data = b"\xA5\x00\x00\x00\x08\xFF\xFF\xFF\xFF\x00\x00\x00\x00"
+    # Create data with CRC header + unknown parameter ID (0xFFFFFFFF)
+    param_data = b"\xA5\x00\x00\x00\x08\xFF\xFF\xFF\xFF\x00\x00\x00\x00"
+    # Compute CRC for the param data
+    import zlib
+    crc = (zlib.crc32(param_data, 0) ^ 0xFFFFFFFF) & 0xFFFFFFFF
+    invalid_data = crc.to_bytes(4, byteorder='big') + param_data
 
     with pytest.raises(RuntimeError, match="Unknown parameter ID"):
         decode_dat_to_params(invalid_data, id_dict)
@@ -150,8 +155,11 @@ def test_decode_incomplete_data():
     dict_parser = PrmJsonLoader(str(dict_file.resolve()))
     id_dict, name_dict, versions = dict_parser.construct_dicts(str(dict_file.resolve()))
 
-    # Create incomplete data (delimiter and partial record size)
-    incomplete_data = b"\xA5\x00\x00"
+    # Create incomplete data (CRC header + delimiter and partial record size)
+    param_data = b"\xA5\x00\x00"
+    import zlib
+    crc = (zlib.crc32(param_data, 0) ^ 0xFFFFFFFF) & 0xFFFFFFFF
+    incomplete_data = crc.to_bytes(4, byteorder='big') + param_data
 
     with pytest.raises(RuntimeError, match="Incomplete"):
         decode_dat_to_params(incomplete_data, id_dict)
@@ -184,18 +192,38 @@ def test_params_to_json_multiple_components():
 
 
 def test_decode_empty_file():
-    """Test that decoding an empty file returns empty list."""
+    """Test that decoding a file with only CRC header returns empty list."""
     dict_file = Path(__file__).parent / "resources" / "simple_dictionary.json"
 
     # Load dictionary
     dict_parser = PrmJsonLoader(str(dict_file.resolve()))
     id_dict, name_dict, versions = dict_parser.construct_dicts(str(dict_file.resolve()))
 
-    # Decode empty data
-    empty_data = b""
+    # File with only CRC header (no parameter records)
+    # CRC of empty data
+    import zlib
+    param_data = b""
+    crc = (zlib.crc32(param_data, 0) ^ 0xFFFFFFFF) & 0xFFFFFFFF
+    empty_data = crc.to_bytes(4, byteorder='big')
+
     params = decode_dat_to_params(empty_data, id_dict)
 
-    assert len(params) == 0, "Empty file should decode to empty list"
+    assert len(params) == 0, "File with only CRC header should decode to empty list"
+
+
+def test_decode_file_too_small():
+    """Test that decoding fails when file is smaller than CRC header."""
+    dict_file = Path(__file__).parent / "resources" / "simple_dictionary.json"
+
+    # Load dictionary
+    dict_parser = PrmJsonLoader(str(dict_file.resolve()))
+    id_dict, name_dict, versions = dict_parser.construct_dicts(str(dict_file.resolve()))
+
+    # File too small to contain CRC header
+    too_small_data = b"\x00\x00"
+
+    with pytest.raises(RuntimeError, match="File too small"):
+        decode_dat_to_params(too_small_data, id_dict)
 
 
 def test_encoder_format_conversion_array():
