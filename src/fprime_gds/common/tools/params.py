@@ -1,6 +1,8 @@
 # author: zimri.leisher
 # created on: Jan 27, 2025
 
+# edited by: Specky26846 (Laura Fernandes) on June 2, 2026
+
 # allow us to use bracketed types
 from __future__ import annotations
 import json as js
@@ -27,6 +29,7 @@ from fprime_gds.common.models.serialize.numerical_types import (
 )
 from fprime_gds.common.models.serialize.serializable_type import SerializableType
 from fprime_gds.common.models.serialize.string_type import StringType
+import zlib
 
 FW_PRM_ID_TYPE_SIZE = 4 # serialized size of the FwPrmIdType
 
@@ -66,7 +69,6 @@ def instantiate_prm_type(prm_val_json, prm_type: type[BaseType]):
 
 def parsed_json_to_dat(templates_and_values: list[tuple[PrmTemplate, Any]]) -> bytes:
     """convert a list of (PrmTemplate, prm value json) to serialized bytes for a PrmDb"""
-    import zlib
 
     # Build parameter records (delimiter + size + id + value for each param)
     param_data = bytes()
@@ -275,7 +277,6 @@ def decode_dat_to_params(dat_bytes: bytes, id_dict: dict[int, PrmTemplate]) -> l
     Raises:
         RuntimeError: If the file format is invalid or parameters cannot be decoded
     """
-    import zlib
 
     params = []
 
