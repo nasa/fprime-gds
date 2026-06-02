@@ -120,9 +120,13 @@ def test_decode_invalid_delimiter():
     dict_parser = PrmJsonLoader(str(dict_file.resolve()))
     id_dict, name_dict, versions = dict_parser.construct_dicts(str(dict_file.resolve()))
 
-    # Create invalid data with CRC header but wrong delimiter
-    # CRC placeholder (4 bytes) + wrong delimiter
-    invalid_data = b"\x00\x00\x00\x00" + b"\xFF\x00\x00\x00\x12\x00\x00\x11\x01test"
+    # Create invalid data with wrong delimiter (0xFF instead of 0xA5)
+    param_data = b"\xFF\x00\x00\x00\x12\x00\x00\x11\x01test"
+
+    # Compute valid CRC for this invalid data so it passes CRC check but fails delimiter check
+    import zlib
+    crc = (zlib.crc32(param_data, 0) ^ 0xFFFFFFFF) & 0xFFFFFFFF
+    invalid_data = crc.to_bytes(4, byteorder='big') + param_data
 
     with pytest.raises(RuntimeError, match="Invalid delimiter"):
         decode_dat_to_params(invalid_data, id_dict)
