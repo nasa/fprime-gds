@@ -30,6 +30,7 @@ class TestRunDeployment(unittest.TestCase):
                 logs=str(logs_path),
                 port=50000,
                 address="127.0.0.1",
+                application_arguments=None,
             )
 
             with mock.patch.object(run_deployment, "launch_process") as launch_process:
