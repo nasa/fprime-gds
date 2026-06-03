@@ -237,6 +237,23 @@ def test_decode_file_too_small():
     with pytest.raises(RuntimeError, match="File too small"):
         decode_dat_to_params(too_small_data, id_dict)
 
+def test_corrupted_crc_valid_data():
+    """Test that decoding fails when CRC is corrupted but data format is correct."""
+    dict_file = Path(__file__).parent / "resources" / "simple_dictionary.json"
+
+    # Load dictionary
+    dict_parser = PrmJsonLoader(str(dict_file.resolve()))
+    id_dict, name_dict, versions = dict_parser.construct_dicts(str(dict_file.resolve()))
+
+    # Create valid parameter data
+    param_data = b"\xA5\x00\x00\x00\x08\x00\x00\x00\x01\x00\x00\x00\x64"  # param ID 1 with value 100
+    valid_data = add_crc_header(param_data)
+
+    # Corrupt the CRC by changing one byte in the header
+    corrupted_data = bytes([valid_data[0] ^ 0xFF]) + valid_data[1:]
+
+    with pytest.raises(RuntimeError, match="CRC mismatch"):
+        decode_dat_to_params(corrupted_data, id_dict)
 
 def test_encoder_format_conversion_array():
     """Test converting array to_jsonable format to encoder format."""
