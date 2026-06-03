@@ -491,16 +491,7 @@ class DetectionParser(ParserBase):
                 "required": False,
                 "type": str,
                 "help": "Deployment installation/build output directory. [default: install_dest field in settings.ini]",
-            },
-            ("--toolchain",): {
-                "dest": "toolchain",
-                "action": "store",
-                "required": False,
-                "type": str,
-                "default": None,
-                "help": "Toolchain used to build the deployment. "
-                "Overrides automatic platform detection. [default: %(default)s]",
-            },
+            }
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -508,8 +499,7 @@ class DetectionParser(ParserBase):
         if args.deployment:
             args.deployment = Path(args.deployment)
             return args
-        toolchain_name = args.toolchain if args.toolchain else platform.system()
-        detected_toolchain = get_artifacts_root() / toolchain_name
+        detected_toolchain = get_artifacts_root() / platform.system()
         if not detected_toolchain.exists():
             msg = f"{detected_toolchain} does not exist. Make sure to build."
             raise Exception(msg)
