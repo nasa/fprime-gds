@@ -237,7 +237,7 @@ def main():
 
     # Add app, if possible
     if parsed_args.app:
-        if parsed_args.communication_selection == "ip":
+        if parsed_args.communication_selection == "ip" or parsed_args.application_arguments is not None:
             launchers.append(launch_app)
         else:
             print(

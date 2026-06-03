@@ -1340,14 +1340,6 @@ class BinaryDeployment(DetectionParser):
                     "type": str,
                     "help": "Path to app to run. Overrides automatic app detection.",
                 },
-                ("--full-path",): {
-                    "dest": "full_path",
-                    "action": "store",
-                    "required": False,
-                    "type": str,
-                    "default": None,
-                    "help": "Full path to the application executable. Bypasses all deployment-based app detection.",
-                },
                 ("--application-arguments",): {
                     "dest": "application_arguments",
                     "nargs": "*",
@@ -1367,13 +1359,6 @@ class BinaryDeployment(DetectionParser):
         """
         # No app, stop processing now
         if args.noapp:
-            return args
-        # Full path takes highest precedence
-        if args.full_path:
-            args.app = Path(args.full_path)
-            if not args.app.is_file():
-                msg = f"F prime binary '{args.app}' does not exist or is not a file"
-                raise ValueError(msg)
             return args
         args = super().handle_arguments(args, **kwargs)
         args.app = Path(args.app) if args.app else Path(find_app(args.deployment))
