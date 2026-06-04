@@ -1330,6 +1330,12 @@ class BinaryDeployment(DetectionParser):
                     "type": str,
                     "help": "Path to app to run. Overrides automatic app detection.",
                 },
+                ("--application-arguments",): {
+                    "dest": "application_arguments",
+                    "nargs": "*",
+                    "default": None,
+                    "help": "Arguments to pass to the application binary, replacing the default -p/-a arguments.",
+                },
             },
         }
 
