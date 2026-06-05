@@ -318,6 +318,66 @@ class EventsSubparserInjector(CliSubparserInjectorBase):
         events.EventsCommand.handle_arguments(parsed_args, **kwargs)
 
 
+class SendRawSubparserInjector(CliSubparserInjectorBase):
+    """
+    A parser for the "send-raw" CLI command, which lets users send raw data
+    through the framing layer without further serialization
+    """
+
+    @classmethod
+    def create_subparser(cls, parent_parser: argparse.ArgumentParser):
+        """
+        Creates the send-raw sub-command as a subparser, and then returns it
+        """
+        send_raw_parser = parent_parser.add_parser(
+            "send-raw",
+            description="sends raw data through the framing layer without further serialization",
+        )
+        return send_raw_parser
+
+    @classmethod
+    def add_arguments(cls, parser: argparse.ArgumentParser):
+        """
+        Add all the required and optional arguments for this command to the
+        given parser
+        """
+        add_connection_arguments(parser)
+        parser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="print the raw data being sent in hex format before sending",
+        )
+        input_group = parser.add_mutually_exclusive_group(required=True)
+        input_group.add_argument(
+            "--bin-path",
+            type=str,
+            help="path to binary file containing raw data to send",
+            metavar="PATH",
+        )
+        input_group.add_argument(
+            "--hex-string",
+            type=str,
+            help="hex string of raw data to send (e.g., '0xDEADBEEF', 'deadbeef')",
+            metavar="HEX",
+        )
+
+    @classmethod
+    def validate_args(cls, parser: argparse.ArgumentParser, args: argparse.Namespace):
+        """
+        Validates the parsed arguments for send-raw; send-raw doesn't need a dictionary
+        """
+        return args
+
+    @classmethod
+    def command_func(cls, parsed_args, **kwargs):
+        """
+        Executes the appropriate function when "send-raw" is called
+        """
+        import fprime_gds.common.gds_cli.send_raw as send_raw
+
+        send_raw.SendRawCommand.handle_arguments(parsed_args, **kwargs)
+
+
 def create_parser():
     parser = argparse.ArgumentParser(
         description="provides utilities for interacting with the F' Ground Data System (GDS)"
@@ -330,6 +390,7 @@ def create_parser():
     ChannelsSubparserInjector.inject_subparser(subparser_root)
     CommandSubparserInjector.inject_subparser(subparser_root)
     EventsSubparserInjector.inject_subparser(subparser_root)
+    SendRawSubparserInjector.inject_subparser(subparser_root)
 
     return parser
 

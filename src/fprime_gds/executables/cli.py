@@ -18,12 +18,13 @@ import os
 import platform
 import re
 import sys
+from importlib.metadata import version
 
 import yaml
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Required to set the checksum as a module variable
 import fprime_gds.common.logger
@@ -49,12 +50,12 @@ class ParserBase(ABC):
     handling arguments.
     """
 
-    DESCRIPTION = None
+    DESCRIPTION: Optional[str] = None
 
     @property
-    def description(self):
+    def description(self) -> str:
         """Return parser description"""
-        return self.DESCRIPTION if self.DESCRIPTION else "Unknown command line parser"
+        return self.DESCRIPTION if self.DESCRIPTION is not None else "Unknown command line parser"
 
     @abstractmethod
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -345,6 +346,42 @@ class ConfigDrivenParser(ParserBase):
             arguments: arguments to process, None to use command line input
         Returns: namespace with all parsed arguments from all provided ParserBase subclasses
         """
+        ns, parser, _ = cls._parse_args(
+            parser_classes, description, arguments, **kwargs
+        )
+        return ns, parser
+
+    @classmethod
+    def parse_known_args(
+        cls,
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        **kwargs,
+    ):
+        """Parse and post-process known arguments using inputs and config
+
+        Parse the arguments in two stages: first parse the configuration data, ignoring unknown inputs, then parse the
+        full argument set with the supplied configuration to fill in additional options.
+
+        Args:
+            parser_classes: a list of ParserBase subclasses that will be used to
+            description: description passed ot the argument parser
+            arguments: arguments to process, None to use command line input
+        Returns: namespace with all parsed arguments from all provided ParserBase subclasses
+        """
+        return cls._parse_args(
+            parser_classes, description, arguments, use_parse_known=True, **kwargs
+        )
+
+    @staticmethod
+    def _parse_args(
+        parser_classes,
+        description="No tool description provided",
+        arguments=None,
+        use_parse_known=False,
+        **kwargs,
+    ):
         arguments = sys.argv[1:] if arguments is None else arguments
 
         # Help should spill all the arguments, so delegate to the normal parsing flow including
@@ -360,14 +397,21 @@ class ConfigDrivenParser(ParserBase):
             [ConfigDrivenParser], description, arguments, **kwargs
         )
         config_options = ns_config.config_values.get("command-line-options", {})
-        config_args = cls.flatten_options(config_options)
+        config_args = ConfigDrivenParser.flatten_options(config_options)
+
         # Argparse allows repeated (overridden) arguments, thus the CLI override is accomplished by providing
         # remaining arguments after the configured ones
-        ns_full, parser = ParserBase.parse_args(
-            parser_classes, description, config_args + remaining, **kwargs
-        )
+        if use_parse_known:
+            ns_full, parser, remaining = ParserBase.parse_known_args(
+                parser_classes, description, config_args + remaining, **kwargs
+            )
+        else:
+            ns_full, parser = ParserBase.parse_args(
+                parser_classes, description, config_args + remaining, **kwargs
+            )
+            remaining = []
         ns_final = argparse.Namespace(**vars(ns_config), **vars(ns_full))
-        return ns_final, parser
+        return ns_final, parser, remaining
 
     @staticmethod
     def flatten_options(configured_options):
@@ -392,7 +436,11 @@ class ConfigDrivenParser(ParserBase):
                 "default": self.DEFAULT_CONFIGURATION_PATH,
                 "type": Path,
                 "help": "Argument configuration file path. [default: %(default)s]",
-            }
+            },
+            ("-v", "--version"): {
+                "action": "version",
+                "version": version("fprime_gds"),
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -931,10 +979,10 @@ class MiddleWareParser(ParserBase):
             ("--zmq-transport",): {
                 "dest": "zmq_transport",
                 "nargs": 2,
-                "help": "Pair of URls used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
+                "help": "Pair of URLs used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
                 "default": [
-                    "ipc:///tmp/fprime-server-in",
-                    "ipc:///tmp/fprime-server-out",
+                    f"ipc:///tmp/fprime-server-in-{getpass.getuser()}",
+                    f"ipc:///tmp/fprime-server-out-{getpass.getuser()}",
                 ],
                 "metavar": ("serverInUrl", "serverOutUrl"),
             },
@@ -1045,6 +1093,39 @@ class DictionaryParser(DetectionParser):
         return args
 
 
+class HashFileParser(DictionaryParser):
+    """Parser for detecting and loading the hashes.txt file for hash decoding"""
+
+    DESCRIPTION = "Hash file options"
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        return {
+            ("--hash-file",): {
+                "dest": "hash_file",
+                "action": "store",
+                "required": False,
+                "type": str,
+                "help": "Path to hashes.txt file map (found under build-artifacts dir by default)",
+            }
+        }
+
+    def handle_arguments(self, args, **kwargs):
+        if args.hash_file:
+            args.hash_file = Path(args.hash_file)
+            if not args.hash_file.exists():
+                msg = f"[ERROR] hash file location {args.hash_file} does not exist"
+                print(msg, file=sys.stderr)
+                sys.exit(-1)
+            return args
+
+        if args.deployment is None:
+            super().handle_arguments(args, **kwargs)
+        if args.deployment:
+            hash_file = (Path(args.deployment) / ".." / ".." / "hashes.txt").resolve()
+            args.hash_file = hash_file if hash_file.exists() else None
+        return args
+
+
 class FileHandlingParser(ParserBase):
     """Parser for deployments"""
 
@@ -1106,6 +1187,7 @@ class StandardPipelineParser(CompositeParser):
 
     CONSTITUENTS = [
         DictionaryParser,
+        HashFileParser,
         FileHandlingParser,
         MiddleWareParser,
         LogDeployParser,
@@ -1204,6 +1286,11 @@ class GdsParser(ParserBase):
                 "type": str,
                 "help": "Set the GUI server address [default: %(default)s]",
             },
+            ("--skip-browser-open",):{
+                "dest": "browser_auto_open",
+                "action": "store_false",
+                "help": "Run server without auto-launching the default web browser"
+                }
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -1242,6 +1329,12 @@ class BinaryDeployment(DetectionParser):
                     "required": False,
                     "type": str,
                     "help": "Path to app to run. Overrides automatic app detection.",
+                },
+                ("--application-arguments",): {
+                    "dest": "application_arguments",
+                    "nargs": "*",
+                    "default": None,
+                    "help": "Arguments to pass to the application binary, replacing the default -p/-a arguments.",
                 },
             },
         }

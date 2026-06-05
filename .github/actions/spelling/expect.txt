@@ -113,7 +113,6 @@ doxypypy
 doxyrules
 doxysearch
 Doxywizard
-doy
 dps
 dropleft
 dropright
@@ -176,6 +175,7 @@ gdiplus
 getattr
 getbootstrap
 getoption
+getpid
 github
 grayscales
 gse

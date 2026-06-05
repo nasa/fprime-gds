@@ -53,7 +53,7 @@ def parse_args():
     return args
 
 
-def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5):
+def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5, cwd=None):
     """
     Launch a child subprocess. This subprocess will allow the child to run outside of the memory context of Python.
 
@@ -62,13 +62,14 @@ def launch_process(cmd, logfile=None, name=None, env=None, launch_time=5):
     :param name: (optional) short name for printing messages.
     :param env: (optional) environment to run in. Allows for special environment contexts.
     :param launch_time: (optional) time to launch the process, before rendering an error.
+    :param cwd: (optional) working directory to run the process from.
     :return: running process
     """
     if name is None:
         name = str(cmd)
     print(f"[INFO] Ensuring {name} is stable for at least {launch_time} seconds")
     try:
-        return run_wrapped_application(cmd, logfile, env, launch_time)
+        return run_wrapped_application(cmd, logfile, env, launch_time, cwd=cwd)
     except AppWrapperException as awe:
         print(f"[ERROR] {str(awe)}.", file=sys.stderr)
         try:
@@ -124,6 +125,8 @@ def launch_html(parsed_args):
             "SERVE_LOGS": "YES",
         }
     )
+    if parsed_args.hash_file:
+        flask_env.update({"FPRIME_HASHES_TXT_FILE": parsed_args.hash_file})
     gse_args = BASE_MODULE_ARGUMENTS + [
         "flask",
         "run",
@@ -135,11 +138,14 @@ def launch_html(parsed_args):
     ret = launch_process(gse_args, name="HTML GUI", env=flask_env, launch_time=2)
     ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/"
     print(f"[INFO] Launched UI at: {ui_url}")
-    webbrowser.open(
-        ui_url,
-        new=0,
-        autoraise=True,
-    )
+    
+    if parsed_args.browser_auto_open:
+        webbrowser.open(
+            ui_url,
+            new=0,
+            autoraise=True,
+        )
+
     return ret
 
 
@@ -153,15 +159,22 @@ def launch_app(parsed_args):
     """
     app_path = parsed_args.app
     logfile = os.path.join(parsed_args.logs, f"{app_path.name}.log")
-    app_cmd = [
-        app_path.absolute(),
-        "-p",
-        str(parsed_args.port),
-        "-a",
-        parsed_args.address,
-    ]
+    if parsed_args.application_arguments is not None:
+        app_cmd = [app_path.absolute()] + parsed_args.application_arguments
+    else:
+        app_cmd = [
+            app_path.absolute(),
+            "-p",
+            str(parsed_args.port),
+            "-a",
+            parsed_args.address,
+        ]
     return launch_process(
-        app_cmd, name=f"{app_path.name} Application", logfile=logfile, launch_time=1
+        app_cmd,
+        name=f"{app_path.name} Application",
+        logfile=logfile,
+        launch_time=1,
+        cwd=app_path.parent,
     )
 
 
@@ -224,7 +237,7 @@ def main():
 
     # Add app, if possible
     if parsed_args.app:
-        if parsed_args.communication_selection == "ip":
+        if parsed_args.communication_selection == "ip" or parsed_args.application_arguments is not None:
             launchers.append(launch_app)
         else:
             print(

@@ -29,7 +29,7 @@ class BaseAdapter(abc.ABC):
         """Null default implementation"""
 
     @abc.abstractmethod
-    def read(self, timeout=0.500):
+    def read(self, timeout=0.500) -> bytes:
         """
         Read from the interface. Must be overridden by the child adapter. Throw no fatal errors, reconnect instead. This
         call is expected to block waiting on incoming data.
@@ -38,15 +38,17 @@ class BaseAdapter(abc.ABC):
         :param timeout: timeout for the block, default: 0.500 (500ms) as blocking w/o timeout may be uninterruptible
         :return: byte array of data, or b'' if no data was read
         """
+        return NotImplemented
 
     @abc.abstractmethod
-    def write(self, frame):
+    def write(self, frame) -> bool:
         """
         Write to the interface. Must be overridden by the child adapter. Throw no fatal errors, reconnect instead.
 
         :param frame: framed data to uplink
         :return: True if data sent through adapter, False otherwise
         """
+        return NotImplemented
 
     @classmethod
     @gds_plugin_specification

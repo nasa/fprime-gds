@@ -113,7 +113,7 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
             self.data_chunks.put(handler.read())
         handler.close()
 
-    def write(self, frame):
+    def write(self, frame) -> bool:
         """
         Send a given framed bit of data by sending it out the serial interface. It will attempt to reconnect if there
         was a problem previously. This function will return true on success, or false on error.
@@ -123,6 +123,8 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         """
         if self.tcp.connected == IpHandler.CONNECTED:
             return self.tcp.write(frame)
+        else:
+            return False
 
     def read(self, timeout=0.500):
         """

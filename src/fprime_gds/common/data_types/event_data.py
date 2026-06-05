@@ -12,6 +12,7 @@ from fprime_gds.common.models.serialize import time_type
 from fprime_gds.common.data_types import sys_data
 from fprime_gds.common.utils.string_util import format_string_template
 
+import os
 
 class EventData(sys_data.SysData):
     """
@@ -40,10 +41,20 @@ class EventData(sys_data.SysData):
         self.args = event_args
         self.time = event_time
         self.template = event_temp
+
         if event_args is None:
             self.display_text = event_temp.description
-        elif event_temp.format_str == "":
+            return
+
+        if (
+            (event_temp.name.startswith('AF_ASSERT') or event_temp.name == "AF_UNEXPECTED_ASSERT") and
+            'FPRIME_HASHES_TXT_FILE' in os.environ
+        ):
+            self._decode_hashed_files()
+                
+        if event_temp.format_str == "":
             args_template = self.template.get_args()
+
             self.display_text = str(
                 [
                     {args_template[index][0]: arg.val}
@@ -54,6 +65,28 @@ class EventData(sys_data.SysData):
             self.display_text = format_string_template(
                 event_temp.format_str, tuple([arg.val for arg in event_args])
             )
+
+    def _decode_hashed_files(self):
+        "Searches event args for hashed files and replaces each with its corresponding file name"
+
+        args_template = self.template.get_args()
+        for index, arg in enumerate(self.args):
+
+            if not args_template[index]:
+                continue
+            if args_template[index][0] != 'file':
+                continue
+            try:
+                hash_value = int(arg.val, 16)
+            except ValueError:
+                continue
+
+            hash_file = os.environ['FPRIME_HASHES_TXT_FILE']
+            with open(hash_file) as file_handle:
+                for line in file_handle:
+                    if hash_value == int(line.split(" ")[-1], 0):
+                        arg.val = line.split(':')[0].strip()
+                        break
 
     def get_args(self):
         return self.args
