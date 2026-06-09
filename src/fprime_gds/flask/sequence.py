@@ -42,11 +42,10 @@ class StdioTheif(object):
 
 
 class SequenceCompiler(flask_restful.Resource):
-    def __init__(self, dictionary, tempdir, uplinker, destination):
+    def __init__(self, dictionary, tempdir, uplinker):
         self.dictionary = dictionary
         self.tempdir = Path(tempdir)
         self.uplinker = uplinker
-        self.destination = destination
 
         self.parser = flask_restful.reqparse.RequestParser()
         self.parser.add_argument(
@@ -87,7 +86,7 @@ class SequenceCompiler(flask_restful.Resource):
         temp_seq_path = self.tempdir / Path(name).name
         temp_bin_path = temp_seq_path.with_suffix(".bin")
         messages = ""
-        uplink_destination = args.get("destination", None) or self.destination
+        uplink_destination = args.get("destination", None) or "/seq"
         try:
             with open(temp_seq_path, "w") as file_handle:
                 file_handle.write(text)
