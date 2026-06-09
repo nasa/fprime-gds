@@ -61,7 +61,7 @@ Vue.component("sequencer", {
         return {
             view: null,
             sequence: {name: ""},
-            destination: "",
+            destination: "/seq",
             lastUplinkedSequence: null,
             messages: {
                 validation: "",
@@ -83,11 +83,6 @@ Vue.component("sequencer", {
                                                     linter(linter_func)]}),
             parent: parent
         });
-        _loader.load("/sequence").then((data) => {
-            if (data && data.destination) {
-                this.destination = data.destination;
-            }
-        }).catch(() => {});
     },
     methods: {
         /**

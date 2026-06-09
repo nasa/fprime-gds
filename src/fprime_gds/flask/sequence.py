@@ -68,10 +68,6 @@ class SequenceCompiler(flask_restful.Resource):
             help="Remote directory to uplink the compiled sequence to",
         )
 
-    def get(self):
-        """Returns the default remote sequence directory."""
-        return {"destination": self.destination}
-
     def put(self):
         args = self.parser.parse_args()
         key = args.get("key", None)
