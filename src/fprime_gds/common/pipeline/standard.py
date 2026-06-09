@@ -181,6 +181,18 @@ class StandardPipeline:
             incoming_tag = RoutingTag.GUI
         self.client_socket.connect(connection_uri, incoming_tag, outgoing_tag)
 
+    def connect_yamcs(self, yamcs_url, instance='fprime-project', processor='realtime'):
+        """
+        Convenience method to connect to YAMCS server.
+
+        Args:
+            yamcs_url: YAMCS server URL (e.g., 'http://localhost:8090')
+            instance: YAMCS instance name (default: 'fprime-project')
+            processor: YAMCS processor name (default: 'realtime')
+        """
+        uri = f"yamcs://{yamcs_url.replace('http://', '').replace('https://', '')}/{instance}/{processor}"
+        self.connect(uri)
+
     def disconnect(self):
         """
         Disconnect from socket

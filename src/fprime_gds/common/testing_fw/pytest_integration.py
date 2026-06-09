@@ -60,6 +60,31 @@ def pytest_addoption(parser):
         help="Path to JSON configuration file for mapping deployment components",
     )
 
+    # YAMCS integration options
+    parser.addoption(
+        "--use-yamcs",
+        action="store_true",
+        help="Use YAMCS transport instead of TCP socket"
+    )
+    parser.addoption(
+        "--yamcs-url",
+        action="store",
+        default="http://localhost:8090",
+        help="YAMCS server URL [default: %(default)s]"
+    )
+    parser.addoption(
+        "--yamcs-instance",
+        action="store",
+        default="fprime-project",
+        help="YAMCS instance name [default: %(default)s]"
+    )
+    parser.addoption(
+        "--yamcs-processor",
+        action="store",
+        default="realtime",
+        help="YAMCS processor name [default: %(default)s]"
+    )
+
 def pytest_configure(config):
     """ This is a hook to allow plugins and conftest files to perform initial configuration
     
@@ -94,11 +119,44 @@ def fprime_test_api_session(request):
     api = None
     deployment_config = None
     try:
-        # Parse the command line arguments into a client connection
-        arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
+        # Check if YAMCS mode is requested
+        use_yamcs = request.config.getoption("--use-yamcs")
 
-        # Build a new pipeline with the parsed and processed arguments
-        pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
+        if use_yamcs:
+            # YAMCS mode: Use YAMCS transport
+            from fprime_gds.common.transport_yamcs import YamcsClient
+            from fprime_gds.common.pipeline.standard import StandardPipeline
+
+            # Parse arguments for dictionary and logs
+            arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
+
+            # Create pipeline with YAMCS transport
+            pipeline = StandardPipeline()
+            pipeline.transport_implementation = YamcsClient
+
+            # Setup pipeline
+            pipeline.setup(
+                config=None,
+                dictionaries=arg_ns.dictionary,
+                file_store=arg_ns.file_storage_directory,
+                logging_prefix=arg_ns.logs if arg_ns.logs else None,
+                data_logging_enabled=True
+            )
+
+            # Connect to YAMCS
+            yamcs_url = request.config.getoption("--yamcs-url")
+            yamcs_instance = request.config.getoption("--yamcs-instance")
+            yamcs_processor = request.config.getoption("--yamcs-processor")
+
+            pipeline.connect_yamcs(yamcs_url, yamcs_instance, yamcs_processor)
+
+        else:
+            # Standard TCP mode
+            # Parse the command line arguments into a client connection
+            arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
+
+            # Build a new pipeline with the parsed and processed arguments
+            pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
 
         # Get deployment configuration from command line arguments
         if request.config.option.deployment_config:
