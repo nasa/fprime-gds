@@ -14,7 +14,7 @@ export let sequencer_template = `
                 </div>
                 <div class="form-group col-md-2 mt-2">
                     <input type="text" class="form-control" v-model.trim="destination" pattern="/.*"
-                        placeholder="/seq" title="Remote directory for sequence uplink" />
+                        placeholder="/seq" title="Remote directory for sequence uplink" :disabled="active" />
                     <label><small class="text-muted">Uplink Directory</small></label>
                 </div>
                 <div class="form-group col-md-3 mt-2">

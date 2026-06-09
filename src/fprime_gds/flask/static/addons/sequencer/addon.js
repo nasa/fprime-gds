@@ -113,16 +113,15 @@ Vue.component("sequencer", {
             this.active = true;
             this.messages.validation = "";
             this.messages.error = "";
-            let dest = this.destination || null;
-            sequence_sender(this.view, this.sequence.name, true, null, dest).then((message) => {
+            let sentDest = this.destination || "/seq";
+            sequence_sender(this.view, this.sequence.name, true, null, sentDest).then((message) => {
                 _self.active = false;
                 let type = message.type || "validation";
                 let content = message.error || message;
                 _self.messages[type] = content;
                 if (!message.error && !message.type) {
                     let binName = _self.sequence.name.replace(/\.seq$/, ".bin");
-                    let dir = _self.destination || "/seq";
-                    _self.lastUplinkedSequence = dir.replace(/\/$/, "") + "/" + binName;
+                    _self.lastUplinkedSequence = sentDest.replace(/\/$/, "") + "/" + binName;
                 }
             });
         },
