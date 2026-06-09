@@ -27,7 +27,7 @@ SaferParser.register();
  * @param processor: message processor before resolving promise
  * @return {Promise<unknown>}
  */
-function sequence_sender(view, filename, uplink, processor) {
+function sequence_sender(view, filename, uplink, processor, destination) {
     let code = view.state.doc.toString();
     return new Promise((resolve) => {
         let func = processor || ((message) => message);
@@ -41,14 +41,14 @@ function sequence_sender(view, filename, uplink, processor) {
             parsed = parsed.message || parsed;
             resolve(func(parsed));
         };
-        _loader.load("/sequence", "PUT",
-            {
-                "key": 0xfeedcafe,
-                "name": filename,
-                "text": code,
-                "uplink": (uplink ? uplink : false).toString()
-            }
-        ).then(handler).catch(handler);
+        let payload = {
+            "key": 0xfeedcafe,
+            "name": filename,
+            "text": code,
+            "uplink": (uplink ? uplink : false).toString(),
+            "destination": destination || "/seq"
+        };
+        _loader.load("/sequence", "PUT", payload).then(handler).catch(handler);
     });
 }
 
@@ -61,6 +61,8 @@ Vue.component("sequencer", {
         return {
             view: null,
             sequence: {name: ""},
+            destination: "/seq",
+            lastUplinkedSequence: null,
             messages: {
                 validation: "",
                 error: ""
@@ -106,12 +108,60 @@ Vue.component("sequencer", {
             this.active = true;
             this.messages.validation = "";
             this.messages.error = "";
-            sequence_sender(this.view, this.sequence.name, true).then((message) => {
+            let sentDest = this.destination || "/seq";
+            sequence_sender(this.view, this.sequence.name, true, null, sentDest).then((message) => {
                 _self.active = false;
                 let type = message.type || "validation";
                 let content = message.error || message;
                 _self.messages[type] = content;
+                if (!message.error && !message.type) {
+                    let binName = _self.sequence.name.replace(/\.seq$/, ".bin");
+                    _self.lastUplinkedSequence = sentDest.replace(/\/$/, "") + "/" + binName;
+                }
             });
+        },
+        /**
+         * Sends a CS_RUN command for the last uplinked sequence.
+         */
+        runSequence() {
+            if (!this.lastUplinkedSequence) {
+                return;
+            }
+            let _self = this;
+            let command = this.findCsRunCommand();
+            if (!command) {
+                this.messages.error = "CS_RUN command not found in dictionary. Cannot run sequence.";
+                return;
+            }
+            this.active = true;
+            this.messages.validation = "";
+            this.messages.error = "";
+            _loader.load("/commands/" + encodeURIComponent(command), "PUT", {
+                "key": "0xfeedcafe",
+                "arguments": [this.lastUplinkedSequence, "BLOCK"]
+            }).then(() => {
+                _self.active = false;
+                _self.messages.validation = "Sent CS_RUN for " + _self.lastUplinkedSequence;
+            }).catch((error) => {
+                _self.active = false;
+                try {
+                    let parsed = JSON.parse(error);
+                    _self.messages.error = parsed.message || error;
+                } catch {
+                    _self.messages.error = error || "Failed to send CS_RUN command";
+                }
+            });
+        },
+        /**
+         * Finds the CS_RUN command mnemonic from the command dictionary.
+         */
+        findCsRunCommand() {
+            for (let key in _datastore.commands) {
+                if (key.endsWith(".CS_RUN") || key === "CS_RUN") {
+                    return key;
+                }
+            }
+            return null;
         },
         /**
          * Download button action used to generate file data from the editor and supply it as a file downloading to the
