@@ -124,7 +124,7 @@ def fprime_test_api_session(request):
 
         if use_yamcs:
             # YAMCS mode: Use YAMCS transport
-            from fprime_gds.common.transport_yamcs import YamcsClient
+            from fprime_gds.common.transport_yamcs import YamcsTransportClient
             from fprime_gds.common.pipeline.standard import StandardPipeline
 
             # Parse arguments for dictionary and logs
@@ -132,13 +132,13 @@ def fprime_test_api_session(request):
 
             # Create pipeline with YAMCS transport
             pipeline = StandardPipeline()
-            pipeline.transport_implementation = YamcsClient
+            pipeline.transport_implementation = YamcsTransportClient
 
             # Setup pipeline
             pipeline.setup(
                 config=None,
                 dictionaries=arg_ns.dictionary,
-                file_store=arg_ns.file_storage_directory,
+                file_store=arg_ns.files_storage_directory,
                 logging_prefix=arg_ns.logs if arg_ns.logs else None,
                 data_logging_enabled=True
             )
