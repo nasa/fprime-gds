@@ -45,11 +45,9 @@ function sequence_sender(view, filename, uplink, processor, destination) {
             "key": 0xfeedcafe,
             "name": filename,
             "text": code,
-            "uplink": (uplink ? uplink : false).toString()
+            "uplink": (uplink ? uplink : false).toString(),
+            "destination": destination || "/seq"
         };
-        if (destination) {
-            payload["destination"] = destination;
-        }
         _loader.load("/sequence", "PUT", payload).then(handler).catch(handler);
     });
 }
