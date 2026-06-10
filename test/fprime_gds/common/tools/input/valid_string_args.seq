@@ -1,0 +1,4 @@
+; Test string arguments with quotes
+R00:00:00 cmdDisp.CMD_STRING "hello world"
+R00:00:01 cmdDisp.CMD_STRING 'single quotes'
+R00:00:02 cmdDisp.CMD_STRING "with spaces and special chars!"
