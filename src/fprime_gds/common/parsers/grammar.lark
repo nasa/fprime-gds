@@ -1,0 +1,66 @@
+input: (_NEWLINE | _toplevel_stmt)*
+
+_toplevel_stmt: _cmd_stmt
+
+_cmd_stmt: time_tag mnemonic argument*
+
+time_tag: relative_time | absolute_time
+
+mnemonic: NAME
+
+argument: _literal | NAME
+
+relative_time: "R" rel_time_value
+rel_time_value: TIME_HMS | TIME_HMS_FRAC
+
+absolute_time: "A" abs_time_value
+abs_time_value: ABS_DATETIME | ABS_DATETIME_FRAC
+
+_literal: number | string | boolean
+number: DEC_NUMBER | FLOAT_NUMBER | HEX_NUMBER
+# -> AstNumber(value)
+string: STRING
+# -> AstString(value)
+boolean: CONST_FALSE | CONST_TRUE
+# -> AstBoolean(value)
+
+
+_NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
+
+%ignore /[\t \f,]+/  // WS and commas
+%ignore /\\[\t \f]*\r?\n/   // LINE_CONT
+%ignore COMMENT
+%declare _INDENT _DEDENT
+
+CONST_TRUE.2: /(True|true|TRUE)/
+CONST_FALSE.2: /(False|false|FALSE)/
+NAME: /\$?[^\W\d]\w*(\.\w+)*/
+COMMENT: /;[^\n]*/
+
+STRING: /("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+
+# -2 prio so we resolve after floats
+DEC_NUMBER.-2:   "1".."9"        ("_"?  "0".."9"                       )*
+             |   "0"             ("_"?  "0"                            )* /(?![1-9xX])/
+
+# Hex integer literals (0x or 0X prefix)
+HEX_NUMBER: ("0x" | "0X") ("_"? /[0-9a-fA-F]/)+
+
+_SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
+
+DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC
+_EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
+# -1 prio so we resolve the .. syntax in for loop range first
+FLOAT_NUMBER.-1: _SPECIAL_DEC _EXP | DECIMAL _EXP?
+
+# Time format terminals
+_TIME_COMPONENT: /\d{2}/
+_MICROSECONDS: /\d{1,6}/
+_YEAR: /\d{4}/
+_DAY_OF_YEAR: /\d{3}/
+
+TIME_HMS: _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT
+TIME_HMS_FRAC: _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT "." _MICROSECONDS
+
+ABS_DATETIME: _YEAR "-" _DAY_OF_YEAR "T" _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT
+ABS_DATETIME_FRAC: _YEAR "-" _DAY_OF_YEAR "T" _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT "." _MICROSECONDS

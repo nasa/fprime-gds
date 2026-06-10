@@ -23,7 +23,7 @@ from fprime_gds.common.data_types import exceptions as gseExceptions
 from fprime_gds.common.data_types.cmd_data import CmdData, CommandArgumentsException
 from fprime_gds.common.encoders.seq_writer import SeqBinaryWriter
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
-from fprime_gds.common.parsers.seq_file_parser import SeqFileParser
+from fprime_gds.common.parsers.lark_seq_parser import LarkSeqFileParser
 from fprime_gds.executables.cli import DictionaryParser, ParserBase
 from typing import Any, Dict, Tuple
 
@@ -69,7 +69,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
 
     # Parse the input file:
     command_list = []
-    file_parser = SeqFileParser()
+    file_parser = LarkSeqFileParser()
 
     parsed_seq = file_parser.parse(inputFile, cont=cont)
 

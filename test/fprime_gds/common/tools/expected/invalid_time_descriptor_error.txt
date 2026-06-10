@@ -1,1 +1,1 @@
-Parsing error: Line 1: Encountered syntax error parsing timestamp
+Parsing error: Line 1: Encountered syntax error parsing (unexpected token)

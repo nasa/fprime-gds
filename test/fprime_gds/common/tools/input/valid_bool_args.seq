@@ -1,0 +1,7 @@
+; Test boolean arguments with various case variations
+R00:00:00 cmdDisp.CMD_BOOL True
+R00:00:01 cmdDisp.CMD_BOOL true
+R00:00:02 cmdDisp.CMD_BOOL TRUE
+R00:00:03 cmdDisp.CMD_BOOL False
+R00:00:04 cmdDisp.CMD_BOOL false
+R00:00:05 cmdDisp.CMD_BOOL FALSE
