@@ -93,6 +93,16 @@ class StandardPipeline:
             self.dictionaries, self.distributor, self.client_socket
         )
         self.histories.setup_histories(self.coders)
+        # Some transports bypass the binary decode path and dispatch ChData/EventData directly to the decoders'
+        # registrants (see fprime_gds.common.yamcs_transport.YamcsClient). Such transports declare this hook to
+        # receive the dictionaries and decoder references they need. Called after setup_histories so that any data
+        # the transport dispatches has somewhere to go.
+        if hasattr(self.client_socket, "set_pipeline_references"):
+            self.client_socket.set_pipeline_references(
+                self.dictionaries,
+                self.coders.channel_decoder,
+                self.coders.event_decoder,
+            )
         self.files.setup_file_handling(
             self.down_store,
             self.coders.file_encoder,
@@ -180,18 +190,6 @@ class StandardPipeline:
             connection_uri = f"{connection_uri}:{incoming_tag}"
             incoming_tag = RoutingTag.GUI
         self.client_socket.connect(connection_uri, incoming_tag, outgoing_tag)
-
-    def connect_yamcs(self, yamcs_url, instance='fprime-project', processor='realtime'):
-        """
-        Convenience method to connect to YAMCS server.
-
-        Args:
-            yamcs_url: YAMCS server URL (e.g., 'http://localhost:8090')
-            instance: YAMCS instance name (default: 'fprime-project')
-            processor: YAMCS processor name (default: 'realtime')
-        """
-        uri = f"yamcs://{yamcs_url.replace('http://', '').replace('https://', '')}/{instance}/{processor}"
-        self.connect(uri)
 
     def disconnect(self):
         """

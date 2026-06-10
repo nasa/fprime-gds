@@ -119,44 +119,23 @@ def fprime_test_api_session(request):
     api = None
     deployment_config = None
     try:
-        # Check if YAMCS mode is requested
-        use_yamcs = request.config.getoption("--use-yamcs")
+        arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
 
-        if use_yamcs:
-            # YAMCS mode: Use YAMCS transport
-            from fprime_gds.common.transport_yamcs import YamcsTransportClient
-            from fprime_gds.common.pipeline.standard import StandardPipeline
+        # When --use-yamcs is set, override the transport and connection URI on the parsed arguments and let
+        # pipeline_factory build the pipeline as usual. The factory uses arg_ns.connection_transport and
+        # arg_ns.connection_uri directly, so this is a minimal hook into the standard setup path.
+        if request.config.getoption("--use-yamcs"):
+            from fprime_gds.common.yamcs_transport import YamcsClient
 
-            # Parse arguments for dictionary and logs
-            arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
-
-            # Create pipeline with YAMCS transport
-            pipeline = StandardPipeline()
-            pipeline.transport_implementation = YamcsTransportClient
-
-            # Setup pipeline
-            pipeline.setup(
-                config=None,
-                dictionaries=arg_ns.dictionary,
-                file_store=arg_ns.files_storage_directory,
-                logging_prefix=arg_ns.logs if arg_ns.logs else None,
-                data_logging_enabled=True
-            )
-
-            # Connect to YAMCS
             yamcs_url = request.config.getoption("--yamcs-url")
+            yamcs_host = yamcs_url.replace("http://", "").replace("https://", "")
             yamcs_instance = request.config.getoption("--yamcs-instance")
             yamcs_processor = request.config.getoption("--yamcs-processor")
 
-            pipeline.connect_yamcs(yamcs_url, yamcs_instance, yamcs_processor)
+            arg_ns.connection_transport = YamcsClient
+            arg_ns.connection_uri = f"yamcs://{yamcs_host}/{yamcs_instance}/{yamcs_processor}"
 
-        else:
-            # Standard TCP mode
-            # Parse the command line arguments into a client connection
-            arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
-
-            # Build a new pipeline with the parsed and processed arguments
-            pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
+        pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
 
         # Get deployment configuration from command line arguments
         if request.config.option.deployment_config:
