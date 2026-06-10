@@ -23,17 +23,20 @@ from fprime_gds.plugin.definitions import gds_plugin_implementation
 LOGGER = logging.getLogger("ip_adapter")
 
 
-def check_port(address, port):
+def check_port(address, port, reuse_address=True):
     """
     Checks a given address and port to ensure that it is available. If not available, a ValueError is raised. Note: this
     is done by binding to an address. It does not call "listen"
 
     :param address: address that will bind to
     :param port: port to bind to
+    :param reuse_address: set SO_REUSEADDR to allow binding to a port in TIME_WAIT state
     """
     socket_trial = None
     try:
         socket_trial = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if reuse_address:
+            socket_trial.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         socket_trial.bind((address, port))
     except OSError as err:
         msg = f"Error with address/port of '{address}:{port}' : {err}"
@@ -54,7 +57,7 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
     KEEPALIVE_DATA = b"sitting well"
     MAXIMUM_DATA_SIZE = 4096
 
-    def __init__(self, address, port, server=True, keepalive_interval=0.5):
+    def __init__(self, address, port, server=True, keepalive_interval=0.5, reuse_address=True):
         """
         Initialize this adapter by creating a handler for UDP and TCP. A thread for the KEEPALIVE application packets
         will be created, if the interval is not none. Handlers are servers unless server=False.
@@ -64,8 +67,8 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         self.stop = False
         self.keepalive_thread = None
         self.keepalive_interval = keepalive_interval
-        self.tcp = TcpHandler(address, port, server=server)
-        self.udp = UdpHandler(address, port, server=server)
+        self.tcp = TcpHandler(address, port, server=server, reuse_address=reuse_address)
+        self.udp = UdpHandler(address, port, server=server, reuse_address=reuse_address)
         self.thtcp = None
         self.thudp = None
         self.data_chunks = queue.Queue()
@@ -193,6 +196,13 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
                 "default": 0.5000,
                 "help": "Keep alive packet interval. 0.0 = off, default = 0.5",
             },
+            ("--no-reuse-address",): {
+                "dest": "reuse_address",
+                "action": "store_false",
+                "default": True,
+                "help": "Disable SO_REUSEADDR on server sockets. By default, SO_REUSEADDR is set to allow "
+                "immediate restart after shutdown even when connections are in TIME_WAIT state.",
+            },
         }
 
     @classmethod
@@ -202,7 +212,7 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         return cls
 
     @classmethod
-    def check_arguments(cls, address, port, server=True, keepalive_interval=0.5):
+    def check_arguments(cls, address, port, server=True, keepalive_interval=0.5, reuse_address=True):
         """
         Code that should check arguments of this adapter. If there is a problem with this code, then a "ValueError"
         should be raised describing the problem with these arguments.
@@ -211,7 +221,7 @@ class IpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         """
         try:
             if server:
-                check_port(address, port)
+                check_port(address, port, reuse_address=reuse_address)
         except OSError as os_error:
             raise ValueError(f"{os_error}")
 
@@ -240,6 +250,7 @@ class IpHandler(abc.ABC):
         server=True,
         logger=logging.getLogger("ip_handler"),
         post_connect=None,
+        reuse_address=True,
     ):
         """
         Initialize this handler. This will set the variables, and start up the internal receive thread.
@@ -247,6 +258,7 @@ class IpHandler(abc.ABC):
         :param address: address of the handler
         :param port: port of the handler
         :param adapter_type: type of this adapter. socket.SOCK_STREAM or socket.SOCK_DGRAM
+        :param reuse_address: set SO_REUSEADDR on the socket before binding
         """
         self.running = True
         self.type = adapter_type
@@ -258,6 +270,7 @@ class IpHandler(abc.ABC):
         self.connected = IpHandler.CLOSED
         self.logger = logger
         self.post_connect = post_connect
+        self.reuse_address = reuse_address
         atexit.register(self.stop)
 
     def open(self):
@@ -276,6 +289,8 @@ class IpHandler(abc.ABC):
                 ):
                     self.connected = IpHandler.CONNECTING
                     self.socket = socket.socket(socket.AF_INET, self.type)
+                    if self.reuse_address and self.type == socket.SOCK_STREAM:
+                        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     if self.server:
                         self.socket.bind((self.address, self.port))
                     else:
@@ -402,6 +417,7 @@ class TcpHandler(IpHandler):
         server=True,
         logger=logging.getLogger("tcp_handler"),
         post_connect=None,
+        reuse_address=True,
     ):
         """
         Init the TCP adapter with port and address
@@ -410,7 +426,7 @@ class TcpHandler(IpHandler):
         :param port: port of TCP
         """
         super().__init__(
-            address, port, socket.SOCK_STREAM, server, logger, post_connect
+            address, port, socket.SOCK_STREAM, server, logger, post_connect, reuse_address
         )
         self.client = None
         self.client_address = None
@@ -466,7 +482,8 @@ class UdpHandler(IpHandler):
     """
 
     def __init__(
-        self, address, port, server=True, logger=logging.getLogger("udp_handler")
+        self, address, port, server=True, logger=logging.getLogger("udp_handler"),
+        reuse_address=True,
     ):
         """
         Init UDP with address and port
@@ -474,7 +491,8 @@ class UdpHandler(IpHandler):
         :param address: address of UDP
         :param port: port of UDP
         """
-        super().__init__(address, port, socket.SOCK_DGRAM, server, logger)
+        super().__init__(address, port, socket.SOCK_DGRAM, server, logger,
+                         reuse_address=reuse_address)
 
     def open_impl(self):
         """No extra steps required"""

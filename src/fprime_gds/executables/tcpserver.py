@@ -425,6 +425,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     socket id's for writing to destinations.
     """
 
+    allow_reuse_address = True
     dest_obj = {}
     lock_obj = threading.Lock()
 
@@ -512,8 +513,6 @@ def main(argv=None):
         PORT = opts.port
         server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
         udp_server = ThreadedUDPServer((HOST, PORT), ThreadedUDPRequestHandler)
-        # Hopefully this will allow address reuse and server to restart immediately
-        server.allow_reuse_address = True
         SERVER = server
         LOCK = server.lock_obj
 
