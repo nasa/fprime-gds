@@ -289,7 +289,7 @@ class IpHandler(abc.ABC):
                 ):
                     self.connected = IpHandler.CONNECTING
                     self.socket = socket.socket(socket.AF_INET, self.type)
-                    if self.reuse_address:
+                    if self.reuse_address and self.type == socket.SOCK_STREAM:
                         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     if self.server:
                         self.socket.bind((self.address, self.port))
