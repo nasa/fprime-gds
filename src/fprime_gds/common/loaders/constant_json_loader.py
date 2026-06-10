@@ -31,10 +31,11 @@ class ConstantJsonLoader(JsonLoader):
         """
         name_dict = {}
 
+        constants = self.json_dict.get(self.CONSTANTS_FIELD, [])
         if self.CONSTANTS_FIELD not in self.json_dict:
-            print(f"[WARNING] Ground Dictionary missing 'constants' field, relying on defaults. In: {str(self.json_file)}")
+            print(f"[WARNING] Ground Dictionary has no 'constants' field; no constants will be loaded. In: {str(self.json_file)}")
 
-        for constant in self.json_dict[self.CONSTANTS_FIELD]:
+        for constant in constants:
             try:
                 name_dict[constant["qualifiedName"]] = constant["value"]
             except KeyError as e:
