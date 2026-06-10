@@ -336,6 +336,7 @@ rb
 RCVHWM
 RCVTIMEO
 RDWR
+REUSEADDR
 Readback
 recommonmark
 recuring
