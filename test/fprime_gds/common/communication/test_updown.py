@@ -6,11 +6,12 @@ from fprime_gds.common.communication import updown
 
 class TestDownlinker(unittest.TestCase):
 
-    def make_downlinker(self):
+    def make_downlinker(self, queue_maxsize=updown.DEFAULT_GROUND_QUEUE_MAXSIZE):
         return updown.Downlinker(
             adapter=mock.Mock(),
             ground=mock.Mock(),
             deframer=mock.Mock(),
+            queue_maxsize=queue_maxsize,
         )
 
     def test_outgoing_queue_is_bounded_by_default(self):
@@ -22,9 +23,9 @@ class TestDownlinker(unittest.TestCase):
         )
 
     def test_add_loopback_frame_logs_when_queue_is_full(self):
-        downlinker = self.make_downlinker()
+        downlinker = self.make_downlinker(queue_maxsize=2)
 
-        for index in range(updown.DEFAULT_GROUND_QUEUE_MAXSIZE):
+        for index in range(2):
             downlinker.outgoing.put_nowait(index)
 
         with self.assertLogs("downlink", level="WARNING") as captured:
@@ -36,16 +37,16 @@ class TestDownlinker(unittest.TestCase):
         )
 
     def test_deframing_logs_when_queue_is_full(self):
-        downlinker = self.make_downlinker()
+        downlinker = self.make_downlinker(queue_maxsize=2)
         downlinker.running = True
         downlinker.adapter.read.side_effect = [b"", KeyboardInterrupt()]
         downlinker.deframer.deframe_all.return_value = (
-            [b"first", b"second"],
+            [b"first", b"second", b"third"],
             b"",
             b"",
         )
 
-        for index in range(updown.DEFAULT_GROUND_QUEUE_MAXSIZE - 1):
+        for index in range(1):
             downlinker.outgoing.put_nowait(index)
 
         with self.assertLogs("downlink", level="WARNING") as captured:
@@ -56,7 +57,10 @@ class TestDownlinker(unittest.TestCase):
             "GDS ground queue full, dropping frame",
             captured.output[0],
         )
+        self.assertEqual(len(captured.output), 2)
         self.assertEqual(
             downlinker.outgoing.qsize(),
-            updown.DEFAULT_GROUND_QUEUE_MAXSIZE,
+            2,
         )
+        self.assertEqual(downlinker.outgoing.get_nowait(), 0)
+        self.assertEqual(downlinker.outgoing.get_nowait(), b"first")

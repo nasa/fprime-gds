@@ -40,6 +40,7 @@ class Downlinker:
         adapter: BaseAdapter,
         ground: GroundHandler,
         deframer: FramerDeframer,
+        queue_maxsize: int = DEFAULT_GROUND_QUEUE_MAXSIZE,
         discarded=None,
     ):
         """Initialize the downlinker
@@ -52,6 +53,7 @@ class Downlinker:
             adapter: adapter used to read raw data from the hardware connection
             ground: handles the ground side connection
             deframer: deframer used to deframe data from the communication format
+            queue_maxsize: maximum number of frames buffered for ground delivery
             discarded: file to write discarded data to. None to drop the data.
         """
         self.running = True
@@ -60,7 +62,7 @@ class Downlinker:
         self.adapter = adapter
         self.ground = ground
         self.deframer = deframer
-        self.outgoing = Queue(maxsize=DEFAULT_GROUND_QUEUE_MAXSIZE)
+        self.outgoing = Queue(maxsize=queue_maxsize)
         self.discarded = discarded
 
     def start(self):
@@ -87,11 +89,11 @@ class Downlinker:
             # Blocks until data is available, but may still return b"" if timeout
             pool += self.adapter.read()
             frames, pool, discarded_data = self.deframer.deframe_all(pool, no_copy=True)
-            try:
-                for frame in frames:
+            for frame in frames:
+                try:
                     self.outgoing.put_nowait(frame)
-            except Full:
-                DW_LOGGER.warning("GDS ground queue full, dropping frame")
+                except Full:
+                    DW_LOGGER.warning("GDS ground queue full, dropping frame")
             try:
                 if self.discarded is not None:
                     self.discarded.write(discarded_data)
