@@ -278,7 +278,6 @@ noapp
 NOSONAR
 nosort
 nosubgrouping
-notafloat
 Noto
 nreg
 NSPACES
@@ -346,7 +345,6 @@ reder
 referenceable
 removeit
 reqparse
-REUSEADDR
 riverbankcomputing
 Roboto
 rollup

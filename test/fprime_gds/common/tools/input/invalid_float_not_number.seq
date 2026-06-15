@@ -1,2 +1,2 @@
 ; Float with non-numeric value
-R00:00:01 cmdDisp.CMD_FLOAT notafloat
+R00:00:01 cmdDisp.CMD_FLOAT not_a_float
