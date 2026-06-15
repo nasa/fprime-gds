@@ -180,6 +180,10 @@ class TestEnhancedArguments(unittest.TestCase):
         """Test sequence with object/dictionary arguments."""
         self.generate_and_compare("valid_object_args.seq", "valid_object_args.bin")
 
+    def test_nested_arguments(self):
+        """Test sequence with nested structures (arrays of structs, structs with arrays)."""
+        self.generate_and_compare("valid_nested_args.seq", "valid_nested_args.bin")
+
 
 class TestSequenceErrors(unittest.TestCase):
     """Test error handling for invalid sequence files."""

@@ -98,6 +98,37 @@
                     "index": 2
                 }
             }
+        },
+        {
+            "kind": "array",
+            "qualifiedName": "TestPointArray",
+            "size": 2,
+            "elementType": {
+                "name": "TestPoint",
+                "kind": "qualifiedIdentifier"
+            }
+        },
+        {
+            "kind": "struct",
+            "qualifiedName": "TestStructWithArray",
+            "members": {
+                "id": {
+                    "type": {
+                        "name": "I32",
+                        "kind": "integer",
+                        "size": 32,
+                        "signed": true
+                    },
+                    "index": 0
+                },
+                "points": {
+                    "type": {
+                        "name": "TestIntArray",
+                        "kind": "qualifiedIdentifier"
+                    },
+                    "index": 1
+                }
+            }
         }
     ],
     "commands": [
@@ -394,6 +425,38 @@
             ],
             "queueFullBehavior": "assert",
             "annotation": "Command with complex nested structure"
+        },
+        {
+            "name": "cmdDisp.CMD_ARRAY_OF_STRUCTS",
+            "commandKind": "async",
+            "opcode": 5106,
+            "formalParams": [
+                {
+                    "name": "points",
+                    "type": {
+                        "name": "TestPointArray",
+                        "kind": "qualifiedIdentifier"
+                    }
+                }
+            ],
+            "queueFullBehavior": "assert",
+            "annotation": "Command with array of structs"
+        },
+        {
+            "name": "cmdDisp.CMD_STRUCT_WITH_ARRAY",
+            "commandKind": "async",
+            "opcode": 5107,
+            "formalParams": [
+                {
+                    "name": "data",
+                    "type": {
+                        "name": "TestStructWithArray",
+                        "kind": "qualifiedIdentifier"
+                    }
+                }
+            ],
+            "queueFullBehavior": "assert",
+            "annotation": "Command with struct containing array"
         }
     ],
     "parameters": []
