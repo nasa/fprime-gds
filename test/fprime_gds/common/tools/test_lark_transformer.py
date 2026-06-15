@@ -11,7 +11,7 @@ with the F' serialization layer.
 
 import json
 import unittest
-from lark import Lark, Token
+from lark import Lark
 from pathlib import Path
 
 from fprime_gds.common.parsers.lark_seq_parser import SeqTransformer
@@ -37,7 +37,6 @@ class TestSeqTransformer(unittest.TestCase):
         """Test parsing an empty array."""
         result = self.parse_and_transform("R00:00:01 CMD_TEST []")
         # Extract the argument from the command
-        cmd = result.children[1]  # mnemonic node
         arg = result.children[2]  # first value node
         transformed_arg = self.transformer.transform(arg)
         # Arrays are converted to JSON strings
