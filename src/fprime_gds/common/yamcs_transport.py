@@ -14,22 +14,20 @@ import time
 from yamcs.client import YamcsClient as YamcsLibClient
 
 from fprime_gds.common.data_types.ch_data import ChData
+from fprime_gds.common.data_types.cmd_data import CmdData
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.models.serialize.numerical_types import (
     FloatType,
     IntegerType,
-    U32Type,
 )
 from fprime_gds.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.models.serialize.string_type import StringType
 from fprime_gds.common.models.serialize.time_type import TimeType
 from fprime_gds.common.transport import TransportClient
-from fprime_gds.common.utils.config_manager import ConfigManager
 
 LOGGER = logging.getLogger("transport")
 
 YAMCS_URI_SCHEME = "yamcs://"
-COMMAND_DESCRIPTOR_VAL = 0x5A5A5A5A
 FILE_TRANSFER_POLL_INTERVAL = 2
 FILE_TRANSFER_SERVICE_NAME = "FprimeFilePacketService"
 FILE_TRANSFER_BUCKET = "fprimeFilesIn"
@@ -43,7 +41,6 @@ class YamcsWrapper:
     """
 
     def __init__(self):
-        super().__init__()
         self.yamcs_client = None
         self.processor = None
         self.subscriptions = []
@@ -122,9 +119,10 @@ class YamcsClient(TransportClient):
     """YAMCS-backed GDS transport.
 
     Pushes telemetry and events via WebSocket callbacks (no poll loop).
-    Commands are decoded from the F Prime binary form and re-issued via
-    the YAMCS REST API.  File uplink/downlink is routed through YAMCS's
-    FileTransferService (FprimeFilePacketService on the Java side).
+    Commands are received as CmdData objects (via the pipeline's command
+    subscriber mechanism) and issued directly through the YAMCS REST API,
+    bypassing binary serialization entirely. File uplink/downlink is
+    routed through YAMCS's FileTransferService.
     """
 
     def __init__(self):
@@ -134,20 +132,32 @@ class YamcsClient(TransportClient):
         self.channel_decoder = None
         self.event_decoder = None
         self.yamcs_namespace = ""
+        self._pending_cmd = None
 
     # ------------------------------------------------------------------
     # Pipeline integration
     # ------------------------------------------------------------------
 
     def set_pipeline_references(self, dictionaries, channel_decoder, event_decoder):
-        """Receive dictionary and decoder references from StandardPipeline.
-
-        Called after coders are constructed so this transport can bypass the
-        binary decode path and dispatch ChData/EventData directly.
-        """
+        """Receive dictionary and decoder references from StandardPipeline."""
         self.dictionaries = dictionaries
         self.channel_decoder = channel_decoder
         self.event_decoder = event_decoder
+
+    def data_callback(self, data, sender=None):
+        """Handle both CmdData objects and raw binary from the pipeline.
+
+        The pipeline registers this transport as a command subscriber, so
+        CmdData arrives here before the encoder runs. We stash it and
+        issue the command to YAMCS immediately. When the encoder later
+        calls send() with the binary form, send() drops it because the
+        command has already been dispatched.
+        """
+        if isinstance(data, CmdData):
+            self._issue_command_from_cmd_data(data)
+            self._pending_cmd = True
+            return
+        super().data_callback(data, sender)
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -179,29 +189,29 @@ class YamcsClient(TransportClient):
     # ------------------------------------------------------------------
 
     def send(self, data):
-        """Route an outbound F Prime packet to the appropriate YAMCS API.
+        """Handle binary packets from the encoder pipeline.
 
-        CmdEncoder and FileEncoder both register with this transport.
-        Packets are distinguished by the ComCfg.Apid field after the
-        0x5A5A5A5A descriptor.
+        Commands are already dispatched via data_callback (CmdData path),
+        so binary command packets are dropped here. File packets are
+        logged; YAMCS file transfer uses its own REST path.
         """
-        apid = self._peek_packet_apid(data)
-        if apid == "FW_PACKET_COMMAND":
-            self._send_command(data)
-        elif apid == "FW_PACKET_FILE":
-            LOGGER.debug("File packet received; file transfer is handled via YAMCS FileTransferService")
-        else:
-            LOGGER.warning("Unrecognized outbound packet APID %s; dropping", apid)
-
-    def _send_command(self, data):
-        """Decode an F Prime command binary and issue it to YAMCS."""
-        cmd_name, cmd_args = self._decode_fprime_command(data)
-        if cmd_name is None:
-            LOGGER.warning("Could not decode command from binary packet")
+        if self._pending_cmd:
+            self._pending_cmd = None
             return
+        LOGGER.debug("Binary packet received; not routed (YAMCS uses structured APIs)")
+
+    def _issue_command_from_cmd_data(self, cmd_data):
+        """Extract command name and args from CmdData and issue to YAMCS."""
+        template = cmd_data.get_template()
+        cmd_name = template.get_full_name()
+        args_dict = {}
+        arg_vals = cmd_data.get_args()
+        for i, arg_spec in enumerate(template.get_args()):
+            arg_name = arg_spec[0]
+            args_dict[arg_name] = arg_vals[i].val
         yamcs_cmd_name = self.yamcs_namespace + "/" + cmd_name.replace(".", "/")
         try:
-            issued = self.yamcs.issue_command(yamcs_cmd_name, cmd_args)
+            issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
             LOGGER.info("Command issued: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
         except Exception as exc:
             LOGGER.error("YAMCS rejected command %s: %s", yamcs_cmd_name, exc)
@@ -212,19 +222,7 @@ class YamcsClient(TransportClient):
 
     def upload_file(self, local_path, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
                     service_name=FILE_TRANSFER_SERVICE_NAME, timeout=60):
-        """Upload a local file to the spacecraft through YAMCS FileTransferService.
-
-        Uploads the file into a YAMCS bucket, then triggers startUpload on the
-        FprimeFilePacketService which breaks it into Fw::FilePacket frames and
-        sends them to F Prime over the TC link.
-
-        Args:
-            local_path: path to the local file to upload
-            remote_path: destination path on the spacecraft
-            bucket_name: YAMCS bucket to stage the file in
-            service_name: name of the YAMCS FileTransferService
-            timeout: max seconds to wait for the transfer to complete
-        """
+        """Upload a local file to the spacecraft through YAMCS FileTransferService."""
         storage = self.yamcs.get_storage_client()
         object_name = local_path.split("/")[-1] if "/" in local_path else local_path
 
@@ -249,19 +247,7 @@ class YamcsClient(TransportClient):
     def download_file(self, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
                       object_name=None, service_name=FILE_TRANSFER_SERVICE_NAME,
                       timeout=60):
-        """Download a file from the spacecraft through YAMCS FileTransferService.
-
-        Triggers startDownload on the FprimeFilePacketService which sends a
-        FileDownlink.SendFile command to F Prime. F Prime streams Fw::FilePacket
-        frames back; YAMCS reassembles and deposits them in the bucket.
-
-        Args:
-            remote_path: path on the spacecraft to download
-            bucket_name: YAMCS bucket to receive the file
-            object_name: name for the file in the bucket (defaults to basename)
-            service_name: name of the YAMCS FileTransferService
-            timeout: max seconds to wait for the transfer to complete
-        """
+        """Download a file from the spacecraft through YAMCS FileTransferService."""
         if object_name is None:
             object_name = remote_path.split("/")[-1] if "/" in remote_path else remote_path
 
@@ -279,15 +265,7 @@ class YamcsClient(TransportClient):
         """Poll a YAMCS transfer until it reaches a terminal state."""
         deadline = time.time() + timeout
         while time.time() < deadline:
-            transfers = list(ft_service.list_transfers())
-            current = None
-            for t in transfers:
-                if t.id == transfer.id:
-                    current = t
-                    break
-            if current is None:
-                LOGGER.warning("Transfer %s disappeared from YAMCS", transfer.id)
-                return transfer
+            current = ft_service.get_transfer(transfer.id)
             state = str(current.state)
             if "COMPLETED" in state:
                 LOGGER.info("Transfer %s completed", transfer.id)
@@ -333,18 +311,16 @@ class YamcsClient(TransportClient):
     def _discover_yamcs_namespace(self):
         """Discover the YAMCS namespace prefix from the MDB.
 
-        F Prime uses dot-separated names; YAMCS uses slash-separated names
-        under a deployment namespace prefix. This reads the first MDB parameter
-        to extract that prefix.
+        Skips YAMCS system parameters (/yamcs/*, /system/*) and extracts
+        the deployment namespace from the first XTCE-sourced parameter.
         """
         try:
             for qualified_name in self.yamcs.list_parameter_qualified_names():
                 parts = qualified_name.split("/")
-                if len(parts) >= 3:
+                if len(parts) >= 3 and parts[1] not in ("yamcs", "system"):
                     namespace = "/" + parts[1]
                     LOGGER.info("Discovered YAMCS namespace: %s", namespace)
                     return namespace
-                break
         except Exception as exc:
             LOGGER.warning("Could not discover YAMCS namespace: %s", exc)
         return ""
@@ -386,17 +362,26 @@ class YamcsClient(TransportClient):
     # Data object construction
     # ------------------------------------------------------------------
 
+    def _yamcs_to_fprime_name(self, yamcs_name):
+        """Convert a YAMCS qualified name back to an F Prime dictionary name.
+
+        Reverses _build_parameter_list: strips the namespace prefix and
+        replaces slashes with dots.
+        """
+        name = yamcs_name.lstrip("/")
+        prefix = self.yamcs_namespace.lstrip("/")
+        if prefix and name.startswith(prefix + "/"):
+            name = name[len(prefix) + 1:]
+        return name.replace("/", ".")
+
     def _build_ch_data(self, param_value):
         """Convert a YAMCS ParameterValue to an F Prime ChData object."""
-        channel_dict = getattr(self.dictionaries, "channel_name", None)
-        if channel_dict is None:
-            return None
-        template = self._lookup_template_by_yamcs_name(param_value.name, channel_dict)
+        fprime_name = self._yamcs_to_fprime_name(param_value.name)
+        template = self.dictionaries.channel_name.get(fprime_name)
         if template is None:
+            LOGGER.debug("No channel template for %s", fprime_name)
             return None
-        value = getattr(param_value, "eng_value", None)
-        if value is None:
-            value = getattr(param_value, "raw_value", None)
+        value = param_value.eng_value
         if value is None:
             return None
         val_obj = self._build_value_object(value, template.get_type_obj())
@@ -405,27 +390,21 @@ class YamcsClient(TransportClient):
 
     def _build_event_data(self, event):
         """Convert a YAMCS Event to an F Prime EventData object."""
-        event_dict = getattr(self.dictionaries, "event_name", None)
-        if event_dict is None:
-            return None
-        template = self._lookup_template_by_yamcs_name(event.event_type, event_dict)
+        fprime_name = self._yamcs_to_fprime_name(event.event_type)
+        template = self.dictionaries.event_name.get(fprime_name)
         if template is None:
+            LOGGER.debug("No event template for %s", fprime_name)
             return None
         extra = getattr(event, "extra", None) or {}
         arg_objs = []
         for arg_spec in template.get_args():
-            arg_name, _arg_desc, arg_type = arg_spec[0], arg_spec[1], arg_spec[2]
-            arg_objs.append(self._build_value_object(extra.get(arg_name), arg_type))
+            arg_objs.append(self._build_value_object(extra.get(arg_spec[0]), arg_spec[2]))
         event_time = self._build_time_type(event.generation_time)
         return EventData(tuple(arg_objs), event_time, template)
 
     @staticmethod
     def _build_value_object(value, type_class):
-        """Wrap a Python value in an F Prime serializable type.
-
-        Coerces string values from YAMCS event extras to the numeric or
-        boolean type that the F Prime template expects.
-        """
+        """Wrap a Python value in an F Prime serializable type."""
         obj = type_class()
         if isinstance(value, str) and not isinstance(obj, StringType):
             if isinstance(obj, IntegerType):
@@ -439,17 +418,9 @@ class YamcsClient(TransportClient):
 
     @staticmethod
     def _build_time_type(yamcs_timestamp):
-        """Convert a YAMCS timestamp to an F Prime TimeType.
-
-        Strips timezone info and stamps as TB_WORKSTATION_TIME since the
-        original F Prime TimeBase is not preserved through YAMCS.
-        """
+        """Convert a YAMCS datetime to an F Prime TimeType."""
         if yamcs_timestamp is None:
             return TimeType()
-        if isinstance(yamcs_timestamp, str):
-            yamcs_timestamp = datetime.datetime.fromisoformat(
-                yamcs_timestamp.replace("Z", "+00:00")
-            )
         if yamcs_timestamp.tzinfo is not None:
             yamcs_timestamp = yamcs_timestamp.astimezone(
                 datetime.timezone.utc
@@ -457,108 +428,3 @@ class YamcsClient(TransportClient):
         time_obj = TimeType()
         time_obj.set_datetime(yamcs_timestamp, TimeType.TimeBase("TB_WORKSTATION_TIME"))
         return time_obj
-
-    # ------------------------------------------------------------------
-    # Name resolution
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _lookup_template_by_yamcs_name(yamcs_name, fprime_dict):
-        """Resolve a YAMCS qualified name to an F Prime dictionary template.
-
-        Tries progressively shorter slash-to-dot conversions. Falls back to
-        leaf-name matching when only one candidate exists.
-        """
-        parts = yamcs_name.lstrip("/").split("/")
-        for start in range(len(parts)):
-            candidate = ".".join(parts[start:])
-            if candidate in fprime_dict:
-                return fprime_dict[candidate]
-        leaf = parts[-1]
-        suffix_matches = [
-            tmpl for name, tmpl in fprime_dict.items()
-            if name.split(".")[-1] == leaf
-        ]
-        if len(suffix_matches) == 1:
-            return suffix_matches[0]
-        if len(suffix_matches) > 1:
-            LOGGER.warning(
-                "Ambiguous YAMCS name %s matches %d entries by leaf; not resolving",
-                yamcs_name, len(suffix_matches),
-            )
-        return None
-
-    # ------------------------------------------------------------------
-    # Command decoding
-    # ------------------------------------------------------------------
-
-    def _decode_fprime_command(self, binary_data):
-        """Reverse CmdEncoder.encode_api to extract (command_name, args_dict).
-
-        Packet layout: U32(0x5A5A5A5A) | msg_len | ComCfg.Apid | FwOpcodeType | args...
-        """
-        if self.dictionaries is None:
-            return None, None
-        try:
-            offset = 0
-            desc_obj = U32Type()
-            desc_obj.deserialize(binary_data, offset)
-            offset += desc_obj.getSize()
-            if desc_obj.val != COMMAND_DESCRIPTOR_VAL:
-                return None, None
-
-            len_obj = ConfigManager().get_config("msg_len")()
-            len_obj.deserialize(binary_data, offset)
-            offset += len_obj.getSize()
-
-            apid_obj = ConfigManager().get_type("ComCfg.Apid")()
-            apid_obj.deserialize(binary_data, offset)
-            offset += apid_obj.getSize()
-
-            opcode_obj = ConfigManager().get_type("FwOpcodeType")()
-            opcode_obj.deserialize(binary_data, offset)
-            offset += opcode_obj.getSize()
-
-            cmd_template = self._lookup_command_by_opcode(opcode_obj.val)
-            if cmd_template is None:
-                return None, None
-
-            args_dict = {}
-            for arg_spec in cmd_template.get_args():
-                arg_name, _arg_desc, arg_type = arg_spec[0], arg_spec[1], arg_spec[2]
-                arg_obj = arg_type()
-                arg_obj.deserialize(binary_data, offset)
-                args_dict[arg_name] = arg_obj.val
-                offset += arg_obj.getSize()
-            return cmd_template.get_full_name(), args_dict
-        except Exception as exc:
-            LOGGER.error("Error decoding F Prime command: %s", exc, exc_info=True)
-            return None, None
-
-    @staticmethod
-    def _peek_packet_apid(data):
-        """Read the APID enum name from an outbound packet header."""
-        offset = 0
-        desc_obj = U32Type()
-        desc_obj.deserialize(data, offset)
-        offset += desc_obj.getSize()
-        if desc_obj.val != COMMAND_DESCRIPTOR_VAL:
-            return None
-        len_obj = ConfigManager().get_config("msg_len")()
-        len_obj.deserialize(data, offset)
-        offset += len_obj.getSize()
-        apid_obj = ConfigManager().get_type("ComCfg.Apid")()
-        apid_obj.deserialize(data, offset)
-        return apid_obj.val
-
-    def _lookup_command_by_opcode(self, opcode):
-        """Find the command template matching the given opcode."""
-        if self.dictionaries is None:
-            return None
-        command_id_map = getattr(self.dictionaries, "command_id", None)
-        if not command_id_map:
-            return None
-        for tmpl in command_id_map.values():
-            if tmpl.get_op_code() == opcode:
-                return tmpl
-        return None

@@ -93,16 +93,17 @@ class StandardPipeline:
             self.dictionaries, self.distributor, self.client_socket
         )
         self.histories.setup_histories(self.coders)
-        # Some transports bypass the binary decode path and dispatch ChData/EventData directly to the decoders'
-        # registrants (see fprime_gds.common.yamcs_transport.YamcsClient). Such transports declare this hook to
-        # receive the dictionaries and decoder references they need. Called after setup_histories so that any data
-        # the transport dispatches has somewhere to go.
+        # Transports that bypass the binary path (e.g. YamcsClient) declare
+        # set_pipeline_references to receive dictionary and decoder handles,
+        # and accept CmdData directly as a command subscriber so they can
+        # skip the encode→decode round-trip for outbound commands.
         if hasattr(self.client_socket, "set_pipeline_references"):
             self.client_socket.set_pipeline_references(
                 self.dictionaries,
                 self.coders.channel_decoder,
                 self.coders.event_decoder,
             )
+            self.coders.register_command_consumer(self.client_socket)
         self.files.setup_file_handling(
             self.down_store,
             self.coders.file_encoder,
@@ -112,8 +113,11 @@ class StandardPipeline:
             cooldown=cooldown,
             chunk=chunk,
         )
-        # Register distributor to client socket
-        self.client_socket.register(self.distributor)
+        # Register distributor to client socket for transports that produce
+        # raw bytes (TCP). Structured transports (YAMCS) dispatch directly
+        # to decoder registrants and don't use the distributor.
+        if not hasattr(self.client_socket, "set_pipeline_references"):
+            self.client_socket.register(self.distributor)
         # Final setup step is to make a logging directory, and register in the logger
         if logging_prefix and data_logging_enabled:
             self.setup_logging(logging_prefix)
@@ -162,7 +166,8 @@ class StandardPipeline:
         self.coders.register_event_consumer(self.logger)
         self.coders.register_command_consumer(self.logger)
         self.coders.register_packet_consumer(self.logger)
-        self.client_socket.register(self.logger)
+        if not hasattr(self.client_socket, "set_pipeline_references"):
+            self.client_socket.register(self.logger)
 
     def connect(
         self, connection_uri, incoming_tag=RoutingTag.GUI, outgoing_tag=RoutingTag.FSW
