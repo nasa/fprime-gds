@@ -483,6 +483,17 @@ class IntegrationTestAPI(DataHandler):
             cmd_dict = self.pipeline.dictionaries.command_name
             if command in cmd_dict:
                 return cmd_dict[command].get_id()
+            matching_names = [
+                name for name in cmd_dict.keys() if name.endswith(f".{command}")
+            ]
+            if len(matching_names) == 1:
+                return cmd_dict[matching_names[0]].get_id()
+            if len(matching_names) > 1:
+                msg = (
+                    f"The command mnemonic, {command}, matched multiple dictionary entries: "
+                    f"{matching_names}"
+                )
+                raise KeyError(msg)
             msg = f"The command mnemonic, {command}, wasn't in the dictionary"
         else:
             cmd_dict = self.pipeline.dictionaries.command_id
@@ -679,6 +690,16 @@ class IntegrationTestAPI(DataHandler):
             ]
             if channel in ch_dict:
                 return ch_dict[channel].get_id()
+            if len(matching) == 1:
+                return matching[0]
+            if len(matching) > 1:
+                if force_component:
+                    msg = (
+                        f"The telemetry mnemonic, {channel}, matched multiple dictionary entries: "
+                        f"{matching}"
+                    )
+                    raise KeyError(msg)
+                return matching
             if force_component or not matching:
                 msg = f"The telemetry mnemonic, {channel}, wasn't in the dictionary"
                 raise KeyError(msg)
