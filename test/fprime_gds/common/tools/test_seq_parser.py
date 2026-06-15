@@ -452,24 +452,6 @@ class TestArrayObjectValidationErrors(unittest.TestCase):
                 break
             current = current.parent
 
-        # Sort "Expected one of:" lists to make them deterministic
-        # Lark parser error messages have non-deterministic token ordering
-        import re
-        def sort_expected_tokens(match):
-            header = match.group(1)
-            tokens_str = match.group(2)
-            footer = match.group(3)
-            # Extract individual token lines
-            tokens = [line.strip() for line in tokens_str.split('\n') if line.strip()]
-            # Sort them
-            tokens.sort()
-            # Reconstruct
-            return header + '\n' + '\n'.join(tokens) + '\n' + footer
-
-        # Match "Expected one of:" section with tokens and "Previous tokens" line
-        pattern = r'(Expected one of:[ ]*\n)((?:\t\* .*\n)+)(Previous tokens:.*)'
-        error_msg = re.sub(pattern, sort_expected_tokens, error_msg)
-
         return error_msg
 
     def test_invalid_array_wrong_length(self):
