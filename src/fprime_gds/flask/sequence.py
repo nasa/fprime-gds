@@ -42,11 +42,10 @@ class StdioTheif(object):
 
 
 class SequenceCompiler(flask_restful.Resource):
-    def __init__(self, dictionary, tempdir, uplinker, destination):
+    def __init__(self, dictionary, tempdir, uplinker):
         self.dictionary = dictionary
         self.tempdir = Path(tempdir)
         self.uplinker = uplinker
-        self.destination = destination
 
         self.parser = flask_restful.reqparse.RequestParser()
         self.parser.add_argument(
@@ -60,6 +59,12 @@ class SequenceCompiler(flask_restful.Resource):
         )
         self.parser.add_argument(
             "uplink", required=True, help="Text of sequence file to create"
+        )
+        self.parser.add_argument(
+            "destination",
+            required=False,
+            default=None,
+            help="Remote directory to uplink the compiled sequence to",
         )
 
     def put(self):
@@ -81,6 +86,7 @@ class SequenceCompiler(flask_restful.Resource):
         temp_seq_path = self.tempdir / Path(name).name
         temp_bin_path = temp_seq_path.with_suffix(".bin")
         messages = ""
+        uplink_destination = args.get("destination", None) or "/seq"
         try:
             with open(temp_seq_path, "w") as file_handle:
                 file_handle.write(text)
@@ -91,7 +97,7 @@ class SequenceCompiler(flask_restful.Resource):
                 )
             messages += thief.output
             if uplink:
-                destination = Path(self.destination) / temp_bin_path.name
+                destination = Path(uplink_destination) / temp_bin_path.name
                 self.uplinker.enqueue(str(temp_bin_path), str(destination))
                 messages += f"Uplinking to {destination}. Please confirm uplink EVRs before running.\n"
         except OSError as ose:

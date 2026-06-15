@@ -1,0 +1,4 @@
+; Test hexadecimal arguments
+R00:00:00 cmdDisp.CMD_INT 0x1A
+R00:00:01 cmdDisp.CMD_INT 0xFF
+R00:00:02 cmdDisp.CMD_INT 0X00

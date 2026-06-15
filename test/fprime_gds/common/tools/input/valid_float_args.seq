@@ -1,0 +1,5 @@
+; Test float arguments with decimal points
+R00:00:00 cmdDisp.CMD_FLOAT 3.14
+R00:00:01 cmdDisp.CMD_FLOAT 2.718
+R00:00:02 cmdDisp.CMD_FLOAT 0.5
+R00:00:03 cmdDisp.CMD_FLOAT 100.0

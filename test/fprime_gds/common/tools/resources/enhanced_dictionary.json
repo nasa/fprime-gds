@@ -1,0 +1,136 @@
+{
+    "metadata": {
+        "deploymentName": "test",
+        "projectVersion": "0",
+        "frameworkVersion": "0",
+        "libraryVersions": [],
+        "dictionarySpecVersion": "1.0.0"
+    },
+    "typeDefinitions": [
+        {
+            "qualifiedName": "StateEnum",
+            "kind": "enum",
+            "representationType": {
+                "name": "I32"
+            },
+            "enumeratedConstants": [
+                {
+                    "name": "IDLE",
+                    "value": 0
+                },
+                {
+                    "name": "ACTIVE",
+                    "value": 1
+                },
+                {
+                    "name": "STOPPED",
+                    "value": 2
+                }
+            ]
+        }
+    ],
+    "commands": [
+        {
+            "name": "cmdDisp.CMD_NO_OP",
+            "commandKind": "async",
+            "opcode": 4096,
+            "formalParams": [],
+            "queueFullBehavior": "assert",
+            "annotation": "No-op command"
+        },
+        {
+            "name": "cmdDisp.CMD_INT",
+            "commandKind": "async",
+            "opcode": 4097,
+            "formalParams": [
+                {
+                    "name": "value",
+                    "type": {
+                        "name": "I32",
+                        "kind": "integer",
+                        "signed": true,
+                        "size": 32
+                    },
+                    "ref": false,
+                    "annotation": "Integer argument"
+                }
+            ],
+            "queueFullBehavior": "assert",
+            "annotation": "Command with integer argument"
+        },
+        {
+            "name": "cmdDisp.CMD_FLOAT",
+            "commandKind": "async",
+            "opcode": 4098,
+            "formalParams": [
+                {
+                    "name": "value",
+                    "type": {
+                        "name": "F32",
+                        "kind": "float",
+                        "size": 32
+                    },
+                    "ref": false,
+                    "annotation": "Float argument"
+                }
+            ],
+            "queueFullBehavior": "assert",
+            "annotation": "Command with float argument"
+        },
+        {
+            "name": "cmdDisp.CMD_BOOL",
+            "commandKind": "async",
+            "opcode": 4099,
+            "formalParams": [
+                {
+                    "name": "flag",
+                    "type": {
+                        "name": "bool",
+                        "kind": "bool"
+                    },
+                    "ref": false,
+                    "annotation": "Boolean argument"
+                }
+            ],
+            "queueFullBehavior": "assert",
+            "annotation": "Command with boolean argument"
+        },
+        {
+            "name": "cmdDisp.CMD_ENUM",
+            "commandKind": "async",
+            "opcode": 4100,
+            "formalParams": [
+                {
+                    "name": "state",
+                    "type": {
+                        "name": "StateEnum"
+                    },
+                    "ref": false,
+                    "annotation": "Enum argument"
+                }
+            ],
+            "queueFullBehavior": "assert",
+            "annotation": "Command with enum argument"
+        },
+        {
+            "name": "cmdDisp.CMD_STRING",
+            "commandKind": "async",
+            "opcode": 4101,
+            "formalParams": [
+                {
+                    "name": "text",
+                    "type": {
+                        "name": "string",
+                        "kind": "string",
+                        "size": 40
+                    },
+                    "ref": false,
+                    "annotation": "String argument"
+                }
+            ],
+            "queueFullBehavior": "assert",
+            "annotation": "Command with string argument"
+        }
+    ],
+    "parameters": []
+}

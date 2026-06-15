@@ -7,15 +7,30 @@ export let sequencer_template = `
         <h2>Command Sequencer</h2>
         <form v-on:submit.prevent="() => { return false;}" class="was-validated" novalidate>
             <div class="form-group form-row">
-                <div class="form-group col-md-4 mt-2" for="sequence">
+                <div class="form-group col-md-3 mt-2" for="sequence">
                     <input type="text" id="sequence" class="form-control" v-model.trim="sequence.name" :disabled="active"
                         pattern="[^;\\\\\\/]+\\.seq" placeholder="Sequence name ending in .seq" required />
                     <div class="invalid-feedback">{{ (messages.error) ? messages.error : "Supply filename ending with .seq" }}</div>
                 </div>
-                <div class="form-group col-md-4 mt-2">
-                    <button class="col-md-5 btn btn-primary ml-1" :disabled="active" v-on:click="sendSequence(true)">
-                        <i class="fas fa-satellite-dish"></i> <span class="d-md-none d-lg-inline">Uplink</span>
-                    </button>
+                <div class="form-group col-md-2 mt-2">
+                    <input type="text" class="form-control" v-model.trim="destination" pattern="/.*"
+                        placeholder="/seq" title="Remote directory for sequence uplink" :disabled="active" />
+                    <label><small class="text-muted">Uplink Directory</small></label>
+                </div>
+                <div class="form-group col-md-3 mt-2">
+                    <div class="form-row">
+                        <div class="col-md-6 mb-1">
+                            <button class="btn btn-primary btn-block" :disabled="active" v-on:click="sendSequence(true)">
+                                <i class="fas fa-satellite-dish"></i> <span class="d-md-none d-lg-inline">Uplink</span>
+                            </button>
+                        </div>
+                        <div class="col-md-6 mb-1">
+                            <button class="btn btn-success btn-block" :disabled="active || !lastUplinkedSequence" v-on:click="runSequence"
+                                title="Run the last uplinked sequence via cmdSeq.CS_RUN">
+                                <i class="fas fa-play"></i> <span class="d-md-none d-lg-inline">Run</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group col-md-4 mt-2">
                     <div class="form-row">

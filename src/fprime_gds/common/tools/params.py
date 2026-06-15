@@ -111,7 +111,7 @@ def parsed_json_to_seq(templates_and_values: list[tuple[PrmTemplate, dict]], inc
     for template_and_value in templates_and_values:
         template, json_value = template_and_value
         set_cmd_name = template.comp_name + "." + template.prm_name.upper() + "_PRM_SET"
-        cmd = "R00:00:00 " + set_cmd_name + " " + str(json_value)
+        cmd = "R00:00:00 " + set_cmd_name + " " + js.dumps(json_value)
         cmds.append(cmd)
         if include_save:
             save_cmd = template.comp_name + "." + template.prm_name.upper() + "_PRM_SAVE"

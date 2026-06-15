@@ -81,6 +81,7 @@ daringfireball
 dataobjects
 dblclick
 Dct
+DDDTHH
 ddl
 Ded
 deframe
@@ -151,16 +152,16 @@ fgt
 fileurl
 Firefox
 fle
-focusring
-fors
 fne
+focusring
 FONTNAME
 FONTPATH
 FONTSIZE
+fors
 fpext
 FPGA
-fpp
 fpow
+fpp
 fprime
 fptable
 fptosi
@@ -228,6 +229,7 @@ jsonified
 jsonify
 junitxml
 keepalive
+keepends
 kevin
 keyify
 kinda
@@ -238,6 +240,7 @@ levelname
 Lezer
 libcrc
 libiconv
+lineterm
 Linting
 LIw
 lld
@@ -293,8 +296,8 @@ outputfile
 Packetize
 packetized
 Paetz
-PARAMDOC
 paramdb
+PARAMDOC
 passthrough
 pb
 pdflatex
@@ -333,6 +336,7 @@ rb
 RCVHWM
 RCVTIMEO
 RDWR
+REUSEADDR
 Readback
 recommonmark
 recuring
@@ -420,12 +424,12 @@ tstring
 ttl
 tts
 twbs
-typedef'ed
 typedef
+typedef'ed
 uart
 ucf
-udp
 udiv
+udp
 uge
 UIs
 uitofp
@@ -467,6 +471,6 @@ xmit
 xmlpath
 xy
 zeromq
-zmq
 ziext
 zimri
+zmq
