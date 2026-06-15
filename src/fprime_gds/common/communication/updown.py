@@ -21,6 +21,7 @@ from fprime_gds.common.communication.ground import GroundHandler
 
 DW_LOGGER = logging.getLogger("downlink")
 UP_LOGGER = logging.getLogger("uplink")
+DEFAULT_GROUND_QUEUE_MAXSIZE = 4096
 
 
 class Downlinker:
@@ -59,7 +60,7 @@ class Downlinker:
         self.adapter = adapter
         self.ground = ground
         self.deframer = deframer
-        self.outgoing = Queue()
+        self.outgoing = Queue(maxsize=DEFAULT_GROUND_QUEUE_MAXSIZE)
         self.discarded = discarded
 
     def start(self):
