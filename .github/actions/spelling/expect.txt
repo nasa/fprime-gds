@@ -278,6 +278,7 @@ noapp
 NOSONAR
 nosort
 nosubgrouping
+notafloat
 Noto
 nreg
 NSPACES
@@ -336,7 +337,6 @@ rb
 RCVHWM
 RCVTIMEO
 RDWR
-REUSEADDR
 Readback
 recommonmark
 recuring
@@ -346,6 +346,7 @@ reder
 referenceable
 removeit
 reqparse
+REUSEADDR
 riverbankcomputing
 Roboto
 rollup
