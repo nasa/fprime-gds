@@ -1,0 +1,2 @@
+; Boolean with invalid value (not true/false)
+R00:00:01 cmdDisp.CMD_BOOL maybe

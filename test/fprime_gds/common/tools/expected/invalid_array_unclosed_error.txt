@@ -1,0 +1,1 @@
+Parsing error: <fprime-gds>/test/fprime_gds/common/tools/input/invalid_array_unclosed.seq:2:41: Encountered syntax error parsing: unexpected token 'Token('_NEWLINE', '\n')'

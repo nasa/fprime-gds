@@ -1,1 +1,1 @@
-Parsing error: Line 1: Encountered syntax error parsing timestamp
+Parsing error: <fprime-gds>/test/fprime_gds/common/tools/input/invalid_time_format.seq:1: Encountered syntax error parsing timestamp: time data '25:99:99' does not match format '%H:%M:%S'

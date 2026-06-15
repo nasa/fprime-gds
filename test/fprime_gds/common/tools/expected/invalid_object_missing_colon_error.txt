@@ -1,0 +1,1 @@
+Parsing error: <fprime-gds>/test/fprime_gds/common/tools/input/invalid_object_missing_colon.seq:2:40: Encountered syntax error parsing: unexpected token 'Token('DEC_NUMBER', '10')'

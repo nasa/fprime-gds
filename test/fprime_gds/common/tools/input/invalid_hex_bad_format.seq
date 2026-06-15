@@ -1,0 +1,2 @@
+; Hex number with invalid format (0xGG is not valid hex)
+R00:00:01 cmdDisp.CMD_INT 0xGG
