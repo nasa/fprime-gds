@@ -72,18 +72,6 @@ def pytest_addoption(parser):
         default="http://localhost:8090",
         help="YAMCS server URL [default: %(default)s]"
     )
-    parser.addoption(
-        "--yamcs-instance",
-        action="store",
-        default="fprime-project",
-        help="YAMCS instance name [default: %(default)s]"
-    )
-    parser.addoption(
-        "--yamcs-processor",
-        action="store",
-        default="realtime",
-        help="YAMCS processor name [default: %(default)s]"
-    )
 
 def pytest_configure(config):
     """ This is a hook to allow plugins and conftest files to perform initial configuration
@@ -129,11 +117,9 @@ def fprime_test_api_session(request):
 
             yamcs_url = request.config.getoption("--yamcs-url")
             yamcs_host = yamcs_url.replace("http://", "").replace("https://", "")
-            yamcs_instance = request.config.getoption("--yamcs-instance")
-            yamcs_processor = request.config.getoption("--yamcs-processor")
 
             arg_ns.connection_transport = YamcsClient
-            arg_ns.connection_uri = f"yamcs://{yamcs_host}/{yamcs_instance}/{yamcs_processor}"
+            arg_ns.connection_uri = f"yamcs://{yamcs_host}"
 
         pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
 

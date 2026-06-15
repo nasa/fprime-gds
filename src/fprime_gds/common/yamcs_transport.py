@@ -1,15 +1,15 @@
-""" fprime_gds.common.yamcs_transport:
+"""fprime_gds.common.yamcs_transport
 
-A transport implementation backed by a YAMCS server. YAMCS exposes telemetry parameters and events over a WebSocket
-push subscription, so this transport does not run a recv-poll loop. Instead, on connect it subscribes to YAMCS streams
-and dispatches incoming data directly to the channel and event decoders' registrants as ChData/EventData objects,
-bypassing the binary encode/decode round-trip used by the standard TCP path.
+YAMCS-backed transport for the F Prime GDS. Subscribes to YAMCS WebSocket
+streams for telemetry and events, issues commands via the YAMCS REST API,
+and routes file uplink/downlink through YAMCS's FileTransferService.
 
 @author yuktiv
 """
 
 import datetime
 import logging
+import time
 
 from yamcs.client import YamcsClient as YamcsLibClient
 
@@ -30,17 +30,19 @@ LOGGER = logging.getLogger("transport")
 
 YAMCS_URI_SCHEME = "yamcs://"
 COMMAND_DESCRIPTOR_VAL = 0x5A5A5A5A
+FILE_TRANSFER_POLL_INTERVAL = 2
+FILE_TRANSFER_SERVICE_NAME = "FprimeFilePacketService"
+FILE_TRANSFER_BUCKET = "fprimeFilesIn"
 
 
 class YamcsWrapper:
-    """Handler for YAMCS API calls for use in other objects
+    """Low-level handle to the yamcs-client library.
 
-    Encapsulates the yamcs-client library so the rest of this module deals with simple method calls. Configuration is
-    separated from connection so the client object can be created on the same thread that will use it.
+    Separates configuration from connection so the wrapper can be set up
+    before the thread that will use it exists.
     """
 
     def __init__(self):
-        """Initialize the YAMCS handles"""
         super().__init__()
         self.yamcs_client = None
         self.processor = None
@@ -50,31 +52,18 @@ class YamcsWrapper:
         self.processor_name = None
 
     def configure(self, yamcs_url, instance, processor_name):
-        """Configure the YAMCS wrapper
-
-        Configures the wrapper but does not connect. Separated so the wrapper can be set up before the connection
-        thread exists.
-
-        Args:
-            yamcs_url: URL of the YAMCS server (e.g. 'http://localhost:8090')
-            instance: YAMCS instance name
-            processor_name: YAMCS processor name (typically 'realtime')
-        """
+        """Store connection parameters without connecting."""
         self.yamcs_url = yamcs_url
         self.instance = instance
         self.processor_name = processor_name
 
     def connect(self):
-        """Create the YAMCS client and processor handles"""
+        """Create the YAMCS client and processor handles."""
         assert self.yamcs_url is not None, "Must configure before connecting"
-        assert self.instance is not None, "Must configure before connecting"
-        assert self.processor_name is not None, "Must configure before connecting"
         assert self.yamcs_client is None, "Cannot connect multiple times"
         LOGGER.info(
             "Connecting to YAMCS: %s, instance=%s, processor=%s",
-            self.yamcs_url,
-            self.instance,
-            self.processor_name,
+            self.yamcs_url, self.instance, self.processor_name,
         )
         self.yamcs_client = YamcsLibClient(self.yamcs_url)
         self.processor = self.yamcs_client.get_processor(
@@ -82,13 +71,7 @@ class YamcsWrapper:
         )
 
     def subscribe(self, parameter_names, on_parameter_callback, on_event_callback):
-        """Subscribe to YAMCS parameter and event streams
-
-        Args:
-            parameter_names: list of fully-qualified YAMCS parameter names
-            on_parameter_callback: callback for parameter updates
-            on_event_callback: callback for event updates
-        """
+        """Subscribe to YAMCS parameter and event WebSocket streams."""
         assert self.processor is not None, "Must connect before subscribing"
         if parameter_names:
             LOGGER.info("Subscribing to %d YAMCS parameters", len(parameter_names))
@@ -98,8 +81,6 @@ class YamcsWrapper:
                 )
             )
         LOGGER.info("Subscribing to YAMCS event stream")
-        assert self.yamcs_client is not None, "Must connect before subscribing"
-        assert self.instance is not None, "Must configure before subscribing"
         self.subscriptions.append(
             self.yamcs_client.create_event_subscription(
                 instance=self.instance, on_data=on_event_callback
@@ -107,7 +88,7 @@ class YamcsWrapper:
         )
 
     def disconnect(self):
-        """Cancel all subscriptions and drop the YAMCS client handles"""
+        """Cancel all subscriptions and release handles."""
         for subscription in self.subscriptions:
             try:
                 subscription.cancel()
@@ -118,40 +99,35 @@ class YamcsWrapper:
         self.processor = None
 
     def list_parameter_qualified_names(self):
-        """Return the qualified names of all parameters in the connected instance's MDB"""
-        assert self.yamcs_client is not None, "Must connect before listing parameters"
-        assert self.instance is not None, "Must configure before listing parameters"
+        """Return all MDB parameter qualified names for the connected instance."""
         mdb = self.yamcs_client.get_mdb(instance=self.instance)
         return [param.qualified_name for param in mdb.list_parameters()]
 
     def issue_command(self, cmd_name, cmd_args):
-        """Issue a command to the YAMCS processor
-
-        Args:
-            cmd_name: fully-qualified XTCE command name (slash-separated, namespace-prefixed)
-            cmd_args: command arguments as a dict
-        Returns:
-            the IssuedCommand object returned by yamcs-client
-        """
+        """Issue a command through the YAMCS processor."""
         assert self.processor is not None, "Must connect before sending commands"
         return self.processor.issue_command(command=cmd_name, args=cmd_args)
 
+    def get_file_transfer_service(self, service_name=FILE_TRANSFER_SERVICE_NAME):
+        """Return a handle to the named YAMCS FileTransferService."""
+        ft_client = self.yamcs_client.get_file_transfer_client(instance=self.instance)
+        return ft_client.get_service(service_name)
+
+    def get_storage_client(self):
+        """Return a YAMCS storage client for bucket operations."""
+        return self.yamcs_client.get_storage_client()
+
 
 class YamcsClient(TransportClient):
-    """YAMCS-backed implementation of the GDS transport interface
+    """YAMCS-backed GDS transport.
 
-    Inherits TransportClient (not ThreadedTransportClient) because YAMCS pushes data via WebSocket callbacks; there is
-    no poll loop to run. Incoming data is constructed directly as ChData/EventData and dispatched through the channel
-    and event decoders' registrants. Outgoing commands are decoded from the F Prime binary form produced by CmdEncoder
-    and re-issued via the YAMCS REST API.
-
-    The transport requires a few references from the pipeline (dictionaries, decoders) which are not available through
-    the TransportClient interface; the standard pipeline supplies them via set_pipeline_references after coders are
-    set up.
+    Pushes telemetry and events via WebSocket callbacks (no poll loop).
+    Commands are decoded from the F Prime binary form and re-issued via
+    the YAMCS REST API.  File uplink/downlink is routed through YAMCS's
+    FileTransferService (FprimeFilePacketService on the Java side).
     """
 
     def __init__(self):
-        """Set up the wrapper and clear pipeline references"""
         super().__init__()
         self.yamcs = YamcsWrapper()
         self.dictionaries = None
@@ -159,30 +135,28 @@ class YamcsClient(TransportClient):
         self.event_decoder = None
         self.yamcs_namespace = ""
 
+    # ------------------------------------------------------------------
+    # Pipeline integration
+    # ------------------------------------------------------------------
+
     def set_pipeline_references(self, dictionaries, channel_decoder, event_decoder):
-        """Receive the dictionary and decoder references this transport needs to operate
+        """Receive dictionary and decoder references from StandardPipeline.
 
-        Called by StandardPipeline.setup after coders are constructed. The transport bypasses the binary decode path,
-        so it needs the loaded Dictionaries object to look up templates and the decoder objects to dispatch through.
-
-        Args:
-            dictionaries: loaded Dictionaries with channel_name, event_name, and command_id maps
-            channel_decoder: ChDecoder whose registrants will receive ChData
-            event_decoder: EventDecoder whose registrants will receive EventData
+        Called after coders are constructed so this transport can bypass the
+        binary decode path and dispatch ChData/EventData directly.
         """
         self.dictionaries = dictionaries
         self.channel_decoder = channel_decoder
         self.event_decoder = event_decoder
 
-    def connect(self, transport_url, sub_routing=None, pub_routing=None):
-        """Connect to YAMCS and start subscriptions
+    # ------------------------------------------------------------------
+    # Connection lifecycle
+    # ------------------------------------------------------------------
 
-        Args:
-            transport_url: yamcs://host:port/instance/processor
-            sub_routing: ignored (TransportClient compatibility)
-            pub_routing: ignored (TransportClient compatibility)
-        """
-        yamcs_url, instance, processor_name = self._parse_uri(transport_url)
+    def connect(self, transport_url, sub_routing=None, pub_routing=None):
+        """Connect to YAMCS, auto-discover instance/processor, and subscribe."""
+        yamcs_url = self._parse_uri(transport_url)
+        instance, processor_name = self._discover_instance_and_processor(yamcs_url)
         self.yamcs.configure(yamcs_url, instance, processor_name)
         self.yamcs.connect()
         self.yamcs_namespace = self._discover_yamcs_namespace()
@@ -193,30 +167,34 @@ class YamcsClient(TransportClient):
         )
 
     def disconnect(self):
-        """Disconnect from YAMCS"""
+        """Disconnect from YAMCS and cancel all subscriptions."""
         self.yamcs.disconnect()
 
+    def recv(self, timeout=None):
+        """No-op — YAMCS uses push callbacks, not polling."""
+        return b""
+
+    # ------------------------------------------------------------------
+    # Outbound packet routing
+    # ------------------------------------------------------------------
+
     def send(self, data):
-        """Send an outbound packet to YAMCS
+        """Route an outbound F Prime packet to the appropriate YAMCS API.
 
-        Both CmdEncoder and FileEncoder register with this transport, so this method receives both command and file
-        uplink packets. They share the same 0x5A5A5A5A descriptor and are distinguished by the APID field. Only
-        commands are supported today; file uplink would need a YAMCS file transfer integration that this MVP does
-        not provide.
-
-        Args:
-            data: serialized packet bytes from CmdEncoder or FileEncoder
+        CmdEncoder and FileEncoder both register with this transport.
+        Packets are distinguished by the ComCfg.Apid field after the
+        0x5A5A5A5A descriptor.
         """
         apid = self._peek_packet_apid(data)
         if apid == "FW_PACKET_COMMAND":
             self._send_command(data)
         elif apid == "FW_PACKET_FILE":
-            LOGGER.error("File uplink is not supported by the YAMCS transport; dropping packet")
+            LOGGER.debug("File packet received; file transfer is handled via YAMCS FileTransferService")
         else:
             LOGGER.warning("Unrecognized outbound packet APID %s; dropping", apid)
 
     def _send_command(self, data):
-        """Decode an F Prime command packet and issue it to YAMCS"""
+        """Decode an F Prime command binary and issue it to YAMCS."""
         cmd_name, cmd_args = self._decode_fprime_command(data)
         if cmd_name is None:
             LOGGER.warning("Could not decode command from binary packet")
@@ -224,56 +202,140 @@ class YamcsClient(TransportClient):
         yamcs_cmd_name = self.yamcs_namespace + "/" + cmd_name.replace(".", "/")
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, cmd_args)
-            LOGGER.info("Command issued to YAMCS: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
+            LOGGER.info("Command issued: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
         except Exception as exc:
             LOGGER.error("YAMCS rejected command %s: %s", yamcs_cmd_name, exc)
 
-    @staticmethod
-    def _peek_packet_apid(data):
-        """Read the APID name out of an outbound packet without consuming it
+    # ------------------------------------------------------------------
+    # File transfer
+    # ------------------------------------------------------------------
 
-        The packet layout is U32(0x5A5A5A5A) | msg_len | ComCfg.Apid | ...; this reads enough to extract the APID
-        and returns its enumeration name (e.g. 'FW_PACKET_COMMAND'), or None if the descriptor is wrong.
+    def upload_file(self, local_path, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
+                    service_name=FILE_TRANSFER_SERVICE_NAME, timeout=60):
+        """Upload a local file to the spacecraft through YAMCS FileTransferService.
+
+        Uploads the file into a YAMCS bucket, then triggers startUpload on the
+        FprimeFilePacketService which breaks it into Fw::FilePacket frames and
+        sends them to F Prime over the TC link.
+
+        Args:
+            local_path: path to the local file to upload
+            remote_path: destination path on the spacecraft
+            bucket_name: YAMCS bucket to stage the file in
+            service_name: name of the YAMCS FileTransferService
+            timeout: max seconds to wait for the transfer to complete
         """
-        offset = 0
-        desc_obj = U32Type()
-        desc_obj.deserialize(data, offset)
-        offset += desc_obj.getSize()
-        if desc_obj.val != COMMAND_DESCRIPTOR_VAL:
-            return None
-        len_obj = ConfigManager().get_config("msg_len")()
-        len_obj.deserialize(data, offset)
-        offset += len_obj.getSize()
-        apid_obj = ConfigManager().get_type("ComCfg.Apid")()
-        apid_obj.deserialize(data, offset)
-        return apid_obj.val
+        storage = self.yamcs.get_storage_client()
+        object_name = local_path.split("/")[-1] if "/" in local_path else local_path
 
-    def recv(self, timeout=None):
-        """Required by the TransportClient ABC; YAMCS uses callbacks so this is never invoked"""
-        return b""
+        with open(local_path, "rb") as f:
+            storage.upload_object(
+                instance=self.yamcs.instance,
+                bucket_name=bucket_name,
+                object_name=object_name,
+                file_obj=f,
+            )
+        LOGGER.info("Staged %s in bucket %s as %s", local_path, bucket_name, object_name)
+
+        ft_service = self.yamcs.get_file_transfer_service(service_name)
+        transfer = ft_service.upload(
+            bucket_name=bucket_name,
+            object_name=object_name,
+            remote_path=remote_path,
+        )
+        LOGGER.info("Upload transfer started: id=%s", transfer.id)
+        return self._await_transfer(ft_service, transfer, timeout)
+
+    def download_file(self, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
+                      object_name=None, service_name=FILE_TRANSFER_SERVICE_NAME,
+                      timeout=60):
+        """Download a file from the spacecraft through YAMCS FileTransferService.
+
+        Triggers startDownload on the FprimeFilePacketService which sends a
+        FileDownlink.SendFile command to F Prime. F Prime streams Fw::FilePacket
+        frames back; YAMCS reassembles and deposits them in the bucket.
+
+        Args:
+            remote_path: path on the spacecraft to download
+            bucket_name: YAMCS bucket to receive the file
+            object_name: name for the file in the bucket (defaults to basename)
+            service_name: name of the YAMCS FileTransferService
+            timeout: max seconds to wait for the transfer to complete
+        """
+        if object_name is None:
+            object_name = remote_path.split("/")[-1] if "/" in remote_path else remote_path
+
+        ft_service = self.yamcs.get_file_transfer_service(service_name)
+        transfer = ft_service.download(
+            bucket_name=bucket_name,
+            remote_path=remote_path,
+            object_name=object_name,
+        )
+        LOGGER.info("Download transfer started: id=%s remote=%s", transfer.id, remote_path)
+        return self._await_transfer(ft_service, transfer, timeout)
+
+    @staticmethod
+    def _await_transfer(ft_service, transfer, timeout):
+        """Poll a YAMCS transfer until it reaches a terminal state."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            transfers = list(ft_service.list_transfers())
+            current = None
+            for t in transfers:
+                if t.id == transfer.id:
+                    current = t
+                    break
+            if current is None:
+                LOGGER.warning("Transfer %s disappeared from YAMCS", transfer.id)
+                return transfer
+            state = str(current.state)
+            if "COMPLETED" in state:
+                LOGGER.info("Transfer %s completed", transfer.id)
+                return current
+            if "FAILED" in state:
+                LOGGER.error("Transfer %s failed", transfer.id)
+                return current
+            time.sleep(FILE_TRANSFER_POLL_INTERVAL)
+        LOGGER.warning("Transfer %s timed out after %ds", transfer.id, timeout)
+        return transfer
+
+    # ------------------------------------------------------------------
+    # URI parsing and auto-discovery
+    # ------------------------------------------------------------------
 
     @staticmethod
     def _parse_uri(transport_url):
-        """Parse a yamcs:// URI into (yamcs_url, instance, processor_name)"""
+        """Extract the HTTP base URL from a yamcs:// URI."""
         if transport_url.startswith(YAMCS_URI_SCHEME):
             transport_url = transport_url[len(YAMCS_URI_SCHEME):]
-        parts = transport_url.split("/")
-        if len(parts) < 2:
-            raise ValueError(
-                "Invalid YAMCS URI. Expected yamcs://host:port/instance/processor, got: %s" % transport_url
+        host = transport_url.split("/")[0]
+        return "http://" + host
+
+    @staticmethod
+    def _discover_instance_and_processor(yamcs_url):
+        """Query the YAMCS server for the running instance and processor."""
+        client = YamcsLibClient(yamcs_url)
+        running = [i for i in client.list_instances() if i.state == "RUNNING"]
+        if len(running) == 0:
+            raise RuntimeError("No running YAMCS instances found at %s" % yamcs_url)
+        if len(running) > 1:
+            names = [i.name for i in running]
+            raise RuntimeError(
+                "Multiple running YAMCS instances found at %s: %s" % (yamcs_url, names)
             )
-        yamcs_url = "http://" + parts[0]
-        instance = parts[1]
-        processor_name = parts[2] if len(parts) > 2 else "realtime"
-        return yamcs_url, instance, processor_name
+        instance = running[0].name
+        processors = list(client.list_processors(instance=instance))
+        realtime = [p for p in processors if p.name == "realtime"]
+        processor_name = realtime[0].name if realtime else processors[0].name
+        LOGGER.info("Auto-discovered YAMCS instance=%s, processor=%s", instance, processor_name)
+        return instance, processor_name
 
     def _discover_yamcs_namespace(self):
-        """Return the namespace prefix YAMCS uses for parameters in this instance
+        """Discover the YAMCS namespace prefix from the MDB.
 
-        F Prime dictionaries use unprefixed dot-separated names ('CdhCore.cmdDisp.CommandsDispatched') but YAMCS
-        namespaces them under the deployment name ('/FprimeYamcsReference_YamcsDeployment/CdhCore/cmdDisp/...'). The
-        prefix is taken from the first parameter returned by the MDB. Returns '' if discovery fails so subscriptions
-        and commands degrade to unprefixed names.
+        F Prime uses dot-separated names; YAMCS uses slash-separated names
+        under a deployment namespace prefix. This reads the first MDB parameter
+        to extract that prefix.
         """
         try:
             for qualified_name in self.yamcs.list_parameter_qualified_names():
@@ -287,8 +349,12 @@ class YamcsClient(TransportClient):
             LOGGER.warning("Could not discover YAMCS namespace: %s", exc)
         return ""
 
+    # ------------------------------------------------------------------
+    # Telemetry and event subscriptions
+    # ------------------------------------------------------------------
+
     def _build_parameter_list(self):
-        """Build the list of YAMCS parameter names from the F Prime channel dictionary"""
+        """Build YAMCS parameter names from the F Prime channel dictionary."""
         if self.dictionaries is None or not getattr(self.dictionaries, "channel_name", None):
             LOGGER.warning("No channel dictionary available; subscribing to no parameters")
             return []
@@ -298,11 +364,7 @@ class YamcsClient(TransportClient):
         ]
 
     def _on_parameter_data(self, parameter_data):
-        """WebSocket callback for parameter updates
-
-        Constructs ChData objects and dispatches them through the channel decoder's registrants. Exceptions are caught
-        per-parameter so a single bad sample does not kill the WebSocket thread.
-        """
+        """WebSocket callback — convert YAMCS parameters to ChData."""
         for param_value in parameter_data.parameters:
             try:
                 ch_data = self._build_ch_data(param_value)
@@ -312,11 +374,7 @@ class YamcsClient(TransportClient):
                 LOGGER.error("Error processing parameter %s: %s", param_value.name, exc)
 
     def _on_event_data(self, event):
-        """WebSocket callback for event updates
-
-        Constructs an EventData and dispatches it through the event decoder's registrants. Exceptions are caught so a
-        single bad event does not kill the WebSocket thread.
-        """
+        """WebSocket callback — convert YAMCS events to EventData."""
         try:
             event_data = self._build_event_data(event)
             if event_data is not None and self.event_decoder is not None:
@@ -324,43 +382,34 @@ class YamcsClient(TransportClient):
         except Exception as exc:
             LOGGER.error("Error processing event %s: %s", event.event_type, exc)
 
-    def _build_ch_data(self, param_value):
-        """Build a ChData object from a YAMCS ParameterValue
+    # ------------------------------------------------------------------
+    # Data object construction
+    # ------------------------------------------------------------------
 
-        Returns None if the parameter is not in the F Prime dictionary or has no readable value. Prefers the
-        engineering value when available; falls back to the raw value otherwise.
-        """
+    def _build_ch_data(self, param_value):
+        """Convert a YAMCS ParameterValue to an F Prime ChData object."""
         channel_dict = getattr(self.dictionaries, "channel_name", None)
         if channel_dict is None:
-            LOGGER.warning("No channel dictionary available; cannot resolve parameter %s", param_value.name)
             return None
         template = self._lookup_template_by_yamcs_name(param_value.name, channel_dict)
         if template is None:
-            LOGGER.warning("Unknown parameter in F Prime dictionary: %s", param_value.name)
             return None
         value = getattr(param_value, "eng_value", None)
         if value is None:
             value = getattr(param_value, "raw_value", None)
         if value is None:
-            LOGGER.warning("Parameter %s has no value", param_value.name)
             return None
         val_obj = self._build_value_object(value, template.get_type_obj())
         ch_time = self._build_time_type(param_value.generation_time)
         return ChData(val_obj, ch_time, template)
 
     def _build_event_data(self, event):
-        """Build an EventData object from a YAMCS Event
-
-        The fprime-yamcs event processor publishes the F Prime arg names directly into the YAMCS event 'extra' dict,
-        so a direct key lookup matches.
-        """
+        """Convert a YAMCS Event to an F Prime EventData object."""
         event_dict = getattr(self.dictionaries, "event_name", None)
         if event_dict is None:
-            LOGGER.warning("No event dictionary available; cannot resolve event %s", event.event_type)
             return None
         template = self._lookup_template_by_yamcs_name(event.event_type, event_dict)
         if template is None:
-            LOGGER.warning("Unknown event in F Prime dictionary: %s", event.event_type)
             return None
         extra = getattr(event, "extra", None) or {}
         arg_objs = []
@@ -372,11 +421,10 @@ class YamcsClient(TransportClient):
 
     @staticmethod
     def _build_value_object(value, type_class):
-        """Wrap a Python value in an F Prime type object so consumers can read it via .val
+        """Wrap a Python value in an F Prime serializable type.
 
-        YAMCS event 'extra' values arrive as strings (the YAMCS API requires Mapping[str, str]). F Prime numerical
-        types validate the assigned type strictly, so this coerces strings to the type the F Prime template expects
-        before assignment.
+        Coerces string values from YAMCS event extras to the numeric or
+        boolean type that the F Prime template expects.
         """
         obj = type_class()
         if isinstance(value, str) and not isinstance(obj, StringType):
@@ -391,35 +439,35 @@ class YamcsClient(TransportClient):
 
     @staticmethod
     def _build_time_type(yamcs_timestamp):
-        """Convert a YAMCS timestamp to an F Prime TimeType
+        """Convert a YAMCS timestamp to an F Prime TimeType.
 
-        For parameters and events sourced from the FSW, generation_time carries the FSW packet time (see
-        yamcs.client.tmtc.model.ParameterValue.generation_time). The original F Prime TimeBase enum value is not
-        preserved through YAMCS extraction, so this stamps the result as TB_WORKSTATION_TIME. The seconds and
-        microseconds are accurate; only the time-base label is approximate.
-
-        TimeType.set_datetime subtracts a naive epoch internally, so the input must be naive. YAMCS returns tz-aware
-        UTC datetimes; convert to UTC and strip tzinfo before handing off.
+        Strips timezone info and stamps as TB_WORKSTATION_TIME since the
+        original F Prime TimeBase is not preserved through YAMCS.
         """
         if yamcs_timestamp is None:
             return TimeType()
         if isinstance(yamcs_timestamp, str):
-            yamcs_timestamp = datetime.datetime.fromisoformat(yamcs_timestamp.replace("Z", "+00:00"))
+            yamcs_timestamp = datetime.datetime.fromisoformat(
+                yamcs_timestamp.replace("Z", "+00:00")
+            )
         if yamcs_timestamp.tzinfo is not None:
-            yamcs_timestamp = yamcs_timestamp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            yamcs_timestamp = yamcs_timestamp.astimezone(
+                datetime.timezone.utc
+            ).replace(tzinfo=None)
         time_obj = TimeType()
         time_obj.set_datetime(yamcs_timestamp, TimeType.TimeBase("TB_WORKSTATION_TIME"))
         return time_obj
 
+    # ------------------------------------------------------------------
+    # Name resolution
+    # ------------------------------------------------------------------
+
     @staticmethod
     def _lookup_template_by_yamcs_name(yamcs_name, fprime_dict):
-        """Resolve a slash-separated YAMCS qualified name to an F Prime template
+        """Resolve a YAMCS qualified name to an F Prime dictionary template.
 
-        Channels arrive fully qualified (e.g. '/Deployment/Comp/Inst/Chan'); progressively shorter prefixes of the
-        name are tried, stripping one leading namespace component at a time, until a match is found in the F Prime
-        dictionary's dot-separated keys. Events arrive with only the leaf name (e.g. 'OpCodeDispatched') because
-        YAMCS does not namespace event types, so the leaf is also matched against the suffix of dictionary entries.
-        Suffix matching only succeeds when exactly one candidate is found; ambiguous matches return None.
+        Tries progressively shorter slash-to-dot conversions. Falls back to
+        leaf-name matching when only one candidate exists.
         """
         parts = yamcs_name.lstrip("/").split("/")
         for start in range(len(parts)):
@@ -427,27 +475,29 @@ class YamcsClient(TransportClient):
             if candidate in fprime_dict:
                 return fprime_dict[candidate]
         leaf = parts[-1]
-        suffix_matches = [tmpl for name, tmpl in fprime_dict.items() if name.split(".")[-1] == leaf]
+        suffix_matches = [
+            tmpl for name, tmpl in fprime_dict.items()
+            if name.split(".")[-1] == leaf
+        ]
         if len(suffix_matches) == 1:
             return suffix_matches[0]
         if len(suffix_matches) > 1:
             LOGGER.warning(
-                "Ambiguous YAMCS name %s matches %d F Prime entries by leaf name; not resolving",
+                "Ambiguous YAMCS name %s matches %d entries by leaf; not resolving",
                 yamcs_name, len(suffix_matches),
             )
         return None
 
+    # ------------------------------------------------------------------
+    # Command decoding
+    # ------------------------------------------------------------------
+
     def _decode_fprime_command(self, binary_data):
-        """Reverse CmdEncoder.encode_api to extract (command_name, args_dict)
+        """Reverse CmdEncoder.encode_api to extract (command_name, args_dict).
 
-        The encoder produces (see fprime_gds.common.encoders.cmd_encoder):
-            U32(0x5A5A5A5A) | msg_len | ComCfg.Apid | FwOpcodeType | args...
-
-        Length and APID widths come from ConfigManager and may differ across configurations, so this uses the same
-        type objects the encoder used rather than fixed offsets.
+        Packet layout: U32(0x5A5A5A5A) | msg_len | ComCfg.Apid | FwOpcodeType | args...
         """
         if self.dictionaries is None:
-            LOGGER.warning("No dictionaries available for command decoding")
             return None, None
         try:
             offset = 0
@@ -455,23 +505,24 @@ class YamcsClient(TransportClient):
             desc_obj.deserialize(binary_data, offset)
             offset += desc_obj.getSize()
             if desc_obj.val != COMMAND_DESCRIPTOR_VAL:
-                desc_val = hex(desc_obj.val) if isinstance(desc_obj.val, int) else str(desc_obj.val)
-                LOGGER.warning("Invalid command descriptor: %s", desc_val)
                 return None, None
+
             len_obj = ConfigManager().get_config("msg_len")()
             len_obj.deserialize(binary_data, offset)
             offset += len_obj.getSize()
+
             apid_obj = ConfigManager().get_type("ComCfg.Apid")()
             apid_obj.deserialize(binary_data, offset)
             offset += apid_obj.getSize()
+
             opcode_obj = ConfigManager().get_type("FwOpcodeType")()
             opcode_obj.deserialize(binary_data, offset)
             offset += opcode_obj.getSize()
+
             cmd_template = self._lookup_command_by_opcode(opcode_obj.val)
             if cmd_template is None:
-                opcode_val = hex(opcode_obj.val) if isinstance(opcode_obj.val, int) else str(opcode_obj.val)
-                LOGGER.warning("Unknown opcode: %s", opcode_val)
                 return None, None
+
             args_dict = {}
             for arg_spec in cmd_template.get_args():
                 arg_name, _arg_desc, arg_type = arg_spec[0], arg_spec[1], arg_spec[2]
@@ -484,8 +535,24 @@ class YamcsClient(TransportClient):
             LOGGER.error("Error decoding F Prime command: %s", exc, exc_info=True)
             return None, None
 
+    @staticmethod
+    def _peek_packet_apid(data):
+        """Read the APID enum name from an outbound packet header."""
+        offset = 0
+        desc_obj = U32Type()
+        desc_obj.deserialize(data, offset)
+        offset += desc_obj.getSize()
+        if desc_obj.val != COMMAND_DESCRIPTOR_VAL:
+            return None
+        len_obj = ConfigManager().get_config("msg_len")()
+        len_obj.deserialize(data, offset)
+        offset += len_obj.getSize()
+        apid_obj = ConfigManager().get_type("ComCfg.Apid")()
+        apid_obj.deserialize(data, offset)
+        return apid_obj.val
+
     def _lookup_command_by_opcode(self, opcode):
-        """Find the command template whose opcode matches"""
+        """Find the command template matching the given opcode."""
         if self.dictionaries is None:
             return None
         command_id_map = getattr(self.dictionaries, "command_id", None)
