@@ -133,6 +133,7 @@ class YamcsClient(TransportClient):
         self.event_decoder = None
         self.yamcs_namespace = ""
         self._pending_cmd = None
+        self._event_by_leaf = {}
 
     # ------------------------------------------------------------------
     # Pipeline integration
@@ -143,6 +144,11 @@ class YamcsClient(TransportClient):
         self.dictionaries = dictionaries
         self.channel_decoder = channel_decoder
         self.event_decoder = event_decoder
+        self._event_by_leaf = {}
+        if dictionaries and getattr(dictionaries, "event_name", None):
+            for full_name, template in dictionaries.event_name.items():
+                leaf = template.get_name()
+                self._event_by_leaf[leaf] = template
 
     def data_callback(self, data, sender=None):
         """Handle both CmdData objects and raw binary from the pipeline.
@@ -263,17 +269,22 @@ class YamcsClient(TransportClient):
     @staticmethod
     def _await_transfer(ft_service, transfer, timeout):
         """Poll a YAMCS transfer until it reaches a terminal state."""
+        subscription = ft_service.create_transfer_subscription()
         deadline = time.time() + timeout
-        while time.time() < deadline:
-            current = ft_service.get_transfer(transfer.id)
-            state = str(current.state)
-            if "COMPLETED" in state:
-                LOGGER.info("Transfer %s completed", transfer.id)
-                return current
-            if "FAILED" in state:
-                LOGGER.error("Transfer %s failed", transfer.id)
-                return current
-            time.sleep(FILE_TRANSFER_POLL_INTERVAL)
+        try:
+            while time.time() < deadline:
+                current = subscription.get_transfer(transfer.id)
+                if current is not None:
+                    state = str(current.state)
+                    if "COMPLETED" in state:
+                        LOGGER.info("Transfer %s completed", transfer.id)
+                        return current
+                    if "FAILED" in state:
+                        LOGGER.error("Transfer %s failed", transfer.id)
+                        return current
+                time.sleep(FILE_TRANSFER_POLL_INTERVAL)
+        finally:
+            subscription.cancel()
         LOGGER.warning("Transfer %s timed out after %ds", transfer.id, timeout)
         return transfer
 
@@ -390,10 +401,9 @@ class YamcsClient(TransportClient):
 
     def _build_event_data(self, event):
         """Convert a YAMCS Event to an F Prime EventData object."""
-        fprime_name = self._yamcs_to_fprime_name(event.event_type)
-        template = self.dictionaries.event_name.get(fprime_name)
+        template = self._event_by_leaf.get(event.event_type)
         if template is None:
-            LOGGER.debug("No event template for %s", fprime_name)
+            LOGGER.debug("No event template for %s", event.event_type)
             return None
         extra = getattr(event, "extra", None) or {}
         arg_objs = []
