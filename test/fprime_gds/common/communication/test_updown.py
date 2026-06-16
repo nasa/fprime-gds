@@ -1,10 +1,9 @@
-import unittest
-from unittest import mock
+from unittest import TestCase, mock
 
 from fprime_gds.common.communication import updown
 
 
-class TestDownlinker(unittest.TestCase):
+class TestDownlinker(TestCase):
 
     def make_downlinker(self, queue_maxsize=updown.DEFAULT_GROUND_QUEUE_MAXSIZE):
         return updown.Downlinker(
