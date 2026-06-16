@@ -30,7 +30,7 @@ def main():
 
     if args.command == "decode":
         assert args.dictionaries is not None, "Dictionaries must be loaded"
-        DataProductDecoder(args.dictionaries, args.bin_file, args.disable_decompression, args.output).process()
+        DataProductDecoder(args.dictionaries, args.bin_file, args.output, args.disable_decompression).process()
 
     elif args.command == "validate":
         success = DataProductValidator(

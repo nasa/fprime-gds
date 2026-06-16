@@ -88,7 +88,7 @@ class DataProductDecoder:
         - both these assumptions can be resolved by loading dictionaries (see executables/data_products.py)
     """
     
-    def __init__(self, dictionaries: Dictionaries, binary_file_path: str, disable_decompression: bool, output_json_path: Optional[str] = None):
+    def __init__(self, dictionaries: Dictionaries, binary_file_path: str, output_json_path: Optional[str] = None, disable_decompression: bool = False):
         """Initialize the decoder.
         
         Args:
