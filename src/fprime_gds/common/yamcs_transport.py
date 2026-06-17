@@ -1,4 +1,5 @@
-"""fprime_gds.common.yamcs_transport
+"""
+fprime_gds.common.yamcs_transport:
 
 YAMCS-backed transport for the F Prime GDS. Subscribes to YAMCS WebSocket
 streams for telemetry and events, issues commands via the YAMCS REST API,
@@ -117,7 +118,7 @@ class YamcsWrapper:
 
 class YamcsClient(TransportClient):
     """YAMCS-backed GDS transport.
-
+    
     Pushes telemetry and events via WebSocket callbacks (no poll loop).
     Commands are received as CmdData objects (via the pipeline's command
     subscriber mechanism) and issued directly through the YAMCS REST API,

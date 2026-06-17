@@ -20,6 +20,7 @@ import pytest
 
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.executables.cli import StandardPipelineParser
+from fprime_gds.common.yamcs_transport import YamcsClient
 
 SEQUENCE_COUNTER = -1
 
@@ -110,11 +111,9 @@ def fprime_test_api_session(request):
         arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
 
         # When --use-yamcs is set, override the transport and connection URI on the parsed arguments and let
-        # pipeline_factory build the pipeline as usual. The factory uses arg_ns.connection_transport and
-        # arg_ns.connection_uri directly, so this is a minimal hook into the standard setup path.
+        # pipeline_factory build the pipeline
+        
         if request.config.getoption("--use-yamcs"):
-            from fprime_gds.common.yamcs_transport import YamcsClient
-
             yamcs_url = request.config.getoption("--yamcs-url")
             yamcs_host = yamcs_url.replace("http://", "").replace("https://", "")
 
