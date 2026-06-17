@@ -207,6 +207,10 @@ class DataProductDecoder:
         while (r_io.tell() - position_at_start) < data_size:
             # Read record ID
             record_id_bin = r_io.read(ConfigManager().get_type("FwDpIdType").getSize())
+            if len(record_id_bin) == 0:
+                # No bytes read. Off nominal behavior
+                raise DataProductError(f"End of file reached while processing data product")
+
             record_id_obj = ConfigManager().get_type("FwDpIdType")()
             record_id_obj.deserialize(record_id_bin, 0)
             record_id = record_id_obj.val
@@ -238,6 +242,8 @@ class DataProductDecoder:
                 uncomp_bytes.extend(record_io.read())
             elif record_meta.val['algorithm'] == 'ZLIB_DEFLATE':
                 uncomp_bytes.extend(zlib.decompress(record_io.read()))
+            else:
+                raise DataProductError(f"Compression algorithm {record_meta.val['algorithm']} unsupported")
 
         return uncomp_bytes
 
@@ -285,7 +291,7 @@ class DataProductDecoder:
             if computed_crc != dp_crc.val:
                 raise CRCError("Data", dp_crc.val, computed_crc)
 
-        if not self.disable_decompression and self.is_compression_record(results["Records"][0]):
+        if not self.disable_decompression and len(results["Records"]) > 0 and self.is_compression_record(results["Records"][0]):
 
             # Compressed records. Decompress and re-process
             uncomp_bytes = self.decompress_records(results["Records"])
