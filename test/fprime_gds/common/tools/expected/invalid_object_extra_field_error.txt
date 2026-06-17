@@ -1,0 +1,1 @@
+<fprime-gds>/test/fprime_gds/common/tools/input/invalid_object_extra_field.seq:2: cmdDisp.CMD_OBJECT_SIMPLE errored: obj[TestPoint]: Value does not define required fields: ['x', 'y']

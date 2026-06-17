@@ -1,0 +1,2 @@
+; Object missing required field (TestPoint requires x and y)
+R00:00:01 cmdDisp.CMD_OBJECT_SIMPLE {x: 10}

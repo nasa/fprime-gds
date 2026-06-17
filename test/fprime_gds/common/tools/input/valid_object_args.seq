@@ -1,0 +1,7 @@
+; Test sequence with object arguments
+R00:00:01 cmdDisp.CMD_OBJECT_SIMPLE {x: 10, y: 20}
+R00:00:02 cmdDisp.CMD_OBJECT_MIXED {num: 42, str: "test", flag: true}
+R00:00:03 cmdDisp.CMD_OBJECT_EMPTY {x: 0, y: 0}
+R00:00:04 cmdDisp.CMD_OBJECT_NESTED {x: 1, y: 2}
+R00:00:05 cmdDisp.CMD_OBJECT_WITH_ARRAY {x: 3, y: 4}
+R00:00:06 cmdDisp.CMD_COMPLEX {x: 5, y: 6}

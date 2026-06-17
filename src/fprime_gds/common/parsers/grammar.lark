@@ -2,13 +2,17 @@ input: (_NEWLINE | _toplevel_stmt)*
 
 _toplevel_stmt: _cmd_stmt
 
-_cmd_stmt: time_tag mnemonic argument*
+_cmd_stmt: time_tag mnemonic (","? _value_list)?
+_value_list: value (","? value)*
 
 time_tag: relative_time | absolute_time
 
 mnemonic: NAME
 
-argument: _literal | NAME
+value: _literal | object | array | NAME
+array: "[" [value ("," value)* [","]] "]"
+kv: NAME ":" value
+object: "{" [kv ("," kv)* [","]] "}"
 
 relative_time: "R" rel_time_value
 rel_time_value: TIME_HMS | TIME_HMS_FRAC
@@ -27,7 +31,7 @@ boolean: CONST_FALSE | CONST_TRUE
 
 _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 
-%ignore /[\t \f,]+/  // WS and commas
+%ignore /[\t \f]+/
 %ignore /\\[\t \f]*\r?\n/   // LINE_CONT
 %ignore COMMENT
 %declare _INDENT _DEDENT

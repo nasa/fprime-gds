@@ -1,0 +1,1 @@
+<fprime-gds>/test/fprime_gds/common/tools/input/invalid_array_wrong_length.seq:2: cmdDisp.CMD_ARRAY_INT errored: values[TestIntArray]: Array type <class 'fprime_gds.common.models.serialize.numerical_types.I32Type'> is of length 3, actual length 5 found!

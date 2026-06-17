@@ -15,6 +15,7 @@
 
 import argparse
 import os
+from pathlib import Path
 import sys
 
 from fprime_gds.common.models.serialize.time_type import TimeType
@@ -71,6 +72,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
     command_list = []
     file_parser = LarkSeqFileParser()
 
+    filename_abs = Path(inputFile).absolute()
     parsed_seq = file_parser.parse(inputFile, cont=cont)
 
     messages = []
@@ -78,7 +80,7 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
         for i, descriptor, seconds, useconds, mnemonic, args in parsed_seq:
             try:
                 if mnemonic not in cmd_name_dict:
-                    msg = f"Line {i + 1}: '{mnemonic}' does not match any command in the command dictionary."
+                    msg = f"{filename_abs}:{i + 1}: '{mnemonic}' does not match any command in the command dictionary."
                     raise SeqGenException(msg)
                 # Set the command arguments:
                 try:
@@ -94,12 +96,12 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
                         cmd_time=cmd_time,
                     )
                 except CommandArgumentsException as e:
-                    msg = f"Line {i + 1}: {mnemonic} errored: {','.join(e.errors)}"
-                    raise SeqGenException(msg)
+                    msg = f"{filename_abs}:{i + 1}: {mnemonic} errored: {','.join(e.errors)}"
+                    raise SeqGenException(msg) from e
                 command_list.append(cmd_data)
             except SeqGenException as exc:
                 if not cont:
-                    raise
+                    raise exc
                 messages.append(exc.getMsg())
     except gseExceptions.GseControllerParsingException as e:
         raise SeqGenException("\n".join([e.getMsg()] + messages))

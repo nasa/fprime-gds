@@ -1,0 +1,2 @@
+; Enum with value not in enum definition
+R00:00:01 cmdDisp.CMD_ENUM INVALID_STATE

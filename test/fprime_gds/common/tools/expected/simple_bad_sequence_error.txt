@@ -1,1 +1,1 @@
-Line 9: 'cmdDisp.FRIENDLY_GREETING' does not match any command in the command dictionary.
+<fprime-gds>/test/fprime_gds/common/tools/input/simple_bad_sequence.seq:9: 'cmdDisp.FRIENDLY_GREETING' does not match any command in the command dictionary.
