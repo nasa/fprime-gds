@@ -1,0 +1,2 @@
+; Array with missing comma separator
+R00:00:01 cmdDisp.CMD_ARRAY_INT [1 2 3]

@@ -1,0 +1,2 @@
+; Object with extra field not in struct definition
+R00:00:01 cmdDisp.CMD_OBJECT_SIMPLE {x: 10, y: 20, z: 30}

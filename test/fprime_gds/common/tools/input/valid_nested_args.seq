@@ -1,0 +1,3 @@
+; Test nested structures: array of structs and struct with array
+R00:00:01 cmdDisp.CMD_ARRAY_OF_STRUCTS [{x: 1, y: 2}, {x: 3, y: 4}]
+R00:00:02 cmdDisp.CMD_STRUCT_WITH_ARRAY {id: 100, points: [10, 20, 30]}

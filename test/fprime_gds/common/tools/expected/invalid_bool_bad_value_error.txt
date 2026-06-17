@@ -1,0 +1,1 @@
+<fprime-gds>/test/fprime_gds/common/tools/input/invalid_bool_bad_value.seq:2: cmdDisp.CMD_BOOL errored: flag[BoolType]: Argument value is not a valid boolean

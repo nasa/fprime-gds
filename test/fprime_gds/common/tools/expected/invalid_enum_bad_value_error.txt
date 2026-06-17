@@ -1,0 +1,1 @@
+<fprime-gds>/test/fprime_gds/common/tools/input/invalid_enum_bad_value.seq:2: cmdDisp.CMD_ENUM errored: state[StateEnum]: Invalid enum member INVALID_STATE set in ABCMeta enum!
