@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Required to set the checksum as a module variable
 import fprime_gds.common.logger
 from fprime_gds.common.communication.adapters.ip import check_port
+from fprime_gds.common.communication.updown import DEFAULT_GROUND_QUEUE_MAXSIZE
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.common.transport import ThreadedTCPSocketClient
@@ -876,10 +877,20 @@ class CommExtraParser(ParserBase):
                 "const": "unframed.log",
                 "required": False,
             },
+            ("--downlink-queue-maxsize",): {
+                "dest": "downlink_queue_maxsize",
+                "action": "store",
+                "type": int,
+                "default": DEFAULT_GROUND_QUEUE_MAXSIZE,
+                "required": False,
+                "help": "Maximum number of downlink frames buffered for ground delivery. [default: %(default)s]",
+            },
         }
         return com_arguments
 
     def handle_arguments(self, args, **kwargs):
+        if args.downlink_queue_maxsize <= 0:
+            raise ValueError("--downlink-queue-maxsize must be positive")
         return args
 
 

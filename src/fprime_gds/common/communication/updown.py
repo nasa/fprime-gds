@@ -56,6 +56,8 @@ class Downlinker:
             queue_maxsize: maximum number of frames buffered for ground delivery
             discarded: file to write discarded data to. None to drop the data.
         """
+        if queue_maxsize <= 0:
+            raise ValueError("queue_maxsize must be positive")
         self.running = True
         self.th_ground = None
         self.th_data = None
@@ -64,6 +66,17 @@ class Downlinker:
         self.deframer = deframer
         self.outgoing = Queue(maxsize=queue_maxsize)
         self.discarded = discarded
+        self._drop_warning_throttled = False
+
+    def _log_dropped_frame(self, message):
+        """Log a queue saturation warning once per saturation episode."""
+        if not self._drop_warning_throttled:
+            DW_LOGGER.warning(message)
+            self._drop_warning_throttled = True
+
+    def _clear_drop_warning_throttle(self):
+        """Allow the next queue saturation event to emit a warning again."""
+        self._drop_warning_throttled = False
 
     def start(self):
         """Starts the downlink pipeline"""
@@ -92,8 +105,9 @@ class Downlinker:
             for frame in frames:
                 try:
                     self.outgoing.put_nowait(frame)
+                    self._clear_drop_warning_throttle()
                 except Full:
-                    DW_LOGGER.warning("GDS ground queue full, dropping frame")
+                    self._log_dropped_frame("GDS ground queue full, dropping frame")
             try:
                 if self.discarded is not None:
                     self.discarded.write(discarded_data)
@@ -142,8 +156,9 @@ class Downlinker:
         """
         try:
             self.outgoing.put_nowait(frame)
+            self._clear_drop_warning_throttle()
         except Full:
-            DW_LOGGER.warning("GDS ground queue full, dropping loopback frame")
+            self._log_dropped_frame("GDS ground queue full, dropping loopback frame")
 
 
 class Uplinker:

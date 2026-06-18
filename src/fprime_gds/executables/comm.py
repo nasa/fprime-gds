@@ -27,7 +27,11 @@ import fprime_gds.common.communication.adapters.ip
 import fprime_gds.common.communication.ground
 import fprime_gds.common.logger
 import fprime_gds.executables.cli
-from fprime_gds.common.communication.updown import Downlinker, Uplinker
+from fprime_gds.common.communication.updown import (
+    DEFAULT_GROUND_QUEUE_MAXSIZE,
+    Downlinker,
+    Uplinker,
+)
 from fprime_gds.common.zmq_transport import ZmqGround
 from fprime_gds.plugin.system import Plugins
 
@@ -101,7 +105,15 @@ def main():
                     discarded_file_handle_path,
                 )
         downlinker = Downlinker(
-            adapter, ground, framer_instance, discarded=discarded_file_handle
+            adapter,
+            ground,
+            framer_instance,
+            queue_maxsize=(
+                args.downlink_queue_maxsize
+                if args.downlink_queue_maxsize is not None
+                else DEFAULT_GROUND_QUEUE_MAXSIZE
+            ),
+            discarded=discarded_file_handle,
         )
         uplinker = Uplinker(adapter, ground, framer_instance, downlinker)
 

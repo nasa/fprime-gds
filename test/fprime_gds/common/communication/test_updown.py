@@ -56,10 +56,56 @@ class TestDownlinker(TestCase):
             "GDS ground queue full, dropping frame",
             captured.output[0],
         )
-        self.assertEqual(len(captured.output), 2)
+        self.assertEqual(len(captured.output), 1)
         self.assertEqual(
             downlinker.outgoing.qsize(),
             2,
         )
         self.assertEqual(downlinker.outgoing.get_nowait(), 0)
         self.assertEqual(downlinker.outgoing.get_nowait(), b"first")
+
+    def test_deframing_throttles_repeated_full_queue_warnings(self):
+        downlinker = self.make_downlinker(queue_maxsize=1)
+        downlinker.running = True
+        downlinker.adapter.read.side_effect = [b"", KeyboardInterrupt()]
+        downlinker.deframer.deframe_all.return_value = (
+            [b"first", b"second", b"third"],
+            b"",
+            b"",
+        )
+
+        downlinker.outgoing.put_nowait(b"existing")
+
+        with self.assertLogs("downlink", level="WARNING") as captured:
+            with self.assertRaises(KeyboardInterrupt):
+                downlinker.deframing()
+
+        self.assertEqual(
+            captured.output,
+            ["WARNING:downlink:GDS ground queue full, dropping frame"],
+        )
+
+    def test_drop_warning_resets_after_queue_has_room_again(self):
+        downlinker = self.make_downlinker(queue_maxsize=1)
+
+        downlinker.outgoing.put_nowait(b"existing")
+        with self.assertLogs("downlink", level="WARNING") as captured:
+            downlinker.add_loopback_frame(b"full-first")
+            downlinker.add_loopback_frame(b"full-second")
+
+        self.assertEqual(
+            captured.output,
+            ["WARNING:downlink:GDS ground queue full, dropping loopback frame"],
+        )
+
+        self.assertEqual(downlinker.outgoing.get_nowait(), b"existing")
+        downlinker.add_loopback_frame(b"accepted")
+
+        with self.assertLogs("downlink", level="WARNING") as second_capture:
+            downlinker.add_loopback_frame(b"full-third")
+
+        self.assertEqual(
+            second_capture.output,
+            ["WARNING:downlink:GDS ground queue full, dropping loopback frame"],
+        )
+        self.assertEqual(downlinker.outgoing.get_nowait(), b"accepted")
