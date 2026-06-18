@@ -1,0 +1,6 @@
+; Test sequence with array arguments
+R00:00:01 cmdDisp.CMD_ARRAY_INT [1, 2, 3]
+R00:00:02 cmdDisp.CMD_ARRAY_MIXED [10, 20, 30]
+R00:00:03 cmdDisp.CMD_ARRAY_EMPTY [0, 0, 0]
+R00:00:04 cmdDisp.CMD_ARRAY_NESTED [11, 22, 33]
+R00:00:05 cmdDisp.CMD_WITH_MULTIPLE 100 [5, 6, 7] "test"

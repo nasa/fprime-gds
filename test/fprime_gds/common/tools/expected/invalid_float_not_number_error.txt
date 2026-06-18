@@ -1,0 +1,1 @@
+<fprime-gds>/test/fprime_gds/common/tools/input/invalid_float_not_number.seq:2: cmdDisp.CMD_FLOAT errored: value[F32Type]: could not convert string to float: 'not_a_float'

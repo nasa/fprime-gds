@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Generator, Tuple, Any, List, Union, Optional
+from typing import Any, Generator, List, Optional, Tuple, Union
 
 from lark import Lark, Transformer, Token, Tree
 from lark.exceptions import LarkError, UnexpectedCharacters, UnexpectedToken
@@ -43,13 +43,53 @@ class SeqTransformer(Transformer[Token, Any]):
         assert isinstance(token, Token)
         return token.value
 
-    def argument(self, items: List[Any]) -> Any:
+    def value(self, items: List[Any]) -> Any:
         """Return the parsed argument value."""
         item = items[0]
         # Handle NAME tokens (enum values, identifiers)
         if isinstance(item, Token) and item.type == "NAME":
             return item.value
         return item
+
+    def array(self, items: List[Any]) -> str:
+        """Convert array items to JSON string for serialization layer."""
+        import json
+        # Filter out None values from optional groups
+        # Parse any JSON strings back to Python objects for proper nesting
+        arr = []
+        for item in items:
+            if item is None:
+                continue
+            if isinstance(item, str) and (item.startswith('[') or item.startswith('{')):
+                # It's a nested array or object (already JSON-encoded), decode it
+                arr.append(json.loads(item))
+            else:
+                arr.append(item)
+        return json.dumps(arr)
+
+    def kv(self, items: List[Any]) -> Tuple[str, Any]:
+        """Convert key-value pair to tuple (key, value)."""
+        key = items[0]
+        value = items[1]
+        assert isinstance(key, Token) and key.type == "NAME"
+        return (key.value, value)
+
+    def object(self, items: List[Tuple[str, Any]]) -> str:
+        """Convert key-value pairs to JSON string for serialization layer."""
+        import json
+        # Filter out None values from optional groups
+        # Parse any JSON strings back to Python objects for proper nesting
+        obj = {}
+        for item in items:
+            if item is None:
+                continue
+            key, value = item
+            if isinstance(value, str) and (value.startswith('[') or value.startswith('{')):
+                # It's a nested array or object (already JSON-encoded), decode it
+                obj[key] = json.loads(value)
+            else:
+                obj[key] = value
+        return json.dumps(obj)
 
 
 class LarkSeqFileParser:
@@ -72,6 +112,8 @@ class LarkSeqFileParser:
         @return A generator of tuples:
             (lineNumber, descriptor, seconds, useconds, mnemonic, arguments)
         """
+        filename_abs = Path(filename).absolute()
+
         with open(filename) as f:
             content = f.read()
 
@@ -80,13 +122,15 @@ class LarkSeqFileParser:
         except (UnexpectedCharacters, UnexpectedToken) as e:
             # Extract line number from Lark error
             line_num = e.line
-            msg = f"Line {line_num}: Encountered syntax error parsing"
+            col_num = e.column
+            msg = f"{filename_abs}:{line_num}:{col_num}: Encountered syntax error parsing"
             if isinstance(e, UnexpectedToken):
-                msg += f" (unexpected token)"
+                t_name = repr(e.token)
+                msg += f": unexpected token '{t_name}'"
             raise gseExceptions.GseControllerParsingException(msg)
         except LarkError as e:
             # Generic Lark error
-            msg = f"Line 1: Encountered syntax error parsing sequence file"
+            msg = f"{filename_abs}:1: Encountered syntax error parsing sequence file"
             raise gseExceptions.GseControllerParsingException(msg)
 
         messages: List[str] = []
@@ -130,7 +174,7 @@ class LarkSeqFileParser:
                 while (
                     i < len(children)
                     and hasattr(children[i], "data")
-                    and children[i].data == "argument"
+                    and children[i].data == "value"
                 ):
                     arg_node = children[i]
                     assert isinstance(arg_node, Tree)
@@ -169,9 +213,9 @@ class LarkSeqFileParser:
             except Exception as exc:
                 # Wrap other exceptions with line number
                 if not cont:
-                    msg = f"Line {line_number + 1}: Encountered syntax error parsing timestamp: {exc}"
+                    msg = f"{filename_abs}:{line_number + 1}: Encountered syntax error parsing timestamp: {exc}"
                     raise gseExceptions.GseControllerParsingException(msg)
-                messages.append(f"Line {line_number + 1}: {exc}")
+                messages.append(f"{filename_abs}:{line_number + 1}: {exc}")
                 i += 1
 
         if cont and messages:

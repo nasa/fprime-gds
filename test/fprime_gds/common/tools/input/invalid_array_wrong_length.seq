@@ -1,0 +1,2 @@
+; Array with wrong length (expects 3, got 5)
+R00:00:01 cmdDisp.CMD_ARRAY_INT [1, 2, 3, 4, 5]

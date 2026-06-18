@@ -1,0 +1,1 @@
+Parsing error: <fprime-gds>/test/fprime_gds/common/tools/input/invalid_hex_bad_format.seq:2:27: Encountered syntax error parsing
