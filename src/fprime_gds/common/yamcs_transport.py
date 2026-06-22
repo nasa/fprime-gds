@@ -250,8 +250,9 @@ class YamcsClient(TransportClient):
         object_name = local_path.split("/")[-1] if "/" in local_path else local_path
         with open(local_path, "rb") as f:
             storage.upload_object(
-                instance=self.yamcs.instance, bucket_name=bucket_name,
-                object_name=object_name, file_obj=f,
+                bucket_name=bucket_name,
+                object_name=object_name,
+                file_obj=f,
             )
         LOGGER.info("Staged %s in bucket %s as %s", local_path, bucket_name, object_name)
         ft_service = self.yamcs.get_file_transfer_service(service_name)
