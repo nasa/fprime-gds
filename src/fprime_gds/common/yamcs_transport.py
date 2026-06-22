@@ -110,8 +110,11 @@ class YamcsWrapper:
             LOGGER.warning("Could not discover YAMCS namespace: %s", exc)
         return ""
 
-    def to_yamcs_name(self, fprime_name):
+    def to_yamcs_param_name(self, fprime_name):
         return self.namespace + "/" + fprime_name.replace(".", "|")
+
+    def to_yamcs_cmd_name(self, fprime_name):
+        return self.namespace + "/" + fprime_name.replace(".", "/")
 
     def to_fprime_name(self, yamcs_name):
         name = yamcs_name.lstrip("/")
@@ -191,7 +194,7 @@ class YamcsClient(TransportClient):
         template = cmd_data.get_template()
         arg_vals = cmd_data.get_args()
         args_dict = {spec[0]: arg_vals[i].val for i, spec in enumerate(template.get_args())}
-        yamcs_cmd_name = self.yamcs.to_yamcs_name(template.get_full_name())
+        yamcs_cmd_name = self.yamcs.to_yamcs_cmd_name(template.get_full_name())
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
             LOGGER.info("Command issued: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
@@ -321,7 +324,7 @@ class YamcsClient(TransportClient):
         if self.dictionaries is None or not getattr(self.dictionaries, "channel_name", None):
             LOGGER.warning("No channel dictionary available; subscribing to no parameters")
             return []
-        return [self.yamcs.to_yamcs_name(name) for name in self.dictionaries.channel_name.keys()]
+        return [self.yamcs.to_yamcs_param_name(name) for name in self.dictionaries.channel_name.keys()]
 
     @staticmethod
     def _build_value_object(value, type_class):
