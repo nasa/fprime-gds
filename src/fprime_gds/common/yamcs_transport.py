@@ -1,11 +1,7 @@
 """
 fprime_gds.common.yamcs_transport:
 
-YAMCS-backed transport for the F Prime GDS. Replaces the TCP/ZMQ binary path with YAMCS WebSocket subscriptions
-for telemetry and events, the YAMCS REST API for commanding, and YAMCS FileTransferService for file operations.
-
-Note: implementation delegates to a YamcsWrapper, similar to ZmqWrapper in zmq_transport.py. The wrapper owns
-the YAMCS connection state and exposes it for future YAMCS-specific extensions beyond the TransportClient interface.
+YAMCS-backed transport for the F Prime GDS.
 
 @author yuktiv
 """
@@ -37,10 +33,8 @@ FILE_TRANSFER_BUCKET = "fprimeFilesIn"
 
 
 class YamcsWrapper:
-    """Handler for YAMCS functions for use in other objects"""
 
     def __init__(self):
-        """Initialize the YAMCS setup"""
         self.yamcs_client = None
         self.processor = None
         self.subscriptions = []
@@ -48,7 +42,6 @@ class YamcsWrapper:
         self.namespace = ""
 
     def configure(self, yamcs_url, instance, processor_name):
-        """Configure and connect to the YAMCS server"""
         self.instance = instance
         LOGGER.info("Connecting to YAMCS: %s, instance=%s, processor=%s", yamcs_url, instance, processor_name)
         self.yamcs_client = YamcsLibClient(yamcs_url)
@@ -56,7 +49,6 @@ class YamcsWrapper:
         self.namespace = self._discover_namespace()
 
     def subscribe(self, parameter_names, on_parameter_callback, on_event_callback):
-        """Subscribe to YAMCS parameter and event WebSocket streams"""
         if parameter_names:
             LOGGER.info("Subscribing to %d YAMCS parameters", len(parameter_names))
             self.subscriptions.append(
@@ -72,7 +64,6 @@ class YamcsWrapper:
         )
 
     def disconnect(self):
-        """Cancel all subscriptions and release handles"""
         for subscription in self.subscriptions:
             try:
                 subscription.cancel()
@@ -84,20 +75,16 @@ class YamcsWrapper:
         self.instance = None
 
     def issue_command(self, cmd_name, cmd_args):
-        """Issue a command through the YAMCS REST API"""
         return self.processor.issue_command(command=cmd_name, args=cmd_args)
 
     def get_file_transfer_service(self, service_name=FILE_TRANSFER_SERVICE_NAME):
-        """Return a handle to the named YAMCS FileTransferService"""
         ft_client = self.yamcs_client.get_file_transfer_client(instance=self.instance)
         return ft_client.get_service(service_name)
 
     def get_storage_client(self):
-        """Return a YAMCS storage client for bucket operations"""
         return self.yamcs_client.get_storage_client()
 
     def _discover_namespace(self):
-        """Discover the XTCE namespace prefix from the first non-system MDB parameter"""
         try:
             mdb = self.yamcs_client.get_mdb(instance=self.instance)
             for param in mdb.list_parameters():
@@ -125,17 +112,8 @@ class YamcsWrapper:
 
 
 class YamcsClient(TransportClient):
-    """YAMCS-backed GDS transport.
-
-    Pushes telemetry and events via WebSocket callbacks (no poll loop).
-    Commands are received as CmdData objects (via the pipeline's command
-    subscriber mechanism) and issued directly through the YAMCS REST API,
-    bypassing binary serialization entirely. File uplink/downlink is
-    routed through YAMCS's FileTransferService.
-    """
 
     def __init__(self):
-        """Create YAMCS wrapper"""
         super().__init__()
         self.yamcs = YamcsWrapper()
         self.dictionaries = None
@@ -145,18 +123,15 @@ class YamcsClient(TransportClient):
         self._event_by_leaf = {}
 
     def set_pipeline_references(self, dictionaries, channel_decoder, event_decoder):
-        """Receive dictionary and decoder references from StandardPipeline"""
         self.dictionaries = dictionaries
         self.channel_decoder = channel_decoder
         self.event_decoder = event_decoder
-        # Events arrive from fprime-yamcs-events with leaf names only
         self._event_by_leaf = {}
         if dictionaries and getattr(dictionaries, "event_name", None):
             for full_name, template in dictionaries.event_name.items():
                 self._event_by_leaf[template.get_name()] = template
 
     def connect(self, connection_uri, incoming_routing=None, outgoing_routing=None):
-        """Connect to YAMCS and subscribe to streams"""
         yamcs_url = self._parse_uri(connection_uri)
         instance, processor_name = self._discover_instance_and_processor(yamcs_url)
         self.yamcs.configure(yamcs_url, instance, processor_name)
@@ -167,22 +142,18 @@ class YamcsClient(TransportClient):
         )
 
     def disconnect(self):
-        """Disconnect from the YAMCS server"""
         self.yamcs.disconnect()
 
     def send(self, data):
-        """Drop binary packets — commands are already dispatched via data_callback"""
         if self._pending_cmd:
             self._pending_cmd = None
             return
         LOGGER.debug("Binary packet received; not routed (YAMCS uses structured APIs)")
 
     def recv(self, timeout=None):
-        """No-op — YAMCS uses push callbacks, not polling"""
         return b""
 
     def data_callback(self, data, sender=None):
-        """Intercept CmdData before the encoder and issue to YAMCS directly"""
         if isinstance(data, CmdData):
             self._issue_command(data)
             self._pending_cmd = True
@@ -190,7 +161,6 @@ class YamcsClient(TransportClient):
         super().data_callback(data, sender)
 
     def _issue_command(self, cmd_data):
-        """Issue a command to YAMCS via REST"""
         template = cmd_data.get_template()
         arg_vals = cmd_data.get_args()
         args_dict = {}
@@ -207,7 +177,6 @@ class YamcsClient(TransportClient):
             LOGGER.error("YAMCS rejected command %s: %s", yamcs_cmd_name, exc)
 
     def _on_parameter_data(self, parameter_data):
-        """WebSocket callback — convert YAMCS parameters to ChData"""
         for param_value in parameter_data.parameters:
             try:
                 ch_data = self._build_ch_data(param_value)
@@ -217,7 +186,6 @@ class YamcsClient(TransportClient):
                 LOGGER.error("Error processing parameter %s: %s", param_value.name, exc)
 
     def _on_event_data(self, event):
-        """WebSocket callback — convert YAMCS events to EventData"""
         try:
             event_data = self._build_event_data(event)
             if event_data is not None and self.event_decoder is not None:
@@ -226,7 +194,6 @@ class YamcsClient(TransportClient):
             LOGGER.error("Error processing event %s: %s", event.event_type, exc)
 
     def _build_ch_data(self, param_value):
-        """Convert a YAMCS ParameterValue to ChData"""
         fprime_name = self.yamcs.to_fprime_name(param_value.name)
         template = self.dictionaries.channel_name.get(fprime_name)
         if template is None:
@@ -239,7 +206,6 @@ class YamcsClient(TransportClient):
         return ChData(val_obj, ch_time, template)
 
     def _build_event_data(self, event):
-        """Convert a YAMCS Event to EventData"""
         template = self._event_by_leaf.get(event.event_type)
         if template is None:
             LOGGER.debug("No event template for %s", event.event_type)
@@ -250,7 +216,6 @@ class YamcsClient(TransportClient):
 
     def upload_file(self, local_path, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
                     service_name=FILE_TRANSFER_SERVICE_NAME, timeout=60):
-        """Upload a local file to the spacecraft through YAMCS FileTransferService"""
         storage = self.yamcs.get_storage_client()
         object_name = local_path.split("/")[-1] if "/" in local_path else local_path
         with open(local_path, "rb") as f:
@@ -269,7 +234,6 @@ class YamcsClient(TransportClient):
 
     def download_file(self, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
                       object_name=None, service_name=FILE_TRANSFER_SERVICE_NAME, timeout=60):
-        """Download a file from the spacecraft through YAMCS FileTransferService"""
         if object_name is None:
             object_name = remote_path.split("/")[-1] if "/" in remote_path else remote_path
         ft_service = self.yamcs.get_file_transfer_service(service_name)
@@ -281,7 +245,6 @@ class YamcsClient(TransportClient):
 
     @staticmethod
     def _await_transfer(ft_service, transfer, timeout):
-        """Poll a transfer until completion, failure, or timeout"""
         subscription = ft_service.create_transfer_subscription()
         deadline = time.time() + timeout
         try:
@@ -303,14 +266,12 @@ class YamcsClient(TransportClient):
 
     @staticmethod
     def _parse_uri(transport_url):
-        """Extract HTTP base URL from a yamcs:// URI"""
         if transport_url.startswith(YAMCS_URI_SCHEME):
             transport_url = transport_url[len(YAMCS_URI_SCHEME):]
         return "http://" + transport_url.split("/")[0]
 
     @staticmethod
     def _discover_instance_and_processor(yamcs_url):
-        """Auto-discover the running YAMCS instance and realtime processor"""
         client = YamcsLibClient(yamcs_url)
         running = [i for i in client.list_instances() if i.state == "RUNNING"]
         if len(running) == 0:
@@ -326,7 +287,6 @@ class YamcsClient(TransportClient):
         return instance, processor_name
 
     def _build_parameter_list(self):
-        """Build YAMCS qualified names from the F Prime channel dictionary"""
         if self.dictionaries is None or not getattr(self.dictionaries, "channel_name", None):
             LOGGER.warning("No channel dictionary available; subscribing to no parameters")
             return []
@@ -334,7 +294,6 @@ class YamcsClient(TransportClient):
 
     @staticmethod
     def _build_value_object(value, type_class):
-        """Wrap a Python value in an F Prime serializable type"""
         obj = type_class()
         if isinstance(value, str) and not isinstance(obj, StringType):
             if isinstance(obj, IntegerType):
@@ -348,7 +307,6 @@ class YamcsClient(TransportClient):
 
     @staticmethod
     def _build_time_type(yamcs_timestamp):
-        """Convert a YAMCS datetime to an F Prime TimeType"""
         if yamcs_timestamp is None:
             return TimeType()
         if yamcs_timestamp.tzinfo is not None:
