@@ -193,7 +193,12 @@ class YamcsClient(TransportClient):
         """Issue a command to YAMCS via REST"""
         template = cmd_data.get_template()
         arg_vals = cmd_data.get_args()
-        args_dict = {spec[0]: arg_vals[i].val for i, spec in enumerate(template.get_args())}
+        args_dict = {}
+        for i, spec in enumerate(template.get_args()):
+            val = arg_vals[i].val
+            if isinstance(val, bool):
+                val = str(val).lower()
+            args_dict[spec[0]] = val
         yamcs_cmd_name = self.yamcs.to_yamcs_cmd_name(template.get_full_name())
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
