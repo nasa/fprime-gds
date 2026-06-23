@@ -98,7 +98,7 @@ class YamcsWrapper:
         return ""
 
     def to_yamcs_param_name(self, fprime_name):
-        return self.namespace + "/" + fprime_name.replace(".", "|")
+        return self.namespace + "/" + fprime_name.replace(".", "/")
 
     def to_yamcs_cmd_name(self, fprime_name):
         return self.namespace + "/" + fprime_name.replace(".", "|")
@@ -114,7 +114,7 @@ class YamcsWrapper:
         prefix = self.namespace.lstrip("/")
         if prefix and name.startswith(prefix + "/"):
             name = name[len(prefix) + 1:]
-        return name.replace("|", ".")
+        return name.replace("/", ".")
 
 
 class YamcsClient(TransportClient):
