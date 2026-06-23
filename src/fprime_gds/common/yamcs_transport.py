@@ -101,7 +101,13 @@ class YamcsWrapper:
         return self.namespace + "/" + fprime_name.replace(".", "|")
 
     def to_yamcs_cmd_name(self, fprime_name):
-        return self.namespace + "/" + fprime_name.replace(".", "/")
+        return self.namespace + "/" + fprime_name.replace(".", "|")
+
+    def to_yamcs_qualified_arg(self, yamcs_cmd_name, arg_name):
+        leaf = yamcs_cmd_name.lstrip("/")
+        if "/" in leaf:
+            leaf = leaf.split("/", 1)[1]
+        return leaf + "|" + arg_name
 
     def to_fprime_name(self, yamcs_name):
         name = yamcs_name.lstrip("/")
@@ -163,13 +169,14 @@ class YamcsClient(TransportClient):
     def _issue_command(self, cmd_data):
         template = cmd_data.get_template()
         arg_vals = cmd_data.get_args()
+        yamcs_cmd_name = self.yamcs.to_yamcs_cmd_name(template.get_full_name())
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
             if isinstance(val, bool):
                 val = str(val)
-            args_dict[spec[0]] = val
-        yamcs_cmd_name = self.yamcs.to_yamcs_cmd_name(template.get_full_name())
+            key = self.yamcs.to_yamcs_qualified_arg(yamcs_cmd_name, spec[0])
+            args_dict[key] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
             LOGGER.info("Command issued: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
@@ -295,13 +302,16 @@ class YamcsClient(TransportClient):
     @staticmethod
     def _build_value_object(value, type_class):
         obj = type_class()
-        if isinstance(value, str) and not isinstance(obj, StringType):
+        if isinstance(obj, BoolType):
+            if isinstance(value, str):
+                value = value.lower() in ("true", "1", "yes")
+            elif isinstance(value, (int, float)):
+                value = value != 0
+        elif isinstance(value, str) and not isinstance(obj, StringType):
             if isinstance(obj, IntegerType):
                 value = int(value)
             elif isinstance(obj, FloatType):
                 value = float(value)
-            elif isinstance(obj, BoolType):
-                value = value.lower() in ("true", "1", "yes")
         obj.val = value
         return obj
 

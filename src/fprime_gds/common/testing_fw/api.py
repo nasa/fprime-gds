@@ -1162,9 +1162,7 @@ class IntegrationTestAPI(DataHandler):
             file_path: the path to the file to upload
             destination: the destination path for the uploaded file
         """
-        uplink_file = Path(self.pipeline.up_store) / Path(file_path).name
-        shutil.copy2(file_path, uplink_file)
-        self.pipeline.files.uplinker.enqueue(str(uplink_file), destination)
+        self.pipeline.uplink_file(file_path, destination)
 
     def uplink_sequence_and_await_completion(self, sequence_path, destination=None, timeout=10):
         """

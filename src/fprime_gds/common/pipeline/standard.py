@@ -11,6 +11,7 @@ below.
 
 import datetime
 import os.path
+import shutil
 from pathlib import Path
 from typing import Type
 
@@ -223,6 +224,15 @@ class StandardPipeline:
         cmd_data.time = TimeType()
         cmd_data.time.set_datetime(datetime.datetime.now(), TimeType.TimeBase("TB_WORKSTATION_TIME"))
         self.coders.send_command(cmd_data)
+
+    def uplink_file(self, file_path, destination=None):
+        if hasattr(self.client_socket, "upload_file"):
+            remote_path = destination if destination else "/" + Path(file_path).name
+            self.client_socket.upload_file(str(file_path), remote_path)
+        else:
+            uplink_file = Path(self.up_store) / Path(file_path).name
+            shutil.copy2(file_path, uplink_file)
+            self.files.uplinker.enqueue(str(uplink_file), destination)
 
     @property
     def dictionaries(self):
