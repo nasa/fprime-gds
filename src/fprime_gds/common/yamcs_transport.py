@@ -167,7 +167,7 @@ class YamcsClient(TransportClient):
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
             if isinstance(val, bool):
-                val = str(val).lower()
+                val = str(val)
             args_dict[spec[0]] = val
         yamcs_cmd_name = self.yamcs.to_yamcs_cmd_name(template.get_full_name())
         try:
