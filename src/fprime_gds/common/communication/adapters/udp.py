@@ -12,6 +12,7 @@ import logging
 import queue
 import socket
 import threading
+import time
 
 import fprime_gds.common.communication.adapters.base
 
@@ -32,6 +33,7 @@ class UdpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
     """
 
     MAXIMUM_DATA_SIZE = 65535
+    ERROR_RETRY_INTERVAL = 1
 
     def __init__(self, udp_address, udp_send_port, udp_recv_port):
         """Initialize the UDP adapter.
@@ -146,6 +148,7 @@ class UdpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
             except OSError:
                 if self.running:
                     LOGGER.warning("UDP receive error, retrying")
+                    time.sleep(UdpAdapter.ERROR_RETRY_INTERVAL)
 
     @classmethod
     def get_name(cls):
