@@ -33,17 +33,17 @@ class UdpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
 
     MAXIMUM_DATA_SIZE = 65535
 
-    def __init__(self, address, send_port, recv_port):
+    def __init__(self, udp_address, udp_send_port, udp_recv_port):
         """Initialize the UDP adapter.
 
         Args:
-            address: remote address of FSW for sending uplink data
-            send_port: remote port to send uplink data to
-            recv_port: local port to bind for receiving downlink data
+            udp_address: remote address of FSW for sending uplink data
+            udp_send_port: remote port to send uplink data to
+            udp_recv_port: local port to bind for receiving downlink data
         """
-        self.address = address
-        self.send_port = send_port
-        self.recv_port = recv_port
+        self.address = udp_address
+        self.send_port = udp_send_port
+        self.recv_port = udp_recv_port
         self.send_socket = None
         self.recv_socket = None
         self.running = False
@@ -161,19 +161,19 @@ class UdpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         """
         return {
             ("--udp-address",): {
-                "dest": "address",
+                "dest": "udp_address",
                 "type": str,
                 "default": "127.0.0.1",
                 "help": "Address of FSW to send uplink data to.",
             },
             ("--udp-send-port",): {
-                "dest": "send_port",
+                "dest": "udp_send_port",
                 "type": int,
                 "default": 50000,
                 "help": "Port on FSW to send uplink data to.",
             },
             ("--udp-recv-port",): {
-                "dest": "recv_port",
+                "dest": "udp_recv_port",
                 "type": int,
                 "default": 50001,
                 "help": "Local port to bind for receiving downlink data from FSW.",
@@ -187,26 +187,26 @@ class UdpAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         return cls
 
     @classmethod
-    def check_arguments(cls, address, send_port, recv_port):
+    def check_arguments(cls, udp_address, udp_send_port, udp_recv_port):
         """Validate adapter arguments.
 
         Args:
-            address: remote FSW address
-            send_port: port to send to
-            recv_port: port to receive on
+            udp_address: remote FSW address
+            udp_send_port: port to send to
+            udp_recv_port: port to receive on
 
         Raises:
             ValueError: if any argument is invalid
         """
-        if not (0 < send_port <= 65535):
+        if not (0 < udp_send_port <= 65535):
             raise ValueError(
-                f"UDP send port '{send_port}' out of range. Must be 1-65535."
+                f"UDP send port '{udp_send_port}' out of range. Must be 1-65535."
             )
-        if not (0 < recv_port <= 65535):
+        if not (0 < udp_recv_port <= 65535):
             raise ValueError(
-                f"UDP receive port '{recv_port}' out of range. Must be 1-65535."
+                f"UDP receive port '{udp_recv_port}' out of range. Must be 1-65535."
             )
         try:
-            socket.getaddrinfo(address, None)
+            socket.getaddrinfo(udp_address, None)
         except socket.gaierror as exc:
-            raise ValueError(f"Cannot resolve UDP address '{address}': {exc}")
+            raise ValueError(f"Cannot resolve UDP address '{udp_address}': {exc}")
