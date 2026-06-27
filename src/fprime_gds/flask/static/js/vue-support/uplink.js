@@ -126,7 +126,7 @@ Vue.component("uplink", {
          * @return {T[] | string}
          */
         elements() {
-            return this.selected.concat(this.upfiles.reverse());
+            return this.selected.concat(this.upfiles.slice().reverse());
         },
 
         /**
