@@ -217,7 +217,11 @@ Vue.component("command-input", {
         commandList() {
             let commands = Object.values(this.commands);
             if (!this.showParameterCommands) {
+                let selected = this.selected;
                 commands = commands.filter(function(cmd) {
+                    if (selected && cmd.full_name === selected.full_name) {
+                        return true;
+                    }
                     let mnemonic = cmd.full_name.split(".").pop();
                     return !mnemonic.endsWith("_PRM_SET") && !mnemonic.endsWith("_PRM_SAVE");
                 });
