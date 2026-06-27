@@ -18,7 +18,7 @@ export let channel_render_template = `
 <table v-else-if="type?.LENGTH || type?.MEMBER_LIST" class="embedded_table table">
     <thead>
         <tr>
-            <th class="sorttable_nosort">
+            <th>
                 <i v-show="!expanded" class="fas fa-plus" @click="expand"></i>
                 <i v-show="expanded" class="fas fa-minus" @click="collapse"></i>
             </th>
