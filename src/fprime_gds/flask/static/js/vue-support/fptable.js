@@ -355,7 +355,12 @@ Vue.component("fp-table", {
         columnClicked(displayIndex) {
             let actualIndex = this.visibleIndices ? this.visibleIndices[displayIndex] : displayIndex;
             if (this.sortColumn === actualIndex) {
-                this.sortAscending = !this.sortAscending;
+                if (!this.sortAscending) {
+                    this.sortColumn = null;
+                    this.sortAscending = true;
+                } else {
+                    this.sortAscending = false;
+                }
             } else {
                 this.sortColumn = actualIndex;
                 this.sortAscending = true;
