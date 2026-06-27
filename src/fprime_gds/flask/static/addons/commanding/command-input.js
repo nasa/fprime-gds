@@ -95,7 +95,7 @@ Vue.component("command-input", {
             "selected": selected,
             "active": false,
             "error": "",
-            "showParameterCommands": false,
+            "showParameterCommands": true,
         }
     },
     template: command_input_template,
