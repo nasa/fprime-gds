@@ -101,7 +101,7 @@ class YamcsWrapper:
         return self.namespace + "/" + fprime_name.replace(".", "/")
 
     def to_yamcs_cmd_name(self, fprime_name):
-        return self.namespace + "/" + fprime_name.replace(".", "|")
+        return self.namespace + "/" + fprime_name.replace(".", "/")
 
     def to_yamcs_qualified_arg(self, yamcs_cmd_name, arg_name):
         leaf = yamcs_cmd_name.lstrip("/")
@@ -175,8 +175,7 @@ class YamcsClient(TransportClient):
             val = arg_vals[i].val
             if isinstance(val, bool):
                 val = str(val)
-            key = self.yamcs.to_yamcs_qualified_arg(yamcs_cmd_name, spec[0])
-            args_dict[key] = val
+            args_dict[spec[0]] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
             LOGGER.info("Command issued: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
