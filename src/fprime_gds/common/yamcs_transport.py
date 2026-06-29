@@ -146,6 +146,20 @@ class YamcsClient(TransportClient):
             on_parameter_callback=self._on_parameter_data,
             on_event_callback=self._on_event_data,
         )
+        self._set_tlm_packet_level()
+
+    def _set_tlm_packet_level(self):
+        if self.dictionaries is None:
+            return
+        for name in self.dictionaries.command_name:
+            if name.endswith(".SET_LEVEL"):
+                yamcs_cmd = self.yamcs.to_yamcs_cmd_name(name)
+                try:
+                    self.yamcs.issue_command(yamcs_cmd, {"level": 3})
+                    LOGGER.info("Sent %s level=3 to enable all telemetry packet groups", yamcs_cmd)
+                except Exception as exc:
+                    LOGGER.warning("Failed to send SET_LEVEL: %s", exc)
+                return
 
     def disconnect(self):
         self.yamcs.disconnect()
