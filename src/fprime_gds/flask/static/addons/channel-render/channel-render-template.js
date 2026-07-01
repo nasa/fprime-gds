@@ -29,7 +29,7 @@ export let channel_render_template = `
         <tr v-show="expanded" v-for="element_index in childIndices">
             <th>{{element_index}}</th>
             <td>
-                <channel-render :element_type="childType(element_index)" :val="(val || [])[element_index]">
+                <channel-render :element_type="childType(element_index)" :val="(val || [])[element_index]" :display_val="(displayVal && typeof displayVal === 'object') ? displayVal[element_index] : undefined">
                 </channel-render>
             </td>
         </tr>
