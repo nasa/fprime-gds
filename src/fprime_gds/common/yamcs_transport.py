@@ -230,8 +230,36 @@ class YamcsClient(TransportClient):
         if template is None:
             LOGGER.debug("No event template for %s", event.event_type)
             return None
+
+        # Extract event arguments from YAMCS event
         extra = getattr(event, "extra", None) or {}
-        arg_objs = [self._build_value_object(extra.get(s[0]), s[2]) for s in template.get_args()]
+        template_args = template.get_args()
+
+        # Check if event has no arguments (some events don't have args)
+        if not template_args:
+            return EventData(tuple(), self._build_time_type(event.generation_time), template)
+
+        # Build argument objects, handling missing data
+        arg_objs = []
+        for arg_spec in template_args:
+            arg_name, _, arg_type_class = arg_spec
+            arg_value = extra.get(arg_name)
+
+            if arg_value is None:
+                # Log warning for missing event argument
+                LOGGER.warning(
+                    "Event %s missing expected argument '%s'. "
+                    "Event may not display correctly. Extra fields: %s",
+                    event.event_type, arg_name, list(extra.keys())
+                )
+                # Create empty value object - will cause format string to show None or empty
+                arg_obj = arg_type_class()
+                arg_obj.val = "" if isinstance(arg_obj, StringType) else None
+            else:
+                arg_obj = self._build_value_object(arg_value, arg_type_class)
+
+            arg_objs.append(arg_obj)
+
         return EventData(tuple(arg_objs), self._build_time_type(event.generation_time), template)
 
     def upload_file(self, local_path, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
