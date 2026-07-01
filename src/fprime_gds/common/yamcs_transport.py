@@ -250,7 +250,7 @@ class YamcsClient(TransportClient):
             bucket_name=bucket_name, object_name=object_name, remote_path=remote_path,
         )
         LOGGER.info("Upload transfer started: id=%s", transfer.id)
-        return self._await_transfer(ft_service, transfer, timeout)
+        return  transfer
 
     def download_file(self, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
                       object_name=None, service_name=FILE_TRANSFER_SERVICE_NAME, timeout=60):
