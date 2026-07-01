@@ -95,6 +95,7 @@ Vue.component("command-input", {
             "selected": selected,
             "active": false,
             "error": "",
+            "showParameterCommands": true,
         }
     },
     template: command_input_template,
@@ -214,7 +215,18 @@ Vue.component("command-input", {
          * @return {unknown[]}
          */
         commandList() {
-            return Object.values(this.commands).sort(
+            let commands = Object.values(this.commands);
+            if (!this.showParameterCommands) {
+                let selected = this.selected;
+                commands = commands.filter(function(cmd) {
+                    if (selected && cmd.full_name === selected.full_name) {
+                        return true;
+                    }
+                    let mnemonic = cmd.full_name.split(".").pop();
+                    return !mnemonic.endsWith("_PRM_SET") && !mnemonic.endsWith("_PRM_SAVE");
+                });
+            }
+            return commands.sort(
                 /**
                  * Compare objects by full_name
                  * @param obj1: first object

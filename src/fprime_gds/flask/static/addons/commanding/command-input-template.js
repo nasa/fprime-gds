@@ -18,6 +18,15 @@ export let command_input_template = `
                     </v-select>
                     <div class="invalid-feedback">{{ (this.error != '')? this.error : "Supply valid command"}}</div>
                 </div>
+                <div class="form-group col-md-4 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="showParamCmds"
+                            v-model="showParameterCommands">
+                        <label class="form-check-label" for="showParamCmds">
+                            Show Parameter Commands
+                        </label>
+                    </div>
+                </div>
             </div>
             <div class="form-row" v-if="selected.description != null">
                 <label class="control-label font-weight-bold">Description: </label>
