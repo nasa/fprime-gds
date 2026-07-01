@@ -53,7 +53,10 @@ class YamcsWrapper:
             LOGGER.info("Subscribing to %d YAMCS parameters", len(parameter_names))
             self.subscriptions.append(
                 self.processor.create_parameter_subscription(
-                    parameters=parameter_names, on_data=on_parameter_callback
+                    parameters=parameter_names,
+                    on_data=on_parameter_callback,
+                    send_from_cache=False,
+                    update_on_expiration=True
                 )
             )
         LOGGER.info("Subscribing to YAMCS event stream")
