@@ -1146,9 +1146,12 @@ class IntegrationTestAPI(DataHandler):
             file_path: the path to the file to upload
             destination: the destination path for the uploaded file
             timeout: the maximum time to wait for the event
+        Returns:
+            True if FileReceived event was found, False otherwise
         """
         self.uplink_file(file_path, destination)
-        self.await_event("FileReceived", timeout=timeout)
+        event = self.await_event("FileReceived", timeout=timeout)
+        return event is not None
 
     def uplink_file(self, file_path, destination=None):
         """

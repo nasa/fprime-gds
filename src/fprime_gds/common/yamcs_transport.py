@@ -191,7 +191,7 @@ class YamcsClient(TransportClient):
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
             if isinstance(val, bool):
-                val = str(val)
+                val = str(val).lower()
             args_dict[spec[0]] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
