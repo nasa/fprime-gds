@@ -55,7 +55,7 @@ class YamcsWrapper:
                 self.processor.create_parameter_subscription(
                     parameters=parameter_names,
                     on_data=on_parameter_callback,
-                    send_from_cache=False,
+                    send_from_cache=True,
                     update_on_expiration=True
                 )
             )
