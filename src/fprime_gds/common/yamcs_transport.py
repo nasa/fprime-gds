@@ -56,7 +56,7 @@ class YamcsWrapper:
                     parameters=parameter_names,
                     on_data=on_parameter_callback,
                     send_from_cache=True,
-                    update_on_expiration=True
+                    update_on_expiration=False
                 )
             )
         LOGGER.info("Subscribing to YAMCS event stream")
