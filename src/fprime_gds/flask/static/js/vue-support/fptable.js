@@ -260,7 +260,9 @@ Vue.component("fp-table", {
             scroller: scroller,
             scrollerData: scroller.metadata,
             itemsLength: 0,
-            _timeoutId: null
+            _timeoutId: null,
+            sortColumn: null,
+            sortAscending: true
         }
     },
     methods: {
@@ -282,7 +284,7 @@ Vue.component("fp-table", {
             if (this.itemsKey !== null && this.items === null) {
                 let data = Object.values(_datastore[this.itemsKey]);
                 this.itemsLength = data.length;
-                this.scroll(this.filter(data));
+                this.scroll(this.sort(this.filter(data)));
             }
         },
 
@@ -319,10 +321,61 @@ Vue.component("fp-table", {
                 function(item) {
                     return itemToColumns(item).join(" ");
                 });
-            if (this.reverse) {
+            if (this.reverse && this.sortColumn === null) {
                 filtered.reverse();
             }
             return filtered;
+        },
+
+        /**
+         * Sort items by the currently selected column. Uses a Schwartzian transform
+         * to avoid redundant itemToColumns calls during comparison.
+         * @param items: filtered items to sort
+         * @return sorted copy when a sort column is active, otherwise the original array
+         */
+        sort(items) {
+            if (this.sortColumn === null) {
+                return items;
+            }
+            let col = this.sortColumn;
+            let asc = this.sortAscending;
+            let itemToColumns = this.itemToColumns;
+            let decorated = items.map(item => ({item, key: itemToColumns(item)[col]}));
+            decorated.sort((a, b) => {
+                let cmp = String(a.key).localeCompare(String(b.key), undefined, {numeric: true});
+                return asc ? cmp : -cmp;
+            });
+            return decorated.map(d => d.item);
+        },
+
+        /**
+         * Handle a column header click to toggle sorting on that column.
+         * @param displayIndex: index within the visible (possibly filtered) columns
+         */
+        columnClicked(displayIndex) {
+            let actualIndex = this.visibleIndices ? this.visibleIndices[displayIndex] : displayIndex;
+            if (this.sortColumn === actualIndex) {
+                if (!this.sortAscending) {
+                    this.sortColumn = null;
+                    this.sortAscending = true;
+                } else {
+                    this.sortAscending = false;
+                }
+            } else {
+                this.sortColumn = actualIndex;
+                this.sortAscending = true;
+            }
+            this.send();
+        },
+
+        /**
+         * Check whether the given display column is the currently sorted column.
+         * @param displayIndex: index within the visible columns
+         * @return {boolean}
+         */
+        isSortedColumn(displayIndex) {
+            let actualIndex = this.visibleIndices ? this.visibleIndices[displayIndex] : displayIndex;
+            return this.sortColumn === actualIndex;
         },
 
         scroll(items) {
@@ -416,7 +469,7 @@ Vue.component("fp-table", {
             if (this.itemsKey != null) {
                 return this.displayed;
             } else if (this.items != null) {
-                return this.scroll(this.filter(this.items));
+                return this.scroll(this.sort(this.filter(this.items)));
             } else {
                 console.error("items and itemsKey is not defined")
             }
@@ -459,24 +512,7 @@ Vue.component("fp-table", {
             return saveTextFileViaHref(this.view.join("\n"));
         }
     },
-    // Makes the table sortable after creation using post creation updates
-    updated: function() {
-        /**
-         * A function that registers a next-tick callback to make tables sortable. This allows us to manually convert
-         * a table to a sorttable after data is rerendered.
-         */
-        this.$nextTick(function() {
-            // Check existence of the third party library
-            if (typeof(sorttable) !== "undefined") {
-                let tables = this.$el.getElementsByTagName("table");
-                for (let i = 0; i < tables.length; i++) {
-                    sorttable.makeSortable(tables[i]);
-                }
-            } else {
-                console.warn("sortable.js not found, not attempting to sort tables");
-            }
-        })
-    },
+
     /**
      * Add scroll event listener during mounting of element
      */

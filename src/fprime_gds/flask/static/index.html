@@ -31,7 +31,6 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
 
         <!-- Third-party JavaScript files, hosted locally to remove internet dependence -->
         <script src="third-party/js/vue.min.js"></script>
-        <script src="third-party/js/sorttable.js"></script>
         <script src="third-party/js/luxon.min.js"></script>
         <!-- JavaScript GDS files -->
         <script type="module" src="js/gds.js"></script>
@@ -426,14 +425,18 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                     </div>
                     <div class="fp-scroll-container">
                         <div class="fp-scrollable" id="fp-scrollable-id">
-                            <table  class="sortable table table-bordered table-hover">
+                            <table class="table table-bordered table-hover">
                                 <thead>
                                     <tr v-if="!compact">
-                                        <th v-if="editing" class="sorttable_nosort">
+                                        <th v-if="editing">
                                             <input type="checkbox" v-on:input="checkAll" ref="allbox"
                                                 :checked="view.length == itemsLength.length">
                                         </th>
-                                        <th v-for="column in calculatedHeaderColumns">{{ column }}</th>
+                                        <th v-for="(column, index) in calculatedHeaderColumns"
+                                            @click="columnClicked(index)" style="cursor: pointer;">
+                                            {{ column }}
+                                            <span v-if="isSortedColumn(index)">{{ sortAscending ? '&#x25BE;' : '&#x25B4;' }}</span>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
