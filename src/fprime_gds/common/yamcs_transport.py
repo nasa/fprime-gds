@@ -55,7 +55,7 @@ class YamcsWrapper:
                 self.processor.create_parameter_subscription(
                     parameters=parameter_names,
                     on_data=on_parameter_callback,
-                    send_from_cache=True,
+                    send_from_cache=False,
                     update_on_expiration=False
                 )
             )
@@ -190,8 +190,6 @@ class YamcsClient(TransportClient):
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
-            if isinstance(val, bool):
-                val = str(val).lower()
             args_dict[spec[0]] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
@@ -280,8 +278,8 @@ class YamcsClient(TransportClient):
         transfer = ft_service.upload(
             bucket_name=bucket_name, object_name=object_name, remote_path=remote_path,
         )
-        LOGGER.info("Upload transfer started: id=%s", transfer.id)
-        return  transfer
+        LOGGER.info("Upload transfer started: id=%s remote=%s", transfer.id, remote_path)
+        return self._await_transfer(ft_service, transfer, timeout)
 
     def download_file(self, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
                       object_name=None, service_name=FILE_TRANSFER_SERVICE_NAME, timeout=60):
