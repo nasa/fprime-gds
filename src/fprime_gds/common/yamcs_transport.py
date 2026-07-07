@@ -190,9 +190,9 @@ class YamcsClient(TransportClient):
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
-            # YAMCS Python client converts all args to strings with force_string=True
-            # For bool, str(True)="True" and str(False)="False" which matches XTCE oneStringValue/zeroStringValue
-            # Don't convert bool - let it naturally stringify to "True"/"False"
+            # Convert to string - YAMCS client expects string values for all arguments
+            # For bool: str(True)="True", str(False)="False" matches XTCE oneStringValue/zeroStringValue
+            val = str(val)
             args_dict[spec[0]] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
