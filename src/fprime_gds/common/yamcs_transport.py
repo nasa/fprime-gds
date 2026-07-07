@@ -55,7 +55,7 @@ class YamcsWrapper:
                 self.processor.create_parameter_subscription(
                     parameters=parameter_names,
                     on_data=on_parameter_callback,
-                    send_from_cache=False,
+                    send_from_cache=True,
                     update_on_expiration=False
                 )
             )
@@ -190,6 +190,9 @@ class YamcsClient(TransportClient):
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
+            # Convert bool to int for YAMCS serialization (True->1, False->0)
+            if isinstance(val, bool):
+                val = int(val)
             args_dict[spec[0]] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)

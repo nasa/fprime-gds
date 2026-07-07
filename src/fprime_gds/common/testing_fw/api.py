@@ -1149,8 +1149,9 @@ class IntegrationTestAPI(DataHandler):
         Returns:
             True if FileReceived event was found, False otherwise
         """
+        start = self.get_event_test_history().size()
         self.uplink_file(file_path, destination)
-        event = self.await_event("FileReceived", timeout=timeout)
+        event = self.await_event("FileReceived", start=start, timeout=timeout)
         return event is not None
 
     def uplink_file(self, file_path, destination=None):
