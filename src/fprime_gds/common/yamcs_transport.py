@@ -190,9 +190,9 @@ class YamcsClient(TransportClient):
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
-            # Convert bool to int for YAMCS serialization (True->1, False->0)
+            # Convert bool to string for YAMCS serialization (True->"True", False->"False")
             if isinstance(val, bool):
-                val = int(val)
+                val = str(val)
             args_dict[spec[0]] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
@@ -267,7 +267,7 @@ class YamcsClient(TransportClient):
         return EventData(tuple(arg_objs), self._build_time_type(event.generation_time), template)
 
     def upload_file(self, local_path, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
-                    service_name=FILE_TRANSFER_SERVICE_NAME, timeout=60):
+                    service_name=FILE_TRANSFER_SERVICE_NAME, timeout=120):
         storage = self.yamcs.get_storage_client()
         object_name = local_path.split("/")[-1] if "/" in local_path else local_path
         with open(local_path, "rb") as f:
