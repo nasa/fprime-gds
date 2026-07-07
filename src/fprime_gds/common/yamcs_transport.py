@@ -190,9 +190,12 @@ class YamcsClient(TransportClient):
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
-            # Convert bool to string for YAMCS serialization (True->"True", False->"False")
+            # YAMCS Python client converts all args to strings with force_string=True
+            # For bool types, XTCE expects integer encoding (0/1), so we must convert
+            # before the Python client stringifies it, otherwise "True"/"False" strings
+            # don't match the IntegerDataEncoding in XTCE
             if isinstance(val, bool):
-                val = str(val)
+                val = 1 if val else 0
             args_dict[spec[0]] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
