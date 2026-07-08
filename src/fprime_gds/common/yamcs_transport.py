@@ -197,6 +197,7 @@ class YamcsClient(TransportClient):
             LOGGER.info("Command issued: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
         except Exception as exc:
             LOGGER.error("YAMCS rejected command %s: %s", yamcs_cmd_name, exc)
+            raise
 
     def _on_parameter_data(self, parameter_data):
         for param_value in parameter_data.parameters:
@@ -228,7 +229,7 @@ class YamcsClient(TransportClient):
         return ChData(val_obj, ch_time, template)
 
     def _build_event_data(self, event):
-        template = self._event_by_leaf.get(event.event_type)
+        template = self.dictionaries.event_name.get(event.event_type) or self._event_by_leaf.get(event.event_type)
         if template is None:
             LOGGER.debug("No event template for %s", event.event_type)
             return None
