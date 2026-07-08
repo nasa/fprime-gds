@@ -1296,7 +1296,15 @@ class GdsParser(ParserBase):
                 "dest": "browser_auto_open",
                 "action": "store_false",
                 "help": "Run server without auto-launching the default web browser"
-                }
+                },
+            ("--gui-root-path",): {
+                "dest": "gui_root_path",
+                "action": "store",
+                "default": "",
+                "required": False,
+                "type": str,
+                "help": "URL prefix when serving behind a reverse proxy (e.g. /fprime-gds-2). [default: %(default)s]",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):

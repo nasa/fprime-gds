@@ -20,6 +20,7 @@ from fprime_gds.executables.cli import (
     PluginArgumentParser,
 )
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
+from fprime_gds.flask.prefix import normalize_application_root
 from fprime_gds.plugin.system import Plugins
 
 BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
@@ -118,11 +119,13 @@ def launch_html(parsed_args):
     if "--log-directly" not in reproduced_arguments:
         reproduced_arguments += ["--log-directly"]
     flask_env = os.environ.copy()
+    root_path = normalize_application_root(getattr(parsed_args, "gui_root_path", "") or "")
     flask_env.update(
         {
             "FLASK_APP": "fprime_gds.flask.app",
             "STANDARD_PIPELINE_ARGUMENTS": "|".join(reproduced_arguments),
             "SERVE_LOGS": "YES",
+            "FP_GDS_APPLICATION_ROOT": root_path,
         }
     )
     if parsed_args.hash_file:
@@ -136,7 +139,7 @@ def launch_html(parsed_args):
         str(parsed_args.gui_port),
     ]
     ret = launch_process(gse_args, name="HTML GUI", env=flask_env, launch_time=2)
-    ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/"
+    ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}{root_path}/"
     print(f"[INFO] Launched UI at: {ui_url}")
     
     if parsed_args.browser_auto_open:

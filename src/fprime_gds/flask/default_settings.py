@@ -10,9 +10,13 @@
 ####
 import os
 
-STANDARD_PIPELINE_ARGUMENTS = os.environ.get("STANDARD_PIPELINE_ARGUMENTS").split("|")
+_standard_pipeline = os.environ.get("STANDARD_PIPELINE_ARGUMENTS", "")
+STANDARD_PIPELINE_ARGUMENTS = _standard_pipeline.split("|") if _standard_pipeline else []
 
 SERVE_LOGS = os.environ.get("SERVE_LOGS", "YES") == "YES"
+
+# Optional subpath for reverse-proxy deployments (nasa/fprime#3854).
+APPLICATION_ROOT = os.environ.get("FP_GDS_APPLICATION_ROOT", "")
 
 MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # Max length of request is 32MiB
 

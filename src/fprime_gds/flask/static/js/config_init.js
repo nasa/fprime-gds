@@ -49,6 +49,9 @@ export let config = {
     //
     // Thus dashboards are disabled by default and projects must opt-in thus taking the responsibility
     // to validate and review the safety of the dashboards they use.
-    enableDashboards: false
+    enableDashboards: false,
+
+    // Prefix for REST API calls when GDS is served behind a reverse proxy subpath.
+    apiBasePath: ""
 };
 

@@ -203,7 +203,7 @@ class Loader {
                     reject(this.responseText);
                 }
             };
-            let url = endpoint;
+            let url = (config.apiBasePath || "") + endpoint;
             let session = (_self.endpoints["session"].data || {}).session || null;
 
             let arg_pairs = [["session", session], ["limit", _settings.miscellaneous.response_object_limit]];

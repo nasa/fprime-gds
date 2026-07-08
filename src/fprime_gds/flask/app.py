@@ -30,6 +30,7 @@ import fprime_gds.flask.sequence
 import fprime_gds.flask.stats
 import fprime_gds.flask.updown
 from fprime_gds.executables.cli import ParserBase, StandardPipelineParser, ConfigDrivenParser
+from fprime_gds.flask.prefix import ScriptNameMiddleware, normalize_application_root
 
 from . import components
 
@@ -75,6 +76,13 @@ def construct_app():
     # Load app configuration from file
     for key, value in args_ns.config_values.get("flask", {}).items():
         app.config[key] = value
+
+    application_root = normalize_application_root(
+        getattr(args_ns, "gui_root_path", "") or app.config.get("APPLICATION_ROOT", "") or ""
+    )
+    app.config["APPLICATION_ROOT"] = application_root
+    if application_root:
+        app.wsgi_app = ScriptNameMiddleware(app.wsgi_app, application_root)
 
     pipeline = components.setup_pipelined_components(app.debug, args_ns)
 
@@ -197,6 +205,14 @@ def handle_unexpected_error(error):
     status_code = 500
     response = {"errors": [fprime_gds.flask.errors.build_error_object(error)]}
     return flask.jsonify(response), status_code
+
+
+@app.route("/js/bootstrap-config.js")
+def bootstrap_config_serve():
+    """Inject runtime apiBasePath for subpath / reverse-proxy deployments."""
+    base = normalize_application_root(flask.current_app.config.get("APPLICATION_ROOT", ""))
+    body = f'import {{config}} from "./config_init.js";\nconfig.apiBasePath = "{base}";\n'
+    return flask.Response(body, mimetype="application/javascript")
 
 
 @app.route("/js/config.js")
