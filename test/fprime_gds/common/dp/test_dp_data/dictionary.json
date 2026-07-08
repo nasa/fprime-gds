@@ -1423,6 +1423,43 @@
         "tSub" : 0
       },
       "annotation" : "Data structure representing a data product."
+    },
+    {
+      "kind" : "struct",
+      "qualifiedName" : "Svc.CompressionMetadata",
+      "members" : {
+        "algorithm" : {
+          "type" : {
+            "name" : "Svc.CompressionAlgorithm",
+            "kind" : "qualifiedIdentifier"
+          },
+          "index" : 0
+        }
+      },
+      "default" : {
+        "algorithm" : "Svc.CompressionAlgorithm.UNCOMPRESSED"
+      }
+    },
+    {
+      "kind" : "enum",
+      "qualifiedName" : "Svc.CompressionAlgorithm",
+      "representationType" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "enumeratedConstants" : [
+        {
+          "name" : "UNCOMPRESSED",
+          "value" : 0
+        },
+        {
+          "name" : "ZLIB_DEFLATE",
+          "value" : 1
+        }
+      ],
+      "default" : "Svc.CompressionAlgorithm.UNCOMPRESSED"
     }
   ],
   "commands" : [
@@ -10103,6 +10140,18 @@
       "array" : false,
       "id" : 5389,
       "annotation" : "Record 14"
+    },
+    {
+      "name" : "DpCompression.dpCompressProc.CompressionRecord",
+      "type" : {
+        "name" : "U8",
+        "kind" : "integer",
+        "size" : 8,
+        "signed" : false
+      },
+      "array" : true,
+      "id" : 68157440,
+      "annotation" : "Record ID used to mark compressed records in a data product"
     }
   ],
   "containers" : [
