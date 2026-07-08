@@ -267,9 +267,9 @@ class YamcsClient(TransportClient):
         return EventData(tuple(arg_objs), self._build_time_type(event.generation_time), template)
 
     def upload_file(self, local_path, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
-                    service_name=FILE_TRANSFER_SERVICE_NAME, timeout=120):
+                    service_name=FILE_TRANSFER_SERVICE_NAME, timeout=300):
         storage = self.yamcs.get_storage_client()
-        object_name = local_path.split("/")[-1] if "/" in local_path else local_path
+        object_name = remote_path.split("/")[-1] if "/" in remote_path else remote_path
         with open(local_path, "rb") as f:
             storage.upload_object(
                 bucket_name=bucket_name,
