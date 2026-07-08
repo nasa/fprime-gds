@@ -190,6 +190,12 @@ class YamcsClient(TransportClient):
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
+            # Convert all arguments to strings. The yamcs-client internally uses
+            # force_string=True when serializing command arguments to match XTCE encoding.
+            # For bools: str(True)="True" and str(False)="False" correctly match the
+            # oneStringValue/zeroStringValue defined in F´ XTCE dictionaries.
+            # For numeric types: YAMCS accepts string representations (e.g., "42", "3.14").
+            # This approach was validated through testing multiple alternatives (see git log).
             val = str(val)
             args_dict[spec[0]] = val
         try:
