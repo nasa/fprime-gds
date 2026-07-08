@@ -20,7 +20,6 @@ import pytest
 
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.executables.cli import StandardPipelineParser
-from fprime_gds.common.yamcs_transport import YamcsClient
 
 SEQUENCE_COUNTER = -1
 
@@ -114,6 +113,12 @@ def fprime_test_api_session(request):
         # pipeline_factory build the pipeline
         
         if request.config.getoption("--use-yamcs"):
+            try:
+                from fprime_gds.common.yamcs_transport import YamcsClient
+            except ImportError:
+                raise pytest.UsageError(
+                    "--use-yamcs requires the yamcs-client package. Install with: pip install fprime-gds[yamcs]"
+                )
             yamcs_url = request.config.getoption("--yamcs-url")
             yamcs_host = yamcs_url.replace("http://", "").replace("https://", "")
 
