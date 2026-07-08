@@ -208,14 +208,14 @@ class StandardPipeline:
             if self.files is not None and self.files.uplinker is not None:
                 self.files.uplinker.exit()
 
-    def uplink_file(self, file_path, destination=None):
+    def uplink_file(self, file_path, destination=None, packets=None):
         if hasattr(self.client_socket, "upload_file"):
             remote_path = destination if destination else "/" + Path(file_path).name
             self.client_socket.upload_file(str(file_path), remote_path)
         else:
             uplink_file = Path(self.up_store) / Path(file_path).name
             shutil.copy2(file_path, uplink_file)
-            self.files.uplinker.enqueue(str(uplink_file), destination)
+            self.files.uplinker.enqueue(str(uplink_file), destination, packets)
 
     def send_command(self, command, args):
         """Sends commands to the encoder and history.
@@ -233,15 +233,6 @@ class StandardPipeline:
         cmd_data.time = TimeType()
         cmd_data.time.set_datetime(datetime.datetime.now(), TimeType.TimeBase("TB_WORKSTATION_TIME"))
         self.coders.send_command(cmd_data)
-
-    def uplink_file(self, file_path, destination=None):
-        if hasattr(self.client_socket, "upload_file"):
-            remote_path = destination if destination else "/" + Path(file_path).name
-            self.client_socket.upload_file(str(file_path), remote_path)
-        else:
-            uplink_file = Path(self.up_store) / Path(file_path).name
-            shutil.copy2(file_path, uplink_file)
-            self.files.uplinker.enqueue(str(uplink_file), destination)
 
     @property
     def dictionaries(self):

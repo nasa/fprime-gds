@@ -1137,7 +1137,7 @@ class IntegrationTestAPI(DataHandler):
     #   File Uplink functions
     ######################################################################################
 
-    def uplink_file_and_await_completion(self, file_path, destination=None, timeout=10):
+    def uplink_file_and_await_completion(self, file_path, destination=None, timeout=10, packets=None):
         """
         This function will upload a file and wait for its completion, awaiting for the
         FileReceived event.
@@ -1146,15 +1146,16 @@ class IntegrationTestAPI(DataHandler):
             file_path: the path to the file to upload
             destination: the destination path for the uploaded file
             timeout: the maximum time to wait for the event
+            packets: (optional) packet specifications for the file
         Returns:
             True if FileReceived event was found, False otherwise
         """
         start = self.get_event_test_history().size()
-        self.uplink_file(file_path, destination)
+        self.uplink_file(file_path, destination, packets)
         event = self.await_event("FileReceived", start=start, timeout=timeout)
         return event is not None
 
-    def uplink_file(self, file_path, destination=None):
+    def uplink_file(self, file_path, destination=None, packets=None):
         """
         This function will upload a file to the specified location.
 
@@ -1165,8 +1166,9 @@ class IntegrationTestAPI(DataHandler):
         Args:
             file_path: the path to the file to upload
             destination: the destination path for the uploaded file
+            packets: (optional) packet specifications for the file
         """
-        self.pipeline.uplink_file(file_path, destination)
+        self.pipeline.uplink_file(file_path, destination, packets)
 
     def uplink_sequence_and_await_completion(self, sequence_path, destination=None, timeout=10):
         """

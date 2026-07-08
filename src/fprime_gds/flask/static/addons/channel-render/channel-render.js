@@ -29,6 +29,10 @@ Vue.component("channel-render", {
         // element_type specifies the type of the element
         element_type: {
             default: null, // Element type is not specified and force by-dictionary lookup
+        },
+        // display_val is the pre-formatted display value from the backend (e.g. "123 mV")
+        display_val: {
+            default: null,
         }
     },
     template: channel_render_template,
@@ -102,12 +106,21 @@ Vue.component("channel-render", {
             return entry.type_obj;
         },
         /**
-         * Display text of the given element. Uses "display_text" property when available, then item val, then bound
-         * value and finally empty string.
+         * The pre-formatted display value for this element. At the top level this comes from
+         * item.display_text (computed by the Python backend); in recursion it comes from the
+         * display_val prop passed by the parent.
+         * @returns: formatted display value (string for leaves, dict/list for complex types)
+         */
+        displayVal() {
+            return this.item?.display_text ?? this.display_val;
+        },
+        /**
+         * Display text of the given element. Prefers the backend-formatted display value when
+         * available, falling back to raw val.
          * @returns: display text of item/child item
          */
         displayText() {
-            let possibles = [this.item?.display_text, this.item?.val, this.val];
+            let possibles = [this.displayVal, this.item?.val, this.val];
             for (let i = 0; i < possibles.length; i++) {
                 if (typeof(possibles[i]) !== "undefined" && possibles[i] !== null) {
                     return possibles[i];

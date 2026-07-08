@@ -925,6 +925,14 @@ class LogDeployParser(ParserBase):
                 "default": False,
                 "help": "Disable logging of each data item",
             },
+            ("--log-prefix",): {
+                "dest": "log_prefix",
+                "action": "store",
+                "default": None,
+                "type": str,
+                "help": "Prefix for log directory names (e.g. 'fprime-gds-<timestamp>'). "
+                "Auto-detected from tool name when not specified. Use '' to disable. [default: auto-detect]",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -936,11 +944,16 @@ class LogDeployParser(ParserBase):
         """
         # Get logging dir
         if not args.log_directly:
-            args.logs = os.path.abspath(
-                os.path.join(
-                    args.logs, datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-                )
-            )
+            # Auto-detect prefix from tool name if not explicitly provided
+            if args.log_prefix is None:
+                tool_name = os.path.basename(sys.argv[0])
+                if tool_name.endswith(".py"):
+                    tool_name = tool_name[:-3]
+                args.log_prefix = tool_name
+
+            timestamp = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+            dir_name = f"{args.log_prefix}-{timestamp}" if args.log_prefix else timestamp
+            args.logs = os.path.abspath(os.path.join(args.logs, dir_name))
             # A dated directory has been set, all log handling must now be direct
             args.log_directly = True
 

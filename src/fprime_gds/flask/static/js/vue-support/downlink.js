@@ -40,7 +40,7 @@ Vue.component("downlink", {
          * @return list of columns
          */
         columnify(item) {
-            return [item.source, item.destination, item.state];
+            return [item.start || "", item.end || "", item.source, item.destination, item.state, "", String(item.percent || 0)];
         }
     },
     computed: {

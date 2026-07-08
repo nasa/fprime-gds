@@ -105,7 +105,7 @@ Vue.component("uplink", {
          * @return Array of columns for filtering purposes.
          */
         columnify(item) {
-            return [item.source, item.destination, item.state];
+            return [item.start || "", item.end || "", item.source, item.destination, item.state, "", String(item.percent || 0)];
         },
 
         dismiss_alert() {
@@ -126,7 +126,7 @@ Vue.component("uplink", {
          * @return {T[] | string}
          */
         elements() {
-            return this.selected.concat(this.upfiles.reverse());
+            return this.selected.concat(this.upfiles.slice().reverse());
         },
 
         /**
