@@ -694,11 +694,13 @@ class IntegrationTestAPI(DataHandler):
         """
         This function will translate the channel ID, and construct a telemetry_predicate object. It
         is used as a helper by the IntegrationTestAPI, but could also be helpful to a user of the
-        test API. If  channel is already an instance of telemetry_predicate, it will be returned
-        immediately. The provided implementation of telemetry_predicate evaluates true if and only
-        if all specified constraints are satisfied. If a specific constraint isn't specified, then
-        it will not effect the outcome; this means all arguments are optional. If no constraints
-        are specified, the predicate will always return true.
+        test API. If channel is already an instance of telemetry_predicate, it will be returned
+        immediately when no other constraints are given; otherwise its channel constraint is
+        combined with the given value and time constraints. The provided implementation of
+        telemetry_predicate evaluates true if and only if all specified constraints are satisfied.
+        If a specific constraint isn't specified, then it will not effect the outcome; this means
+        all arguments are optional. If no constraints are specified, the predicate will always
+        return true.
 
 
         Args:
@@ -709,7 +711,15 @@ class IntegrationTestAPI(DataHandler):
             an instance of telemetry_predicate
         """
         if isinstance(channel, predicates.telemetry_predicate):
-            return channel
+            if value is None and time_pred is None:
+                return channel
+            if not predicates.is_predicate(value) and value is not None:
+                value = predicates.equal_to(value)
+            return predicates.telemetry_predicate(
+                channel.id_pred,
+                value if value is not None else channel.value_pred,
+                time_pred if time_pred is not None else channel.time_pred,
+            )
 
         if not predicates.is_predicate(channel) and channel is not None:
             channel = self.translate_telemetry_name(channel, force_component=False)
