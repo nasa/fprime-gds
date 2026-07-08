@@ -94,10 +94,6 @@ class StandardPipeline:
             self.dictionaries, self.distributor, self.client_socket
         )
         self.histories.setup_histories(self.coders)
-        # Transports that bypass the binary path (e.g. YamcsClient) declare
-        # set_pipeline_references to receive dictionary and decoder handles,
-        # and accept CmdData directly as a command subscriber so they can
-        # skip the encode→decode round-trip for outbound commands.
         if hasattr(self.client_socket, "set_pipeline_references"):
             self.client_socket.set_pipeline_references(
                 self.dictionaries,
@@ -114,9 +110,6 @@ class StandardPipeline:
             cooldown=cooldown,
             chunk=chunk,
         )
-        # Register distributor to client socket for transports that produce
-        # raw bytes (TCP). Structured transports (YAMCS) dispatch directly
-        # to decoder registrants and don't use the distributor.
         if not hasattr(self.client_socket, "set_pipeline_references"):
             self.client_socket.register(self.distributor)
         # Final setup step is to make a logging directory, and register in the logger

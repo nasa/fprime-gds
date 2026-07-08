@@ -60,7 +60,6 @@ def pytest_addoption(parser):
         help="Path to JSON configuration file for mapping deployment components",
     )
 
-    # YAMCS integration options
     parser.addoption(
         "--use-yamcs",
         action="store_true",
@@ -109,9 +108,6 @@ def fprime_test_api_session(request):
     try:
         arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
 
-        # When --use-yamcs is set, override the transport and connection URI on the parsed arguments and let
-        # pipeline_factory build the pipeline
-        
         if request.config.getoption("--use-yamcs"):
             try:
                 from fprime_gds.common.yamcs_transport import YamcsClient
