@@ -506,6 +506,21 @@ class IntegrationTestAPI(DataHandler):
         command = self.translate_command_name(command)
         self.pipeline.send_command(command, args)
 
+    def set_tlm_packet_level(self, level=3):
+        """
+        Set the telemetry packet level on FSW to enable/disable telemetry packet groups.
+
+        Finds the Svc.TlmPacketizer.SET_LEVEL command in the dictionary and sends it.
+        Useful for tests that need higher-level telemetry packets to be emitted by FSW.
+
+        Args:
+            level: telemetry packet level to set (default 3 enables all)
+        """
+        for name in self.pipeline.dictionaries.command_name:
+            if name.endswith(".SET_LEVEL"):
+                self.send_command(name, [level])
+                return
+
     def send_and_await_telemetry(self, command, args=None, channels=None, timeout=5):
         """
         Sends the specified command and awaits the specified channel update or sequence of

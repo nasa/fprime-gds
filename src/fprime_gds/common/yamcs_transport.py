@@ -52,6 +52,7 @@ class YamcsWrapper:
         if parameter_names:
             LOGGER.info("Subscribing to %d YAMCS parameters", len(parameter_names))
             self.subscriptions.append(
+
                 self.processor.create_parameter_subscription(
                     parameters=parameter_names,
                     on_data=on_parameter_callback,
@@ -149,20 +150,6 @@ class YamcsClient(TransportClient):
             on_parameter_callback=self._on_parameter_data,
             on_event_callback=self._on_event_data,
         )
-        self._set_tlm_packet_level()
-
-    def _set_tlm_packet_level(self):
-        if self.dictionaries is None:
-            return
-        for name in self.dictionaries.command_name:
-            if name.endswith(".SET_LEVEL"):
-                yamcs_cmd = self.yamcs.to_yamcs_cmd_name(name)
-                try:
-                    self.yamcs.issue_command(yamcs_cmd, {"level": 3})
-                    LOGGER.info("Sent %s level=3 to enable all telemetry packet groups", yamcs_cmd)
-                except Exception as exc:
-                    LOGGER.warning("Failed to send SET_LEVEL: %s", exc)
-                return
 
     def disconnect(self):
         self.yamcs.disconnect()
@@ -190,20 +177,15 @@ class YamcsClient(TransportClient):
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
-            # Convert all arguments to strings. The yamcs-client internally uses
-            # force_string=True when serializing command arguments to match XTCE encoding.
-            # For bools: str(True)="True" and str(False)="False" correctly match the
-            # oneStringValue/zeroStringValue defined in F´ XTCE dictionaries.
-            # For numeric types: YAMCS accepts string representations (e.g., "42", "3.14").
-            # This approach was validated through testing multiple alternatives (see git log).
-            val = str(val)
+            # YAMCS Python client converts all args to strings with force_string=True
+            # For bool, str(True)="True" and str(False)="False" which matches XTCE oneStringValue/zeroStringValue
+            # Don't convert bool - let it naturally stringify to "True"/"False"
             args_dict[spec[0]] = val
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
             LOGGER.info("Command issued: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
         except Exception as exc:
             LOGGER.error("YAMCS rejected command %s: %s", yamcs_cmd_name, exc)
-            raise
 
     def _on_parameter_data(self, parameter_data):
         for param_value in parameter_data.parameters:
@@ -235,28 +217,33 @@ class YamcsClient(TransportClient):
         return ChData(val_obj, ch_time, template)
 
     def _build_event_data(self, event):
-        template = self.dictionaries.event_name.get(event.event_type) or self._event_by_leaf.get(event.event_type)
+        template = self._event_by_leaf.get(event.event_type)
         if template is None:
             LOGGER.debug("No event template for %s", event.event_type)
             return None
 
+        # Extract event arguments from YAMCS event
         extra = getattr(event, "extra", None) or {}
         template_args = template.get_args()
 
+        # Check if event has no arguments (some events don't have args)
         if not template_args:
             return EventData(tuple(), self._build_time_type(event.generation_time), template)
 
+        # Build argument objects, handling missing data
         arg_objs = []
         for arg_spec in template_args:
             arg_name, _, arg_type_class = arg_spec
             arg_value = extra.get(arg_name)
 
             if arg_value is None:
+                # Log warning for missing event argument
                 LOGGER.warning(
                     "Event %s missing expected argument '%s'. "
                     "Event may not display correctly. Extra fields: %s",
                     event.event_type, arg_name, list(extra.keys())
                 )
+                # Create empty value object - will cause format string to show None or empty
                 arg_obj = arg_type_class()
                 arg_obj.val = "" if isinstance(arg_obj, StringType) else None
             else:
@@ -267,9 +254,9 @@ class YamcsClient(TransportClient):
         return EventData(tuple(arg_objs), self._build_time_type(event.generation_time), template)
 
     def upload_file(self, local_path, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
-                    service_name=FILE_TRANSFER_SERVICE_NAME, timeout=300):
+                    service_name=FILE_TRANSFER_SERVICE_NAME, timeout=120):
         storage = self.yamcs.get_storage_client()
-        object_name = remote_path.split("/")[-1] if "/" in remote_path else remote_path
+        object_name = local_path.split("/")[-1] if "/" in local_path else local_path
         with open(local_path, "rb") as f:
             storage.upload_object(
                 bucket_name=bucket_name,
