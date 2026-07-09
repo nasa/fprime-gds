@@ -13,6 +13,7 @@ def main():
     decode_parser.add_argument("-b", "--bin-file", required=True, help="Path to input data product binary file (.fdp)")
     decode_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
     decode_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json)")
+    decode_parser.add_argument("-z", "--disable-decompression", action='store_true', help="Disable automatic decompression of data products")
 
     validate_parser = subcommands_parser.add_parser('validate', help='Validate a data product')
     validate_parser.add_argument("-b", "--bin-file", required=True, help="Path to input data product binary file (.fdp)")
@@ -29,7 +30,7 @@ def main():
 
     if args.command == "decode":
         assert args.dictionaries is not None, "Dictionaries must be loaded"
-        DataProductDecoder(args.dictionaries, args.bin_file, args.output).process()
+        DataProductDecoder(args.dictionaries, args.bin_file, args.output, args.disable_decompression).process()
 
     elif args.command == "validate":
         success = DataProductValidator(
