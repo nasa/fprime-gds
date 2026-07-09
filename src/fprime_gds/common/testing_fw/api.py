@@ -512,6 +512,7 @@ class IntegrationTestAPI(DataHandler):
 
         Finds the Svc.TlmPacketizer.SET_LEVEL command in the dictionary and sends it.
         Useful for tests that need higher-level telemetry packets to be emitted by FSW.
+        No-op if the deployment does not use TlmPacketizer (SET_LEVEL command absent).
 
         Args:
             level: telemetry packet level to set (default 3 enables all)
@@ -520,6 +521,7 @@ class IntegrationTestAPI(DataHandler):
             if name.endswith(".SET_LEVEL"):
                 self.send_command(name, [level])
                 return
+        self.__log("SET_LEVEL command not found in dictionary; skipping set_tlm_packet_level", TestLogger.YELLOW)
 
     def send_and_await_telemetry(self, command, args=None, channels=None, timeout=5):
         """
