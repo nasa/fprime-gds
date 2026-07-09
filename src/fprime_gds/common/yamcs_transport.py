@@ -176,9 +176,7 @@ class YamcsClient(TransportClient):
         args_dict = {}
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
-            if isinstance(val, bool):
-                val = 1 if val else 0
-            args_dict[spec[0]] = val
+            args_dict[spec[0]] = str(val)
         try:
             issued = self.yamcs.issue_command(yamcs_cmd_name, args_dict)
             LOGGER.info("Command issued: %s id=%s", yamcs_cmd_name, getattr(issued, "id", None))
