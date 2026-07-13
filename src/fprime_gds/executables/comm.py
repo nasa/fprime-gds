@@ -24,6 +24,7 @@ from pathlib import Path
 # Required adapters built on standard tools
 import fprime_gds.common.communication.adapters.base
 import fprime_gds.common.communication.adapters.ip
+import fprime_gds.common.communication.adapters.udp
 import fprime_gds.common.communication.ground
 import fprime_gds.common.logger
 import fprime_gds.executables.cli
