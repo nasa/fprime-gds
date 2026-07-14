@@ -177,7 +177,7 @@ class YamcsClient(TransportClient):
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
             if isinstance(val, bool):
-                val = 255 if val else 0
+                val = "True" if val else "False"
             else:
                 val = str(val)
             args_dict[spec[0]] = val
