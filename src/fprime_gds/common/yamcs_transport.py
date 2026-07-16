@@ -177,8 +177,8 @@ class YamcsClient(TransportClient):
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
             if isinstance(val, bool):
-                # Convert Python boolean to F Prime wire format: True=255, False=0
-                val = "255" if val else "0"
+                # Convert Python boolean to F Prime wire format (True=255, False=0)
+                val = 255 if val else 0
             else:
                 val = str(val)
             args_dict[spec[0]] = val
