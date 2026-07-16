@@ -89,7 +89,9 @@ def preprocess_c_style_format_str(format_str: str) -> str:
     def convert(match_obj: re.Match):
         if match_obj.group() is None:
             return match_obj
-        flags, width, precision, _, conversion_type = match_obj.groups()
+        literal_percents, flags, width, precision, _, conversion_type = (
+            match_obj.groups()
+        )
         format_template = ""
         if flags:
             format_template += f"{flags}"
@@ -101,9 +103,14 @@ def preprocess_c_style_format_str(format_str: str) -> str:
         if conversion_type and str(conversion_type).lower() in {"f", "x", "o", "e"}:
             format_template += f"{conversion_type}"
 
-        return "{}" if format_template == "" else "{:" + format_template + "}"
+        body = "{}" if format_template == "" else "{:" + format_template + "}"
+        # A leading run of "%%" pairs is literal text (each pair is one "%").
+        # Keep it in front of the converted field; the trailing replace below
+        # collapses "%%" -> "%" uniformly. Without this the literal percent is
+        # dropped when "%%" sits directly before a conversion, e.g. "%%%d".
+        return f"{literal_percents or ''}{body}"
 
-    pattern = r"(?<!%)(?:%%)*%([\-\+0\ \#])?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsSZ])"  # NOSONAR
+    pattern = r"(?<!%)((?:%%)*)%([\-\+0\ \#])?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsSZ])"  # NOSONAR
 
     match = re.compile(pattern)
 

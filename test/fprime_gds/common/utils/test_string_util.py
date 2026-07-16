@@ -101,6 +101,22 @@ class TestFormatString(unittest.TestCase):
         actual = format_string_template(preprocess_c_style_format_str(template), values)
         self.assertEqual(expected, actual)
 
+    def test_format_percent_sign_before_conversion(self):
+        # A literal "%%" that comes right before a conversion must survive.
+        # C prints "%5" here, not "5".
+        template = "%%%d"
+        values = (5,)
+        expected = "%5"
+        actual = format_string_template(preprocess_c_style_format_str(template), values)
+        self.assertEqual(expected, actual)
+
+    def test_format_percent_sign_before_conversion_in_text(self):
+        template = "progress %%%d complete"
+        values = (50,)
+        expected = "progress %50 complete"
+        actual = format_string_template(preprocess_c_style_format_str(template), values)
+        self.assertEqual(expected, actual)
+
     def test_format_single_value(self):
         template = "%.2f%%"
         values = 1.23456
