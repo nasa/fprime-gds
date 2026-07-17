@@ -177,8 +177,8 @@ class YamcsClient(TransportClient):
         for i, spec in enumerate(template.get_args()):
             val = arg_vals[i].val
             if isinstance(val, bool):
-                # Convert Python boolean to F Prime wire format (True=255, False=0)
-                val = 255 if val else 0
+                # YAMCS expects boolean enums as string labels, not integer values
+                val = "True" if val else "False"
             else:
                 val = str(val)
             args_dict[spec[0]] = val
