@@ -60,6 +60,18 @@ def pytest_addoption(parser):
         help="Path to JSON configuration file for mapping deployment components",
     )
 
+    parser.addoption(
+        "--use-yamcs",
+        action="store_true",
+        help="Use YAMCS transport instead of TCP socket"
+    )
+    parser.addoption(
+        "--yamcs-url",
+        action="store",
+        default="http://localhost:8090",
+        help="YAMCS server URL [default: %(default)s]"
+    )
+
 def pytest_configure(config):
     """ This is a hook to allow plugins and conftest files to perform initial configuration
     
@@ -94,10 +106,21 @@ def fprime_test_api_session(request):
     api = None
     deployment_config = None
     try:
-        # Parse the command line arguments into a client connection
         arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
 
-        # Build a new pipeline with the parsed and processed arguments
+        if request.config.getoption("--use-yamcs"):
+            try:
+                from fprime_gds.common.yamcs_transport import YamcsClient
+            except ImportError:
+                raise pytest.UsageError(
+                    "--use-yamcs requires the yamcs-client package. Install with: pip install fprime-gds[yamcs]"
+                )
+            yamcs_url = request.config.getoption("--yamcs-url")
+            yamcs_host = yamcs_url.replace("http://", "").replace("https://", "")
+
+            arg_ns.connection_transport = YamcsClient
+            arg_ns.connection_uri = f"yamcs://{yamcs_host}"
+
         pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
 
         # Get deployment configuration from command line arguments

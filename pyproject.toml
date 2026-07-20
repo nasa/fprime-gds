@@ -49,6 +49,9 @@ dependencies = [
     "lark>=1.3.0"
 ]
 
+[project.optional-dependencies]
+yamcs = ["yamcs-client>=1.12.1,<2.0.0"]
+
 [project.urls]
 Homepage = "https://fprime.jpl.nasa.gov"
 Documentation = "https://nasa.github.io/fprime/"

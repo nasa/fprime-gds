@@ -506,6 +506,23 @@ class IntegrationTestAPI(DataHandler):
         command = self.translate_command_name(command)
         self.pipeline.send_command(command, args)
 
+    def set_tlm_packet_level(self, level=3):
+        """
+        Set the telemetry packet level on FSW to enable/disable telemetry packet groups.
+
+        Finds the Svc.TlmPacketizer.SET_LEVEL command in the dictionary and sends it.
+        Useful for tests that need higher-level telemetry packets to be emitted by FSW.
+        No-op if the deployment does not use TlmPacketizer (SET_LEVEL command absent).
+
+        Args:
+            level: telemetry packet level to set (default 3 enables all)
+        """
+        for name in self.pipeline.dictionaries.command_name:
+            if name.endswith(".SET_LEVEL"):
+                self.send_command(name, [level])
+                return
+        self.__log("SET_LEVEL command not found in dictionary; skipping set_tlm_packet_level", TestLogger.YELLOW)
+
     def send_and_await_telemetry(self, command, args=None, channels=None, timeout=5):
         """
         Sends the specified command and awaits the specified channel update or sequence of
@@ -694,11 +711,13 @@ class IntegrationTestAPI(DataHandler):
         """
         This function will translate the channel ID, and construct a telemetry_predicate object. It
         is used as a helper by the IntegrationTestAPI, but could also be helpful to a user of the
-        test API. If  channel is already an instance of telemetry_predicate, it will be returned
-        immediately. The provided implementation of telemetry_predicate evaluates true if and only
-        if all specified constraints are satisfied. If a specific constraint isn't specified, then
-        it will not effect the outcome; this means all arguments are optional. If no constraints
-        are specified, the predicate will always return true.
+        test API. If channel is already an instance of telemetry_predicate, it will be returned
+        immediately when no other constraints are given; otherwise its channel constraint is
+        combined with the given value and time constraints. The provided implementation of
+        telemetry_predicate evaluates true if and only if all specified constraints are satisfied.
+        If a specific constraint isn't specified, then it will not effect the outcome; this means
+        all arguments are optional. If no constraints are specified, the predicate will always
+        return true.
 
 
         Args:
@@ -709,7 +728,15 @@ class IntegrationTestAPI(DataHandler):
             an instance of telemetry_predicate
         """
         if isinstance(channel, predicates.telemetry_predicate):
-            return channel
+            if value is None and time_pred is None:
+                return channel
+            if not predicates.is_predicate(value) and value is not None:
+                value = predicates.equal_to(value)
+            return predicates.telemetry_predicate(
+                channel.id_pred,
+                value if value is not None else channel.value_pred,
+                time_pred if time_pred is not None else channel.time_pred,
+            )
 
         if not predicates.is_predicate(channel) and channel is not None:
             channel = self.translate_telemetry_name(channel, force_component=False)
@@ -1147,9 +1174,13 @@ class IntegrationTestAPI(DataHandler):
             destination: the destination path for the uploaded file
             timeout: the maximum time to wait for the event
             packets: (optional) packet specifications for the file
+        Returns:
+            True if FileReceived event was found, False otherwise
         """
+        start = self.get_event_test_history().size()
         self.uplink_file(file_path, destination, packets)
-        self.await_event("FileReceived", timeout=timeout)
+        event = self.await_event("FileReceived", start=start, timeout=timeout)
+        return event is not None
 
     def uplink_file(self, file_path, destination=None, packets=None):
         """
@@ -1164,9 +1195,7 @@ class IntegrationTestAPI(DataHandler):
             destination: the destination path for the uploaded file
             packets: (optional) packet specifications for the file
         """
-        uplink_file = Path(self.pipeline.up_store) / Path(file_path).name
-        shutil.copy2(file_path, uplink_file)
-        self.pipeline.files.uplinker.enqueue(str(uplink_file), destination, packets)
+        self.pipeline.uplink_file(file_path, destination, packets)
 
     def uplink_sequence_and_await_completion(self, sequence_path, destination=None, timeout=10):
         """

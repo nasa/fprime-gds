@@ -11,6 +11,7 @@ below.
 
 import datetime
 import os.path
+import shutil
 from pathlib import Path
 from typing import Type
 
@@ -93,6 +94,13 @@ class StandardPipeline:
             self.dictionaries, self.distributor, self.client_socket
         )
         self.histories.setup_histories(self.coders)
+        if hasattr(self.client_socket, "set_pipeline_references"):
+            self.client_socket.set_pipeline_references(
+                self.dictionaries,
+                self.coders.channel_decoder,
+                self.coders.event_decoder,
+            )
+            self.coders.register_command_consumer(self.client_socket)
         self.files.setup_file_handling(
             self.down_store,
             self.coders.file_encoder,
@@ -102,8 +110,8 @@ class StandardPipeline:
             cooldown=cooldown,
             chunk=chunk,
         )
-        # Register distributor to client socket
-        self.client_socket.register(self.distributor)
+        if not hasattr(self.client_socket, "set_pipeline_references"):
+            self.client_socket.register(self.distributor)
         # Final setup step is to make a logging directory, and register in the logger
         if logging_prefix and data_logging_enabled:
             self.setup_logging(logging_prefix)
@@ -152,7 +160,8 @@ class StandardPipeline:
         self.coders.register_event_consumer(self.logger)
         self.coders.register_command_consumer(self.logger)
         self.coders.register_packet_consumer(self.logger)
-        self.client_socket.register(self.logger)
+        if not hasattr(self.client_socket, "set_pipeline_references"):
+            self.client_socket.register(self.logger)
 
     def connect(
         self, connection_uri, incoming_tag=RoutingTag.GUI, outgoing_tag=RoutingTag.FSW
@@ -191,6 +200,15 @@ class StandardPipeline:
         finally:
             if self.files is not None and self.files.uplinker is not None:
                 self.files.uplinker.exit()
+
+    def uplink_file(self, file_path, destination=None, packets=None):
+        if hasattr(self.client_socket, "upload_file"):
+            remote_path = destination if destination else "/" + Path(file_path).name
+            self.client_socket.upload_file(str(file_path), remote_path)
+        else:
+            uplink_file = Path(self.up_store) / Path(file_path).name
+            shutil.copy2(file_path, uplink_file)
+            self.files.uplinker.enqueue(str(uplink_file), destination, packets)
 
     def send_command(self, command, args):
         """Sends commands to the encoder and history.
