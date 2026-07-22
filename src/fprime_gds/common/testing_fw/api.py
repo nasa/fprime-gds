@@ -506,7 +506,7 @@ class IntegrationTestAPI(DataHandler):
         command = self.translate_command_name(command)
         self.pipeline.send_command(command, args)
 
-    def set_tlm_packet_level(self, level=3):
+    def set_tlm_packet_level(self, level=3,timeout=10):
         """
         Set the telemetry packet level on FSW to enable/disable telemetry packet groups.
 
@@ -516,10 +516,11 @@ class IntegrationTestAPI(DataHandler):
 
         Args:
             level: telemetry packet level to set (default 3 enables all)
+            timeout: the number of seconds to wait before terminating the search (int)
         """
         for name in self.pipeline.dictionaries.command_name:
             if name.endswith(".SET_LEVEL"):
-                self.send_and_assert_command(name, [level], timeout=10)
+                self.send_and_assert_command(name, [level], timeout=timeout)
                 return
         self.__log("SET_LEVEL command not found in dictionary; skipping set_tlm_packet_level", TestLogger.YELLOW)
 
