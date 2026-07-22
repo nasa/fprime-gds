@@ -519,7 +519,7 @@ class IntegrationTestAPI(DataHandler):
         """
         for name in self.pipeline.dictionaries.command_name:
             if name.endswith(".SET_LEVEL"):
-                self.send_command(name, [level])
+                self.send_and_assert_command(name, [level], timeout=5)
                 return
         self.__log("SET_LEVEL command not found in dictionary; skipping set_tlm_packet_level", TestLogger.YELLOW)
 
