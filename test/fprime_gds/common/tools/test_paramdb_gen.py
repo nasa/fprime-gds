@@ -41,7 +41,7 @@ def test_failure_paramdb():
     cfg_file = Path(__file__).parent / "input" / "simple_bad_paramdb.json"
     assert_prmdb_cfg(cfg_file, should_fail=True)
 
-@pytest.mark.parametrize("value", ["", 0, 0.0])
+@pytest.mark.parametrize("value", ["", 0, 0.0, False])
 def test_parse_json_keeps_falsy_values(value):
     dict_file = Path(__file__).parent / "resources" / "simple_dictionary.json"
     _, name_dict, _ = PrmJsonLoader(str(dict_file)).construct_dicts(str(dict_file))
