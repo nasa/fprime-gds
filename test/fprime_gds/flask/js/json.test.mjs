@@ -84,12 +84,13 @@ test("literal flag objects are revived regardless of other content", () => {
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NULL", "value": null}}').x, null);
 });
 
-test("every token type preprocess() emits trips the NEEDS_PREPROCESS fast-path gate", () => {
+test("every token type preprocess() emits trips the needsPreprocess fast-path gate", () => {
     for (const token of ["NaN", "Infinity", "-Infinity", "9007199254740993"]) {
         const input = '{"a": ' + token + "}";
-        assert.ok(SaferParser.NEEDS_PREPROCESS.test(input), token + " must match NEEDS_PREPROCESS");
+        assert.ok(SaferParser.needsPreprocess(input), token + " must trip needsPreprocess");
         assert.notEqual(SaferParser.preprocess(input), input, token + " must be replaced");
     }
+    assert.ok(SaferParser.needsPreprocess('{"fprime{replacement": "NAN"}'), "flag objects must trip needsPreprocess");
 });
 
 test("non-string input is coerced like native JSON.parse", () => {

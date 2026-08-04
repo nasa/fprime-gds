@@ -54,6 +54,34 @@ function isDigit(character) {
 }
 
 /**
+ * Determine if a string contains a run of 16 or more consecutive digits (the length at which an integer
+ * can exceed Number.MAX_SAFE_INTEGER). Samples every 16th character: any 16-digit run must contain a
+ * sampled index, so no run can be missed. Runs found are skipped over, keeping the scan near O(n/16).
+ * @param json_string: string to scan
+ * @return {boolean}: true if a 16+ digit run exists
+ */
+function hasLongDigitRun(json_string) {
+    const length = json_string.length;
+    for (let i = 15; i < length; i += 16) {
+        if (isDigit(json_string[i])) {
+            let low = i;
+            while (low > 0 && isDigit(json_string[low - 1])) {
+                low--;
+            }
+            let high = i;
+            while (high + 1 < length && isDigit(json_string[high + 1])) {
+                high++;
+            }
+            if (high - low + 1 >= 16) {
+                return true;
+            }
+            i = high; // Resume sampling past this (short) digit run
+        }
+    }
+    return false;
+}
+
+/**
  * Scan a number token (digits, decimal point, exponent) starting at the given index
  * @param json_string: full input string
  * @param start: index of the first character of the number body (after any leading "-")
@@ -113,15 +141,22 @@ export class SaferParser {
         null
     ];
 
-    // Quick check for input that may need preprocessing: bare Infinity/NaN tokens or integers long enough
-    // to exceed Number.MAX_SAFE_INTEGER (its smallest violator, 2^53, has 16 digits). False positives (e.g.
-    // tokens inside strings) are acceptable: they merely trigger the single-pass scan below. This regex must
-    // match every token type preprocess() replaces, or replacement is silently skipped.
-    static NEEDS_PREPROCESS = /Infinity|NaN|\d{16}/;
-
     // Store the language variants the first time
     static language_parse = JSON.parse;
     static language_stringify = JSON.stringify;
+
+    /**
+     * Quick check for input that may need preprocessing: bare Infinity/NaN tokens, integers exceeding
+     * Number.MAX_SAFE_INTEGER, or a literal flag object needing revival. False positives (e.g. tokens
+     * inside strings) are acceptable: they merely trigger the single-pass scan. This check must cover
+     * every token type preprocess() replaces, or replacement is silently skipped.
+     * @param json_string: JSON string to check
+     * @return {boolean}: true if the scan/reviver path is needed
+     */
+    static needsPreprocess(json_string) {
+        return json_string.includes("NaN") || json_string.includes("Infinity") ||
+               json_string.includes(SaferParser.CONVERSION_KEY) || hasLongDigitRun(json_string);
+    }
 
     /**
      * @brief safely process F Prime JSON syntax
@@ -147,13 +182,18 @@ export class SaferParser {
     static parse(json_string, reviver) {
         // Match native JSON.parse semantics, which coerce non-string input to string
         json_string = (typeof json_string === "string") ? json_string : String(json_string);
-        const converted_data = SaferParser.preprocess(json_string);
-        // When no replacements were made and no literal flag objects can be present, parse with only the
-        // caller's reviver (or none), avoiding the significant cost of a per-node reviver callback
+        // When needsPreprocess() is false, no replacement is needed and no flag object can be present:
+        // parse with only the caller's reviver (or none), avoiding the significant cost of a per-node
+        // reviver callback. The quick check is the only overhead on this common clean-payload path.
+        let converted_data = json_string;
         let full_reviver = reviver;
-        if (converted_data !== json_string || json_string.includes(SaferParser.CONVERSION_KEY)) {
-            const input_reviver = reviver || ((key, value) => value);
-            full_reviver = (key, value) => input_reviver(key, SaferParser.reviver(key, value));
+        if (SaferParser.needsPreprocess(json_string)) {
+            converted_data = SaferParser.preprocess(json_string);
+            // Regex false positives (e.g. tokens inside strings) yield no replacement and need no reviver
+            if (converted_data !== json_string || json_string.includes(SaferParser.CONVERSION_KEY)) {
+                const input_reviver = reviver || ((key, value) => value);
+                full_reviver = (key, value) => input_reviver(key, SaferParser.reviver(key, value));
+            }
         }
         try {
             const language_parsed = SaferParser.language_parse(converted_data, full_reviver);
@@ -275,8 +315,8 @@ export class SaferParser {
      */
     static preprocess(json_string) {
         // Fast path: no problematic token can be present. Any token type emitted below MUST also be
-        // matched by NEEDS_PREPROCESS above, or its replacement is silently skipped.
-        if (!SaferParser.NEEDS_PREPROCESS.test(json_string)) {
+        // covered by needsPreprocess() above, or its replacement is silently skipped.
+        if (!SaferParser.needsPreprocess(json_string)) {
             return json_string;
         }
         const length = json_string.length;
