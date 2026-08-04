@@ -53,16 +53,20 @@ function isDigit(character) {
     return character >= "0" && character <= "9";
 }
 
+// Shortest digit run that can exceed the safe-integer range (16: the length of 2^53's decimal form)
+const UNSAFE_DIGIT_RUN = String(Number.MAX_SAFE_INTEGER).length;
+
 /**
- * Determine if a string contains a run of 16 or more consecutive digits (the length at which an integer
- * can exceed Number.MAX_SAFE_INTEGER). Samples every 16th character: any 16-digit run must contain a
- * sampled index, so no run can be missed. Runs found are skipped over, keeping the scan near O(n/16).
+ * Determine if a string contains a run of UNSAFE_DIGIT_RUN or more consecutive digits (the length at
+ * which an integer can exceed Number.MAX_SAFE_INTEGER). Samples every UNSAFE_DIGIT_RUN-th character:
+ * any such run must contain a sampled index, so no run can be missed. Runs found are skipped over,
+ * keeping the scan near O(n / UNSAFE_DIGIT_RUN).
  * @param json_string: string to scan
- * @return {boolean}: true if a 16+ digit run exists
+ * @return {boolean}: true if a long digit run exists
  */
 function hasLongDigitRun(json_string) {
     const length = json_string.length;
-    for (let i = 15; i < length; i += 16) {
+    for (let i = UNSAFE_DIGIT_RUN - 1; i < length; i += UNSAFE_DIGIT_RUN) {
         if (isDigit(json_string[i])) {
             let low = i;
             while (low > 0 && isDigit(json_string[low - 1])) {
@@ -72,7 +76,7 @@ function hasLongDigitRun(json_string) {
             while (high + 1 < length && isDigit(json_string[high + 1])) {
                 high++;
             }
-            if (high - low + 1 >= 16) {
+            if (high - low + 1 >= UNSAFE_DIGIT_RUN) {
                 return true;
             }
             i = high; // Resume sampling past this (short) digit run
@@ -156,11 +160,20 @@ export class SaferParser {
      * @return {boolean}: true if the scan/reviver path is needed
      */
     static needsPreprocess(json_string) {
-        // "\u" catches flag-object keys spelled with unicode escapes (e.g. "fprime\u007breplacement"),
-        // which parse to CONVERSION_KEY but would not match a literal substring check
         return json_string.includes("NaN") || json_string.includes("Infinity") ||
-               json_string.includes(SaferParser.CONVERSION_KEY) || json_string.includes("\\u") ||
-               hasLongDigitRun(json_string);
+               SaferParser.mayContainFlagObject(json_string) || hasLongDigitRun(json_string);
+    }
+
+    /**
+     * Determine if the input may contain a literal flag object needing revival. "\u00" catches keys
+     * spelled with unicode escapes (e.g. "fprime\u007breplacement"), which parse to CONVERSION_KEY but
+     * would not match a literal substring check; every character of the ASCII-only key escapes as
+     * \u00XX, so non-Latin-1 escapes (\u4e2d etc.) keep the fast path.
+     * @param json_string: JSON string to check
+     * @return {boolean}: true if a flag object may be present
+     */
+    static mayContainFlagObject(json_string) {
+        return json_string.includes(SaferParser.CONVERSION_KEY) || json_string.includes("\\u00");
     }
 
     /**
@@ -195,12 +208,14 @@ export class SaferParser {
         let full_reviver = reviver;
         if (SaferParser.needsPreprocess(json_string)) {
             converted_data = SaferParser.preprocess(json_string);
-            // False positives (e.g. tokens inside strings) yield no replacement and need no reviver;
-            // "\u" escapes may spell a flag-object key, so they must keep the reviver attached
-            if (converted_data !== json_string || json_string.includes(SaferParser.CONVERSION_KEY) ||
-                json_string.includes("\\u")) {
+            // False positives (e.g. tokens inside strings) yield no replacement and need no reviver,
+            // unless a literal flag object may be present and must be revived
+            if (converted_data !== json_string || SaferParser.mayContainFlagObject(json_string)) {
                 const input_reviver = reviver || ((key, value) => value);
-                full_reviver = (key, value) => input_reviver(key, SaferParser.reviver(key, value));
+                // Preserve the holder binding (this) and any extra arguments for the caller's reviver
+                full_reviver = function (key, value, context) {
+                    return input_reviver.call(this, key, SaferParser.reviver(key, value), context);
+                };
             }
         }
         try {

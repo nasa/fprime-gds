@@ -43,6 +43,9 @@ test("unsafe integers become BigInt at the exact boundary", () => {
     assert.equal(SaferParser.parse('{"a": 9007199254740991}').a, Number.MAX_SAFE_INTEGER);
     assert.equal(typeof SaferParser.parse('{"a": 9007199254740991}').a, "number");
     assert.equal(SaferParser.parse('{"a": 9007199254740993}').a, 9007199254740993n);
+    // 2^53 itself is exactly representable, so it round-trips back to a plain number
+    assert.equal(SaferParser.parse('{"a": 9007199254740992}').a, 9007199254740992);
+    assert.equal(typeof SaferParser.parse('{"a": 9007199254740992}').a, "number");
     assert.equal(SaferParser.parse('{"a": 18446744073709551615}').a, 18446744073709551615n);
     assert.equal(SaferParser.parse('{"a": -18446744073709551615}').a, -18446744073709551615n);
     assert.equal(typeof SaferParser.parse('{"a": -9007199254740991}').a, "number");
@@ -75,6 +78,10 @@ test("caller reviver runs on both fast and slow paths", () => {
     const doubler = (key, value) => (key === "a" ? value * 2 : value);
     assert.equal(SaferParser.parse('{"a": 5}', doubler).a, 10);
     assert.equal(SaferParser.parse('{"a": 5, "b": NaN}', doubler).a, 10);
+    // On the slow path the caller reviver must see the revived value, not the flag object
+    const seen = {};
+    SaferParser.parse('{"b": NaN}', (key, value) => { seen[key] = value; return value; });
+    assert.ok(Number.isNaN(seen.b));
 });
 
 test("literal flag objects are revived regardless of other content", () => {
@@ -86,6 +93,10 @@ test("literal flag objects are revived regardless of other content", () => {
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NULL", "value": null}}').x, null);
     // Flag-object key spelled with a unicode escape must still be revived
     assert.ok(Number.isNaN(SaferParser.parse('{"x": {"fprime\\u007breplacement": "NAN", "value": "NaN"}}').x));
+    // Non-Latin-1 escapes alone must not force the slow path
+    const unicode_clean = '{"a": "\\u4e2d\\u6587"}';
+    assert.equal(SaferParser.needsPreprocess(unicode_clean), false);
+    assert.equal(SaferParser.parse(unicode_clean).a, "\u4e2d\u6587");
 });
 
 test("every token type preprocess() emits trips the needsPreprocess fast-path gate", () => {
