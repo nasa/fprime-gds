@@ -117,9 +117,13 @@ export class SaferParser {
      */
     static parse(json_string, reviver) {
         let converted_data = SaferParser.preprocess(json_string);
-        // Set up a composite reviver of the one passed in and ours
-        let input_reviver = reviver || ((key, value) => value);
-        let full_reviver = (key, value) => input_reviver(key, SaferParser.reviver(key, value));
+        // When no replacements were made, no flag objects exist to revive: parse with only the caller's
+        // reviver (or none), avoiding the significant cost of a per-node reviver callback
+        let full_reviver = reviver;
+        if (converted_data !== json_string) {
+            let input_reviver = reviver || ((key, value) => value);
+            full_reviver = (key, value) => input_reviver(key, SaferParser.reviver(key, value));
+        }
         try {
             let language_parsed = SaferParser.language_parse(converted_data, full_reviver);
             return language_parsed;
