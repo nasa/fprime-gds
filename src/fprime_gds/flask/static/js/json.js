@@ -35,7 +35,7 @@ const JSON_NUMBER = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/;
  * @throws {SyntaxError}: when the value is not a valid JSON number
  */
 function stringToNumber(value) {
-    value = value.trim(); // Should be unnecessary
+    value = value.trim(); // Tolerate whitespace-padded flag-object values before the strict grammar check
     if (!JSON_NUMBER.test(value)) {
         throw new SyntaxError("Invalid JSON number: " + value);
     }
@@ -247,9 +247,10 @@ export class SaferParser {
         return null;
     }
 
-    // Escapes that can spell a CONVERSION_KEY character: every character of the ASCII-only key lies in
-    // 0x61-0x7b, so only \u006X/\u007X escapes matter; other escapes (\u00b0, \u4e2d) keep the fast path
-    static KEY_ESCAPE = /\\u00[67]/i;
+    // Escapes that can spell a CONVERSION_KEY character, generated from the key itself so the two can
+    // never drift; other escapes (\u0067, \u00b0, \u4e2d) keep the fast path
+    static KEY_ESCAPE = new RegExp("\\\\u00(?:" + [...new Set(SaferParser.CONVERSION_KEY)]
+        .map((character) => character.charCodeAt(0).toString(16)).join("|") + ")", "i");
 
     /**
      * Determine if the input may contain a literal flag object needing revival. The escape check catches

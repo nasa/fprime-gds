@@ -182,6 +182,10 @@ test("KEY_ESCAPE covers every escape-spelled CONVERSION_KEY character", () => {
         assert.ok(SaferParser.KEY_ESCAPE.test(escape.toUpperCase().replace("\\U", "\\u")),
                   escape + " must match KEY_ESCAPE case-insensitively");
     }
+    // Escapes of characters outside the key must not trip the gate (keeps the fast path precise)
+    for (const escape of ["\\u0067", "\\u007a", "\\u0030"]) {
+        assert.equal(SaferParser.KEY_ESCAPE.test(escape), false, escape + " must not match KEY_ESCAPE");
+    }
 });
 
 test("reviver handles primitives and null", () => {
@@ -198,13 +202,11 @@ test("malformed input terminates and throws SyntaxError", () => {
     }
 });
 
-test("pathological escape-heavy strings parse quickly", () => {
+// The timeout is a hang-detection guard (not a performance benchmark): catastrophic backtracking
+// here previously took seconds to minutes or overflowed the regex engine
+test("pathological escape-heavy strings parse quickly", {timeout: 5000}, () => {
     const evil = '{"a": "' + "\\\\".repeat(50000) + '"}';
-    const start = Date.now();
     assert.equal(SaferParser.parse(evil).a.length, 50000);
-    // Coarse hang-detection guard (not a performance benchmark): catastrophic backtracking here
-    // previously took seconds to minutes or overflowed the regex engine
-    assert.ok(Date.now() - start < 5000);
 });
 
 test("registered mode overrides the global JSON functions", () => {
