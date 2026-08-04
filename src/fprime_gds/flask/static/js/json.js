@@ -53,20 +53,20 @@ function isDigit(character) {
     return character >= "0" && character <= "9";
 }
 
-// Shortest digit run that can exceed the safe-integer range (16: the length of 2^53's decimal form)
-const UNSAFE_DIGIT_RUN = String(Number.MAX_SAFE_INTEGER).length;
+// Shortest digit-run length that can exceed the safe-integer range (16: the length of 2^53's decimal form)
+const UNSAFE_DIGIT_RUN_LENGTH = String(Number.MAX_SAFE_INTEGER).length;
 
 /**
- * Determine if a string contains a run of UNSAFE_DIGIT_RUN or more consecutive digits (the length at
- * which an integer can exceed Number.MAX_SAFE_INTEGER). Samples every UNSAFE_DIGIT_RUN-th character:
- * any such run must contain a sampled index, so no run can be missed. Runs found are skipped over,
- * keeping the scan near O(n / UNSAFE_DIGIT_RUN).
+ * Determine if a string contains a run of UNSAFE_DIGIT_RUN_LENGTH or more consecutive digits (the
+ * length at which an integer can exceed Number.MAX_SAFE_INTEGER). Samples every
+ * UNSAFE_DIGIT_RUN_LENGTH-th character: any such run must contain a sampled index, so no run can be
+ * missed. Runs found are skipped over, keeping the scan near O(n / UNSAFE_DIGIT_RUN_LENGTH).
  * @param json_string: string to scan
  * @return {boolean}: true if a long digit run exists
  */
 function hasLongDigitRun(json_string) {
     const length = json_string.length;
-    for (let i = UNSAFE_DIGIT_RUN - 1; i < length; i += UNSAFE_DIGIT_RUN) {
+    for (let i = UNSAFE_DIGIT_RUN_LENGTH - 1; i < length; i += UNSAFE_DIGIT_RUN_LENGTH) {
         if (isDigit(json_string[i])) {
             let low = i;
             while (low > 0 && isDigit(json_string[low - 1])) {
@@ -76,7 +76,7 @@ function hasLongDigitRun(json_string) {
             while (high + 1 < length && isDigit(json_string[high + 1])) {
                 high++;
             }
-            if (high - low + 1 >= UNSAFE_DIGIT_RUN) {
+            if (high - low + 1 >= UNSAFE_DIGIT_RUN_LENGTH) {
                 return true;
             }
             i = high; // Resume sampling past this (short) digit run
@@ -131,9 +131,15 @@ export class SaferParser {
     // Must stay ASCII-only: mayContainFlagObject()'s \u00 escape gate depends on it
     static CONVERSION_KEY = "fprime{replacement";
 
-    // Bare tokens preprocess() replaces; needsPreprocess() derives its gate from this list so a new
-    // token type cannot be added to the scanner without automatically extending the gate
-    static GATE_TOKENS = ["NaN", "Infinity"];
+    // Bare tokens preprocess() replaces, mapped to their conversion types. Both the needsPreprocess()
+    // gate and the preprocess() scanner consume this map, so it is the single authoritative token list
+    static GATE_TOKENS = new Map([
+        ["NaN", "NAN"],
+        ["Infinity", "INFINITY"]
+    ]);
+
+    // First characters of the gate tokens: a cheap scanner filter before the startsWith checks
+    static GATE_TOKEN_STARTS = new Set([...SaferParser.GATE_TOKENS.keys()].map((token) => token[0]));
 
     static CONVERSION_MAP = new Map([
         ["INFINITY", (value) => (value[0] === "-") ? -Infinity : Infinity],
@@ -165,8 +171,27 @@ export class SaferParser {
      * @return {boolean}: true if the scan/reviver path is needed
      */
     static needsPreprocess(json_string) {
-        return SaferParser.GATE_TOKENS.some((token) => json_string.includes(token)) ||
-               SaferParser.mayContainFlagObject(json_string) || hasLongDigitRun(json_string);
+        for (const token of SaferParser.GATE_TOKENS.keys()) {
+            if (json_string.includes(token)) {
+                return true;
+            }
+        }
+        return SaferParser.mayContainFlagObject(json_string) || hasLongDigitRun(json_string);
+    }
+
+    /**
+     * Match a gate token (see GATE_TOKENS) at the given index.
+     * @param json_string: full input string
+     * @param index: index at which to match
+     * @return {[string, string]|null}: the [token, conversion type] entry matched, or null
+     */
+    static matchGateToken(json_string, index) {
+        for (const entry of SaferParser.GATE_TOKENS) {
+            if (json_string.startsWith(entry[0], index)) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     // Escapes that can spell a CONVERSION_KEY character: every character of the ASCII-only key lies in
@@ -202,13 +227,13 @@ export class SaferParser {
      * 4. null (natively)
      *
      * @param json_string: JSON string data containing potentially bad values; non-string input is
-     *                     coerced with String() to match native JSON.parse semantics
+     *                     coerced to string to match native JSON.parse semantics
      * @param reviver: reviver function to be combined with our reviver
      * @return {{}}: Javascript Object representation of data safely represented in JavaScript types
      */
     static parse(json_string, reviver) {
-        // Match native JSON.parse semantics, which coerce non-string input to string
-        json_string = (typeof json_string === "string") ? json_string : String(json_string);
+        // Match native JSON.parse semantics: implicit ToString coercion (throws TypeError for Symbols)
+        json_string = (typeof json_string === "string") ? json_string : "" + json_string;
         // When needsPreprocess() is false, no replacement is needed and no flag object can be present:
         // parse with only the caller's reviver (or none), avoiding the significant cost of a per-node
         // reviver callback. The quick check is the only overhead on this common clean-payload path.
@@ -219,7 +244,8 @@ export class SaferParser {
             // False positives (e.g. tokens inside strings) yield no replacement and need no reviver,
             // unless a literal flag object may be present and must be revived
             if (converted_data !== json_string || SaferParser.mayContainFlagObject(json_string)) {
-                const input_reviver = reviver || ((key, value) => value);
+                // Non-callable revivers are ignored, matching native JSON.parse
+                const input_reviver = isFunction(reviver) ? reviver : ((key, value) => value);
                 // Preserve the holder binding (this) and any extra arguments for the caller's reviver
                 full_reviver = function (key, value, context) {
                     return input_reviver.call(this, key, SaferParser.reviver(key, value), context);
@@ -346,7 +372,8 @@ export class SaferParser {
      */
     static preprocess(json_string) {
         // Fast path: no problematic token can be present. Any token type emitted below MUST also be
-        // covered by needsPreprocess() above, or its replacement is silently skipped.
+        // covered by needsPreprocess() above, or its replacement is silently skipped. This gate is
+        // intentionally redundant with the one in parse(): it protects direct external callers.
         if (!SaferParser.needsPreprocess(json_string)) {
             return json_string;
         }
@@ -371,21 +398,16 @@ export class SaferParser {
                 i++; // Consume closing quote
                 continue;
             }
-            // Bare NaN token
-            if (character === "N" && json_string.startsWith("NaN", i)) {
-                emit(i, i + "NaN".length, "NAN");
-                i += "NaN".length;
-                continue;
-            }
-            // Infinity, -Infinity, or a number (possibly requiring BigInt)
-            if (character === "I" || character === "-" || isDigit(character)) {
+            // Gate token (NaN, Infinity), optionally signed, or a number (possibly requiring BigInt)
+            if (SaferParser.GATE_TOKEN_STARTS.has(character) || character === "-" || isDigit(character)) {
                 const start = i;
                 if (character === "-") {
                     i++;
                 }
-                if (json_string.startsWith("Infinity", i)) {
-                    i += "Infinity".length;
-                    emit(start, i, "INFINITY");
+                const gate_match = SaferParser.matchGateToken(json_string, i);
+                if (gate_match !== null) {
+                    i += gate_match[0].length;
+                    emit(start, i, gate_match[1]);
                     continue;
                 }
                 // Scan the number token: digits, decimal, and exponent
@@ -425,17 +447,28 @@ export class SaferParser {
      * @return {*}: reverted value or value
      */
     static reviver(key, value) {
-        // Look for fprime-replacement and quickly abort if not there
+        // Look for the CONVERSION_KEY flag and quickly abort if not there
         if (value === null || typeof value !== "object") {
             return value;
         }
-        let replacement_type = value[SaferParser.CONVERSION_KEY];
-        if (typeof replacement_type === "undefined") {
+        const replacement_type = value[SaferParser.CONVERSION_KEY];
+        if (!SaferParser.CONVERSION_MAP.has(replacement_type)) {
             return value;
         }
-        let string_value = value["value"];
-        let replacer = SaferParser.CONVERSION_MAP.get(replacement_type);
-        return isFunction(replacer) ? replacer(string_value) : replacer;
+        const replacer = SaferParser.CONVERSION_MAP.get(replacement_type);
+        if (!isFunction(replacer)) {
+            return replacer;
+        }
+        // Malformed flag objects (missing or non-string value) pass through unchanged rather than throwing
+        const string_value = value["value"];
+        if (typeof string_value !== "string") {
+            return value;
+        }
+        try {
+            return replacer(string_value);
+        } catch (e) {
+            return value;
+        }
     }
 
      /**

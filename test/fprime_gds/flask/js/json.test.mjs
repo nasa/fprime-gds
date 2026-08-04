@@ -98,8 +98,10 @@ test("literal flag objects are revived regardless of other content", () => {
     assert.ok(Number.isNaN(combined.x));
     assert.equal(combined.y, Infinity);
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NULL", "value": null}}').x, null);
-    // Flag-object key spelled with a unicode escape must still be revived
+    // Flag-object keys spelled with unicode escapes (either hex range, either case) must still be revived
     assert.ok(Number.isNaN(SaferParser.parse('{"x": {"fprime\\u007breplacement": "NAN", "value": "NaN"}}').x));
+    assert.ok(Number.isNaN(SaferParser.parse('{"x": {"fprime\\u007Breplacement": "NAN", "value": "NaN"}}').x));
+    assert.ok(Number.isNaN(SaferParser.parse('{"x": {"\\u0066prime{replacement": "NAN", "value": "NaN"}}').x));
     // Non-Latin-1 escapes alone must not force the slow path
     const unicode_clean = '{"a": "\\u4e2d\\u6587"}';
     assert.equal(SaferParser.needsPreprocess(unicode_clean), false);
@@ -107,7 +109,7 @@ test("literal flag objects are revived regardless of other content", () => {
 });
 
 test("every token type preprocess() emits trips the needsPreprocess fast-path gate", () => {
-    for (const token of [...SaferParser.GATE_TOKENS, "-Infinity", "9007199254740993"]) {
+    for (const token of [...SaferParser.GATE_TOKENS.keys(), "-Infinity", "9007199254740993"]) {
         const input = '{"a": ' + token + "}";
         assert.ok(SaferParser.needsPreprocess(input), token + " must trip needsPreprocess");
         assert.notEqual(SaferParser.preprocess(input), input, token + " must be replaced");
@@ -120,6 +122,30 @@ test("non-string input is coerced like native JSON.parse", () => {
     assert.equal(SaferParser.parse(true), true);
     assert.equal(SaferParser.parse(null), null);
     assert.throws(() => SaferParser.parse(undefined), SyntaxError);
+    assert.throws(() => SaferParser.parse(Symbol("x")), TypeError);
+});
+
+test("non-callable revivers are ignored like native JSON.parse", () => {
+    assert.equal(SaferParser.parse('{"a": 1}', ["a"]).a, 1);
+    assert.equal(SaferParser.parse('{"a": Infinity}', ["a"]).a, Infinity);
+});
+
+test("malformed flag objects pass through unchanged instead of throwing", () => {
+    // Missing value, non-string value, unknown type, and a value BigInt() rejects
+    assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "INFINITY"}}').x,
+                     {"fprime{replacement": "INFINITY"});
+    assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": 5}}').x,
+                     {"fprime{replacement": "NUMBER", "value": 5});
+    assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "BOGUS", "value": "1"}}').x,
+                     {"fprime{replacement": "BOGUS", "value": "1"});
+    assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "junk"}}').x,
+                     {"fprime{replacement": "NUMBER", "value": "junk"});
+});
+
+test("digit-run gate boundaries", () => {
+    assert.equal(SaferParser.needsPreprocess('{"a": 123456789012345}'), false); // 15 digits: fast path
+    assert.equal(SaferParser.needsPreprocess('[123456789012345, 123456789012345]'), false); // adjacent short runs
+    assert.ok(SaferParser.needsPreprocess('{"a": 1234567890123456}')); // 16 digits trips the gate
 });
 
 test("reviver handles primitives and null", () => {
