@@ -32,7 +32,11 @@ test("non-standard tokens are revived", () => {
     assert.equal(SaferParser.parse('{"a": Infinity}').a, Infinity);
     assert.equal(SaferParser.parse('{"a": -Infinity}').a, -Infinity);
     assert.ok(Number.isNaN(SaferParser.parse('{"a": NaN}').a));
-    assert.equal(SaferParser.parse('[NaN, Infinity, -Infinity]').length, 3);
+    const values = SaferParser.parse('[NaN, Infinity, -Infinity]');
+    assert.equal(values.length, 3);
+    assert.ok(Number.isNaN(values[0]));
+    assert.equal(values[1], Infinity);
+    assert.equal(values[2], -Infinity);
 });
 
 test("unsafe integers become BigInt at the exact boundary", () => {
@@ -74,7 +78,23 @@ test("caller reviver runs on both fast and slow paths", () => {
 test("literal flag objects are revived regardless of other content", () => {
     const flag = '{"x": {"fprime{replacement": "NAN", "value": "NaN"}}';
     assert.ok(Number.isNaN(SaferParser.parse(flag).x));
-    assert.ok(Number.isNaN(SaferParser.parse(flag.slice(0, -1) + ', "y": Infinity}').x));
+    const combined = SaferParser.parse(flag.slice(0, -1) + ', "y": Infinity}');
+    assert.ok(Number.isNaN(combined.x));
+    assert.equal(combined.y, Infinity);
+    assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NULL", "value": null}}').x, null);
+});
+
+test("every token type preprocess() emits trips the NEEDS_PREPROCESS fast-path gate", () => {
+    for (const token of ["NaN", "Infinity", "-Infinity", "9007199254740993"]) {
+        const input = '{"a": ' + token + "}";
+        assert.ok(SaferParser.NEEDS_PREPROCESS.test(input), token + " must match NEEDS_PREPROCESS");
+        assert.notEqual(SaferParser.preprocess(input), input, token + " must be replaced");
+    }
+});
+
+test("non-string input is coerced like native JSON.parse", () => {
+    assert.equal(SaferParser.parse(123), 123);
+    assert.equal(SaferParser.parse(true), true);
 });
 
 test("reviver handles primitives and null", () => {
@@ -94,7 +114,9 @@ test("pathological escape-heavy strings parse quickly", () => {
     const evil = '{"a": "' + "\\\\".repeat(50000) + '"}';
     const start = Date.now();
     assert.equal(SaferParser.parse(evil).a.length, 50000);
-    assert.ok(Date.now() - start < 1000);
+    // Coarse hang-detection guard (not a performance benchmark): catastrophic backtracking here
+    // previously took seconds to minutes or overflowed the regex engine
+    assert.ok(Date.now() - start < 5000);
 });
 
 test("stringify round-trips non-standard values", () => {

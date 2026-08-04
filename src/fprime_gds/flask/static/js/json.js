@@ -54,6 +54,31 @@ function isDigit(character) {
 }
 
 /**
+ * Scan a number token (digits, decimal point, exponent) starting at the given index
+ * @param json_string: full input string
+ * @param start: index of the first character of the number body (after any leading "-")
+ * @return {{end: number, is_integer: boolean}}: index past the token and whether it stayed integral
+ */
+function scanNumberToken(json_string, start) {
+    const length = json_string.length;
+    let is_integer = true;
+    let i = start;
+    while (i < length) {
+        const token_character = json_string[i];
+        if (isDigit(token_character)) {
+            i++;
+        } else if (token_character === "." || token_character === "e" || token_character === "E" ||
+                   token_character === "+" || token_character === "-") {
+            is_integer = false;
+            i++;
+        } else {
+            break;
+        }
+    }
+    return {end: i, is_integer: is_integer};
+}
+
+/**
  * Parser to safely handle potential JSON object from Python. Python can produce some non-standard values (infinities,
  * NaNs, etc.) These values then break on the JS Javascript parser. To localize these faults, they are replaced before
  * processing with strings and then formally set during parsing.
@@ -120,16 +145,18 @@ export class SaferParser {
      * @return {{}}: Javascript Object representation of data safely represented in JavaScript types
      */
     static parse(json_string, reviver) {
+        // Match native JSON.parse semantics, which coerce non-string input to string
+        json_string = (typeof json_string === "string") ? json_string : String(json_string);
         const converted_data = SaferParser.preprocess(json_string);
         // When no replacements were made and no literal flag objects can be present, parse with only the
         // caller's reviver (or none), avoiding the significant cost of a per-node reviver callback
         let full_reviver = reviver;
         if (converted_data !== json_string || json_string.includes(SaferParser.CONVERSION_KEY)) {
-            let input_reviver = reviver || ((key, value) => value);
+            const input_reviver = reviver || ((key, value) => value);
             full_reviver = (key, value) => input_reviver(key, SaferParser.reviver(key, value));
         }
         try {
-            let language_parsed = SaferParser.language_parse(converted_data, full_reviver);
+            const language_parsed = SaferParser.language_parse(converted_data, full_reviver);
             return language_parsed;
         } catch (e) {
             let message = e.toString();
@@ -229,7 +256,7 @@ export class SaferParser {
      * @return {string}: JSON string of the flag object
      */
     static replacementFor(token_type, token_text) {
-        let replacement_object = {};
+        const replacement_object = {};
         replacement_object[SaferParser.CONVERSION_KEY] = token_type;
         replacement_object["value"] = token_text;
         return SaferParser.language_stringify(replacement_object);
@@ -247,7 +274,8 @@ export class SaferParser {
      * @return {string}
      */
     static preprocess(json_string) {
-        // Fast path: no problematic token can be present
+        // Fast path: no problematic token can be present. Any token type emitted below MUST also be
+        // matched by NEEDS_PREPROCESS above, or its replacement is silently skipped.
         if (!SaferParser.NEEDS_PREPROCESS.test(json_string)) {
             return json_string;
         }
@@ -290,19 +318,9 @@ export class SaferParser {
                     continue;
                 }
                 // Scan the number token: digits, decimal, and exponent
-                let is_integer = true;
-                while (i < length) {
-                    const token_character = json_string[i];
-                    if (isDigit(token_character)) {
-                        i++;
-                    } else if (token_character === "." || token_character === "e" || token_character === "E" ||
-                               token_character === "+" || token_character === "-") {
-                        is_integer = false;
-                        i++;
-                    } else {
-                        break;
-                    }
-                }
+                const scan = scanNumberToken(json_string, i);
+                const is_integer = scan.is_integer;
+                i = scan.end;
                 // Guarantee forward progress on malformed input (e.g. a stray "I" that is not "Infinity")
                 if (i === start) {
                     i++;

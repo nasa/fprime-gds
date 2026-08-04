@@ -12,7 +12,15 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node is not available")
+def _node_major():
+    """Return the major version of node on PATH, or 0 when node is unavailable"""
+    if shutil.which("node") is None:
+        return 0
+    version = subprocess.run(["node", "--version"], capture_output=True, text=True, timeout=30).stdout
+    return int(version.strip().lstrip("v").split(".")[0])
+
+
+@pytest.mark.skipif(_node_major() < 18, reason="node >= 18 with node:test is required")
 def test_safer_parser_js():
     """Run the node --test suite for json.js and assert it passes"""
     test_file = Path(__file__).parent / "json.test.mjs"
