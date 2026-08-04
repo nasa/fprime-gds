@@ -7,7 +7,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SaferParser } from "../../../../src/fprime_gds/flask/static/js/json.js";
+import { readFileSync } from "node:fs";
+
+// json.js is an ES module, but its directory has no package.json declaring "type": "module",
+// so Node would treat the .js file as CommonJS. Load its source through a data: URL instead.
+const { SaferParser } = await import(
+    "data:text/javascript," +
+    encodeURIComponent(readFileSync(new URL("../../../../src/fprime_gds/flask/static/js/json.js", import.meta.url), "utf8"))
+);
 
 // Tests exercise SaferParser directly; restore the built-in JSON functions
 SaferParser.deregister();
