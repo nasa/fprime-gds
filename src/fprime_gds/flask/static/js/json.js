@@ -244,7 +244,7 @@ export class SaferParser {
         let converted_data = json_string;
         let full_reviver = reviver;
         if (SaferParser.needsPreprocess(json_string)) {
-            converted_data = SaferParser.preprocess(json_string);
+            converted_data = SaferParser.scanAndReplace(json_string);
             // False positives (e.g. tokens inside strings) yield no replacement and need no reviver,
             // unless a literal flag object may be present and must be revived
             if (converted_data !== json_string || SaferParser.mayContainFlagObject(json_string)) {
@@ -257,8 +257,7 @@ export class SaferParser {
             }
         }
         try {
-            const language_parsed = SaferParser.language_parse(converted_data, full_reviver);
-            return language_parsed;
+            return SaferParser.language_parse(converted_data, full_reviver);
         } catch (e) {
             let message = e.toString();
             const matcher = /line (\d+) column (\d+)/
@@ -375,12 +374,20 @@ export class SaferParser {
      * @return {string}
      */
     static preprocess(json_string) {
-        // Fast path: no problematic token can be present. Any token type emitted below MUST also be
-        // covered by needsPreprocess() above, or its replacement is silently skipped. This gate is
-        // intentionally redundant with the one in parse(): it protects direct external callers.
+        // Fast path for direct external callers; parse() gates itself and calls scanAndReplace() directly
         if (!SaferParser.needsPreprocess(json_string)) {
             return json_string;
         }
+        return SaferParser.scanAndReplace(json_string);
+    }
+
+    /**
+     * Ungated single-pass scan behind preprocess(). Any token type emitted here MUST also be covered
+     * by needsPreprocess(), or its replacement is silently skipped on the gated paths.
+     * @param json_string: JSON string to preprocess
+     * @return {string}
+     */
+    static scanAndReplace(json_string) {
         const length = json_string.length;
         const pieces = [];
         let copied_index = 0; // Start of the pending un-copied region

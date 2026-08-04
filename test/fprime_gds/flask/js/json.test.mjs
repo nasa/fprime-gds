@@ -140,6 +140,8 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
                      {"fprime{replacement": "BOGUS", "value": "1"});
     assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "junk"}}').x,
                      {"fprime{replacement": "NUMBER", "value": "junk"});
+    // Well-formed non-integer NUMBER flag objects revive through the float branch
+    assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "1.5"}}').x, 1.5);
 });
 
 test("digit-run gate boundaries", () => {
