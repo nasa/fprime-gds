@@ -126,16 +126,19 @@ function scanNumberToken(json_string, start) {
  * - NaN
  * - null (handled natively by JSON.parse)
  * - BigInt
+ *
+ * Literal flag objects appearing in input are also revived: the GDS backend is the trusted producer,
+ * and revival is validated (unknown types or malformed values pass through unchanged).
  */
 export class SaferParser {
     // Must stay ASCII-only: mayContainFlagObject()'s \u00 escape gate depends on it
     static CONVERSION_KEY = "fprime{replacement";
 
-    // Bare tokens preprocess() replaces, mapped to their conversion types. Both the needsPreprocess()
-    // gate and the preprocess() scanner consume this map, so it is the single authoritative token list
+    // Bare tokens preprocess() replaces, mapped to conversion type and sign admissibility. Both the
+    // needsPreprocess() gate and the preprocess() scanner consume this single authoritative token list
     static GATE_TOKENS = new Map([
-        ["NaN", "NAN"],
-        ["Infinity", "INFINITY"]
+        ["NaN", {conversion_type: "NAN", allows_sign: false}],
+        ["Infinity", {conversion_type: "INFINITY", allows_sign: true}]
     ]);
 
     // First characters of the gate tokens: a cheap scanner filter before the startsWith checks
@@ -183,12 +186,13 @@ export class SaferParser {
      * Match a gate token (see GATE_TOKENS) at the given index.
      * @param json_string: full input string
      * @param index: index at which to match
-     * @return {[string, string]|null}: the [token, conversion type] entry matched, or null
+     * @return {{token: string, conversion_type: string, allows_sign: boolean}|null}: match or null
      */
     static matchGateToken(json_string, index) {
-        for (const entry of SaferParser.GATE_TOKENS) {
-            if (json_string.startsWith(entry[0], index)) {
-                return entry;
+        for (const [token, properties] of SaferParser.GATE_TOKENS) {
+            if (json_string.startsWith(token, index)) {
+                return {token: token, conversion_type: properties.conversion_type,
+                        allows_sign: properties.allows_sign};
             }
         }
         return null;
@@ -404,10 +408,11 @@ export class SaferParser {
                 if (character === "-") {
                     i++;
                 }
+                // A sign prefix is only valid where the token allows it (e.g. "-Infinity", never "-NaN")
                 const gate_match = SaferParser.matchGateToken(json_string, i);
-                if (gate_match !== null) {
-                    i += gate_match[0].length;
-                    emit(start, i, gate_match[1]);
+                if (gate_match !== null && (start === i || gate_match.allows_sign)) {
+                    i += gate_match.token.length;
+                    emit(start, i, gate_match.conversion_type);
                     continue;
                 }
                 // Scan the number token: digits, decimal, and exponent
@@ -444,7 +449,8 @@ export class SaferParser {
      * Inverse of convert removing string and replacing back invalid JSON tokens.
      * @param key: JSON key
      * @param value: JSON value search for the converted value.
-     * @return {*}: reverted value or value
+     * @return {*}: revived value, or the input value unchanged when the flag object is malformed
+     *              (unknown type, or a missing/non-string "value" where one is needed) or revival throws
      */
     static reviver(key, value) {
         // Look for the CONVERSION_KEY flag and quickly abort if not there
@@ -456,6 +462,7 @@ export class SaferParser {
             return value;
         }
         const replacer = SaferParser.CONVERSION_MAP.get(replacement_type);
+        // Constant conversions (NAN, NULL) need no "value" member, so no shape check applies
         if (!isFunction(replacer)) {
             return replacer;
         }

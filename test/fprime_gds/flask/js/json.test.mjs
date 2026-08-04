@@ -156,7 +156,8 @@ test("reviver handles primitives and null", () => {
 });
 
 test("malformed input terminates and throws SyntaxError", () => {
-    for (const bad of ['{"a": NaN, "b": Infin', '{"a": NaN, "b": -Inf}', '{"a": Infinity, "b": I}', '"' + "\\".repeat(51)]) {
+    for (const bad of ['{"a": NaN, "b": Infin', '{"a": NaN, "b": -Inf}', '{"a": Infinity, "b": I}',
+                       '{"a": -NaN}', '"' + "\\".repeat(51)]) {
         assert.throws(() => SaferParser.parse(bad), SyntaxError);
     }
 });
@@ -168,6 +169,16 @@ test("pathological escape-heavy strings parse quickly", () => {
     // Coarse hang-detection guard (not a performance benchmark): catastrophic backtracking here
     // previously took seconds to minutes or overflowed the regex engine
     assert.ok(Date.now() - start < 5000);
+});
+
+test("registered mode overrides the global JSON functions", () => {
+    try {
+        SaferParser.register();
+        assert.ok(Number.isNaN(JSON.parse('{"a": NaN}').a));
+        assert.equal(JSON.parse(JSON.stringify({ a: 123456789012345678901n })).a, 123456789012345678901n);
+    } finally {
+        SaferParser.deregister();
+    }
 });
 
 test("stringify round-trips non-standard values", () => {
