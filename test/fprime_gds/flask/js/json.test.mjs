@@ -82,6 +82,8 @@ test("caller reviver runs on both fast and slow paths", () => {
     const doubler = (key, value) => (key === "a" ? value * 2 : value);
     assert.equal(SaferParser.parse('{"a": 5}', doubler).a, 10);
     assert.equal(SaferParser.parse('{"a": 5, "b": NaN}', doubler).a, 10);
+    // False-positive path: token inside a string trips the gate but yields no replacement
+    assert.equal(SaferParser.parse('{"a": 5, "b": "NaN"}', doubler).a, 10);
     // On the slow path the caller reviver must see the revived value, not the flag object
     const seen = {};
     SaferParser.parse('{"b": NaN}', (key, value) => { seen[key] = value; return value; });
@@ -121,6 +123,11 @@ test("every token type preprocess() emits trips the needsPreprocess fast-path ga
         assert.notEqual(SaferParser.preprocess(input), input, token + " must be replaced");
     }
     assert.ok(SaferParser.needsPreprocess('{"fprime{replacement": "NAN"}'), "flag objects must trip needsPreprocess");
+    // The same coupling must hold through parse()'s own gate: every token must actually revive
+    assert.ok(Number.isNaN(SaferParser.parse('{"a": NaN}').a));
+    assert.equal(SaferParser.parse('{"a": Infinity}').a, Infinity);
+    assert.equal(SaferParser.parse('{"a": -Infinity}').a, -Infinity);
+    assert.equal(SaferParser.parse('{"a": 9007199254740993}').a, 9007199254740993n);
 });
 
 test("non-string input is coerced like native JSON.parse", () => {

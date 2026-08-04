@@ -151,14 +151,16 @@ function scanNumberToken(json_string, start) {
  * - BigInt
  *
  * Literal flag objects appearing in input are also revived for round-trip compatibility; revival is
- * validated (unknown types or malformed values pass through unchanged).
+ * validated, and malformed flag objects pass through unchanged rather than failing the whole parse:
+ * one bad value must not take down an entire telemetry poll.
  */
 export class SaferParser {
     // Must stay ASCII-only: mayContainFlagObject()'s \u00 escape gate depends on it
     static CONVERSION_KEY = "fprime{replacement";
 
-    // Bare tokens preprocess() replaces, mapped to conversion type and sign admissibility. Both the
-    // needsPreprocess() gate and the preprocess() scanner consume this single authoritative token list
+    // Bare tokens the scanner (scanAndReplace) replaces, mapped to conversion type and sign
+    // admissibility. Both the gate (hasReplaceableToken) and the scanner consume this single
+    // authoritative token list
     static GATE_TOKENS = new Map([
         ["NaN", {conversion_type: "NAN", allows_sign: false}],
         ["Infinity", {conversion_type: "INFINITY", allows_sign: true}]
@@ -206,13 +208,27 @@ export class SaferParser {
     }
 
     /**
+     * Single owner of the preprocessing gate decision: whether a literal flag object may be present
+     * (needing the reviver) and whether the replacement scan is needed at all.
+     * @param json_string: JSON string to check
+     * @return {{may_contain_flag: boolean, needs_scan: boolean}}
+     */
+    static preprocessDecision(json_string) {
+        const may_contain_flag = SaferParser.mayContainFlagObject(json_string);
+        return {
+            may_contain_flag: may_contain_flag,
+            needs_scan: may_contain_flag || SaferParser.hasReplaceableToken(json_string)
+        };
+    }
+
+    /**
      * Quick check for input that may need preprocessing: a replaceable bare token or a literal flag
      * object needing revival.
      * @param json_string: JSON string to check
      * @return {boolean}: true if the scan/reviver path is needed
      */
     static needsPreprocess(json_string) {
-        return SaferParser.hasReplaceableToken(json_string) || SaferParser.mayContainFlagObject(json_string);
+        return SaferParser.preprocessDecision(json_string).needs_scan;
     }
 
     /**
@@ -276,12 +292,12 @@ export class SaferParser {
         // reviver callback. The quick check is the only overhead on this common clean-payload path.
         let converted_data = json_string;
         let full_reviver = reviver;
-        const may_contain_flag = SaferParser.mayContainFlagObject(json_string);
-        if (may_contain_flag || SaferParser.hasReplaceableToken(json_string)) {
+        const decision = SaferParser.preprocessDecision(json_string);
+        if (decision.needs_scan) {
             converted_data = SaferParser.scanAndReplace(json_string);
             // False positives (e.g. tokens inside strings) yield no replacement and need no reviver,
             // unless a literal flag object may be present and must be revived
-            if (converted_data !== json_string || may_contain_flag) {
+            if (converted_data !== json_string || decision.may_contain_flag) {
                 // Non-callable revivers are ignored, matching native JSON.parse
                 const input_reviver = isFunction(reviver) ? reviver : ((key, value) => value);
                 // Preserve the holder binding (this) and any extra arguments for the caller's reviver
@@ -413,10 +429,10 @@ export class SaferParser {
     }
 
     /**
-     * Ungated single linear pass behind preprocess(): string literals are skipped (honoring escape
-     * sequences), and no per-token substring copies of the remaining input are made. Any token type
-     * emitted here MUST also be covered by hasReplaceableToken(), or its replacement is silently
-     * skipped on the gated paths.
+     * Ungated single linear pass; called by parse() directly and by preprocess() after its gate.
+     * String literals are skipped (honoring escape sequences), and no per-token substring copies of
+     * the remaining input are made. Any token type emitted here MUST also be covered by
+     * hasReplaceableToken(), or its replacement is silently skipped on the gated paths.
      * @param json_string: JSON string to preprocess
      * @return {string}
      */
