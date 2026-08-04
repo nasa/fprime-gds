@@ -338,10 +338,10 @@ export class SaferParser {
     }
 
     /**
-     * Replace JSON notation for fprime-replacement objects with the wider JSON specification
+     * Replace JSON notation for flag objects (see CONVERSION_KEY) with the wider JSON specification
      *
-     * Replace {"fprime-replacement: "some value"} with <some value> restoring the full JSON specification for items not
-     * supported by JavaScript.
+     * Replace {"fprime{replacement": "some value"} with <some value> restoring the full JSON specification for items
+     * not supported by JavaScript.
      *
      * @param json_string: JSON string to rework
      * @return reworked JSON string
@@ -426,11 +426,12 @@ export class SaferParser {
                 }
                 const token_text = json_string.substring(start, i);
                 const digits = (token_text[0] === "-") ? token_text.substring(1) : token_text;
-                // Integers only (the last-char digit check rejects a bare "-"); floats never need BigInt
-                // handling, and leading-zero tokens are left for JSON.parse to reject as invalid JSON
-                if (is_integer && isDigit(token_text[token_text.length - 1]) &&
-                    !(digits.length > 1 && digits[0] === "0") &&
-                    !Number.isSafeInteger(Number(token_text))) {
+                // Integers only (a bare "-" does not end in a digit); floats never need BigInt handling,
+                // and leading-zero tokens are left for JSON.parse to reject as invalid JSON
+                const ends_in_digit = isDigit(token_text[token_text.length - 1]);
+                const has_leading_zero = digits.length > 1 && digits[0] === "0";
+                const exceeds_safe_range = !Number.isSafeInteger(Number(token_text));
+                if (is_integer && ends_in_digit && !has_leading_zero && exceeds_safe_range) {
                     emit(start, i, "NUMBER");
                 }
                 continue;
@@ -474,6 +475,7 @@ export class SaferParser {
         try {
             return replacer(string_value);
         } catch (e) {
+            // All revival errors are intentionally non-fatal: malformed values pass through unchanged
             return value;
         }
     }

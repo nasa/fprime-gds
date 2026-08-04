@@ -146,6 +146,22 @@ test("digit-run gate boundaries", () => {
     assert.equal(SaferParser.needsPreprocess('{"a": 123456789012345}'), false); // 15 digits: fast path
     assert.equal(SaferParser.needsPreprocess('[123456789012345, 123456789012345]'), false); // adjacent short runs
     assert.ok(SaferParser.needsPreprocess('{"a": 1234567890123456}')); // 16 digits trips the gate
+    // A 16-digit run must trip the gate at every offset (pins the strided-sampling invariant)
+    for (let offset = 0; offset < 48; offset++) {
+        const input = "x".repeat(offset) + "1234567890123456";
+        assert.ok(SaferParser.needsPreprocess(input), "digit run at offset " + offset + " must trip the gate");
+    }
+});
+
+test("KEY_ESCAPE covers every escape-spelled CONVERSION_KEY character", () => {
+    for (const character of SaferParser.CONVERSION_KEY) {
+        const code = character.charCodeAt(0);
+        assert.ok(code < 0x80, "CONVERSION_KEY must stay ASCII-only");
+        const escape = "\\u00" + code.toString(16).padStart(2, "0");
+        assert.ok(SaferParser.KEY_ESCAPE.test(escape), escape + " must match KEY_ESCAPE");
+        assert.ok(SaferParser.KEY_ESCAPE.test(escape.toUpperCase().replace("\\U", "\\u")),
+                  escape + " must match KEY_ESCAPE case-insensitively");
+    }
 });
 
 test("reviver handles primitives and null", () => {
