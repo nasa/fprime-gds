@@ -291,9 +291,14 @@ export class SaferParser {
                         break;
                     }
                 }
+                // Guarantee forward progress on malformed input (e.g. a stray "I" that is not "Infinity")
+                if (i === start) {
+                    i++;
+                    continue;
+                }
                 const token_text = json_string.substring(start, i);
-                // Only integers that lose precision as doubles need BigInt handling
-                if (is_integer && !Number.isSafeInteger(Number(token_text))) {
+                // Only integers (containing at least one digit) that lose precision as doubles need BigInt handling
+                if (is_integer && isDigit(token_text[token_text.length - 1]) && !Number.isSafeInteger(Number(token_text))) {
                     pieces.push(json_string.substring(copied_index, start),
                                 SaferParser.replacementFor("NUMBER", token_text));
                     copied_index = i;
