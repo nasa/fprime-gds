@@ -43,7 +43,7 @@ function stringToNumber(value) {
     if (value.search(/[.eE]/) !== -1) {
         return Number.parseFloat(value);
     }
-    let number_value = Number.parseInt(value);
+    let number_value = Number.parseInt(value, 10);
     // When the big and normal numbers match, then return the normal number
     if (value !== number_value.toString()) {
         return BigInt(value);
@@ -252,7 +252,7 @@ export class SaferParser {
     // Escapes that can spell a CONVERSION_KEY character, generated from the key itself so the two can
     // never drift; other escapes (\u0067, \u00b0, \u4e2d) keep the fast path
     static KEY_ESCAPE = new RegExp("\\\\u00(?:" + [...new Set(SaferParser.CONVERSION_KEY)]
-        .map((character) => character.charCodeAt(0).toString(16)).join("|") + ")", "i");
+        .map((character) => character.charCodeAt(0).toString(16).padStart(2, "0")).join("|") + ")", "i");
 
     /**
      * Determine if the input may contain a literal flag object needing revival. The escape check catches
@@ -425,6 +425,7 @@ export class SaferParser {
      */
     static preprocess(json_string) {
         // Fast path for direct external callers; parse() gates itself and calls scanAndReplace() directly
+        json_string = (typeof json_string === "string") ? json_string : "" + json_string;
         if (!SaferParser.needsPreprocess(json_string)) {
             return json_string;
         }
@@ -506,7 +507,7 @@ export class SaferParser {
     }
 
     /**
-     * Inverse of convert removing string and replacing back invalid JSON tokens.
+     * Reviver that converts flag objects (see CONVERSION_KEY) back into their JavaScript values.
      * @param key: JSON key
      * @param value: JSON value search for the converted value.
      * @return {*}: revived value, or the input value unchanged when the flag object is malformed

@@ -163,6 +163,13 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
                      {"fprime{replacement": "NUMBER", "value": "0x10"});
     assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "INFINITY", "value": "junk"}}').x,
                      {"fprime{replacement": "INFINITY", "value": "junk"});
+    // Only SyntaxError is treated as malformed input; converter bugs must propagate
+    SaferParser.CONVERSION_MAP.set("BOOM", () => { throw new TypeError("bug"); });
+    try {
+        assert.throws(() => SaferParser.parse('{"x": {"fprime{replacement": "BOOM", "value": "1"}}'), TypeError);
+    } finally {
+        SaferParser.CONVERSION_MAP.delete("BOOM");
+    }
 });
 
 test("digit-run gate boundaries", () => {
