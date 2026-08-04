@@ -114,9 +114,9 @@ def generateSequence(inputFile, outputFile, dictionary, timebase, cont=False):
         outputFile = f"{os.path.splitext(inputFile)[0]}.bin"
     try:
         writer.open(outputFile)
-    except:
-        msg = f"Encountered problem opening output file '{outputFile}'."
-        raise SeqGenException(msg)
+    except OSError as exc:
+        msg = f"Encountered problem opening output file '{outputFile}': {exc}"
+        raise SeqGenException(msg) from exc
 
     writer.write(command_list)
     writer.close()
