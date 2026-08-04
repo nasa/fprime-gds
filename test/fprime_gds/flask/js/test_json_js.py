@@ -13,11 +13,14 @@ import pytest
 
 
 def _node_major():
-    """Return the major version of node on PATH, or 0 when node is unavailable"""
+    """Return the major version of node on PATH, or 0 when node is unavailable or unusable"""
     if shutil.which("node") is None:
         return 0
-    version = subprocess.run(["node", "--version"], capture_output=True, text=True, timeout=30).stdout
-    return int(version.strip().lstrip("v").split(".")[0])
+    try:
+        version = subprocess.run(["node", "--version"], capture_output=True, text=True, timeout=30).stdout
+        return int(version.strip().lstrip("v").split(".")[0])
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return 0
 
 
 @pytest.mark.skipif(_node_major() < 18, reason="node >= 18 with node:test is required")

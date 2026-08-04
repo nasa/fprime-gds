@@ -174,9 +174,9 @@ pip install --upgrade fprime-gds
 For full installation instructions, including virtual environment creation and installation verification, see [INSTALL.md](https://github.com/nasa/fprime/blob/devel/docs/INSTALL.md).
 
 ## Running Tests
-Python tests run with `pytest`. The GDS frontend JavaScript tests require Node.js (>= 18) and run
-automatically under pytest when `node` is on the PATH, or directly with
-`node --test test/fprime_gds/flask/js/json.test.mjs`.
+Python tests run with `pytest`. The GDS frontend JavaScript tests require Node.js (>= 18); under
+pytest they run automatically when a suitable `node` is on the PATH (and are skipped otherwise), or
+run them directly with `node --test test/fprime_gds/flask/js/json.test.mjs`.
 
 ## Generate Documentation
 You can generate a doxygen documentation page for the GDS source.

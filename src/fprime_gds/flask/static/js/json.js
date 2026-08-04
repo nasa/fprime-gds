@@ -82,7 +82,9 @@ function hasLongDigitRun(json_string) {
 }
 
 /**
- * Scan a number token (digits, decimal point, exponent) starting at the given index
+ * Scan a number token (digits, decimal point, exponent) starting at the given index. Deliberately lax:
+ * ".", "e"/"E", "+", "-" are accepted at any position; malformed sequences are rejected later by
+ * JSON.parse, and any such character marks the token non-integral so it is never BigInt-wrapped.
  * @param json_string: full input string
  * @param start: index of the first character of the number body (after any leading "-")
  * @return {{end: number, is_integer: boolean}}: index past the token and whether it stayed integral
@@ -109,7 +111,7 @@ function scanNumberToken(json_string, start) {
 /**
  * Parser to safely handle potential JSON object from Python. Python can produce some non-standard values (infinities,
  * NaNs, etc.) These values then break on the JS Javascript parser. To localize these faults, they are replaced before
- * processing with strings and then formally set during parsing.
+ * processing with flag objects that are revived into the real values during parsing.
  *
  * This is done by scanning unquoted text in a single linear pass and replacing Infinity, -Infinity, NaN, and
  * integers exceeding Number.MAX_SAFE_INTEGER with flag objects that are revived during parsing.
@@ -127,7 +129,7 @@ export class SaferParser {
     static CONVERSION_MAP = new Map([
         ["INFINITY", (value) => (value[0] === "-") ? -Infinity : Infinity],
         ["NAN", NaN],
-        // Retained for literal flag objects in input; preprocess() no longer emits NULL (null parses natively)
+        // Retained for literal flag objects appearing in input; preprocess() never emits NULL (null parses natively)
         ["NULL", null],
         ["NUMBER", stringToNumber]
     ]);
@@ -154,8 +156,11 @@ export class SaferParser {
      * @return {boolean}: true if the scan/reviver path is needed
      */
     static needsPreprocess(json_string) {
+        // "\u" catches flag-object keys spelled with unicode escapes (e.g. "fprime\u007breplacement"),
+        // which parse to CONVERSION_KEY but would not match a literal substring check
         return json_string.includes("NaN") || json_string.includes("Infinity") ||
-               json_string.includes(SaferParser.CONVERSION_KEY) || hasLongDigitRun(json_string);
+               json_string.includes(SaferParser.CONVERSION_KEY) || json_string.includes("\\u") ||
+               hasLongDigitRun(json_string);
     }
 
     /**
@@ -175,7 +180,8 @@ export class SaferParser {
      * 3. NaN
      * 4. null (natively)
      *
-     * @param json_string: JSON string data containing potentially bad values
+     * @param json_string: JSON string data containing potentially bad values; non-string input is
+     *                     coerced with String() to match native JSON.parse semantics
      * @param reviver: reviver function to be combined with our reviver
      * @return {{}}: Javascript Object representation of data safely represented in JavaScript types
      */
@@ -189,8 +195,10 @@ export class SaferParser {
         let full_reviver = reviver;
         if (SaferParser.needsPreprocess(json_string)) {
             converted_data = SaferParser.preprocess(json_string);
-            // Regex false positives (e.g. tokens inside strings) yield no replacement and need no reviver
-            if (converted_data !== json_string || json_string.includes(SaferParser.CONVERSION_KEY)) {
+            // False positives (e.g. tokens inside strings) yield no replacement and need no reviver;
+            // "\u" escapes may spell a flag-object key, so they must keep the reviver attached
+            if (converted_data !== json_string || json_string.includes(SaferParser.CONVERSION_KEY) ||
+                json_string.includes("\\u")) {
                 const input_reviver = reviver || ((key, value) => value);
                 full_reviver = (key, value) => input_reviver(key, SaferParser.reviver(key, value));
             }

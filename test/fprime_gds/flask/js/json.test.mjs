@@ -45,6 +45,8 @@ test("unsafe integers become BigInt at the exact boundary", () => {
     assert.equal(SaferParser.parse('{"a": 9007199254740993}').a, 9007199254740993n);
     assert.equal(SaferParser.parse('{"a": 18446744073709551615}').a, 18446744073709551615n);
     assert.equal(SaferParser.parse('{"a": -18446744073709551615}').a, -18446744073709551615n);
+    assert.equal(typeof SaferParser.parse('{"a": -9007199254740991}').a, "number");
+    assert.equal(SaferParser.parse('{"a": -9007199254740993}').a, -9007199254740993n);
 });
 
 test("floats and exponent forms are never BigInt-wrapped", () => {
@@ -82,6 +84,8 @@ test("literal flag objects are revived regardless of other content", () => {
     assert.ok(Number.isNaN(combined.x));
     assert.equal(combined.y, Infinity);
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NULL", "value": null}}').x, null);
+    // Flag-object key spelled with a unicode escape must still be revived
+    assert.ok(Number.isNaN(SaferParser.parse('{"x": {"fprime\\u007breplacement": "NAN", "value": "NaN"}}').x));
 });
 
 test("every token type preprocess() emits trips the needsPreprocess fast-path gate", () => {
@@ -96,6 +100,8 @@ test("every token type preprocess() emits trips the needsPreprocess fast-path ga
 test("non-string input is coerced like native JSON.parse", () => {
     assert.equal(SaferParser.parse(123), 123);
     assert.equal(SaferParser.parse(true), true);
+    assert.equal(SaferParser.parse(null), null);
+    assert.throws(() => SaferParser.parse(undefined), SyntaxError);
 });
 
 test("reviver handles primitives and null", () => {
