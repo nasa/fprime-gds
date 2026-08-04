@@ -163,7 +163,7 @@ An example of how to instantiate and register classes into the correct structure
 can be found in the `MainFrameFactory` class.
 
 ## Setup
-The Gds requires the packages specified in [setup.py](setup.py).
+The GDS requires the packages specified in [pyproject.toml](pyproject.toml).
 
 These can be installed along the Gds package using the following commands:
 
