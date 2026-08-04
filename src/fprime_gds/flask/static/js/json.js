@@ -58,13 +58,14 @@ function isDigit(character) {
  * NaNs, etc.) These values then break on the JS Javascript parser. To localize these faults, they are replaced before
  * processing with strings and then formally set during parsing.
  *
- * This is done by looking for tokens in unquoted text and replacing them with string representations.
- * 
+ * This is done by scanning unquoted text in a single linear pass and replacing Infinity, -Infinity, NaN, and
+ * integers exceeding Number.MAX_SAFE_INTEGER with flag objects that are revived during parsing.
+ *
  * This parser will handle:
  * - -Infinity
  * - Infinity
  * - NaN
- * - null
+ * - null (handled natively by JSON.parse)
  * - BigInt
  */
 export class SaferParser {
@@ -73,6 +74,7 @@ export class SaferParser {
     static CONVERSION_MAP = new Map([
         ["INFINITY", (value) => (value[0] === "-") ? -Infinity : Infinity],
         ["NAN", NaN],
+        // Retained for literal flag objects in input; preprocess() no longer emits NULL (null parses natively)
         ["NULL", null],
         ["NUMBER", stringToNumber]
     ]);
@@ -87,8 +89,9 @@ export class SaferParser {
     ];
 
     // Quick check for input that may need preprocessing: bare Infinity/NaN tokens or integers long enough
-    // to exceed Number.MAX_SAFE_INTEGER (16+ digits). False positives (e.g. tokens inside strings) are
-    // acceptable: they merely trigger the single-pass scan below.
+    // to exceed Number.MAX_SAFE_INTEGER (its smallest violator, 2^53, has 16 digits). False positives (e.g.
+    // tokens inside strings) are acceptable: they merely trigger the single-pass scan below. This regex must
+    // match every token type preprocess() replaces, or replacement is silently skipped.
     static NEEDS_PREPROCESS = /Infinity|NaN|\d{16}/;
 
     // Store the language variants the first time
@@ -103,24 +106,25 @@ export class SaferParser {
      * replace those entities with a JSON flag object.
      *
      * Then the data is processed by the JavaScript built-in JSON parser (now done safely).  The reviver function will
-     * safely revive the flag objects into JavaScript representations of those object.
+     * safely revive the flag objects into JavaScript representations of those object. When the input contains no
+     * such tokens (and no flag objects), it is parsed directly with only the caller-supplied reviver.
      *
      * Handles:
      * 1. BigInts
      * 2. Inf/-Inf
      * 3. NaN
-     * 4. null
+     * 4. null (natively)
      *
      * @param json_string: JSON string data containing potentially bad values
      * @param reviver: reviver function to be combined with our reviver
      * @return {{}}: Javascript Object representation of data safely represented in JavaScript types
      */
     static parse(json_string, reviver) {
-        let converted_data = SaferParser.preprocess(json_string);
-        // When no replacements were made, no flag objects exist to revive: parse with only the caller's
-        // reviver (or none), avoiding the significant cost of a per-node reviver callback
+        const converted_data = SaferParser.preprocess(json_string);
+        // When no replacements were made and no literal flag objects can be present, parse with only the
+        // caller's reviver (or none), avoiding the significant cost of a per-node reviver callback
         let full_reviver = reviver;
-        if (converted_data !== json_string) {
+        if (converted_data !== json_string || json_string.includes(SaferParser.CONVERSION_KEY)) {
             let input_reviver = reviver || ((key, value) => value);
             full_reviver = (key, value) => input_reviver(key, SaferParser.reviver(key, value));
         }
@@ -248,8 +252,14 @@ export class SaferParser {
             return json_string;
         }
         const length = json_string.length;
-        let pieces = [];
+        const pieces = [];
         let copied_index = 0; // Start of the pending un-copied region
+        // Emit the pending clean region followed by the flag object for the token in [token_start, token_end)
+        const emit = (token_start, token_end, token_type) => {
+            pieces.push(json_string.substring(copied_index, token_start),
+                        SaferParser.replacementFor(token_type, json_string.substring(token_start, token_end)));
+            copied_index = token_end;
+        };
         let i = 0;
         while (i < length) {
             const character = json_string[i];
@@ -264,9 +274,8 @@ export class SaferParser {
             }
             // Bare NaN token
             if (character === "N" && json_string.startsWith("NaN", i)) {
-                pieces.push(json_string.substring(copied_index, i), SaferParser.replacementFor("NAN", "NaN"));
-                i += 3;
-                copied_index = i;
+                emit(i, i + "NaN".length, "NAN");
+                i += "NaN".length;
                 continue;
             }
             // Infinity, -Infinity, or a number (possibly requiring BigInt)
@@ -276,19 +285,18 @@ export class SaferParser {
                     i++;
                 }
                 if (json_string.startsWith("Infinity", i)) {
-                    i += 8;
-                    pieces.push(json_string.substring(copied_index, start),
-                                SaferParser.replacementFor("INFINITY", json_string.substring(start, i)));
-                    copied_index = i;
+                    i += "Infinity".length;
+                    emit(start, i, "INFINITY");
                     continue;
                 }
                 // Scan the number token: digits, decimal, and exponent
                 let is_integer = true;
                 while (i < length) {
-                    const digit = json_string[i];
-                    if (isDigit(digit)) {
+                    const token_character = json_string[i];
+                    if (isDigit(token_character)) {
                         i++;
-                    } else if (digit === "." || digit === "e" || digit === "E" || digit === "+" || digit === "-") {
+                    } else if (token_character === "." || token_character === "e" || token_character === "E" ||
+                               token_character === "+" || token_character === "-") {
                         is_integer = false;
                         i++;
                     } else {
@@ -301,11 +309,9 @@ export class SaferParser {
                     continue;
                 }
                 const token_text = json_string.substring(start, i);
-                // Only integers (containing at least one digit) that lose precision as doubles need BigInt handling
+                // Integers only (the last-char digit check rejects a bare "-"); floats never need BigInt handling
                 if (is_integer && isDigit(token_text[token_text.length - 1]) && !Number.isSafeInteger(Number(token_text))) {
-                    pieces.push(json_string.substring(copied_index, start),
-                                SaferParser.replacementFor("NUMBER", token_text));
-                    copied_index = i;
+                    emit(start, i, "NUMBER");
                 }
                 continue;
             }
