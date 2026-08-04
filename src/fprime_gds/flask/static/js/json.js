@@ -7,86 +7,6 @@
  * @author mstarch
  */
 
-
-/**
- * Lexer for JSON built using JSON
- */
-class RegExLexer {
-    static TOKEN_EXPRESSIONS = new Map([
-        // String tokens: " then
-        //    any number of:
-        //        not a quote or \
-        //        \ followed by not a quote
-        //        even number of \
-        //        odd number of \ then " (escaped quotation)
-        //    then even number of \ then " (terminating non-escaped ")
-        ["STRING", /^"([^"\\]|(\\[^"\\])|((\\\\)*)|(\\(\\\\)*)")*(?!\\(\\\\)*)"/],
-        // Floating point tokens
-        ["NUMBER", /^-?\d+(\.\d+)?([eE][+\-]?\d+)?/],
-        // Infinity token
-        ["INFINITY", /^-?Infinity/],
-        // Null token
-        ["NULL", /^null/],
-        // NaN token
-        ["NAN", /^NaN/],
-        // boolean token
-        ["BOOLEAN", /^(true)|^(false)/],
-        // Open object token
-        ["OPEN_OBJECT", /^\{/],
-        // Close object token
-        ["CLOSE_OBJECT", /^}/],
-        // Field separator token
-        ["FIELD_SEPARATOR", /^,/],
-        // Open list token
-        ["OPEN_ARRAY", /^\[/],
-        // Close a list token
-        ["CLOSE_ARRAY", /^]/],
-        // Key Value Separator
-        ["VALUE_SEPARATOR", /^:/],
-        // Any amount of whitespace is an implicit token
-        ["WHITESPACE", /^\s+/]
-    ]);
-
-    /**
-     * Tokenize the input string based on JSON tokens.
-     * @param input_string: input string to tokenize
-     * @return {*[]}: list of tokens in-order
-     */
-    static tokenize(original_string) {
-        let tokens = [];
-        let input_string = original_string;
-        let total_length = 0;
-        let last_token_type = "--NONE--"
-        // Consume the whole string
-        while (input_string !== "") {
-            let matched_something = false;
-            for (let [token_type, token_matcher] of  RegExLexer.TOKEN_EXPRESSIONS.entries()) {
-                let match = token_matcher.exec(input_string)
-
-                // Token detected
-                if (match != null && match.index == 0 ) {
-                    matched_something = true;
-                    let matched = match[0];
-                    tokens.push([token_type, matched]);
-                    // Consume the string
-                    input_string = input_string.substring(matched.length);
-                    total_length += matched.length;
-                    last_token_type = token_type;
-                    break;
-                }
-            }
-            // Check for no token match
-            if (!matched_something) {
-                let say = "Failed to match valid token: '" + input_string.substring(0, 20);
-                say += "' Context: '" + original_string.substring(Math.max(total_length - 20, 0), total_length + 20);
-                say += "' Last token's type: " + last_token_type + ".";
-                throw SyntaxError(say);
-            }
-        }
-        return tokens;
-    }
-}
-
 /**
  * Helper to determine if value is a string
  * @param value: value to check.
@@ -125,6 +45,15 @@ function stringToNumber(value) {
 }
 
 /**
+ * Determine if a character is a JSON digit (0-9)
+ * @param character: single character string
+ * @return {boolean}: true if digit, false otherwise
+ */
+function isDigit(character) {
+    return character >= "0" && character <= "9";
+}
+
+/**
  * Parser to safely handle potential JSON object from Python. Python can produce some non-standard values (infinities,
  * NaNs, etc.) These values then break on the JS Javascript parser. To localize these faults, they are replaced before
  * processing with strings and then formally set during parsing.
@@ -157,6 +86,10 @@ export class SaferParser {
         null
     ];
 
+    // Quick check for input that may need preprocessing: bare Infinity/NaN tokens or integers long enough
+    // to exceed Number.MAX_SAFE_INTEGER (16+ digits). False positives (e.g. tokens inside strings) are
+    // acceptable: they merely trigger the single-pass scan below.
+    static NEEDS_PREPROCESS = /Infinity|NaN|\d{16}/;
 
     // Store the language variants the first time
     static language_parse = JSON.parse;
@@ -282,24 +215,99 @@ export class SaferParser {
     }
 
     /**
-     * Apply process function to raw json string only for data that is not qu
+     * Build the flag-object JSON text for a detected token
+     * @param token_type: conversion type key (e.g. "INFINITY", "NAN", "NUMBER")
+     * @param token_text: raw token text from the input
+     * @return {string}: JSON string of the flag object
+     */
+    static replacementFor(token_type, token_text) {
+        let replacement_object = {};
+        replacement_object[SaferParser.CONVERSION_KEY] = token_type;
+        replacement_object["value"] = token_text;
+        return SaferParser.language_stringify(replacement_object);
+    }
+
+    /**
+     * Replace tokens invalid in JavaScript JSON (Infinity, -Infinity, NaN, and integers exceeding
+     * Number.MAX_SAFE_INTEGER) with flag objects, leaving all other text untouched.
+     *
+     * Runs in a single linear pass over the input: string literals are skipped (honoring escape
+     * sequences), and no per-token substring copies of the remaining input are made. Input without
+     * any such tokens is returned as-is.
+     *
      * @param json_string: JSON string to preprocess
      * @return {string}
      */
     static preprocess(json_string) {
-        const CONVERSION_KEYS = Array.from(SaferParser.CONVERSION_MAP.keys());
-        let tokens = RegExLexer.tokenize(json_string);
-        let converted_text = tokens.map(
-            ([token_type, token_text]) => {
-                if (CONVERSION_KEYS.indexOf(token_type) !== -1) {
-                    let replacement_object = {};
-                    replacement_object[SaferParser.CONVERSION_KEY] = token_type;
-                    replacement_object["value"] = token_text;
-                    return SaferParser.language_stringify(replacement_object)
+        // Fast path: no problematic token can be present
+        if (!SaferParser.NEEDS_PREPROCESS.test(json_string)) {
+            return json_string;
+        }
+        const length = json_string.length;
+        let pieces = [];
+        let copied_index = 0; // Start of the pending un-copied region
+        let i = 0;
+        while (i < length) {
+            const character = json_string[i];
+            // Skip string literals entirely, honoring backslash escapes
+            if (character === '"') {
+                i++;
+                while (i < length && json_string[i] !== '"') {
+                    i += (json_string[i] === "\\") ? 2 : 1;
                 }
-                return token_text;
-        });
-        return converted_text.join("");
+                i++; // Consume closing quote
+                continue;
+            }
+            // Bare NaN token
+            if (character === "N" && json_string.startsWith("NaN", i)) {
+                pieces.push(json_string.substring(copied_index, i), SaferParser.replacementFor("NAN", "NaN"));
+                i += 3;
+                copied_index = i;
+                continue;
+            }
+            // Infinity, -Infinity, or a number (possibly requiring BigInt)
+            if (character === "I" || character === "-" || isDigit(character)) {
+                const start = i;
+                if (character === "-") {
+                    i++;
+                }
+                if (json_string.startsWith("Infinity", i)) {
+                    i += 8;
+                    pieces.push(json_string.substring(copied_index, start),
+                                SaferParser.replacementFor("INFINITY", json_string.substring(start, i)));
+                    copied_index = i;
+                    continue;
+                }
+                // Scan the number token: digits, decimal, and exponent
+                let is_integer = true;
+                while (i < length) {
+                    const digit = json_string[i];
+                    if (isDigit(digit)) {
+                        i++;
+                    } else if (digit === "." || digit === "e" || digit === "E" || digit === "+" || digit === "-") {
+                        is_integer = false;
+                        i++;
+                    } else {
+                        break;
+                    }
+                }
+                const token_text = json_string.substring(start, i);
+                // Only integers that lose precision as doubles need BigInt handling
+                if (is_integer && !Number.isSafeInteger(Number(token_text))) {
+                    pieces.push(json_string.substring(copied_index, start),
+                                SaferParser.replacementFor("NUMBER", token_text));
+                    copied_index = i;
+                }
+                continue;
+            }
+            i++;
+        }
+        // Fully clean input: avoid the copy altogether
+        if (copied_index === 0) {
+            return json_string;
+        }
+        pieces.push(json_string.substring(copied_index));
+        return pieces.join("");
     }
 
     /**
@@ -310,6 +318,9 @@ export class SaferParser {
      */
     static reviver(key, value) {
         // Look for fprime-replacement and quickly abort if not there
+        if (value === null || typeof value !== "object") {
+            return value;
+        }
         let replacement_type = value[SaferParser.CONVERSION_KEY];
         if (typeof replacement_type === "undefined") {
             return value;
