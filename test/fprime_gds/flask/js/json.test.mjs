@@ -7,14 +7,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-// json.js is an ES module, but its directory has no package.json declaring "type": "module",
-// so Node would treat the .js file as CommonJS. Load its source through a data: URL instead.
-const { SaferParser } = await import(
-    "data:text/javascript," +
-    encodeURIComponent(readFileSync(new URL("../../../../src/fprime_gds/flask/static/js/json.js", import.meta.url), "utf8"))
-);
+import { SaferParser } from "../../../../src/fprime_gds/flask/static/js/json.js";
 
 // Tests exercise SaferParser directly; restore the built-in JSON functions
 SaferParser.deregister();
@@ -58,6 +51,11 @@ test("floats and exponent forms are never BigInt-wrapped", () => {
     assert.equal(SaferParser.parse('{"a": 1234567890123456789e2}').a, 1234567890123456789e2);
 });
 
+test("leading-zero integers stay invalid JSON", () => {
+    assert.throws(() => SaferParser.parse('{"a": 00009007199254740993}'), SyntaxError);
+    assert.throws(() => SaferParser.parse('{"a": -00009007199254740993}'), SyntaxError);
+});
+
 test("tokens inside string literals are not replaced", () => {
     const text = "NaN Infinity -Infinity 99999999999999999999";
     assert.equal(SaferParser.parse('{"a": "' + text + '"}').a, text);
@@ -82,6 +80,15 @@ test("caller reviver runs on both fast and slow paths", () => {
     const seen = {};
     SaferParser.parse('{"b": NaN}', (key, value) => { seen[key] = value; return value; });
     assert.ok(Number.isNaN(seen.b));
+    // The composite reviver must preserve the holder binding (this), matching native JSON.parse
+    let holder;
+    SaferParser.parse('{"a": {"b": NaN}}', function (key, value) {
+        if (key === "b") {
+            holder = this;
+        }
+        return value;
+    });
+    assert.ok(Number.isNaN(holder.b));
 });
 
 test("literal flag objects are revived regardless of other content", () => {
@@ -100,7 +107,7 @@ test("literal flag objects are revived regardless of other content", () => {
 });
 
 test("every token type preprocess() emits trips the needsPreprocess fast-path gate", () => {
-    for (const token of ["NaN", "Infinity", "-Infinity", "9007199254740993"]) {
+    for (const token of [...SaferParser.GATE_TOKENS, "-Infinity", "9007199254740993"]) {
         const input = '{"a": ' + token + "}";
         assert.ok(SaferParser.needsPreprocess(input), token + " must trip needsPreprocess");
         assert.notEqual(SaferParser.preprocess(input), input, token + " must be replaced");

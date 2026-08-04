@@ -24,8 +24,12 @@ def _node_major():
         return 0
 
 
+# GitHub Actions sets CI=true; treat only explicit affirmative values as CI
+IS_CI = os.environ.get("CI", "").lower() in ("true", "1")
+
+
 # Skip locally without a suitable node, but fail on CI so the JS suite cannot silently stop running
-@pytest.mark.skipif(_node_major() < 18 and not os.environ.get("CI"), reason="node >= 18 with node:test is required")
+@pytest.mark.skipif(_node_major() < 18 and not IS_CI, reason="node >= 18 with node:test is required")
 def test_safer_parser_js():
     """Run the node --test suite for json.js and assert it passes"""
     assert _node_major() >= 18, "node >= 18 is required on CI runners"

@@ -175,8 +175,9 @@ For full installation instructions, including virtual environment creation and i
 
 ## Running Tests
 Python tests run with `pytest`. The GDS frontend JavaScript tests require Node.js (>= 18); under
-pytest they run automatically when a suitable `node` is on the PATH (and are skipped otherwise), or
-run them directly with `node --test test/fprime_gds/flask/js/json.test.mjs`.
+pytest they run automatically when a suitable `node` is on the PATH (skipped otherwise, except on CI
+where a missing or too-old `node` fails the test), or run them directly with
+`node --test test/fprime_gds/flask/js/json.test.mjs`.
 
 ## Generate Documentation
 You can generate a doxygen documentation page for the GDS source.

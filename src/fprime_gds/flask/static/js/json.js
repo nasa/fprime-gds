@@ -128,7 +128,12 @@ function scanNumberToken(json_string, start) {
  * - BigInt
  */
 export class SaferParser {
+    // Must stay ASCII-only: mayContainFlagObject()'s \u00 escape gate depends on it
     static CONVERSION_KEY = "fprime{replacement";
+
+    // Bare tokens preprocess() replaces; needsPreprocess() derives its gate from this list so a new
+    // token type cannot be added to the scanner without automatically extending the gate
+    static GATE_TOKENS = ["NaN", "Infinity"];
 
     static CONVERSION_MAP = new Map([
         ["INFINITY", (value) => (value[0] === "-") ? -Infinity : Infinity],
@@ -160,20 +165,23 @@ export class SaferParser {
      * @return {boolean}: true if the scan/reviver path is needed
      */
     static needsPreprocess(json_string) {
-        return json_string.includes("NaN") || json_string.includes("Infinity") ||
+        return SaferParser.GATE_TOKENS.some((token) => json_string.includes(token)) ||
                SaferParser.mayContainFlagObject(json_string) || hasLongDigitRun(json_string);
     }
 
+    // Escapes that can spell a CONVERSION_KEY character: every character of the ASCII-only key lies in
+    // 0x61-0x7b, so only \u006X/\u007X escapes matter; other escapes (\u00b0, \u4e2d) keep the fast path
+    static KEY_ESCAPE = /\\u00[67]/i;
+
     /**
-     * Determine if the input may contain a literal flag object needing revival. "\u00" catches keys
-     * spelled with unicode escapes (e.g. "fprime\u007breplacement"), which parse to CONVERSION_KEY but
-     * would not match a literal substring check; every character of the ASCII-only key escapes as
-     * \u00XX, so non-Latin-1 escapes (\u4e2d etc.) keep the fast path.
+     * Determine if the input may contain a literal flag object needing revival. The escape check catches
+     * keys spelled with unicode escapes (e.g. "fprime\u007breplacement"), which parse to CONVERSION_KEY
+     * but would not match a literal substring check.
      * @param json_string: JSON string to check
      * @return {boolean}: true if a flag object may be present
      */
     static mayContainFlagObject(json_string) {
-        return json_string.includes(SaferParser.CONVERSION_KEY) || json_string.includes("\\u00");
+        return json_string.includes(SaferParser.CONVERSION_KEY) || SaferParser.KEY_ESCAPE.test(json_string);
     }
 
     /**
@@ -390,8 +398,12 @@ export class SaferParser {
                     continue;
                 }
                 const token_text = json_string.substring(start, i);
-                // Integers only (the last-char digit check rejects a bare "-"); floats never need BigInt handling
-                if (is_integer && isDigit(token_text[token_text.length - 1]) && !Number.isSafeInteger(Number(token_text))) {
+                const digits = (token_text[0] === "-") ? token_text.substring(1) : token_text;
+                // Integers only (the last-char digit check rejects a bare "-"); floats never need BigInt
+                // handling, and leading-zero tokens are left for JSON.parse to reject as invalid JSON
+                if (is_integer && isDigit(token_text[token_text.length - 1]) &&
+                    !(digits.length > 1 && digits[0] === "0") &&
+                    !Number.isSafeInteger(Number(token_text))) {
                     emit(start, i, "NUMBER");
                 }
                 continue;
