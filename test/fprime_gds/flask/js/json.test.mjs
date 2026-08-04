@@ -43,12 +43,18 @@ test("unsafe integers become BigInt at the exact boundary", () => {
     assert.equal(SaferParser.parse('{"a": -18446744073709551615}').a, -18446744073709551615n);
     assert.equal(typeof SaferParser.parse('{"a": -9007199254740991}').a, "number");
     assert.equal(SaferParser.parse('{"a": -9007199254740993}').a, -9007199254740993n);
+    // Multiple replacements in one input exercise the piece-stitching bookkeeping
+    assert.deepEqual(SaferParser.parse('[9007199254740993, 9007199254740995]'),
+                     [9007199254740993n, 9007199254740995n]);
 });
 
 test("floats and exponent forms are never BigInt-wrapped", () => {
     assert.equal(SaferParser.parse('{"a": 1.5e10}').a, 1.5e10);
     assert.equal(SaferParser.parse('{"a": 12345678901234567890.5}').a, 12345678901234567890.5);
     assert.equal(SaferParser.parse('{"a": 1234567890123456789e2}').a, 1234567890123456789e2);
+    // Signed exponents exercise the scanner's mid-token +/- branch
+    assert.equal(SaferParser.parse('{"a": 1234567890123456789e+2}').a, 1234567890123456789e2);
+    assert.equal(SaferParser.parse('{"a": 12345678901234567890e-1}').a, 12345678901234567890e-1);
 });
 
 test("leading-zero integers stay invalid JSON", () => {
@@ -142,6 +148,11 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
                      {"fprime{replacement": "NUMBER", "value": "junk"});
     // Well-formed non-integer NUMBER flag objects revive through the float branch
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "1.5"}}').x, 1.5);
+    // Values outside the JSON grammar (hex, junk Infinity spellings) pass through unchanged
+    assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "0x10"}}').x,
+                     {"fprime{replacement": "NUMBER", "value": "0x10"});
+    assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "INFINITY", "value": "junk"}}').x,
+                     {"fprime{replacement": "INFINITY", "value": "junk"});
 });
 
 test("digit-run gate boundaries", () => {

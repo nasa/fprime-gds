@@ -25,13 +25,20 @@ function isFunction(value) {
     return value instanceof Function || typeof value == "function";
 }
 
+// JSON number grammar: rejects values JSON.parse would never produce (hex, empty, bare "-", etc.)
+const JSON_NUMBER = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/;
+
 /**
- * Convert a string to a number
+ * Convert a string in JSON number form to a number
  * @param value: value to convert
  * @return {bigint|number}: number to return
+ * @throws {SyntaxError}: when the value is not a valid JSON number
  */
 function stringToNumber(value) {
     value = value.trim(); // Should be unnecessary
+    if (!JSON_NUMBER.test(value)) {
+        throw new SyntaxError("Invalid JSON number: " + value);
+    }
     // Process floats (containing . e or E)
     if (value.search(/[.eE]/) !== -1) {
         return Number.parseFloat(value);
@@ -42,6 +49,22 @@ function stringToNumber(value) {
         return BigInt(value);
     }
     return number_value;
+}
+
+/**
+ * Convert an Infinity token string to its numeric value
+ * @param value: "Infinity" or "-Infinity"
+ * @return {number}: the signed infinity
+ * @throws {SyntaxError}: when the value is not an Infinity token
+ */
+function stringToInfinity(value) {
+    if (value === "Infinity") {
+        return Infinity;
+    }
+    if (value === "-Infinity") {
+        return -Infinity;
+    }
+    throw new SyntaxError("Invalid Infinity token: " + value);
 }
 
 /**
@@ -127,8 +150,8 @@ function scanNumberToken(json_string, start) {
  * - null (handled natively by JSON.parse)
  * - BigInt
  *
- * Literal flag objects appearing in input are also revived: the GDS backend is the trusted producer,
- * and revival is validated (unknown types or malformed values pass through unchanged).
+ * Literal flag objects appearing in input are also revived for round-trip compatibility; revival is
+ * validated (unknown types or malformed values pass through unchanged).
  */
 export class SaferParser {
     // Must stay ASCII-only: mayContainFlagObject()'s \u00 escape gate depends on it
@@ -145,7 +168,7 @@ export class SaferParser {
     static GATE_TOKEN_STARTS = new Set([...SaferParser.GATE_TOKENS.keys()].map((token) => token[0]));
 
     static CONVERSION_MAP = new Map([
-        ["INFINITY", (value) => (value[0] === "-") ? -Infinity : Infinity],
+        ["INFINITY", stringToInfinity],
         ["NAN", NaN],
         // Retained for literal flag objects appearing in input; preprocess() never emits NULL (null parses natively)
         ["NULL", null],
@@ -166,20 +189,30 @@ export class SaferParser {
     static language_stringify = JSON.stringify;
 
     /**
-     * Quick check for input that may need preprocessing: bare Infinity/NaN tokens, integers exceeding
-     * Number.MAX_SAFE_INTEGER, or a literal flag object needing revival. False positives (e.g. tokens
-     * inside strings) are acceptable: they merely trigger the single-pass scan. This check must cover
-     * every token type preprocess() replaces, or replacement is silently skipped.
+     * Quick check for bare tokens needing replacement: Infinity/NaN or integers that may exceed
+     * Number.MAX_SAFE_INTEGER. False positives (e.g. tokens inside strings) are acceptable: they
+     * merely trigger the single-pass scan. This check must cover every token type scanAndReplace()
+     * replaces, or replacement is silently skipped.
      * @param json_string: JSON string to check
-     * @return {boolean}: true if the scan/reviver path is needed
+     * @return {boolean}: true if the replacement scan is needed
      */
-    static needsPreprocess(json_string) {
+    static hasReplaceableToken(json_string) {
         for (const token of SaferParser.GATE_TOKENS.keys()) {
             if (json_string.includes(token)) {
                 return true;
             }
         }
-        return SaferParser.mayContainFlagObject(json_string) || hasLongDigitRun(json_string);
+        return hasLongDigitRun(json_string);
+    }
+
+    /**
+     * Quick check for input that may need preprocessing: a replaceable bare token or a literal flag
+     * object needing revival.
+     * @param json_string: JSON string to check
+     * @return {boolean}: true if the scan/reviver path is needed
+     */
+    static needsPreprocess(json_string) {
+        return SaferParser.hasReplaceableToken(json_string) || SaferParser.mayContainFlagObject(json_string);
     }
 
     /**
@@ -243,11 +276,12 @@ export class SaferParser {
         // reviver callback. The quick check is the only overhead on this common clean-payload path.
         let converted_data = json_string;
         let full_reviver = reviver;
-        if (SaferParser.needsPreprocess(json_string)) {
+        const may_contain_flag = SaferParser.mayContainFlagObject(json_string);
+        if (may_contain_flag || SaferParser.hasReplaceableToken(json_string)) {
             converted_data = SaferParser.scanAndReplace(json_string);
             // False positives (e.g. tokens inside strings) yield no replacement and need no reviver,
             // unless a literal flag object may be present and must be revived
-            if (converted_data !== json_string || SaferParser.mayContainFlagObject(json_string)) {
+            if (converted_data !== json_string || may_contain_flag) {
                 // Non-callable revivers are ignored, matching native JSON.parse
                 const input_reviver = isFunction(reviver) ? reviver : ((key, value) => value);
                 // Preserve the holder binding (this) and any extra arguments for the caller's reviver
@@ -364,10 +398,7 @@ export class SaferParser {
 
     /**
      * Replace tokens invalid in JavaScript JSON (Infinity, -Infinity, NaN, and integers exceeding
-     * Number.MAX_SAFE_INTEGER) with flag objects, leaving all other text untouched.
-     *
-     * Runs in a single linear pass over the input: string literals are skipped (honoring escape
-     * sequences), and no per-token substring copies of the remaining input are made. Input without
+     * Number.MAX_SAFE_INTEGER) with flag objects, leaving all other text untouched. Input without
      * any such tokens is returned as-is.
      *
      * @param json_string: JSON string to preprocess
@@ -382,8 +413,10 @@ export class SaferParser {
     }
 
     /**
-     * Ungated single-pass scan behind preprocess(). Any token type emitted here MUST also be covered
-     * by needsPreprocess(), or its replacement is silently skipped on the gated paths.
+     * Ungated single linear pass behind preprocess(): string literals are skipped (honoring escape
+     * sequences), and no per-token substring copies of the remaining input are made. Any token type
+     * emitted here MUST also be covered by hasReplaceableToken(), or its replacement is silently
+     * skipped on the gated paths.
      * @param json_string: JSON string to preprocess
      * @return {string}
      */
