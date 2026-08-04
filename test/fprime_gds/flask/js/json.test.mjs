@@ -155,6 +155,9 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
                      {"fprime{replacement": "NUMBER", "value": "junk"});
     // Well-formed non-integer NUMBER flag objects revive through the float branch
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "1.5"}}').x, 1.5);
+    // Whitespace-padded values are tolerated (pins the load-bearing trim in stringToNumber)
+    assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": " 9007199254740993 "}}').x,
+                 9007199254740993n);
     // Values outside the JSON grammar (hex, junk Infinity spellings) pass through unchanged
     assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "0x10"}}').x,
                      {"fprime{replacement": "NUMBER", "value": "0x10"});
@@ -202,8 +205,9 @@ test("malformed input terminates and throws SyntaxError", () => {
     }
 });
 
-// The timeout is a hang-detection guard (not a performance benchmark): catastrophic backtracking
-// here previously took seconds to minutes or overflowed the regex engine
+// Hang-detection guard, not a benchmark: catastrophic backtracking here previously took minutes or
+// overflowed the regex engine. node:test timeouts are best-effort for synchronous hangs; the pytest
+// wrapper's subprocess timeout is the authoritative watchdog
 test("pathological escape-heavy strings parse quickly", {timeout: 5000}, () => {
     const evil = '{"a": "' + "\\\\".repeat(50000) + '"}';
     assert.equal(SaferParser.parse(evil).a.length, 50000);

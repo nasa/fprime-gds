@@ -38,8 +38,10 @@ dependencies = [
     "pytest>=6.2.4",
     "flask_restful>=0.3.8",
     "fprime-tools>=3.4.3",
-    # argcomplete 3.7.1 uses PEP 604 unions in runtime annotations, breaking Python 3.9
-    "argcomplete>=1.12.3,!=3.7.1",
+    # argcomplete 3.7.1+ uses PEP 604 unions in runtime annotations, breaking Python 3.9;
+    # cap only there so fixed releases flow to newer Pythons automatically
+    "argcomplete>=1.12.3,<3.7.1; python_version < '3.10'",
+    "argcomplete>=1.12.3,!=3.7.1; python_version >= '3.10'",
     "Jinja2>=2.11.3",
     "openpyxl>=3.0.10",
     "pyserial>=3.5",

@@ -153,6 +153,8 @@ function scanNumberToken(json_string, start) {
  * Literal flag objects appearing in input are also revived for round-trip compatibility; revival is
  * validated, and malformed flag objects pass through unchanged rather than failing the whole parse:
  * one bad value must not take down an entire telemetry poll.
+ *
+ * preprocess() is retained as a public entry point for external callers; parse() does not use it.
  */
 export class SaferParser {
     // Must stay ASCII-only: mayContainFlagObject()'s \u00 escape gate depends on it
@@ -532,7 +534,11 @@ export class SaferParser {
         try {
             return replacer(string_value);
         } catch (e) {
-            // All revival errors are intentionally non-fatal: malformed values pass through unchanged
+            // Malformed values (SyntaxError) are intentionally non-fatal and pass through unchanged;
+            // anything else is a converter bug and must surface
+            if (!(e instanceof SyntaxError)) {
+                throw e;
+            }
             return value;
         }
     }
