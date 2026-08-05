@@ -169,6 +169,13 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
         return value;
     });
     assert.ok(Number.isNaN(seen.x));
+    // Synthetic flag-object interior nodes never reach the caller's reviver, so a string-transforming
+    // reviver cannot corrupt revival (and never sees keys native JSON.parse would not surface)
+    assert.equal(SaferParser.parse("[9007199254740993]",
+                                   (key, value) => (typeof value === "string" ? "X" : value))[0],
+                 9007199254740993n);
+    assert.equal("fprime{replacement" in seen, false);
+    assert.equal("value" in seen, false);
     // Whitespace-padded values are tolerated (pins the load-bearing trim in stringToNumber)
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": " 9007199254740993 "}}').x,
                  9007199254740993n);

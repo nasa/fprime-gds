@@ -27,8 +27,8 @@ def _node_major():
 MIN_NODE_MAJOR = 18
 NODE_MAJOR = _node_major()
 NODE_OK = NODE_MAJOR is not None and NODE_MAJOR >= MIN_NODE_MAJOR
-# GitHub Actions sets CI=true; treat only explicit affirmative values as CI
-IS_CI = os.environ.get("CI", "").lower() in ("true", "1")
+# Any non-empty, non-negative CI value counts as CI (GitHub Actions sets CI=true)
+IS_CI = os.environ.get("CI", "").lower() not in ("", "0", "false")
 
 
 # Skip locally without a suitable node, but fail on CI so the JS suite cannot silently stop running

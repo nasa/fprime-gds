@@ -91,7 +91,8 @@ function isDigit(character) {
     return character >= "0" && character <= "9";
 }
 
-// Shortest digit-run length that can exceed the safe-integer range (16: the length of 2^53's decimal form)
+// Shortest digit-run length that can exceed the safe-integer range (16: the length of
+// Number.MAX_SAFE_INTEGER's decimal form)
 const UNSAFE_DIGIT_RUN_LENGTH = String(Number.MAX_SAFE_INTEGER).length;
 
 /**
@@ -318,8 +319,14 @@ export class SaferParser {
             if (converted_data !== json_string || decision.may_contain_flag) {
                 // Non-callable revivers are ignored, matching native JSON.parse
                 const input_reviver = isFunction(reviver) ? reviver : ((key, value) => value);
-                // Preserve the holder binding (this) and any extra arguments for the caller's reviver
+                // Preserve the holder binding (this) and any extra arguments for the caller's reviver.
+                // Interior nodes of synthetic flag objects are hidden from the caller's reviver: native
+                // JSON.parse would never surface them, and mutating "value" would break revival
                 full_reviver = function (key, value, context) {
+                    if (this !== null && typeof this === "object"
+                        && SaferParser.CONVERSION_MAP.has(this[SaferParser.CONVERSION_KEY])) {
+                        return value;
+                    }
                     return input_reviver.call(this, key, SaferParser.reviver(key, value), context);
                 };
             }
