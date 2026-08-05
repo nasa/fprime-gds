@@ -181,6 +181,13 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
         '{"x": {"fprime{replacement": "NUMBER", "value": 5,' +
         ' "nested": {"fprime{replacement": "NAN", "value": "NaN"}}}');
     assert.ok(Number.isNaN(nested.x.nested));
+    // Unknown-type flag objects are ordinary data: their interior nodes reach the caller's reviver
+    const bogus_seen = {};
+    SaferParser.parse('{"x": {"fprime{replacement": "BOGUS", "value": "1", "b": NaN}}', (key, value) => {
+        bogus_seen[key] = value;
+        return value;
+    });
+    assert.equal(bogus_seen["value"], "1");
     // A caller reviver returning undefined deletes the key, on both the fast and composite paths
     const drop = (key, value) => (key === "a" ? undefined : value);
     assert.equal("a" in SaferParser.parse('{"a": 5, "b": NaN}', drop), false);
