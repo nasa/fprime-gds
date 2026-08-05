@@ -179,7 +179,7 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
     // Well-formed flag objects nested inside malformed ones still revive
     const nested = SaferParser.parse(
         '{"x": {"fprime{replacement": "NUMBER", "value": 5,' +
-        ' "nested": {"fprime{replacement": "NAN", "value": "NaN"}}}}');
+        ' "nested": {"fprime{replacement": "NAN", "value": "NaN"}}}');
     assert.ok(Number.isNaN(nested.x.nested));
     // A caller reviver returning undefined deletes the key, on both the fast and composite paths
     const drop = (key, value) => (key === "a" ? undefined : value);
