@@ -27,7 +27,7 @@ def _node_major():
 MIN_NODE_MAJOR = 18
 NODE_MAJOR = _node_major()
 NODE_OK = NODE_MAJOR is not None and NODE_MAJOR >= MIN_NODE_MAJOR
-# Any non-empty, non-negative CI value counts as CI (GitHub Actions sets CI=true)
+# Any CI value other than empty, "0", or "false" counts as CI (GitHub Actions sets CI=true)
 IS_CI = os.environ.get("CI", "").lower() not in ("", "0", "false")
 
 

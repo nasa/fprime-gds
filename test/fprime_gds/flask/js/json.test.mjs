@@ -176,6 +176,15 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
                  9007199254740993n);
     assert.equal("fprime{replacement" in seen, false);
     assert.equal("value" in seen, false);
+    // Well-formed flag objects nested inside malformed ones still revive
+    const nested = SaferParser.parse(
+        '{"x": {"fprime{replacement": "NUMBER", "value": 5,' +
+        ' "nested": {"fprime{replacement": "NAN", "value": "NaN"}}}}');
+    assert.ok(Number.isNaN(nested.x.nested));
+    // A caller reviver returning undefined deletes the key, on both the fast and composite paths
+    const drop = (key, value) => (key === "a" ? undefined : value);
+    assert.equal("a" in SaferParser.parse('{"a": 5, "b": NaN}', drop), false);
+    assert.equal("a" in SaferParser.parse('{"a": 5}', drop), false);
     // Whitespace-padded values are tolerated (pins the load-bearing trim in stringToNumber)
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": " 9007199254740993 "}}').x,
                  9007199254740993n);

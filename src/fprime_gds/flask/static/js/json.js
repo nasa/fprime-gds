@@ -320,12 +320,13 @@ export class SaferParser {
                 // Non-callable revivers are ignored, matching native JSON.parse
                 const input_reviver = isFunction(reviver) ? reviver : ((key, value) => value);
                 // Preserve the holder binding (this) and any extra arguments for the caller's reviver.
-                // Interior nodes of synthetic flag objects are hidden from the caller's reviver: native
-                // JSON.parse would never surface them, and mutating "value" would break revival
+                // Interior nodes of flag objects (synthetic or literal, including malformed ones that
+                // pass through) are hidden from the caller's reviver, since mutating "value" would break
+                // revival; SaferParser's own reviver still runs so nested flag objects revive
                 full_reviver = function (key, value, context) {
                     if (this !== null && typeof this === "object"
                         && SaferParser.CONVERSION_MAP.has(this[SaferParser.CONVERSION_KEY])) {
-                        return value;
+                        return SaferParser.reviver(key, value);
                     }
                     return input_reviver.call(this, key, SaferParser.reviver(key, value), context);
                 };
