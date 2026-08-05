@@ -53,6 +53,10 @@ function stringToNumber(value) {
     if (value.search(/[.eE]/) !== -1) {
         return Number.parseFloat(value);
     }
+    // Negative zero round-trips as a number: its toString() is "0", which would misroute it to BigInt
+    if (value === "-0") {
+        return -0;
+    }
     const number_value = Number.parseInt(value, 10);
     // When the big and normal numbers match, then return the normal number
     if (value !== number_value.toString()) {

@@ -160,6 +160,8 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
                      {"fprime{replacement": "NUMBER", "value": "junk"});
     // Well-formed non-integer NUMBER flag objects revive through the float branch
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "1.5"}}').x, 1.5);
+    // Negative zero revives as the number -0, not BigInt 0n
+    assert.ok(Object.is(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "-0"}}').x, -0));
     // Whitespace-padded values are tolerated (pins the load-bearing trim in stringToNumber)
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": " 9007199254740993 "}}').x,
                  9007199254740993n);
@@ -243,11 +245,14 @@ test("registered mode overrides the global JSON functions", () => {
 test("gate covers every token class the scanner replaces", () => {
     // Invariant: whenever scanAndReplace() would change the input, hasReplaceableToken() must be true
     for (const input of ['{"a": NaN}', '{"a": Infinity}', '{"a": -Infinity}',
-                         '{"a": 9007199254740993}', '{"a": -9007199254740993}',
-                         '{"a": 1}', '{"a": "text"}', '{}']) {
-        const changed = SaferParser.scanAndReplace(input) !== input;
-        assert.ok(!changed || SaferParser.hasReplaceableToken(input),
-                  "gate must cover replaced input: " + input);
+                         '{"a": 9007199254740993}', '{"a": -9007199254740993}']) {
+        assert.notEqual(SaferParser.scanAndReplace(input), input, "scanner must replace: " + input);
+        assert.ok(SaferParser.hasReplaceableToken(input), "gate must cover replaced input: " + input);
+    }
+    // Clean inputs pass through both the scanner and the gate untouched
+    for (const input of ['{"a": 1}', '{"a": "text"}', '{}']) {
+        assert.equal(SaferParser.scanAndReplace(input), input);
+        assert.equal(SaferParser.hasReplaceableToken(input), false);
     }
 });
 
