@@ -136,6 +136,8 @@ test("non-string input is coerced like native JSON.parse", () => {
     assert.equal(SaferParser.parse(null), null);
     assert.throws(() => SaferParser.parse(undefined), SyntaxError);
     assert.throws(() => SaferParser.parse(Symbol("x")), TypeError);
+    // ToString coercion prefers toString() over valueOf(), like native JSON.parse
+    assert.deepEqual(SaferParser.parse({valueOf: () => 1, toString: () => '{"a":1}'}), {a: 1});
     // The public preprocess() entry point coerces the same way
     assert.equal(SaferParser.preprocess(123), "123");
     assert.notEqual(SaferParser.preprocess(9007199254740993), "9007199254740993");

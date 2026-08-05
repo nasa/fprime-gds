@@ -288,8 +288,8 @@ export class SaferParser {
      * @return {{}}: Javascript Object representation of data safely represented in JavaScript types
      */
     static parse(json_string, reviver) {
-        // Match native JSON.parse semantics: implicit ToString coercion (throws TypeError for Symbols)
-        json_string = (typeof json_string === "string") ? json_string : "" + json_string;
+        // Match native JSON.parse semantics: ToString coercion (throws TypeError for Symbols)
+        json_string = (typeof json_string === "string") ? json_string : String(json_string);
         // When decision.needs_scan is false, no replacement is needed and no flag object can be present:
         // parse with only the caller's reviver (or none), avoiding the significant cost of a per-node
         // reviver callback. The quick check is the only overhead on this common clean-payload path.
@@ -425,7 +425,7 @@ export class SaferParser {
      */
     static preprocess(json_string) {
         // Fast path for direct external callers; parse() gates itself and calls scanAndReplace() directly
-        json_string = (typeof json_string === "string") ? json_string : "" + json_string;
+        json_string = (typeof json_string === "string") ? json_string : String(json_string);
         if (!SaferParser.needsPreprocess(json_string)) {
             return json_string;
         }
