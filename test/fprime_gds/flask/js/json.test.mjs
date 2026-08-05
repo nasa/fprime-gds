@@ -163,6 +163,8 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
     // Whitespace-padded values are tolerated (pins the load-bearing trim in stringToNumber)
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": " 9007199254740993 "}}').x,
                  9007199254740993n);
+    assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "INFINITY", "value": " Infinity "}}').x,
+                 Infinity);
     // Values outside the JSON grammar (hex, junk Infinity spellings) pass through unchanged
     assert.deepEqual(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "0x10"}}').x,
                      {"fprime{replacement": "NUMBER", "value": "0x10"});
@@ -232,6 +234,20 @@ test("registered mode overrides the global JSON functions", () => {
         assert.equal(JSON.parse(JSON.stringify({ a: 123456789012345678901n })).a, 123456789012345678901n);
     } finally {
         SaferParser.deregister();
+    }
+    // deregister() must restore the native functions, or later tests silently run overridden
+    assert.equal(JSON.parse, SaferParser.language_parse);
+    assert.equal(JSON.stringify, SaferParser.language_stringify);
+});
+
+test("gate covers every token class the scanner replaces", () => {
+    // Invariant: whenever scanAndReplace() would change the input, hasReplaceableToken() must be true
+    for (const input of ['{"a": NaN}', '{"a": Infinity}', '{"a": -Infinity}',
+                         '{"a": 9007199254740993}', '{"a": -9007199254740993}',
+                         '{"a": 1}', '{"a": "text"}', '{}']) {
+        const changed = SaferParser.scanAndReplace(input) !== input;
+        assert.ok(!changed || SaferParser.hasReplaceableToken(input),
+                  "gate must cover replaced input: " + input);
     }
 });
 

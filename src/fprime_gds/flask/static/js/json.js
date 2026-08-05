@@ -17,6 +17,16 @@ function isString(value) {
 }
 
 /**
+ * Coerce a value to string like native JSON.parse's ToString: prefers toString() over valueOf()
+ * and throws TypeError for Symbols
+ * @param value: value to coerce
+ * @return {string}: string form of the value
+ */
+function coerceLikeNativeParse(value) {
+    return (typeof value === "string") ? value : `${value}`;
+}
+
+/**
  * Helper to determine if value is a function
  * @param value: value to check
  * @return {boolean}: true if function, false otherwise
@@ -58,6 +68,7 @@ function stringToNumber(value) {
  * @throws {SyntaxError}: when the value is not an Infinity token
  */
 function stringToInfinity(value) {
+    value = value.trim(); // Tolerate whitespace-padded flag-object values, matching stringToNumber
     if (value === "Infinity") {
         return Infinity;
     }
@@ -141,7 +152,8 @@ function scanNumberToken(json_string, start) {
  * processing with flag objects that are revived into the real values during parsing.
  *
  * This is done by scanning unquoted text in a single linear pass and replacing Infinity, -Infinity, NaN, and
- * integers exceeding Number.MAX_SAFE_INTEGER with flag objects that are revived during parsing.
+ * integers outside the safe-integer range (Number.isSafeInteger() false) with flag objects that are
+ * revived during parsing.
  *
  * This parser will handle:
  * - -Infinity
@@ -288,8 +300,7 @@ export class SaferParser {
      * @return {{}}: Javascript Object representation of data safely represented in JavaScript types
      */
     static parse(json_string, reviver) {
-        // Match native JSON.parse ToString semantics: prefers toString over valueOf, throws TypeError for Symbols
-        json_string = (typeof json_string === "string") ? json_string : `${json_string}`;
+        json_string = coerceLikeNativeParse(json_string);
         // When decision.needs_scan is false, no replacement is needed and no flag object can be present:
         // parse with only the caller's reviver (or none), avoiding the significant cost of a per-node
         // reviver callback. The quick check is the only overhead on this common clean-payload path.
@@ -416,16 +427,16 @@ export class SaferParser {
     }
 
     /**
-     * Replace tokens invalid in JavaScript JSON (Infinity, -Infinity, NaN, and integers exceeding
-     * Number.MAX_SAFE_INTEGER) with flag objects, leaving all other text untouched. Input without
-     * any such tokens is returned as-is.
+     * Replace tokens invalid in JavaScript JSON (Infinity, -Infinity, NaN, and integers outside the
+     * safe-integer range, Number.isSafeInteger() false) with flag objects, leaving all other text
+     * untouched. Input without any such tokens is returned as-is.
      *
      * @param json_string: JSON string to preprocess
      * @return {string}
      */
     static preprocess(json_string) {
         // Fast path for direct external callers; parse() gates itself and calls scanAndReplace() directly
-        json_string = (typeof json_string === "string") ? json_string : `${json_string}`;
+        json_string = coerceLikeNativeParse(json_string);
         if (!SaferParser.needsPreprocess(json_string)) {
             return json_string;
         }
