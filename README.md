@@ -177,7 +177,8 @@ For full installation instructions, including virtual environment creation and i
 Python tests run with `pytest`. The GDS frontend JavaScript tests require Node.js (>= 18):
 
 - Under `pytest`, they run automatically when a suitable `node` is on the PATH.
-- Locally they are skipped without a suitable `node`; on CI a missing or too-old `node` fails the test.
+- Locally they are skipped without a suitable `node`; on CI a missing or too-old `node` fails the
+  test (CI relies on the runner image's preinstalled Node).
 - Run them directly with `node --test test/fprime_gds/flask/js/json.test.mjs`.
 - The `package.json` (`"type": "module"`) in `src/fprime_gds/flask/static/js/` exists only so Node
   imports the GDS frontend sources as ES modules when running these tests; browsers ignore it.

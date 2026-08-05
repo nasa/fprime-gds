@@ -43,7 +43,7 @@ function stringToNumber(value) {
     if (value.search(/[.eE]/) !== -1) {
         return Number.parseFloat(value);
     }
-    let number_value = Number.parseInt(value, 10);
+    const number_value = Number.parseInt(value, 10);
     // When the big and normal numbers match, then return the normal number
     if (value !== number_value.toString()) {
         return BigInt(value);
@@ -171,6 +171,11 @@ export class SaferParser {
     // First characters of the gate tokens: a cheap scanner filter before the startsWith checks
     static GATE_TOKEN_STARTS = new Set([...SaferParser.GATE_TOKENS.keys()].map((token) => token[0]));
 
+    // Escapes that can spell a CONVERSION_KEY character, generated from the key itself so the two can
+    // never drift; other escapes (\u0067, \u00b0, \u4e2d) keep the fast path
+    static KEY_ESCAPE = new RegExp("\\\\u00(?:" + [...new Set(SaferParser.CONVERSION_KEY)]
+        .map((character) => character.charCodeAt(0).toString(16).padStart(2, "0")).join("|") + ")", "i");
+
     static CONVERSION_MAP = new Map([
         ["INFINITY", stringToInfinity],
         ["NAN", NaN],
@@ -248,11 +253,6 @@ export class SaferParser {
         }
         return null;
     }
-
-    // Escapes that can spell a CONVERSION_KEY character, generated from the key itself so the two can
-    // never drift; other escapes (\u0067, \u00b0, \u4e2d) keep the fast path
-    static KEY_ESCAPE = new RegExp("\\\\u00(?:" + [...new Set(SaferParser.CONVERSION_KEY)]
-        .map((character) => character.charCodeAt(0).toString(16).padStart(2, "0")).join("|") + ")", "i");
 
     /**
      * Determine if the input may contain a literal flag object needing revival. The escape check catches
@@ -511,7 +511,8 @@ export class SaferParser {
      * @param key: JSON key
      * @param value: JSON value search for the converted value.
      * @return {*}: revived value, or the input value unchanged when the flag object is malformed
-     *              (unknown type, or a missing/non-string "value" where one is needed) or revival throws
+     *              (unknown type, missing/non-string "value", or revival throws SyntaxError);
+     *              other revival errors propagate
      */
     static reviver(key, value) {
         // Look for the CONVERSION_KEY flag and quickly abort if not there

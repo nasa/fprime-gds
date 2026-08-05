@@ -136,6 +136,9 @@ test("non-string input is coerced like native JSON.parse", () => {
     assert.equal(SaferParser.parse(null), null);
     assert.throws(() => SaferParser.parse(undefined), SyntaxError);
     assert.throws(() => SaferParser.parse(Symbol("x")), TypeError);
+    // The public preprocess() entry point coerces the same way
+    assert.equal(SaferParser.preprocess(123), "123");
+    assert.notEqual(SaferParser.preprocess(9007199254740993), "9007199254740993");
 });
 
 test("non-callable revivers are ignored like native JSON.parse", () => {
