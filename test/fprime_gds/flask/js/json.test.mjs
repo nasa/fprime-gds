@@ -162,6 +162,13 @@ test("malformed flag objects pass through unchanged instead of throwing", () => 
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "1.5"}}').x, 1.5);
     // Negative zero revives as the number -0, not BigInt 0n
     assert.ok(Object.is(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": "-0"}}').x, -0));
+    // The caller's reviver also runs on the flag-object-only path and sees the revived value
+    const seen = {};
+    SaferParser.parse('{"x": {"fprime{replacement": "NAN", "value": "NaN"}}', (key, value) => {
+        seen[key] = value;
+        return value;
+    });
+    assert.ok(Number.isNaN(seen.x));
     // Whitespace-padded values are tolerated (pins the load-bearing trim in stringToNumber)
     assert.equal(SaferParser.parse('{"x": {"fprime{replacement": "NUMBER", "value": " 9007199254740993 "}}').x,
                  9007199254740993n);
