@@ -1,5 +1,5 @@
 """
-gds_test_api.py:
+api.py:
 
 This file contains basic asserts that can support integration tests on an FPrime
 deployment. This API uses the standard pipeline to get access to commands, events,
@@ -8,7 +8,6 @@ telemetry and dictionaries.
 :author: koran
 """
 
-import signal
 import time
 from pathlib import Path
 import shutil
@@ -28,10 +27,12 @@ from fprime_gds.common.utils.event_severity import EventSeverity
 
 class IntegrationTestAPI(DataHandler):
     """
-    A value used to begin searches after the current contents in a history and only search future
-    items
+    Provides asserts, searches, and command/telemetry/event helpers to support integration tests
+    on an F Prime deployment through the standard pipeline.
     """
 
+    # A value used to begin searches after the current contents in a history and only search
+    # future items
     NOW = "NOW"
 
     def __init__(self, pipeline, deployment_config=None, logpath=None, fsw_order=True):
@@ -73,13 +74,18 @@ class IntegrationTestAPI(DataHandler):
 
         # Copy dictionaries and binary file to output directory
         if logpath is not None:
-            base_dir = Path(self.dictionaries.dictionary_path).parents[1]
-            for subdir in ["bin", "dict"]:
-                dir_path = base_dir / subdir
-                if dir_path.is_dir():
-                    shutil.copytree(
-                        dir_path, Path(logpath) / subdir, dirs_exist_ok=True
-                    )
+            dictionary_parents = Path(self.dictionaries.dictionary_path).resolve().parents
+            if len(dictionary_parents) >= 2:
+                base_dir = dictionary_parents[1]
+                for subdir in ["bin", "dict"]:
+                    dir_path = base_dir / subdir
+                    if dir_path.is_dir():
+                        shutil.copytree(
+                            dir_path, Path(logpath) / subdir, dirs_exist_ok=True
+                        )
+
+        # Temporary directories holding generated sequence binaries; cleaned up in teardown()
+        self._sequence_tempdirs = []
 
         # A predicate used as a filter to choose which events to log automatically
         self.event_log_filter = self.get_event_pred()
@@ -103,6 +109,9 @@ class IntegrationTestAPI(DataHandler):
         To be called once at the end of the API's use. Closes the test log and clears histories.
         """
         self.clear_histories()
+        for tempdir in self._sequence_tempdirs:
+            tempdir.cleanup()
+        self._sequence_tempdirs = []
         if self.logger is not None:
             self.logger.close_log()
             self.logger = None
@@ -247,7 +256,7 @@ class IntegrationTestAPI(DataHandler):
         Returns:
             The name of the deployment (str) or None if not found
         """
-        dictionary = str(self.pipeline.dictionary_path)
+        dictionary = str(self.dictionaries.dictionary_path)
 
         try:
             with open(dictionary, "r") as file:
@@ -261,8 +270,12 @@ class IntegrationTestAPI(DataHandler):
             msg = f"Error decoding JSON: {e}"
             self.__log(msg, TestLogger.YELLOW)
             return None
+        except KeyError as e:
+            msg = f"Error: {e} is an unknown key"
+            self.__log(msg, TestLogger.YELLOW)
+            return None
         except Exception as e:
-            msg = f"An unexpected error occurred: {e} is an unknown key"
+            msg = f"An unexpected error occurred: {e}"
             self.__log(msg, TestLogger.YELLOW)
             return None
 
@@ -280,14 +293,16 @@ class IntegrationTestAPI(DataHandler):
             start = self.get_latest_time()
 
         history = self.get_telemetry_subhistory()
-        result = self.await_telemetry_count(
-            count, channels=channels, history=history, start=start, timeout=timeout
-        )
-        if not result:
-            msg = f"Failed to detect any data flow for {timeout} s."
-            self.__log(msg, TestLogger.RED)
-            assert False, msg
-        self.remove_telemetry_subhistory(history)
+        try:
+            result = self.await_telemetry_count(
+                count, channels=channels, history=history, start=start, timeout=timeout
+            )
+            if not result:
+                msg = f"Failed to detect any data flow for {timeout} s."
+                self.__log(msg, TestLogger.RED)
+                assert False, msg
+        finally:
+            self.remove_telemetry_subhistory(history)
 
     def get_config_file_path(self):
         """
@@ -296,19 +311,18 @@ class IntegrationTestAPI(DataHandler):
         Returns:
             path to user-specified deployment configuration file (str) or None if not defined
         """
-        if self.deployment_config:
-            return self.deployment_config
-        else:
-            return None
+        return self.deployment_config if self.deployment_config else None
 
     def load_config_file(self):
         """
         Load user-specified deployment configuration JSON file.
 
         Returns:
-            JSON object as a dictionary
+            JSON object as a dictionary or None if no configuration file was specified
         """
         config_file = self.get_config_file_path()
+        if config_file is None:
+            return None
 
         try:
             with open(config_file, "r") as file:
@@ -506,23 +520,37 @@ class IntegrationTestAPI(DataHandler):
         command = self.translate_command_name(command)
         self.pipeline.send_command(command, args)
 
-    def set_tlm_packet_level(self, level=3,timeout=10):
+    def set_tlm_packet_level(self, level=3, timeout=10, commander="cmdDisp"):
         """
         Set the telemetry packet level on FSW to enable/disable telemetry packet groups.
 
-        Finds the Svc.TlmPacketizer.SET_LEVEL command in the dictionary and sends it.
-        Useful for tests that need higher-level telemetry packets to be emitted by FSW.
-        No-op if the deployment does not use TlmPacketizer (SET_LEVEL command absent).
+        Sends every command in the dictionary whose name ends in ".SET_LEVEL" (typically
+        Svc.TlmPacketizer instances) via send_and_assert_command, asserting that each command
+        dispatches and completes within the timeout. Useful for tests that need higher-level
+        telemetry packets to be emitted by FSW.
+        No-op if the deployment has no SET_LEVEL command in its dictionary.
 
         Args:
             level: telemetry packet level to set (default 3 enables all)
             timeout: the number of seconds to wait before terminating the search (int)
+            commander: the command dispatching component instance. Defaults to cmdDisp
         """
-        for name in self.pipeline.dictionaries.command_name:
-            if name.endswith(".SET_LEVEL"):
-                self.send_and_assert_command(name, [level], timeout=timeout)
-                return
-        self.__log("SET_LEVEL command not found in dictionary; skipping set_tlm_packet_level", TestLogger.YELLOW)
+        matches = [
+            name
+            for name in self.pipeline.dictionaries.command_name
+            if name.endswith(".SET_LEVEL")
+        ]
+        if not matches:
+            self.__log(
+                "SET_LEVEL command not found in dictionary; skipping set_tlm_packet_level",
+                TestLogger.YELLOW,
+            )
+            return
+        for name in matches:
+            self.__log(f"Setting telemetry packet level {level} via {name}")
+            self.send_and_assert_command(
+                name, [level], timeout=timeout, commander=commander
+            )
 
     def send_and_await_telemetry(self, command, args=None, channels=None, timeout=5):
         """
@@ -534,7 +562,6 @@ class IntegrationTestAPI(DataHandler):
             command: the mnemonic (str) or ID (int) of the command to send
             args: a list of command arguments.
             channels: a single or a sequence of channel specs (event_predicates, mnemonics, or IDs)
-            start: an optional index or predicate to specify the earliest item to search
             timeout: the number of seconds to wait before terminating the search (int)
 
         Returns:
@@ -561,7 +588,6 @@ class IntegrationTestAPI(DataHandler):
             command: the mnemonic (str) or ID (int) of the command to send
             args: a list of command arguments.
             events: a single or a sequence of event specifiers (event_predicates, mnemonics, or IDs)
-            start: an optional index or predicate to specify the earliest item to search
             timeout: the number of seconds to wait before terminating the search (int)
 
         Returns:
@@ -581,7 +607,7 @@ class IntegrationTestAPI(DataHandler):
     def send_and_assert_command(
         self,
         command,
-        args=[],
+        args=None,
         max_delay=None,
         timeout=5,
         events=None,
@@ -602,6 +628,8 @@ class IntegrationTestAPI(DataHandler):
         Return:
             returns a list of the EventData objects found by the search
         """
+        if args is None:
+            args = []
         cmd_id = self.translate_command_name(command)
         dispatch = [
             self.get_event_pred(f"{commander}.OpCodeDispatched", [cmd_id, None])
@@ -610,7 +638,7 @@ class IntegrationTestAPI(DataHandler):
         events = dispatch + (events if events else []) + complete
         results = self.send_and_assert_event(command, args, events, timeout=timeout)
         if max_delay is not None:
-            delay = results[1].get_time() - results[0].get_time()
+            delay = results[-1].get_time() - results[0].get_time()
             msg = f"The delay, {delay}, between the two events should be < {max_delay}"
             assert delay < max_delay, msg
         return results
@@ -628,7 +656,6 @@ class IntegrationTestAPI(DataHandler):
             command: the mnemonic (str) or ID (int) of the command to send
             args: a list of command arguments.
             channels: a single or a sequence of channel specs (event_predicates, mnemonics, or IDs)
-            start: an optional index or predicate to specify the earliest item to search
             timeout: the number of seconds to wait before terminating the search (int)
 
         Returns:
@@ -656,7 +683,6 @@ class IntegrationTestAPI(DataHandler):
             command: the mnemonic (str) or ID (int) of the command to send
             args: a list of command arguments.
             events: a single or a sequence of event specifiers (event_predicates, mnemonics, or IDs)
-            start: an optional index or predicate to specify the earliest item to search
             timeout: the number of seconds to wait before terminating the search (int)
 
         Returns:
@@ -713,8 +739,9 @@ class IntegrationTestAPI(DataHandler):
         This function will translate the channel ID, and construct a telemetry_predicate object. It
         is used as a helper by the IntegrationTestAPI, but could also be helpful to a user of the
         test API. If channel is already an instance of telemetry_predicate, it will be returned
-        immediately when no other constraints are given; otherwise its channel constraint is
-        combined with the given value and time constraints. The provided implementation of
+        immediately when no other constraints are given; otherwise a new predicate is built that
+        keeps its channel constraint and overrides the value and/or time constraints with those
+        supplied here. The provided implementation of
         telemetry_predicate evaluates true if and only if all specified constraints are satisfied.
         If a specific constraint isn't specified, then it will not effect the outcome; this means
         all arguments are optional. If no constraints are specified, the predicate will always
@@ -951,7 +978,8 @@ class IntegrationTestAPI(DataHandler):
         """
         This function will translate the event ID, and construct an event_predicate object. It is
         used as a helper by the IntegrationTestAPI, but could also be helpful to a user of the test
-        API. If event is already an instance of event_predicate, it will be returned immediately.
+        API. If event is already an instance of event_predicate, it will be returned immediately
+        and any other given constraints (args, severity, time_pred) are ignored.
         The provided implementation of event_predicate evaluates true if and only if all specified
         constraints are satisfied. If a specific constraint isn't specified, then it will not
         effect the outcome; this means all arguments are optional. If no constraints are specified,
@@ -1207,9 +1235,13 @@ class IntegrationTestAPI(DataHandler):
             sequence_path: the path to the sequence to upload
             destination: the destination path for the uploaded sequence
             timeout: the maximum time to wait for the event
+        Returns:
+            True if FileReceived event was found, False otherwise
         """
+        start = self.get_event_test_history().size()
         self.uplink_sequence(sequence_path, destination)
-        self.await_event("FileReceived", timeout=timeout)
+        event = self.await_event("FileReceived", start=start, timeout=timeout)
+        return event is not None
 
     def uplink_sequence(self, sequence_path, destination=None):
         """
@@ -1223,21 +1255,23 @@ class IntegrationTestAPI(DataHandler):
             sequence_path: the path to the sequence to upload
             destination: the destination path for the uploaded sequence
         """
-        with tempfile.TemporaryDirectory() as tempdir:
-            temp_bin_path = (Path(tempdir) / Path(sequence_path).name).with_suffix(".bin")
-            try:
-                generateSequence(
-                    sequence_path, temp_bin_path, self.dictionaries.dictionary_path, 0xFFFF, cont=True
-                )
-            except OSError as ose:
-                msg = f"Failed to generate sequence binary from {sequence_path}: {ose}"
-                self.__log(msg, TestLogger.RED)
-                raise
-            except SeqGenException as exc:
-                msg = f"Failed to generate sequence binary from {sequence_path}: {exc}"
-                self.__log(msg, TestLogger.RED)
-                raise
-            self.uplink_file(temp_bin_path, destination)
+        # Kept alive until teardown: the uplink only enqueues the file, which may be read later
+        tempdir = tempfile.TemporaryDirectory()
+        self._sequence_tempdirs.append(tempdir)
+        temp_bin_path = (Path(tempdir.name) / Path(sequence_path).name).with_suffix(".bin")
+        try:
+            generateSequence(
+                sequence_path, temp_bin_path, self.dictionaries.dictionary_path, 0xFFFF, cont=True
+            )
+        except OSError as ose:
+            msg = f"Failed to generate sequence binary from {sequence_path}: {ose}"
+            self.__log(msg, TestLogger.RED)
+            raise
+        except SeqGenException as exc:
+            msg = f"Failed to generate sequence binary from {sequence_path}: {exc}"
+            self.__log(msg, TestLogger.RED)
+            raise
+        self.uplink_file(temp_bin_path, destination)
 
     ######################################################################################
     #   History Searches
@@ -1285,9 +1319,6 @@ class IntegrationTestAPI(DataHandler):
         This exception is used by the history searches to signal the end of the timeout.
         """
 
-    def __timeout_sig_handler(self, signum, frame):
-        raise self.TimeoutException()
-
     def __search_test_history(self, searcher, name, history, start=None, timeout=0):
         """
         This helper method contains the common logic to all search methods in the test API. This
@@ -1325,9 +1356,9 @@ class IntegrationTestAPI(DataHandler):
             start = history.size()
         elif isinstance(start, TimeType):
             time_pred = predicates.greater_than_or_equal_to(start)
-            e_pred = self.get_telemetry_pred(time_pred=time_pred)
-            t_pred = self.get_event_pred(time_pred=time_pred)
-            start = predicates.satisfies_any([e_pred, t_pred])
+            tlm_pred = self.get_telemetry_pred(time_pred=time_pred)
+            evt_pred = self.get_event_pred(time_pred=time_pred)
+            start = predicates.satisfies_any([tlm_pred, evt_pred])
 
         current = history.retrieve(start)
         if searcher.search_current_history(current):
@@ -1336,24 +1367,19 @@ class IntegrationTestAPI(DataHandler):
         if timeout:
             self.__log(f"{name} now awaiting for at most {timeout} s.")
             check_repeats = isinstance(history, ChronologicalHistory)
-            try:
-                signal.signal(signal.SIGALRM, self.__timeout_sig_handler)
-                signal.alarm(timeout)
-                while True:
-                    if check_repeats:
-                        new_items = history.retrieve_new(searcher.requires_repeats())
-                    else:
-                        new_items = history.retrieve_new()
-                    for item in new_items:
-                        if searcher.incremental_search(item):
-                            return searcher.get_return_value()
-                    time.sleep(0.1)
-            except self.TimeoutException:
-                self.__log(
-                    f"{name} timed out and ended unsuccessfully.", TestLogger.YELLOW
-                )
-            finally:
-                signal.alarm(0)
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                if check_repeats:
+                    new_items = history.retrieve_new(searcher.requires_repeats())
+                else:
+                    new_items = history.retrieve_new()
+                for item in new_items:
+                    if searcher.incremental_search(item):
+                        return searcher.get_return_value()
+                time.sleep(0.1)
+            self.__log(
+                f"{name} timed out and ended unsuccessfully.", TestLogger.YELLOW
+            )
         else:
             self.__log(f"{name} ended unsuccessfully.", TestLogger.YELLOW)
         return searcher.get_return_value()
@@ -1491,10 +1517,10 @@ class IntegrationTestAPI(DataHandler):
             def search_current_history(self, items):
                 if self.search_pred is None:
                     self.search_pred = predicates.always_true()
-                    self.ret_val = items
+                    self.ret_val = list(items)
                 else:
                     for item in items:
-                        if search_pred(item):
+                        if self.search_pred(item):
                             self.log(f"Count search counted another item: {item}")
                             self.ret_val.append(item)
 

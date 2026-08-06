@@ -99,7 +99,7 @@ class greater_than(predicate):
     def __init__(self, value):
         """
         A predicate that evaluates a greater-than comparison
-        :param value: To return true, the predicate must be called on an object that is less
+        :param value: To return true, the predicate must be called on an object that is greater
             than this value
         """
         self.lower_limit = value
@@ -330,8 +330,9 @@ class invert(predicate):
         gate when combining predicates.
         :param pred: The predicate to be negated.
         """
-        if is_predicate(pred):
-            self.pred = pred
+        if not is_predicate(pred):
+            raise TypeError("The given argument was not an instance of predicate.")
+        self.pred = pred
 
     def __call__(self, item):
         """
@@ -354,7 +355,10 @@ class satisfies_all(predicate):
         This predicate can be used like an AND gate of N elements when combining predicates.
         :param pred_list: a list of predicates
         """
-        self.p_list = [pred for pred in pred_list if is_predicate(pred)]
+        for pred in pred_list:
+            if not is_predicate(pred):
+                raise TypeError(f"The given list item, {pred}, was not an instance of predicate.")
+        self.p_list = list(pred_list)
 
     def __call__(self, item):
         """
@@ -377,7 +381,10 @@ class satisfies_any(predicate):
         This predicate can be used like an OR gate of N elements when combining predicates.
         :param pred_list: a list of predicates
         """
-        self.p_list = [pred for pred in pred_list if is_predicate(pred)]
+        for pred in pred_list:
+            if not is_predicate(pred):
+                raise TypeError(f"The given list item, {pred}, was not an instance of predicate.")
+        self.p_list = list(pred_list)
 
     def __call__(self, item):
         """
@@ -467,8 +474,8 @@ class event_predicate(predicate):
 
     def __call__(self, event):
         """
-        The event_predicate checks that the telemetry object is an instance of EventData and will
-        raise an error if the check fails. Then event_predicate will evaluate whether event's
+        The event_predicate checks that the given object is an instance of EventData and
+        evaluates False if the check fails. Then event_predicate will evaluate whether event's
         EventData fields satisfy the id_pred, value_pred, and time_pred specified.
 
         Args:
@@ -507,12 +514,12 @@ class telemetry_predicate(predicate):
         """
         A predicate for specifying a ChData object from data_types.ch_data. This predicate can be
         used to search a history. If arguments passed into this constructor are not subclasses of
-        predicate, they will be ignored.If an argument is unspecified, the predicate will ignore
-        that field when evaluating an EventData object.
+        predicate, they will be ignored. If an argument is unspecified, the predicate will ignore
+        that field when evaluating a ChData object.
 
         Args:
             id_pred: optional predicate to call on the ChData instance's id field
-            value_pred: optional predicate to call on the ChData instance's id field
+            value_pred: optional predicate to call on the ChData instance's value field
             time_pred: optional predicate to call on the ChData instance's timestamp
         """
         true_pred = always_true()
@@ -528,8 +535,8 @@ class telemetry_predicate(predicate):
 
     def __call__(self, telemetry):
         """
-        The telemetry_predicate checks that the telemetry object is an instance of ChData and will
-        raise an error if the check fails. Then telemetry_predicate will evaluate whether
+        The telemetry_predicate checks that the given object is an instance of ChData and
+        evaluates False if the check fails. Then telemetry_predicate will evaluate whether
         telemetry's ChData fields satisfy the id_pred, value_pred and time_pred specified.
 
         Args:
