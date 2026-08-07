@@ -99,6 +99,19 @@ class NonClearingHistory(FlaskEndpointRamHistory):
         """Never clear: history is retained for the lifetime of the process"""
 
 
+def select_history_implementation(pipeline_arguments):
+    """Choose the RAM history implementation based on the parsed --no-clear-history flag
+
+    Split out from setup_pipelined_components so this selection can be tested directly,
+    without going through the full pipeline setup (which attempts a real connection).
+    """
+    return (
+        NonClearingHistory
+        if getattr(pipeline_arguments, "no_clear_history", False)
+        else FlaskEndpointRamHistory
+    )
+
+
 def setup_pipelined_components(debug: bool, pipeline_arguments):
     """
     Setup the standard pipeline and related components. This is done once, and then the resulting singletons are
@@ -117,11 +130,7 @@ def setup_pipelined_components(debug: bool, pipeline_arguments):
         or os.environ.get("WERKZEUG_RUN_MAIN") == "true"
     ):
         pipeline = StandardPipeline()
-        pipeline.histories.implementation = (
-            NonClearingHistory
-            if getattr(pipeline_arguments, "non_clearing_history", False)
-            else FlaskEndpointRamHistory
-        )
+        pipeline.histories.implementation = select_history_implementation(pipeline_arguments)
         pipeline = StandardPipelineParser.pipeline_factory(pipeline_arguments, pipeline)
         __PIPELINE = pipeline
     assert __PIPELINE is not None, "Main thread did not setup pipeline appropriately"

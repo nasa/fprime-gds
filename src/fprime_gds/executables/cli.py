@@ -1196,8 +1196,8 @@ class HistoryParser(ParserBase):
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
         """Arguments controlling how the pipeline's history is retained"""
         return {
-            ("--gds-non-clearing-history",): {
-                "dest": "non_clearing_history",
+            ("--no-clear-history",): {
+                "dest": "no_clear_history",
                 "action": "store_true",
                 "default": False,
                 "help": "Do not clear history as it is retrieved by GDS clients (e.g. the web UI). By "

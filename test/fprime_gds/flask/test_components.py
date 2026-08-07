@@ -1,21 +1,56 @@
 import unittest
 
 from fprime_gds.executables.cli import HistoryParser, ParserBase
-from fprime_gds.flask.components import FlaskEndpointRamHistory, NonClearingHistory
+from fprime_gds.flask.components import (
+    FlaskEndpointRamHistory,
+    NonClearingHistory,
+    select_history_implementation,
+)
 
 
 class TestHistoryParser(unittest.TestCase):
-    """--gds-non-clearing-history defaults to off and round-trips through the parser"""
+    """--no-clear-history defaults to off and round-trips through the parser"""
 
     def test_default_is_clearing(self):
         args_ns, _parser = ParserBase.parse_args([HistoryParser], "test", [])
-        self.assertFalse(args_ns.non_clearing_history)
+        self.assertFalse(args_ns.no_clear_history)
 
     def test_flag_enables_non_clearing(self):
         args_ns, _parser = ParserBase.parse_args(
-            [HistoryParser], "test", ["--gds-non-clearing-history"]
+            [HistoryParser], "test", ["--no-clear-history"]
         )
-        self.assertTrue(args_ns.non_clearing_history)
+        self.assertTrue(args_ns.no_clear_history)
+
+
+class TestSelectHistoryImplementation(unittest.TestCase):
+    """The parsed --no-clear-history argument actually selects the right history class
+
+    This exercises the real path from CLI argument string to the class that
+    setup_pipelined_components would assign to pipeline.histories.implementation -
+    catching the case where the flag parses correctly but the selection logic doesn't
+    act on it (or vice versa).
+    """
+
+    def test_flag_off_selects_clearing_history(self):
+        args_ns, _parser = ParserBase.parse_args([HistoryParser], "test", [])
+        self.assertIs(select_history_implementation(args_ns), FlaskEndpointRamHistory)
+
+    def test_flag_on_selects_non_clearing_history(self):
+        args_ns, _parser = ParserBase.parse_args(
+            [HistoryParser], "test", ["--no-clear-history"]
+        )
+        self.assertIs(select_history_implementation(args_ns), NonClearingHistory)
+
+    def test_missing_attribute_defaults_to_clearing_history(self):
+        # Guards the getattr(..., False) default: an arguments object that doesn't even
+        # have the attribute (e.g. a caller that predates this flag) should still get the
+        # original, unchanged default behavior.
+        class NoHistoryAttr:
+            pass
+
+        self.assertIs(
+            select_history_implementation(NoHistoryAttr()), FlaskEndpointRamHistory
+        )
 
 
 class TestNonClearingHistory(unittest.TestCase):
