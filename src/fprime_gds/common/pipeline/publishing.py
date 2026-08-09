@@ -52,6 +52,15 @@ class PublishingPipeline(DataHandler, MappedRegistrar):
             encoder_instance.register(self.client_socket)
             self.register(id, encoder_instance)
 
+    @property
+    def dictionaries(self):
+        """
+        Get a dictionaries object
+
+        :return: dictionaries composition
+        """
+        return self._dictionaries
+
     def data_callback(self, data, sender=None):
         """ Publish data """
         if isinstance(data, ChData):
