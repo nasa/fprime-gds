@@ -66,31 +66,28 @@ class AsmFramerDeframer(FramerDeframer):
         is only emitted when frame_size bytes are available after the marker;
         otherwise the (partial) data is left as remaining for the next pass.
         """
-        discarded = b""
         if not no_copy:
             data = copy.copy(data)
-        while True:
-            index = data.find(self.asm)
-            if index < 0:
-                # No full ASM found: retain the longest data suffix that is a
-                # prefix of the ASM, in case a marker straddles the read
-                # boundary; discard the rest
-                keep_from = len(data)
-                for prefix_length in range(min(len(self.asm) - 1, len(data)), 0, -1):
-                    if data[len(data) - prefix_length:] == self.asm[:prefix_length]:
-                        keep_from = len(data) - prefix_length
-                        break
-                discarded += data[:keep_from]
-                return None, data[keep_from:], discarded
-            # Discard any bytes that precede the ASM
-            discarded += data[:index]
-            data = data[index:]
-            start = len(self.asm)
-            end = start + self.frame_size
-            if len(data) < end:
-                # Full frame not yet available: wait for more data
-                return None, data, discarded
-            return data[start:end], data[end:], discarded
+        index = data.find(self.asm)
+        if index < 0:
+            # No full ASM found: retain the longest data suffix that is a
+            # prefix of the ASM, in case a marker straddles the read
+            # boundary; discard the rest
+            keep_from = len(data)
+            for prefix_length in range(min(len(self.asm) - 1, len(data)), 0, -1):
+                if data[len(data) - prefix_length:] == self.asm[:prefix_length]:
+                    keep_from = len(data) - prefix_length
+                    break
+            return None, data[keep_from:], data[:keep_from]
+        # Discard any bytes that precede the ASM
+        discarded = data[:index]
+        data = data[index:]
+        start = len(self.asm)
+        end = start + self.frame_size
+        if len(data) < end:
+            # Full frame not yet available: wait for more data
+            return None, data, discarded
+        return data[start:end], data[end:], discarded
 
     @classmethod
     def get_name(cls):
