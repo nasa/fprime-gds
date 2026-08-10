@@ -22,6 +22,12 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     TM_HEADER_SIZE = 6
     TM_TRAILER_SIZE = 2
     TC_TRAILER_SIZE = 2
+    SPACE_PACKET_HEADER_SIZE = 6
+
+    # First Header Pointer special values per CCSDS 132.0-B-3 4.1.2.7.6
+    FHP_MASK = 0x7FF
+    FHP_NO_PACKET_START = 0x7FF  # No packet starts in this frame (continuation data only)
+    FHP_IDLE_DATA_ONLY = 0x7FE  # Frame contains only idle data
 
     # As per CCSDS standard, use CRC-16 CCITT config with init value
     # all 1s and final XOR value of 0x0000
@@ -64,6 +70,10 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
                 file=sys.stderr,
             )
         self.sequence_number = 0
+        # Continuation bytes of a packet spanning TM frames, awaiting completion
+        self.pending = b""
+        # Virtual channel frame count of the last valid frame, for loss detection
+        self.last_vc_count = None
         self.vcid = vcid
         # Priority order: command line arg > dictionary value > fallback value
         self.scid = scid or dict_scid or self.FALLBACK_SCID
@@ -152,16 +162,17 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             crc_offset = self.frame_size - self.TM_TRAILER_SIZE
             transmitted_crc = struct.unpack_from(">H", data, crc_offset)[0]
             if transmitted_crc == SpaceDataLinkFramerDeframer.CCITT_CRC_FUNCTION(data[:crc_offset]):
-                # CRC is valid, so we return the deframed data
-                deframed_data_len = (
-                    self.frame_size
-                    - self.TM_TRAILER_SIZE
-                    - self.TM_HEADER_SIZE
-                )
-                deframed = bytes(data[self.TM_HEADER_SIZE : self.TM_HEADER_SIZE + deframed_data_len])
+                # CRC is valid: extract the data field and reassemble packets spanning frames
+                vc_count = data[3]
+                first_header_pointer = struct.unpack_from(">H", data, 4)[0] & self.FHP_MASK
+                field = bytes(data[self.TM_HEADER_SIZE : crc_offset])
                 # Consume the fixed size frame
                 data = data[self.frame_size :]
-                return deframed, bytes(data), bytes(discarded)
+                deframed = self.reassemble(field, first_header_pointer, vc_count)
+                if deframed:
+                    return deframed, bytes(data), bytes(discarded)
+                # Nothing to emit from this frame (continuation or idle only): keep processing
+                continue
 
             print(
                 "[WARNING] Checksum validation failed.",
@@ -172,6 +183,60 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             data = data[1:]
             continue
         return None, bytes(data), bytes(discarded)
+
+    def reassemble(self, field, first_header_pointer, vc_count):
+        """Reassemble Space Packets from a TM frame data field using the First Header Pointer
+
+        Packets may span TM frames (CCSDS 132.0-B-3 4.1.2.7.6): continuation bytes are carried
+        across frames and completed using the First Header Pointer of the following frame. On
+        detected frame loss, pending continuation data is discarded and the First Header Pointer
+        is used to resynchronize to the next packet header.
+
+        Args:
+            field: TM frame data field bytes
+            first_header_pointer: First Header Pointer value from the frame Data Field Status
+            vc_count: virtual channel frame count of this frame
+        Return:
+            bytes ready for Space Packet deframing (may be empty)
+        """
+        # Detect frame loss via virtual channel frame count discontinuity
+        if self.last_vc_count is not None and vc_count != (self.last_vc_count + 1) % self.SEQUENCE_NUMBER_MAXIMUM:
+            if self.pending:
+                print(
+                    "[WARNING] TM frame loss detected. Discarding partial packet data.",
+                    file=sys.stderr,
+                )
+                self.pending = b""
+            # Discard leading continuation bytes of the lost packet, resync at the first header
+            if first_header_pointer < self.FHP_IDLE_DATA_ONLY:
+                field = field[first_header_pointer:]
+                first_header_pointer = 0
+        self.last_vc_count = vc_count
+        if first_header_pointer == self.FHP_IDLE_DATA_ONLY:
+            return b""
+        if first_header_pointer == self.FHP_NO_PACKET_START:
+            # Continuation data only: the spanning packet continues through this entire frame
+            if self.pending:
+                self.pending += field
+            return b""
+        # Continuation bytes before the first header complete the pending spanned packet
+        emitted = self.pending + field[:first_header_pointer]
+        # Emit only whole packets; a packet starting in this frame may span into the next
+        complete, self.pending = self.split_complete_packets(field[first_header_pointer:])
+        return emitted + complete
+
+    @classmethod
+    def split_complete_packets(cls, data):
+        """Split header-aligned Space Packet data into complete packets and a partial remainder"""
+        offset = 0
+        while len(data) - offset >= cls.SPACE_PACKET_HEADER_SIZE:
+            # Space Packet length token is the number of payload bytes minus 1
+            data_length = struct.unpack_from(">H", data, offset + 4)[0] + 1
+            packet_length = cls.SPACE_PACKET_HEADER_SIZE + data_length
+            if len(data) - offset < packet_length:
+                break
+            offset += packet_length
+        return data[:offset], data[offset:]
 
     @classmethod
     def get_arguments(cls):
