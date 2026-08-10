@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from functools import reduce
 from typing import Any, Dict, List, Type
 from fprime_gds.common.communication.framing import FramerDeframer
+from fprime_gds.common.communication.ccsds.asm import AsmFramerDeframer
 from fprime_gds.common.communication.ccsds.space_data_link import SpaceDataLinkFramerDeframer
 from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
 from fprime_gds.plugin.definitions import gds_plugin
@@ -128,3 +129,28 @@ class SpacePacketSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
     def get_name(cls):
         """ Name of this implementation provided to CLI """
         return "space-packet-space-data-link"
+
+
+@gds_plugin(FramerDeframer)
+class SpacePacketSpaceDataLinkAsmFramerDeframer(ChainedFramerDeframer):
+    """ Space Packet / Space Data Link chain with CCSDS Attached Sync Marker synchronization
+
+    Downlink deframing synchronizes on the ASM (CCSDS 131.0-B-5 Section 9), strips it, then
+    deframes the TM frame and the Space Packets within. Uplink framing is identical to the
+    space-packet-space-data-link chain since TC uplink carries no ASM.
+    """
+
+    @classmethod
+    def get_composites(cls) -> List[Type[FramerDeframer]]:
+        """ Return the composite list of this chain
+        Innermost FramerDeframer should be first in the list. """
+        return [
+            SpacePacketFramerDeframer,
+            SpaceDataLinkFramerDeframer,
+            AsmFramerDeframer
+        ]
+
+    @classmethod
+    def get_name(cls):
+        """ Name of this implementation provided to CLI """
+        return "space-packet-space-data-link-asm"
