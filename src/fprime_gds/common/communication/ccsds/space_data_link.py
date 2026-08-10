@@ -29,6 +29,9 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     FHP_NO_PACKET_START = 0x7FF  # No packet starts in this frame (continuation data only)
     FHP_IDLE_DATA_ONLY = 0x7FE  # Frame contains only idle data
 
+    # Maximum reassembled packet size: Space Packet header plus maximum length field value plus 1
+    MAX_PACKET_SIZE = 6 + 65536
+
     # As per CCSDS standard, use CRC-16 CCITT config with init value
     # all 1s and final XOR value of 0x0000
     CCITT_CRC_FUNCTION = crcmod.mkCrcFun(
@@ -218,6 +221,12 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             # Continuation data only: the spanning packet continues through this entire frame
             if self.pending:
                 self.pending += field
+                if len(self.pending) > self.MAX_PACKET_SIZE:
+                    print(
+                        "[WARNING] Spanned packet exceeds maximum packet size. Discarding partial packet data.",
+                        file=sys.stderr,
+                    )
+                    self.pending = b""
             return b""
         # Continuation bytes before the first header complete the pending spanned packet
         emitted = self.pending + field[:first_header_pointer]
