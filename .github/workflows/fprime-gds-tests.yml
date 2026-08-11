@@ -6,16 +6,53 @@ on:
   pull_request:
     # The branches below must be a subset of the branches above
     branches: [ devel ]
+  schedule:
+    - cron: "0 10 * * *"  # 2:00 AM Pacific nightly — full matrix
 # Cancel in-progress runs if a newer run is started on a given PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ !contains(github.ref, 'devel') && !contains(github.ref, 'release/')}}
 
-jobs:
-  Unit-tests:
+env:
+  DICTIONARY: ./.github/resources/RefTopologyAppDictionary.xml
 
+jobs:
+  # Lean PR/push job: unit tests + GDS CLI tests share one setup, on the
+  # oldest and newest supported Python
+  Unit-tests:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Test with pytest
+        run: |
+          pytest
+      - name: Run GDS CLI Tests
+        # --list will load the application and is sufficient for minimal testing
+        run: |
+          fprime-cli events --list --dictionary $DICTIONARY
+          fprime-cli channels --list --dictionary $DICTIONARY
+          fprime-cli command-send --list --dictionary $DICTIONARY
+
+  # Nightly job: full Python matrix
+  Unit-tests-nightly:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
@@ -32,3 +69,9 @@ jobs:
       - name: Test with pytest
         run: |
           pytest
+      - name: Run GDS CLI Tests
+        # --list will load the application and is sufficient for minimal testing
+        run: |
+          fprime-cli events --list --dictionary $DICTIONARY
+          fprime-cli channels --list --dictionary $DICTIONARY
+          fprime-cli command-send --list --dictionary $DICTIONARY
