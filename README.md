@@ -163,7 +163,7 @@ An example of how to instantiate and register classes into the correct structure
 can be found in the `MainFrameFactory` class.
 
 ## Setup
-The Gds requires the packages specified in [setup.py](setup.py).
+The GDS requires the packages specified in [pyproject.toml](pyproject.toml).
 
 These can be installed along the Gds package using the following commands:
 
@@ -172,6 +172,16 @@ pip install --upgrade fprime-gds
 ```
 
 For full installation instructions, including virtual environment creation and installation verification, see [INSTALL.md](https://github.com/nasa/fprime/blob/devel/docs/INSTALL.md).
+
+## Running Tests
+Python tests run with `pytest`. The GDS frontend JavaScript tests require Node.js (>= 18):
+
+- Under `pytest`, they run automatically when a suitable `node` is on the PATH.
+- Locally they are skipped without a suitable `node`; on CI a missing or too-old `node` fails the
+  test (CI relies on the runner image's preinstalled Node).
+- Run them directly with `node --test test/fprime_gds/flask/js/json.test.mjs`.
+- The `package.json` (`"type": "module"`) in `src/fprime_gds/flask/static/js/` exists only so Node
+  imports the GDS frontend sources as ES modules when running these tests; browsers ignore it.
 
 ## Generate Documentation
 You can generate a doxygen documentation page for the GDS source.
