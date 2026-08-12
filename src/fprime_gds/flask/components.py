@@ -71,6 +71,47 @@ class FlaskEndpointRamHistory(SelfCleaningRamHistory):
             return self.count_values.get(start, self.count)
 
 
+class NonClearingHistory(FlaskEndpointRamHistory):
+    """A FlaskEndpointRamHistory that retains all history for the lifetime of the process
+
+    A new session's cursor normally starts at the current end of history (see RamHistory.retrieve),
+    so a client that connects after data has already arrived - a race between the deployment
+    starting and the UI loading - never sees it. This starts new sessions at the beginning of
+    history instead, and disables the periodic clearing done in FlaskEndpointRamHistory.clear so
+    that data already delivered to other sessions is not evicted out from under a new session.
+    """
+
+    def retrieve(self, start=None, limit=None):
+        """Start new sessions at the beginning of history instead of the current end
+
+        Sets retrieved_cursors[start] and count_offsets[start] before delegating to
+        FlaskEndpointRamHistory.retrieve, so that parent's own "new session" branch (which
+        would otherwise default the cursor to the current end) is a no-op here, while its
+        count-tracking bookkeeping still runs correctly against our start-at-0 cursor.
+        """
+        with self.lock:
+            if start is not None and start not in self.retrieved_cursors:
+                self.retrieved_cursors[start] = 0
+                self.count_offsets[start] = self.count
+            return super().retrieve(start, limit)
+
+    def clear(self, start=None):
+        """Never clear: history is retained for the lifetime of the process"""
+
+
+def select_history_implementation(pipeline_arguments):
+    """Choose the RAM history implementation based on the parsed --no-clear-history flag
+
+    Split out from setup_pipelined_components so this selection can be tested directly,
+    without going through the full pipeline setup (which attempts a real connection).
+    """
+    return (
+        NonClearingHistory
+        if getattr(pipeline_arguments, "no_clear_history", False)
+        else FlaskEndpointRamHistory
+    )
+
+
 def setup_pipelined_components(debug: bool, pipeline_arguments):
     """
     Setup the standard pipeline and related components. This is done once, and then the resulting singletons are
@@ -89,7 +130,7 @@ def setup_pipelined_components(debug: bool, pipeline_arguments):
         or os.environ.get("WERKZEUG_RUN_MAIN") == "true"
     ):
         pipeline = StandardPipeline()
-        pipeline.histories.implementation = FlaskEndpointRamHistory
+        pipeline.histories.implementation = select_history_implementation(pipeline_arguments)
         pipeline = StandardPipelineParser.pipeline_factory(pipeline_arguments, pipeline)
         __PIPELINE = pipeline
     assert __PIPELINE is not None, "Main thread did not setup pipeline appropriately"

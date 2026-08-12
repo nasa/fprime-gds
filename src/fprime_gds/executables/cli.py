@@ -1205,6 +1205,30 @@ class FileHandlingParser(ParserBase):
         return args
 
 
+class HistoryParser(ParserBase):
+    """Parser for the pipeline's in-memory history behavior"""
+
+    DESCRIPTION = "History options"
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """Arguments controlling how the pipeline's history is retained"""
+        return {
+            ("--no-clear-history",): {
+                "dest": "no_clear_history",
+                "action": "store_true",
+                "default": False,
+                "help": "Do not clear history as it is retrieved by GDS clients (e.g. the web UI). By "
+                "default, history is cleared once seen so a client connecting after data has "
+                "already arrived (a race between the deployment starting and the UI loading) will "
+                "miss it. Setting this retains all history for the lifetime of the process.",
+            },
+        }
+
+    def handle_arguments(self, args, **kwargs):
+        """Handle arguments as parsed"""
+        return args
+
+
 class StandardPipelineParser(CompositeParser):
     """Standard pipeline argument parser: combination of MiddleWare and"""
 
@@ -1214,6 +1238,7 @@ class StandardPipelineParser(CompositeParser):
         FileHandlingParser,
         MiddleWareParser,
         LogDeployParser,
+        HistoryParser,
     ]
 
     def __init__(self):
