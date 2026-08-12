@@ -9,6 +9,7 @@ import copy
 import pathlib
 import webbrowser
 
+from fprime_gds.executables.base_url import BaseUrlParser, normalize_base_url
 from fprime_gds.executables.cli import (
     BinaryDeployment,
     ConfigDrivenParser,
@@ -36,6 +37,7 @@ def parse_args():
     arg_handlers = [
         StandardPipelineParser,
         GdsParser,
+        BaseUrlParser,
         BinaryDeployment,
         CommParser,
         PluginArgumentParser,
@@ -117,12 +119,14 @@ def launch_html(parsed_args):
     reproduced_arguments = StandardPipelineParser().reproduce_cli_args(parsed_args)
     if "--log-directly" not in reproduced_arguments:
         reproduced_arguments += ["--log-directly"]
+    base_url = normalize_base_url(parsed_args.base_url)
     flask_env = os.environ.copy()
     flask_env.update(
         {
             "FLASK_APP": "fprime_gds.flask.app",
             "STANDARD_PIPELINE_ARGUMENTS": "|".join(reproduced_arguments),
             "SERVE_LOGS": "YES",
+            "FPRIME_GDS_BASE_URL": base_url,
         }
     )
     if parsed_args.hash_file:
@@ -136,9 +140,9 @@ def launch_html(parsed_args):
         str(parsed_args.gui_port),
     ]
     ret = launch_process(gse_args, name="HTML GUI", env=flask_env, launch_time=2)
-    ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/"
+    ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}{base_url}/"
     print(f"[INFO] Launched UI at: {ui_url}")
-    
+
     if parsed_args.browser_auto_open:
         webbrowser.open(
             ui_url,
