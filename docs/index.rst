@@ -16,6 +16,7 @@ Table of Contents
 .. toctree::
    :maxdepth: 2
 
+   Serving below a base URL <base-url.rst>
    API <api/index.rst>
 
 
