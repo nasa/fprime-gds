@@ -36,7 +36,7 @@ Vue.component("image-display", {
                 return "";
             }
             let last = images[images.length - 1].destination.replace(regex, "");
-            return "/download/files/" + last;
+            return "download/files/" + last;
          }
     }
 }
