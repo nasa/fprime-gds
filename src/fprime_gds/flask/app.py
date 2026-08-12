@@ -29,6 +29,7 @@ import fprime_gds.flask.logs
 import fprime_gds.flask.sequence
 import fprime_gds.flask.stats
 import fprime_gds.flask.updown
+from fprime_gds.executables.base_url import normalize_base_url, with_base_url
 from fprime_gds.executables.cli import ParserBase, StandardPipelineParser, ConfigDrivenParser
 
 from . import components
@@ -52,7 +53,8 @@ def construct_app():
 
     :return: setup app
     """
-    app = flask.Flask(__name__, static_url_path="")
+    base_url = normalize_base_url(os.environ.get("FPRIME_GDS_BASE_URL", ""))
+    app = flask.Flask(__name__, static_url_path=base_url)
     # Enable compression if it is installed
     if Compress is not None:
         compress = Compress()
@@ -67,6 +69,7 @@ def construct_app():
     # JSON encoding settings
     app.json.default = fprime_gds.flask.json.default
     app.config["RESTFUL_JSON"] = {"default": app.json.default}
+    app.config["BASE_URL"] = base_url
     # Standard pipeline creation
     input_arguments = app.config["STANDARD_PIPELINE_ARGUMENTS"]
     args_ns, _ = ParserBase.parse_args(
@@ -75,12 +78,14 @@ def construct_app():
     # Load app configuration from file
     for key, value in args_ns.config_values.get("flask", {}).items():
         app.config[key] = value
+    # BASE_URL controls routes registered during application construction and
+    # therefore must remain consistent with FPRIME_GDS_BASE_URL.
+    app.config["BASE_URL"] = base_url
 
     pipeline = components.setup_pipelined_components(app.debug, args_ns)
 
-
     # Restful API registration
-    api = fprime_gds.flask.errors.setup_error_handling(app)
+    api = fprime_gds.flask.errors.setup_error_handling(app, prefix=base_url)
 
     # Application routes
     api.add_resource(
@@ -199,7 +204,7 @@ def handle_unexpected_error(error):
     return flask.jsonify(response), status_code
 
 
-@app.route("/js/config.js")
+@app.route(with_base_url(app.config["BASE_URL"], "/js/config.js"))
 def config_serve():
     """
     Serve the config.js file
@@ -208,7 +213,8 @@ def config_serve():
     """
     return flask.send_file(app.config["JS_CONFIGURATION_FILE"])
 
-@app.route("/js/<path:path>")
+
+@app.route(with_base_url(app.config["BASE_URL"], "/js/<path:path>"))
 def files_serve(path):
     """
     A function used to serve the JS files needed for the GUI layers.
@@ -218,7 +224,7 @@ def files_serve(path):
     return flask.send_from_directory("static/js", path)
 
 
-@app.route("/")
+@app.route(with_base_url(app.config["BASE_URL"], "/"))
 def index():
     """
     A function used to serve the JS files needed for the GUI layers.
@@ -226,7 +232,7 @@ def index():
     return flask.send_from_directory("static", "index.html")
 
 
-@app.route("/logs")
+@app.route(with_base_url(app.config["BASE_URL"], "/logs"))
 def log():
     """
     A function used to serve the JS files needed for the GUI layers.
@@ -234,7 +240,7 @@ def log():
     return flask.send_from_directory("static", "logs.html")
 
 
-@app.route("/session")
+@app.route(with_base_url(app.config["BASE_URL"], "/session"))
 def session():
     return flask.jsonify({"session": uuid.uuid4()}), 200
 
