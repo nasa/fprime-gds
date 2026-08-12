@@ -49,7 +49,7 @@ class ErrorHandlingApi(Api):
         return handle_flask_error(error)
 
 
-def setup_error_handling(app: Flask):
+def setup_error_handling(app: Flask, prefix=""):
     """Setup the error handling for flask and get a flask_restful API with similar error handling
 
     Sets up a flask_restful API that will handle errors in the standard way and registers the same error handling to
@@ -57,9 +57,10 @@ def setup_error_handling(app: Flask):
 
     Args:
         app: flask application to register errors
+        prefix: optional URL prefix for all flask-restful resources
 
     Returns:
         flask restful api with standardized error handling
     """
     app.errorhandler(Exception)(handle_flask_error)
-    return Api(app)
+    return Api(app, prefix=prefix)
