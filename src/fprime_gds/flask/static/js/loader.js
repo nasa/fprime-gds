@@ -203,7 +203,10 @@ class Loader {
                     reject(this.responseText);
                 }
             };
-            let url = endpoint;
+            // Keep API requests relative to the loaded UI path. This preserves
+            // root deployments and allows the same front end to run under a
+            // reverse-proxy prefix such as /mission/gds/.
+            let url = endpoint.replace(/^\/+/, "");
             let session = (_self.endpoints["session"].data || {}).session || null;
 
             let arg_pairs = [["session", session], ["limit", _settings.miscellaneous.response_object_limit]];
@@ -212,7 +215,7 @@ class Loader {
             url += (arg_string !== "") ? ("?"+ arg_string) : "";
 
             let is_async = true; // all calls will be async
-            xhttp.open(method, url , is_async); 
+            xhttp.open(method, url , is_async);
             xhttp.setRequestHeader("Cache-Control", "no-cache");
             if (typeof(data) === "undefined") {
                 xhttp.send();
