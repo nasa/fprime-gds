@@ -158,7 +158,7 @@ def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_impl
                 # get the value
                 prm_val = comp_json[prm_template.prm_name]
         
-        if not prm_val:
+        if prm_val is None:
             # not writing a val for this prm
             continue
 
