@@ -14,6 +14,7 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 
 @author lestarch
 """
+import itertools
 import sys
 from pathlib import Path
 import pytest
@@ -21,7 +22,7 @@ import pytest
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.executables.cli import StandardPipelineParser
 
-SEQUENCE_COUNTER = -1
+SEQUENCE_COUNTER = itertools.count()
 
 
 def pytest_addoption(parser):
@@ -80,7 +81,10 @@ def pytest_configure(config):
     """
     # Create a JUnit XML report file to capture the test result in a specified location
     if config.getoption("--gen-junitxml"):
-        config.option.xmlpath = Path(config.getoption("--logs")) / config.getoption("--junit-xml-file")
+        logs = config.getoption("--logs")
+        if not logs:
+            raise pytest.UsageError("--gen-junitxml requires --logs to be specified")
+        config.option.xmlpath = Path(logs) / config.getoption("--junit-xml-file")
 
 @pytest.fixture(scope='session')
 def fprime_test_api_session(request):
@@ -167,7 +171,5 @@ def fprime_test_api(fprime_test_api_session, request):
     Return:
         test case specific session (identical to full session)
     """
-    global SEQUENCE_COUNTER
-    SEQUENCE_COUNTER += 1
-    fprime_test_api_session.start_test_case(request.node.name, SEQUENCE_COUNTER)
+    fprime_test_api_session.start_test_case(request.node.name, next(SEQUENCE_COUNTER))
     return fprime_test_api_session
