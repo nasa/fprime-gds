@@ -397,6 +397,23 @@ class ConfigDrivenParser(ParserBase):
             [ConfigDrivenParser], description, arguments, **kwargs
         )
         config_options = ns_config.config_values.get("command-line-options", {})
+        # Configuration files may be shared between tools; drop options unsupported by this tool
+        supported_flags = {
+            flag
+            for flags in CompositeParser(parser_classes, description).get_arguments()
+            for flag in flags
+        }
+        unsupported = [
+            option
+            for option in (config_options or {})
+            if f"--{option}" not in supported_flags
+        ]
+        for option in unsupported:
+            print(
+                f"[WARNING] Ignoring configured option '{option}' not supported by this tool",
+                file=sys.stderr,
+            )
+            del config_options[option]
         config_args = ConfigDrivenParser.flatten_options(config_options)
 
         # Argparse allows repeated (overridden) arguments, thus the CLI override is accomplished by providing
