@@ -40,6 +40,7 @@ class ZmqWrapper(object):
         self.sub_topic = None
         self.transport_url = None
         self.server = False
+        self.ready = False
 
     def configure(self, transport_url: Tuple[str], sub_topic: bytes, pub_topic: bytes):
         """Configure the ZeroMQ wrapper
@@ -90,6 +91,7 @@ class ZmqWrapper(object):
             self.zmq_socket_outgoing is None
         ), "Cannot connect outgoing multiple times"
         assert self.pub_topic is not None, "Must configure sockets before connecting"
+        self.ready = False
         socket_type = zmq.PUB if self.server else zmq.XPUB
         self.zmq_socket_outgoing = self.context.socket(socket_type)
         self.zmq_socket_outgoing.setsockopt(zmq.SNDHWM, 0)
@@ -104,7 +106,7 @@ class ZmqWrapper(object):
 
     def wait_for_ready(self, timeout=2.0):
         """Wait for the remote subscriber to receive our publication topic."""
-        if self.zmq_socket_outgoing is None or self.server:
+        if self.zmq_socket_outgoing is None or self.server or self.ready:
             return True
 
         deadline = time.monotonic() + timeout
@@ -114,6 +116,7 @@ class ZmqWrapper(object):
                 return False
             message = self.zmq_socket_outgoing.recv()
             if message[:1] == b"\x01" and self.pub_topic.startswith(message[1:]):
+                self.ready = True
                 return True
 
     def connect_incoming(self):
@@ -148,6 +151,7 @@ class ZmqWrapper(object):
         """Disconnect the ZeroMQ sockets"""
         if self.zmq_socket_outgoing is not None:
             self.zmq_socket_outgoing.close()
+            self.ready = False
 
     def disconnect_incoming(self):
         """Disconnect the ZeroMQ sockets"""

@@ -1,6 +1,8 @@
-import zmq
 import threading
+import time
 from queue import Queue
+
+import zmq
 
 from fprime_gds.common.zmq_transport import ZmqWrapper
 
@@ -9,10 +11,12 @@ def test_zmq_client_waits_for_subscription_before_sending():
     server = ZmqWrapper()
     server.make_server()
     context = zmq.Context()
-    probe = context.socket(zmq.PAIR)
-    port = probe.bind_to_random_port("tcp://127.0.0.1")
-    probe.close()
-    incoming_port = port + 1
+    outgoing_probe = context.socket(zmq.PAIR)
+    incoming_probe = context.socket(zmq.PAIR)
+    port = outgoing_probe.bind_to_random_port("tcp://127.0.0.1")
+    incoming_port = incoming_probe.bind_to_random_port("tcp://127.0.0.1")
+    outgoing_probe.close()
+    incoming_probe.close()
     transport_url = (
         f"tcp://127.0.0.1:{port}",
         f"tcp://127.0.0.1:{incoming_port}",
@@ -42,6 +46,9 @@ def test_zmq_client_waits_for_subscription_before_sending():
             client.connect_outgoing()
             try:
                 assert client.wait_for_ready(1.0)
+                start = time.monotonic()
+                assert client.wait_for_ready(1.0)
+                assert time.monotonic() - start < 0.1
                 client.send(str(index).encode())
             finally:
                 client.disconnect_outgoing()
