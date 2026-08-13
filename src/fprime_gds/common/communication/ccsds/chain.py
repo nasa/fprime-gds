@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Type
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.common.communication.ccsds.space_data_link import SpaceDataLinkFramerDeframer
 from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
+from fprime_gds.common.communication.ccsds.sdls import SdlsCleartextFramerDeframer
 from fprime_gds.plugin.definitions import gds_plugin
 
 
@@ -128,3 +129,23 @@ class SpacePacketSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
     def get_name(cls):
         """ Name of this implementation provided to CLI """
         return "space-packet-space-data-link"
+
+
+@gds_plugin(FramerDeframer)
+class SpacePacketSdlsSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
+    """ Space Data Link Protocol framing and deframing with a cleartext SDLS layer around Space Packets """
+
+    @classmethod
+    def get_composites(cls) -> List[Type[FramerDeframer]]:
+        """ Return the composite list of this chain 
+        Innermost FramerDeframer should be first in the list. """
+        return [
+            SpacePacketFramerDeframer,
+            SdlsCleartextFramerDeframer,
+            SpaceDataLinkFramerDeframer
+        ]
+
+    @classmethod
+    def get_name(cls):
+        """ Name of this implementation provided to CLI """
+        return "space-packet-sdls-space-data-link"
