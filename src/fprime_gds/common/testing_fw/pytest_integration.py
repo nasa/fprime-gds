@@ -120,10 +120,11 @@ def fprime_test_api_session(request):
                     "--use-yamcs requires the yamcs-client package. Install with: pip install fprime-gds[yamcs]"
                 )
             yamcs_url = request.config.getoption("--yamcs-url")
+            scheme = "yamcs+https" if yamcs_url.startswith("https://") else "yamcs"
             yamcs_host = yamcs_url.replace("http://", "").replace("https://", "")
 
             arg_ns.connection_transport = YamcsClient
-            arg_ns.connection_uri = f"yamcs://{yamcs_host}"
+            arg_ns.connection_uri = f"{scheme}://{yamcs_host}"
 
         pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
 
