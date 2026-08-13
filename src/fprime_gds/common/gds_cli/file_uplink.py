@@ -88,7 +88,7 @@ class FileUplinkCommand(BaseCommand):
                 cls._log(f"Uplinking '{source_name}': {percent}%")
                 last_percent = percent
             if entry.get("state") == SUCCESS_STATE:
-                cls._log(f"Uplink of '{source_name}' to '{entry.get('destination')}' complete")
+                cls._log(f"All uplink packets sent for '{source_name}' to '{entry.get('destination')}'")
                 return True
             if entry.get("state") in FAILURE_STATES:
                 cls._log(f"Uplink of '{source_name}' failed with state {entry.get('state')}")
