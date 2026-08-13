@@ -96,6 +96,10 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
         ), "Client cannot handle non-binary data callbacks"
         self.send(data)
 
+    def wait_for_ready(self, timeout=2.0):
+        """Wait for the transport to be ready to receive outgoing data."""
+        return True
+
 
 class ThreadedTransportClient(TransportClient, ABC):
     """Transportation client that uses a thread to receive and dispatch calls through registrants

@@ -12,6 +12,7 @@ replace the ThreadedTcpServer for several reasons as described below.
 
 import logging
 import struct
+import time
 from typing import Tuple
 
 import zmq
@@ -89,7 +90,8 @@ class ZmqWrapper(object):
             self.zmq_socket_outgoing is None
         ), "Cannot connect outgoing multiple times"
         assert self.pub_topic is not None, "Must configure sockets before connecting"
-        self.zmq_socket_outgoing = self.context.socket(zmq.PUB)
+        socket_type = zmq.PUB if self.server else zmq.XPUB
+        self.zmq_socket_outgoing = self.context.socket(socket_type)
         self.zmq_socket_outgoing.setsockopt(zmq.SNDHWM, 0)
         # When set to bind sockets, connect via a bind call
         if self.server:
@@ -99,6 +101,20 @@ class ZmqWrapper(object):
         else:
             LOGGER.info("Outgoing connecting to: %s", (self.transport_url[0]))
             self.zmq_socket_outgoing.connect(self.transport_url[0])
+
+    def wait_for_ready(self, timeout=2.0):
+        """Wait for the remote subscriber to receive our publication topic."""
+        if self.zmq_socket_outgoing is None or self.server:
+            return True
+
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = max(0, deadline - time.monotonic())
+            if not self.zmq_socket_outgoing.poll(int(remaining * 1000), zmq.POLLIN):
+                return False
+            message = self.zmq_socket_outgoing.recv()
+            if message[:1] == b"\x01" and self.pub_topic.startswith(message[1:]):
+                return True
 
     def connect_incoming(self):
         """Sets up a ZeroMQ connection for incoming data
@@ -190,6 +206,10 @@ class ZmqClient(ThreadedTransportClient):
         """Disconnects from ZeroMQ network"""
         self.zmq.disconnect_outgoing()  # Outgoing is on the current thread
         super().disconnect()
+
+    def wait_for_ready(self, timeout=2.0):
+        """Wait for the remote subscriber before sending."""
+        return self.zmq.wait_for_ready(timeout)
 
     def send(self, data):
         """Send data via ZeroMQ"""

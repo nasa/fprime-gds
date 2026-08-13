@@ -5,6 +5,7 @@ CLI commands
 
 import abc
 import json
+import logging
 import sys
 from typing import Iterable
 
@@ -14,6 +15,8 @@ from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
 from fprime_gds.executables.cli import StandardPipelineParser
+
+LOGGER = logging.getLogger(__name__)
 
 
 class BaseCommand(abc.ABC):
@@ -165,12 +168,8 @@ class BaseCommand(abc.ABC):
             api = IntegrationTestAPI(pipeline)
             api.setup()
 
-            if hasattr(args, "zmq") and args.zmq:
-                import time
-                # Brief delay to allow ZMQ PUB/SUB subscription propagation to complete.
-                # Without this, one-shot commands are silently dropped due to the
-                # ZMQ "slow joiner" problem.
-                time.sleep(0.1)
+            if not pipeline.wait_for_ready(2.0):
+                LOGGER.warning("Timed out waiting for transport to become ready")
 
             # Execute the command logic
             cls._execute_command(args, api)

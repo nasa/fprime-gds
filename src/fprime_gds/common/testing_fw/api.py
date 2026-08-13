@@ -103,6 +103,7 @@ class IntegrationTestAPI(DataHandler):
     def setup(self):
         """Set up the API, assumes pipeline is now setup"""
         self.pipeline.coders.register_event_consumer(self)
+        self.pipeline.wait_for_ready(2.0)
 
     def teardown(self):
         """

@@ -190,6 +190,10 @@ class StandardPipeline:
             incoming_tag = RoutingTag.GUI
         self.client_socket.connect(connection_uri, incoming_tag, outgoing_tag)
 
+    def wait_for_ready(self, timeout=2.0):
+        """Wait for the transport to be ready to receive outgoing data."""
+        return self.client_socket.wait_for_ready(timeout)
+
     def disconnect(self):
         """
         Disconnect from socket
