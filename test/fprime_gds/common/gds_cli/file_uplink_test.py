@@ -7,7 +7,21 @@ from unittest.mock import MagicMock
 
 import pytest
 from fprime_gds.common.gds_cli.file_uplink import FileUplinkCommand
+from fprime_gds.common.testing_fw import predicates
 from fprime_gds.executables.fprime_cli import create_parser
+
+
+class ConstPredicate(predicates.predicate):
+    """Test predicate that always evaluates to a fixed value"""
+
+    def __init__(self, value):
+        self.value = value
+
+    def __call__(self, item):
+        return self.value
+
+    def __str__(self):
+        return f"always {self.value}"
 
 
 def make_args(file_path, destination=None, timeout=5.0, no_wait=False):
@@ -19,11 +33,17 @@ def make_args(file_path, destination=None, timeout=5.0, no_wait=False):
     )
 
 
-def make_api(entries=None, has_upload_file=False):
+def make_api(entries=None, has_upload_file=False, flight_confirms=True):
     api = MagicMock()
     if not has_upload_file:
         del api.pipeline.client_socket.upload_file
     api.pipeline.files.uplinker.current_files.return_value = entries or []
+    api.get_event_test_history.return_value.size.return_value = 0
+    if flight_confirms:
+        # find_history_item returns an event satisfying the success predicate
+        api.get_event_pred.return_value = ConstPredicate(True)
+    else:
+        api.get_event_pred.side_effect = KeyError("no FileReceived")
     return api
 
 
@@ -148,6 +168,46 @@ def test_timeout_exits_nonzero(tmp_path):
     with pytest.raises(SystemExit) as exc_info:
         FileUplinkCommand._execute_command(make_args(str(local_file), timeout=0.5), api)
     assert exc_info.value.code == 1
+
+
+@pytest.mark.gds_cli
+def test_flight_failure_event_exits_nonzero(tmp_path):
+    local_file = tmp_path / "data.bin"
+    local_file.write_bytes(b"\x01\x02\x03")
+    api = make_api(
+        entries=[
+            {
+                "source": f"/up/{local_file.name}",
+                "destination": "/data.bin",
+                "state": "FINISHED",
+                "percent": 100,
+            }
+        ]
+    )
+    # Success predicate rejects the found item (it is a failure event)
+    api.get_event_pred.return_value = ConstPredicate(False)
+    with pytest.raises(SystemExit) as exc_info:
+        FileUplinkCommand._execute_command(make_args(str(local_file)), api)
+    assert exc_info.value.code == 1
+
+
+@pytest.mark.gds_cli
+def test_no_file_received_in_dictionary_skips_confirmation(tmp_path):
+    local_file = tmp_path / "data.bin"
+    local_file.write_bytes(b"\x01\x02\x03")
+    api = make_api(
+        entries=[
+            {
+                "source": f"/up/{local_file.name}",
+                "destination": "/data.bin",
+                "state": "FINISHED",
+                "percent": 100,
+            }
+        ],
+        flight_confirms=False,
+    )
+    FileUplinkCommand._execute_command(make_args(str(local_file)), api)
+    api.find_history_item.assert_not_called()
 
 
 @pytest.mark.gds_cli

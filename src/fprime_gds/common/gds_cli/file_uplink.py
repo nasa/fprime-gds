@@ -16,6 +16,18 @@ SUCCESS_STATE = "FINISHED"
 FAILURE_STATES = ["CANCELED", "TIMEOUT"]
 POLL_PERIOD_SECONDS = 0.25
 
+# Flight-side FileUplink events used to confirm receipt
+FLIGHT_SUCCESS_EVENT = "FileReceived"
+FLIGHT_FAILURE_EVENTS = [
+    "FileOpenError",
+    "FileWriteError",
+    "PacketOutOfBounds",
+    "PacketOutOfOrder",
+    "UplinkCanceled",
+    "DecodeError",
+    "InvalidReceiveMode",
+]
+
 
 class FileUplinkCommand(BaseCommand):
     """
@@ -57,13 +69,15 @@ class FileUplinkCommand(BaseCommand):
         return None
 
     @classmethod
-    def _await_completion(cls, args, api: IntegrationTestAPI, source_name: str) -> bool:
+    def _await_completion(
+        cls, args, api: IntegrationTestAPI, source_name: str, deadline: float
+    ) -> bool:
         """
         Polls the uplinker until the file reaches a terminal state or the timeout
         expires. Returns True on successful uplink, False otherwise.
         """
         last_percent = -1
-        end_time = time.time() + args.timeout
+        end_time = deadline
         while time.time() < end_time:
             entry = cls._get_file_entry(api, source_name)
             if entry is None:
@@ -84,6 +98,46 @@ class FileUplinkCommand(BaseCommand):
         return False
 
     @classmethod
+    def _verify_flight_receipt(
+        cls, api: IntegrationTestAPI, events_start: int, deadline: float
+    ) -> bool:
+        """
+        Awaits a flight-side FileUplink event confirming (or denying) receipt of
+        the file. Returns True on FileReceived, False on a failure event or when
+        no confirmation arrives before the deadline.
+        """
+        try:
+            success_pred = api.get_event_pred(FLIGHT_SUCCESS_EVENT)
+        except KeyError:
+            cls._log(
+                f"Note: no '{FLIGHT_SUCCESS_EVENT}' event in dictionary; skipping flight-side confirmation"
+            )
+            return True
+        event_preds = [success_pred]
+        for name in FLIGHT_FAILURE_EVENTS:
+            try:
+                event_preds.append(api.get_event_pred(name))
+            except KeyError:
+                continue
+        timeout = max(deadline - time.time(), 1.0)
+        item = api.find_history_item(
+            predicates.satisfies_any(event_preds),
+            api.get_event_test_history(),
+            start=events_start,
+            timeout=timeout,
+        )
+        if item is not None and success_pred(item):
+            cls._log(f"Flight software confirmed receipt: {item.get_str(verbose=True)}")
+            return True
+        if item is not None:
+            cls._log(f"Uplink failed on the flight side: {item.get_str(verbose=True)}")
+        else:
+            cls._log(
+                f"Error: no '{FLIGHT_SUCCESS_EVENT}' event received before the timeout; uplink unconfirmed"
+            )
+        return False
+
+    @classmethod
     def _execute_command(cls, args, api: IntegrationTestAPI):
         """
         Logic for uplinking a file through the GDS file uplink system
@@ -93,6 +147,8 @@ class FileUplinkCommand(BaseCommand):
             cls._log(f"Error: File not found at {args.file_path}")
             sys.exit(1)
 
+        deadline = time.time() + args.timeout
+        events_start = api.get_event_test_history().size()
         try:
             api.uplink_file(str(file_path), args.destination)
         except Exception as exc:
@@ -110,5 +166,8 @@ class FileUplinkCommand(BaseCommand):
         if args.no_wait:
             return
 
-        if not cls._await_completion(args, api, file_path.name):
+        if not cls._await_completion(args, api, file_path.name, deadline):
+            sys.exit(1)
+
+        if not cls._verify_flight_receipt(api, events_start, deadline):
             sys.exit(1)
