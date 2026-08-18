@@ -27,6 +27,10 @@ class UTPipeline(StandardPipeline):
     def __init__(self):
         self.command_count = 0
         self.t0 = TimeType()
+        # When set to "dispatch_first" or "complete_first", send_command also emits
+        # cmdDisp.OpCodeDispatched/OpCodeCompleted events in the given order, simulating an
+        # async (dispatch-then-complete) or synchronous (complete-then-dispatch) dispatcher.
+        self.dispatch_complete_order = None
         StandardPipeline.__init__(self)
 
     def connect(self, address, port):
@@ -58,6 +62,25 @@ class UTPipeline(StandardPipeline):
         ch_temp = self.dictionaries.channel_name["apiTester.CommandCounter"]
         update = ChData(U32Type(self.command_count), self.t0 + time.time(), ch_temp)
         self.enqueue_telemetry(update)
+
+        if self.dispatch_complete_order is not None:
+            dispatched_temp = self.dictionaries.event_name["cmdDisp.OpCodeDispatched"]
+            dispatched = EventData(
+                (U32Type(cmd_data.get_id()), I32Type(0)),
+                self.t0 + time.time(),
+                dispatched_temp,
+            )
+            completed_temp = self.dictionaries.event_name["cmdDisp.OpCodeCompleted"]
+            completed = EventData(
+                (U32Type(cmd_data.get_id()),), self.t0 + time.time(), completed_temp
+            )
+            ordered = (
+                [dispatched, completed]
+                if self.dispatch_complete_order == "dispatch_first"
+                else [completed, dispatched]
+            )
+            for event in ordered:
+                self.enqueue_event(event)
 
     def enqueue_event(self, event):
         """
@@ -102,6 +125,7 @@ class APITestCases(unittest.TestCase):
         self.case_list.append(1)
         self.tHistory = TestHistory()
         self.t0 = TimeType()
+        self.pipeline.dispatch_complete_order = None
 
     @classmethod
     def tearDownClass(cls):
@@ -641,6 +665,44 @@ class APITestCases(unittest.TestCase):
 
         for i in range(6):
             assert results1[i] != results2[i], "These sequences should be unique items"
+
+    def test_send_and_assert_command(self):
+        # Async-style dispatcher: OpCodeDispatched logged before OpCodeCompleted
+        self.pipeline.dispatch_complete_order = "dispatch_first"
+        results = self.api.send_and_assert_command(
+            "apiTester.TEST_CMD_1", max_delay=5, timeout=5
+        )
+        assert len(results) == 2
+        dispatched, completed = results
+        assert dispatched.template.get_name() == "OpCodeDispatched"
+        assert completed.template.get_name() == "OpCodeCompleted"
+
+        self.api.clear_histories()
+
+        # Synchronous-style dispatcher: OpCodeCompleted logged before OpCodeDispatched.
+        # This is the exact ordering that used to make send_and_assert_command fail, since it
+        # searched for OpCodeDispatched then OpCodeCompleted as a strict ordered sequence.
+        self.pipeline.dispatch_complete_order = "complete_first"
+        results = self.api.send_and_assert_command(
+            "apiTester.TEST_CMD_1", max_delay=5, timeout=5
+        )
+        assert len(results) == 2
+        dispatched, completed = results
+        assert dispatched.template.get_name() == "OpCodeDispatched"
+        assert completed.template.get_name() == "OpCodeCompleted"
+
+        self.api.clear_histories()
+
+        # Extra events between dispatch and complete are still required, regardless of order
+        self.pipeline.dispatch_complete_order = "complete_first"
+        results = self.api.send_and_assert_command(
+            "apiTester.TEST_CMD_1", events=["CommandReceived"], timeout=5
+        )
+        assert len(results) == 3
+        dispatched, extra, completed = results
+        assert dispatched.template.get_name() == "OpCodeDispatched"
+        assert extra.template.get_name() == "CommandReceived"
+        assert completed.template.get_name() == "OpCodeCompleted"
 
     def test_translate_telemetry_name(self):
         assert self.api.translate_telemetry_name("apiTester.CommandCounter") == 1

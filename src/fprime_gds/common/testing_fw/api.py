@@ -618,27 +618,46 @@ class IntegrationTestAPI(DataHandler):
         within the F' deployment. This helper can retroactively check that the delay between
         dispatch and completion is less than a maximum allowable delay.
 
+        Note: dispatch and completion are searched for independently of their relative arrival
+        order. A synchronous command dispatcher can log OpCodeCompleted before OpCodeDispatched,
+        since the command executes inline before the dispatch EVR is generated, so this does not
+        assume dispatch arrives first the way a single ordered sequence search would.
+
         Args:
             command: the mnemonic (str) or ID (int) of the command to send
             args: a list of command arguments.
             max_delay: the maximum allowable delay between dispatch and completion (int/float)
             timeout: the number of seconds to wait before terminating the search (int)
-            events: extra event predicates to check between  dispatch and complete
+            events: extra event predicates to check for between dispatch and complete
             commander: the command dispatching component. Defaults to cmdDisp
         Return:
-            returns a list of the EventData objects found by the search
+            returns a list of the EventData objects found by the search, positioned as
+            [dispatch, *events, complete] regardless of the order they actually arrived in
         """
         if args is None:
             args = []
         cmd_id = self.translate_command_name(command)
-        dispatch = [
-            self.get_event_pred(f"{commander}.OpCodeDispatched", [cmd_id, None])
-        ]
-        complete = [self.get_event_pred(f"{commander}.OpCodeCompleted", [cmd_id])]
-        events = dispatch + (events if events else []) + complete
-        results = self.send_and_assert_event(command, args, events, timeout=timeout)
+        dispatch_pred = self.get_event_pred(f"{commander}.OpCodeDispatched", [cmd_id, None])
+        complete_pred = self.get_event_pred(f"{commander}.OpCodeCompleted", [cmd_id])
+        extra_preds = [self.get_event_pred(event) for event in (events or [])]
+        all_preds = [dispatch_pred, *extra_preds, complete_pred]
+
+        start = self.event_history.size()
+        self.send_command(command, args)
+        results = self.find_history_unordered_set(
+            all_preds, self.event_history, start=start, timeout=timeout
+        )
+        found_count = sum(1 for result in results if result is not None)
+        len_pred = predicates.equal_to(len(all_preds))
+        msg = "checks if the dispatch, completion, and any extra events were all found"
+        self.__assert_pred("Command dispatch/completion", len_pred, found_count, msg)
+
         if max_delay is not None:
-            delay = results[-1].get_time() - results[0].get_time()
+            dispatch_result, complete_result = results[0], results[-1]
+            if dispatch_result.get_time() > complete_result.get_time():
+                delay = dispatch_result.get_time() - complete_result.get_time()
+            else:
+                delay = complete_result.get_time() - dispatch_result.get_time()
             msg = f"The delay, {delay}, between the two events should be < {max_delay}"
             assert delay < max_delay, msg
         return results
@@ -1476,6 +1495,54 @@ class IntegrationTestAPI(DataHandler):
         searcher = __SequenceSearcher(self.__log, seq_preds)
         return self.__search_test_history(
             searcher, "Sequence search", history, start, timeout
+        )
+
+    def find_history_unordered_set(self, preds, history, start=None, timeout=0):
+        """
+        This function can both search and await for a set of elements in a history, the same as
+        find_history_sequence, except the items may satisfy the given predicates in any relative
+        order. Each predicate must still be satisfied by a distinct history item. The function
+        will return when every predicate has been matched, or the timeout occurs.
+        Note: this search will always return a list of objects, positioned to match the order of
+        preds (not the order the items were found in). The user should check if the search was
+        completed; unmatched predicates are represented as None in the returned list.
+
+        Args:
+            preds: a list of predicate objects; each must be matched by a distinct history item
+            history: the history that the function will search and await
+            start: an index or predicate to specify the earliest item from the history to search
+            timeout: the number of seconds to wait before terminating the search (int)
+        Returns:
+            a list of data objects satisfying preds, ordered to match preds
+        """
+
+        class __UnorderedSetSearcher(self.__HistorySearcher):
+            def __init__(self, log, preds):
+                super().__init__()
+                self.log = log
+                self.remaining = list(enumerate(preds))
+                self.ret_val = [None] * len(preds)
+                self.repeats = True
+                msg = f"Beginning an unordered search of {len(preds)} items."
+                self.log(msg, TestLogger.YELLOW)
+
+            def search_current_history(self, items):
+                for item in items:
+                    self.incremental_search(item)
+                return len(self.remaining) == 0
+
+            def incremental_search(self, item):
+                for position, (original_index, pred) in enumerate(self.remaining):
+                    if pred(item):
+                        self.log(f"Unordered search found an item: {item}")
+                        self.ret_val[original_index] = item
+                        del self.remaining[position]
+                        break
+                return len(self.remaining) == 0
+
+        searcher = __UnorderedSetSearcher(self.__log, preds)
+        return self.__search_test_history(
+            searcher, "Unordered search", history, start, timeout
         )
 
     def find_history_count(
