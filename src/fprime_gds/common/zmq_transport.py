@@ -210,9 +210,12 @@ class ZmqClient(ThreadedTransportClient):
         before/after the main recv loop.
         """
         self.zmq.connect_incoming()
-        super().recv_thread()  # Contains a while <event> loop, will only return at end of program
-        self.zmq.disconnect_incoming()
-        self.zmq.terminate()  # Everything should be shutdown and safe to terminate the context
+        try:
+            super().recv_thread()  # Contains a while <event> loop, will only return at end of program
+        finally:
+            # A context with an open socket blocks zmq.Context.term() forever when garbage collected
+            self.zmq.disconnect_incoming()
+            self.zmq.terminate()  # Everything should be shutdown and safe to terminate the context
 
 
 class ZmqGround(GroundHandler):
