@@ -88,11 +88,11 @@ class EventDecoder(decoder.Decoder):
 
             event_temp = self.__dict[event_id]
 
-            (size, arg_vals) = self.decode_args(data, ptr, event_temp)
+            (arg_end_offset, arg_vals) = self.decode_args(data, ptr, event_temp)
 
             event_list.append(event_data.EventData(arg_vals, event_time, event_temp))
-            # add up argument sizes
-            ptr += size
+            # decode_args returns the absolute offset past the arguments; advance to it
+            ptr = arg_end_offset
         return event_list
 
     @staticmethod
@@ -110,10 +110,12 @@ class EventDecoder(decoder.Decoder):
                       arg_data goes to.
 
         Returns:
-            Parsed arguments in a tuple (order the same as they were parsed in).
-            Each element in the tuple is an instance of the same class as the
-            corresponding arg_type object in the template parameter. Returns
-            none if the arguments can't be parsed
+            A two element list ``[end_offset, args]``. ``end_offset`` is the
+            absolute offset into ``arg_data`` one past the last argument; the
+            caller uses it as the start of the next event in the buffer. ``args``
+            is a tuple of the parsed arguments in order, each an instance of the
+            same class as the corresponding arg_type object in the template.
+            Raises DecodingException if an argument cannot be parsed.
         """
         arg_results = []
         args = template.get_args()
