@@ -1,0 +1,10 @@
+; Test signed numeric arguments (negative and explicit positive)
+R00:00:00 cmdDisp.CMD_INT -5
+R00:00:01 cmdDisp.CMD_INT +7
+R00:00:02 cmdDisp.CMD_INT -0x1A
+R00:00:03 cmdDisp.CMD_FLOAT -3.14
+R00:00:04 cmdDisp.CMD_FLOAT -1.5e-3
+R00:00:05 cmdDisp.CMD_FLOAT -.5
+R00:00:06 cmdDisp.CMD_ARRAY_INT [-1, 2, -3]
+R00:00:07 cmdDisp.CMD_OBJECT_SIMPLE {x: -10, y: -20}
+R00:00:08 cmdDisp.CMD_WITH_MULTIPLE -42, [-1, -2, -3], "negative"

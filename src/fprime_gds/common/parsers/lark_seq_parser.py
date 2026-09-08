@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Generator, List, Optional, Tuple, Union
@@ -7,6 +8,22 @@ from lark.exceptions import LarkError, UnexpectedCharacters, UnexpectedToken
 
 from fprime_gds.common.data_types import exceptions as gseExceptions
 from fprime_gds.common.models.common.command import Descriptor
+
+
+class JsonArgument(str):
+    """JSON-encoded array/object argument, distinguishable from a plain string literal."""
+
+    @classmethod
+    def encode(cls, value: Union[list, dict]) -> "JsonArgument":
+        return cls(json.dumps(value))
+
+    def decode(self) -> Any:
+        return json.loads(self)
+
+
+def _nested_value(item: Any) -> Any:
+    """Decode nested arrays/objects so they embed as structures rather than strings."""
+    return item.decode() if isinstance(item, JsonArgument) else item
 
 
 class SeqTransformer(Transformer[Token, Any]):
@@ -51,21 +68,12 @@ class SeqTransformer(Transformer[Token, Any]):
             return item.value
         return item
 
-    def array(self, items: List[Any]) -> str:
+    def array(self, items: List[Any]) -> JsonArgument:
         """Convert array items to JSON string for serialization layer."""
-        import json
-        # Filter out None values from optional groups
-        # Parse any JSON strings back to Python objects for proper nesting
-        arr = []
-        for item in items:
-            if item is None:
-                continue
-            if isinstance(item, str) and (item.startswith('[') or item.startswith('{')):
-                # It's a nested array or object (already JSON-encoded), decode it
-                arr.append(json.loads(item))
-            else:
-                arr.append(item)
-        return json.dumps(arr)
+        # None entries come from optional groups in the grammar
+        return JsonArgument.encode(
+            [_nested_value(item) for item in items if item is not None]
+        )
 
     def kv(self, items: List[Any]) -> Tuple[str, Any]:
         """Convert key-value pair to tuple (key, value)."""
@@ -74,22 +82,12 @@ class SeqTransformer(Transformer[Token, Any]):
         assert isinstance(key, Token) and key.type == "NAME"
         return (key.value, value)
 
-    def object(self, items: List[Tuple[str, Any]]) -> str:
+    def object(self, items: List[Optional[Tuple[str, Any]]]) -> JsonArgument:
         """Convert key-value pairs to JSON string for serialization layer."""
-        import json
-        # Filter out None values from optional groups
-        # Parse any JSON strings back to Python objects for proper nesting
-        obj = {}
-        for item in items:
-            if item is None:
-                continue
-            key, value = item
-            if isinstance(value, str) and (value.startswith('[') or value.startswith('{')):
-                # It's a nested array or object (already JSON-encoded), decode it
-                obj[key] = json.loads(value)
-            else:
-                obj[key] = value
-        return json.dumps(obj)
+        # None entries come from optional groups in the grammar
+        return JsonArgument.encode(
+            {key: _nested_value(value) for key, value in (item for item in items if item is not None)}
+        )
 
 
 class LarkSeqFileParser:
@@ -229,16 +227,14 @@ class LarkSeqFileParser:
         @param line_number: Current line number for error reporting
         @return: Tuple of (descriptor, seconds, useconds)
         """
-        time_type = time_tag.children[0]
-        assert isinstance(time_type, Tree)
+        time_token = time_tag.children[0]
+        assert isinstance(time_token, Token)
+        # Strip the leading 'R' / 'A' descriptor character
+        time_str = time_token.value[1:]
 
-        if time_type.data == "relative_time":
+        if time_token.type == "RELATIVE_TIME":
             descriptor = Descriptor.RELATIVE
-            rel_time_value = time_type.children[0]  # Tree node
-            assert isinstance(rel_time_value, Tree)
-            time_token = rel_time_value.children[0]  # Token
-            assert isinstance(time_token, Token)
-            dt = self._parse_time_string(time_token.value)
+            dt = self._parse_time_string(time_str)
             delta = timedelta(
                 hours=dt.hour,
                 minutes=dt.minute,
@@ -246,13 +242,9 @@ class LarkSeqFileParser:
                 microseconds=dt.microsecond,
             ).total_seconds()
 
-        elif time_type.data == "absolute_time":
+        elif time_token.type == "ABSOLUTE_TIME":
             descriptor = Descriptor.ABSOLUTE
-            abs_time_value = time_type.children[0]  # Tree node
-            assert isinstance(abs_time_value, Tree)
-            time_token = abs_time_value.children[0]  # Token
-            assert isinstance(time_token, Token)
-            dt = self._parse_datetime_string(time_token.value)
+            dt = self._parse_datetime_string(time_str)
 
             # Use UTC timezone
             if dt.tzinfo is not None:

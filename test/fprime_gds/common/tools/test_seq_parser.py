@@ -184,6 +184,14 @@ class TestEnhancedArguments(unittest.TestCase):
         """Test sequence with nested structures (arrays of structs, structs with arrays)."""
         self.generate_and_compare("valid_nested_args.seq", "valid_nested_args.bin")
 
+    def test_negative_arguments(self):
+        """Test sequence with negative/signed numeric arguments, including inside arrays and objects."""
+        self.generate_and_compare("valid_negative_args.seq", "valid_negative_args.bin")
+
+    def test_bracket_strings(self):
+        """Test string arguments starting with '[' or '{' inside arrays and objects."""
+        self.generate_and_compare("valid_bracket_strings.seq", "valid_bracket_strings.bin")
+
 
 class TestSequenceErrors(unittest.TestCase):
     """Test error handling for invalid sequence files."""

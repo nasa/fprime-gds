@@ -12,6 +12,7 @@ with the F' serialization layer.
 import json
 import unittest
 from lark import Lark
+from lark.exceptions import LarkError
 from pathlib import Path
 
 from fprime_gds.common.parsers.lark_seq_parser import SeqTransformer
@@ -240,6 +241,57 @@ class TestSeqTransformerBasics(unittest.TestCase):
         arg = result.children[2]
         transformed = self.transformer.transform(arg)
         self.assertEqual(transformed, "ENUM_VALUE")
+
+    def test_signed_numbers(self):
+        """Test parsing negative and explicitly positive numbers of every numeric form."""
+        cases = {
+            "-5": -5,
+            "+5": 5,
+            "-0": 0,
+            "-0x1A": -26,
+            "+0XFF": 255,
+            "-3.14": -3.14,
+            "+2.5": 2.5,
+            "-.5": -0.5,
+            "-1.": -1.0,
+            "-1e3": -1000.0,
+            "-1.5E-3": -0.0015,
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                result = self.parser.parse(f"R00:00:01 CMD_TEST {text}")
+                transformed = self.transformer.transform(result.children[2])
+                self.assertEqual(type(transformed), type(expected))
+                self.assertAlmostEqual(transformed, expected)
+
+    def test_signed_numbers_in_containers(self):
+        """Test negative numbers nested inside arrays and objects."""
+        result = self.parser.parse("R00:00:01 CMD_TEST [-1, -2.5, {x: -3, y: [-0x10]}]")
+        transformed = self.transformer.transform(result.children[2])
+        self.assertEqual(json.loads(transformed), [-1, -2.5, {"x": -3, "y": [-16]}])
+
+    def test_sign_without_number_is_error(self):
+        """A bare sign or a sign separated from its digits is a syntax error."""
+        for text in ["-", "- 5", "+ 0x10"]:
+            with self.subTest(text=text), self.assertRaises(LarkError):
+                self.parser.parse(f"R00:00:01 CMD_TEST {text}")
+
+    def test_keyword_like_names(self):
+        """Identifiers that start with 'R', 'A' or a boolean keyword must lex as NAME."""
+        cases = ["R", "A", "RED", "TRUE_STATE", "FalseStart", "true_x"]
+        for text in cases:
+            with self.subTest(text=text):
+                result = self.parser.parse(f"R00:00:01 CMD_TEST {text}\n")
+                transformed = self.transformer.transform(result.children[2])
+                self.assertEqual(transformed, text)
+
+    def test_strings_with_brackets_in_containers(self):
+        """String literals beginning with [ or { must not be decoded as nested structures."""
+        result = self.parser.parse('R00:00:01 CMD_TEST ["[a", "{b"] {s: "[1, 2]"}')
+        arr = self.transformer.transform(result.children[2])
+        obj = self.transformer.transform(result.children[3])
+        self.assertEqual(json.loads(arr), ["[a", "{b"])
+        self.assertEqual(json.loads(obj), {"s": "[1, 2]"})
 
 
 if __name__ == "__main__":

@@ -1,0 +1,4 @@
+; String values starting with [ or { must not be mistaken for nested structures
+R00:00:00 cmdDisp.CMD_OBJECT_MIXED {num: 1, str: "[not an array]", flag: true}
+R00:00:01 cmdDisp.CMD_OBJECT_MIXED {num: 2, str: "{not an object}", flag: false}
+R00:00:02 cmdDisp.CMD_WITH_MULTIPLE 3, [1, 2, 3], "[3]"
