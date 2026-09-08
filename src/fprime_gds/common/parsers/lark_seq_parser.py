@@ -13,15 +13,23 @@ class SeqTransformer(Transformer[Token, Any]):
     """Transform the Lark parse tree into Python objects."""
 
     def number(self, items: List[Token]) -> Union[int, float]:
-        """Convert number tokens to int or float."""
+        """Convert number tokens to int or float, honoring an optional leading sign.
+
+        Hex literals represent an exact bit pattern, not a signed quantity, so the
+        grammar does not permit a leading sign on HEX_NUMBER.
+        """
+        sign = 1
+        if isinstance(items[0], Token) and items[0].type == "SIGN":
+            sign = -1
+            items = items[1:]
         token = items[0]
         assert isinstance(token, Token)
         if token.type == "FLOAT_NUMBER":
-            return float(token.value)
+            return sign * float(token.value)
         elif token.type == "HEX_NUMBER":
             return int(token.value, 16)
         else:  # DEC_NUMBER
-            return int(token.value)
+            return sign * int(token.value)
 
     def string(self, items: List[Token]) -> str:
         """Remove quotes from string literals."""

@@ -12,6 +12,7 @@ with the F' serialization layer.
 import json
 import unittest
 from lark import Lark
+from lark.exceptions import LarkError
 from pathlib import Path
 
 from fprime_gds.common.parsers.lark_seq_parser import SeqTransformer
@@ -240,6 +241,34 @@ class TestSeqTransformerBasics(unittest.TestCase):
         arg = result.children[2]
         transformed = self.transformer.transform(arg)
         self.assertEqual(transformed, "ENUM_VALUE")
+
+    def test_number_negative_integer(self):
+        """Test parsing negative integer numbers."""
+        result = self.parser.parse("R00:00:01 CMD_TEST -4")
+        arg = result.children[2]
+        transformed = self.transformer.transform(arg)
+        self.assertEqual(transformed, -4)
+
+    def test_number_negative_float(self):
+        """Test parsing negative float numbers."""
+        result = self.parser.parse("R00:00:01 CMD_TEST -3.14")
+        arg = result.children[2]
+        transformed = self.transformer.transform(arg)
+        self.assertAlmostEqual(transformed, -3.14)
+
+    def test_number_hex_no_sign(self):
+        """Hex literals represent a bit pattern, not a signed quantity, so a
+        leading sign is rejected rather than silently negated."""
+        with self.assertRaises(LarkError):
+            self.parser.parse("R00:00:01 CMD_TEST -0xFF")
+
+    def test_multiple_arguments_with_negative_numbers(self):
+        """Test parsing multiple arguments mixing positive and negative numbers."""
+        result = self.parser.parse("R00:00:01 CMD_TEST 0 2 150 ARG_STR_1 ARG_STR_2 -4 13")
+        args = [self.transformer.transform(child) for child in result.children[2:]]
+        self.assertEqual(
+            args, [0, 2, 150, "ARG_STR_1", "ARG_STR_2", -4, 13]
+        )
 
 
 if __name__ == "__main__":

@@ -21,8 +21,9 @@ absolute_time: "A" abs_time_value
 abs_time_value: ABS_DATETIME | ABS_DATETIME_FRAC
 
 _literal: number | string | boolean
-number: DEC_NUMBER | FLOAT_NUMBER | HEX_NUMBER
+number: SIGN? (DEC_NUMBER | FLOAT_NUMBER) | HEX_NUMBER
 # -> AstNumber(value)
+SIGN: "-"
 string: STRING
 # -> AstString(value)
 boolean: CONST_FALSE | CONST_TRUE

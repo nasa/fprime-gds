@@ -184,6 +184,10 @@ class TestEnhancedArguments(unittest.TestCase):
         """Test sequence with nested structures (arrays of structs, structs with arrays)."""
         self.generate_and_compare("valid_nested_args.seq", "valid_nested_args.bin")
 
+    def test_negative_arguments(self):
+        """Test sequence with negative integer and float arguments."""
+        self.generate_and_compare("valid_negative_args.seq", "valid_negative_args.bin")
+
 
 class TestSequenceErrors(unittest.TestCase):
     """Test error handling for invalid sequence files."""
