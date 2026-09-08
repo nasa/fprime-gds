@@ -3,8 +3,7 @@
  */
 
 const LINE_END = /\r?\n/;
-// Matches both "Line N:" and "<path>:N[:col]:" error formats
-const LINE_REG = /(?:Line\s*(\d+):|:(\d+)(?::\d+)?:\s)/;
+const LINE_REG = /Line\s*(\d+):/;
 const LINT_SRC = "F´ Sequence Checker";
 
 /**
@@ -18,7 +17,7 @@ function buildDiagnostic(view, line) {
     let diagnostic = {severity: "error", message: line, source: LINT_SRC, from:0, to:0};
     let match = line.match(LINE_REG);
     if (match != null) {
-        let line_number = parseInt(match[1] || match[2]);
+        let line_number = parseInt(match[1]);
         let line = view.state.doc.line(line_number);
         Object.assign(diagnostic, {from: line.from, to:line.to});
     }

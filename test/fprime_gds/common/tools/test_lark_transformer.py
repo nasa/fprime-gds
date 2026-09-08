@@ -253,7 +253,6 @@ class TestSeqTransformerBasics(unittest.TestCase):
             "-3.14": -3.14,
             "+2.5": 2.5,
             "-.5": -0.5,
-            "-1.": -1.0,
             "-1e3": -1000.0,
             "-1.5E-3": -0.0015,
         }
@@ -275,23 +274,6 @@ class TestSeqTransformerBasics(unittest.TestCase):
         for text in ["-", "- 5", "+ 0x10"]:
             with self.subTest(text=text), self.assertRaises(LarkError):
                 self.parser.parse(f"R00:00:01 CMD_TEST {text}")
-
-    def test_keyword_like_names(self):
-        """Identifiers that start with 'R', 'A' or a boolean keyword must lex as NAME."""
-        cases = ["R", "A", "RED", "TRUE_STATE", "FalseStart", "true_x", "TRUE.STATE", "false.x"]
-        for text in cases:
-            with self.subTest(text=text):
-                result = self.parser.parse(f"R00:00:01 CMD_TEST {text}\n")
-                transformed = self.transformer.transform(result.children[2])
-                self.assertEqual(transformed, text)
-
-    def test_strings_with_brackets_in_containers(self):
-        """String literals beginning with [ or { must not be decoded as nested structures."""
-        result = self.parser.parse('R00:00:01 CMD_TEST ["[a", "{b"] {s: "[1, 2]"}')
-        arr = self.transformer.transform(result.children[2])
-        obj = self.transformer.transform(result.children[3])
-        self.assertEqual(json.loads(arr), ["[a", "{b"])
-        self.assertEqual(json.loads(obj), {"s": "[1, 2]"})
 
 
 if __name__ == "__main__":

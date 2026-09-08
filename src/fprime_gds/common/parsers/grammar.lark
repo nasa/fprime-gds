@@ -5,7 +5,7 @@ _toplevel_stmt: _cmd_stmt
 _cmd_stmt: time_tag mnemonic (","? _value_list)?
 _value_list: value (","? value)*
 
-time_tag: RELATIVE_TIME | ABSOLUTE_TIME
+time_tag: relative_time | absolute_time
 
 mnemonic: NAME
 
@@ -13,6 +13,12 @@ value: _literal | object | array | NAME
 array: "[" [value ("," value)* [","]] "]"
 kv: NAME ":" value
 object: "{" [kv ("," kv)* [","]] "}"
+
+relative_time: "R" rel_time_value
+rel_time_value: TIME_HMS | TIME_HMS_FRAC
+
+absolute_time: "A" abs_time_value
+abs_time_value: ABS_DATETIME | ABS_DATETIME_FRAC
 
 _literal: number | string | boolean
 number: DEC_NUMBER | FLOAT_NUMBER | HEX_NUMBER
@@ -28,10 +34,10 @@ _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 %ignore /[\t \f]+/
 %ignore /\\[\t \f]*\r?\n/   // LINE_CONT
 %ignore COMMENT
+%declare _INDENT _DEDENT
 
-# Must not be followed by a NAME character so that TRUE_STATE / TRUE.STATE lex as NAME
-CONST_TRUE.2: /(True|true|TRUE)(?![\w.])/
-CONST_FALSE.2: /(False|false|FALSE)(?![\w.])/
+CONST_TRUE.2: /(True|true|TRUE)/
+CONST_FALSE.2: /(False|false|FALSE)/
 NAME: /\$?[^\W\d]\w*(\.\w+)*/
 COMMENT: /;[^\n]*/
 
@@ -48,7 +54,7 @@ HEX_NUMBER: _SIGN? ("0x" | "0X") ("_"? /[0-9a-fA-F]/)+
 
 _SPECIAL_DEC: "0".."9"        ("_"?  "0".."9"                       )*
 
-DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC?
+DECIMAL: "." _SPECIAL_DEC | _SPECIAL_DEC "." _SPECIAL_DEC
 _EXP: ("e"|"E") ["+" | "-"] _SPECIAL_DEC
 # -1 prio so we resolve the .. syntax in for loop range first
 FLOAT_NUMBER.-1: _SIGN? (_SPECIAL_DEC _EXP | DECIMAL _EXP?)
@@ -59,10 +65,8 @@ _MICROSECONDS: /\d{1,6}/
 _YEAR: /\d{4}/
 _DAY_OF_YEAR: /\d{3}/
 
-_TIME_HMS: _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT ("." _MICROSECONDS)?
-_ABS_DATETIME: _YEAR "-" _DAY_OF_YEAR "T" _TIME_HMS
+TIME_HMS: _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT
+TIME_HMS_FRAC: _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT "." _MICROSECONDS
 
-# Time tags are single terminals (prio 1) so that a bare "R" or "A" elsewhere
-# (e.g. an enum value) still lexes as NAME
-RELATIVE_TIME.1: "R" _TIME_HMS
-ABSOLUTE_TIME.1: "A" _ABS_DATETIME
+ABS_DATETIME: _YEAR "-" _DAY_OF_YEAR "T" _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT
+ABS_DATETIME_FRAC: _YEAR "-" _DAY_OF_YEAR "T" _TIME_COMPONENT ":" _TIME_COMPONENT ":" _TIME_COMPONENT "." _MICROSECONDS
