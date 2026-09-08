@@ -1,0 +1,5 @@
+; Test negative numeric arguments
+R00:00:00 cmdDisp.CMD_INT -4
+R00:00:01 cmdDisp.CMD_INT -1
+R00:00:02 cmdDisp.CMD_FLOAT -3.14
+R00:00:03 cmdDisp.CMD_FLOAT -0.5
