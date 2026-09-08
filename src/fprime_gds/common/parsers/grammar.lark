@@ -29,9 +29,9 @@ _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 %ignore /\\[\t \f]*\r?\n/   // LINE_CONT
 %ignore COMMENT
 
-# Word boundary so that identifiers such as TRUE_STATE lex as NAME
-CONST_TRUE.2: /(True|true|TRUE)\b/
-CONST_FALSE.2: /(False|false|FALSE)\b/
+# Must not be followed by a NAME character so that TRUE_STATE / TRUE.STATE lex as NAME
+CONST_TRUE.2: /(True|true|TRUE)(?![\w.])/
+CONST_FALSE.2: /(False|false|FALSE)(?![\w.])/
 NAME: /\$?[^\W\d]\w*(\.\w+)*/
 COMMENT: /;[^\n]*/
 

@@ -278,7 +278,7 @@ class TestSeqTransformerBasics(unittest.TestCase):
 
     def test_keyword_like_names(self):
         """Identifiers that start with 'R', 'A' or a boolean keyword must lex as NAME."""
-        cases = ["R", "A", "RED", "TRUE_STATE", "FalseStart", "true_x"]
+        cases = ["R", "A", "RED", "TRUE_STATE", "FalseStart", "true_x", "TRUE.STATE", "false.x"]
         for text in cases:
             with self.subTest(text=text):
                 result = self.parser.parse(f"R00:00:01 CMD_TEST {text}\n")
