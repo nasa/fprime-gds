@@ -1,0 +1,1 @@
+Parsing error: <fprime-gds>/test/fprime_gds/common/tools/input/invalid_sign_string.seq:2:30: Encountered syntax error parsing

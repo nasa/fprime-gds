@@ -12,6 +12,7 @@ with the F' serialization layer.
 import json
 import unittest
 from lark import Lark
+from lark.exceptions import LarkError
 from pathlib import Path
 
 from fprime_gds.common.parsers.lark_seq_parser import SeqTransformer
@@ -240,6 +241,39 @@ class TestSeqTransformerBasics(unittest.TestCase):
         arg = result.children[2]
         transformed = self.transformer.transform(arg)
         self.assertEqual(transformed, "ENUM_VALUE")
+
+    def test_signed_numbers(self):
+        """Test parsing negative and explicitly positive numbers of every numeric form."""
+        cases = {
+            "-5": -5,
+            "+5": 5,
+            "-0": 0,
+            "-0x1A": -26,
+            "+0XFF": 255,
+            "-3.14": -3.14,
+            "+2.5": 2.5,
+            "-.5": -0.5,
+            "-1e3": -1000.0,
+            "-1.5E-3": -0.0015,
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                result = self.parser.parse(f"R00:00:01 CMD_TEST {text}")
+                transformed = self.transformer.transform(result.children[2])
+                self.assertEqual(type(transformed), type(expected))
+                self.assertAlmostEqual(transformed, expected)
+
+    def test_signed_numbers_in_containers(self):
+        """Test negative numbers nested inside arrays and objects."""
+        result = self.parser.parse("R00:00:01 CMD_TEST [-1, -2.5, {x: -3, y: [-0x10]}]")
+        transformed = self.transformer.transform(result.children[2])
+        self.assertEqual(json.loads(transformed), [-1, -2.5, {"x": -3, "y": [-16]}])
+
+    def test_sign_without_number_is_error(self):
+        """A sign not directly attached to digits (bare, spaced, or on a non-numeric value) is a syntax error."""
+        for text in ["-", "- 5", "+ 0x10", "-IDLE", '-"str"', "-[1, 2]", "- {x: 10}"]:
+            with self.subTest(text=text), self.assertRaises(LarkError):
+                self.parser.parse(f"R00:00:01 CMD_TEST {text}")
 
 
 if __name__ == "__main__":
