@@ -270,8 +270,8 @@ class TestSeqTransformerBasics(unittest.TestCase):
         self.assertEqual(json.loads(transformed), [-1, -2.5, {"x": -3, "y": [-16]}])
 
     def test_sign_without_number_is_error(self):
-        """A bare sign or a sign separated from its digits is a syntax error."""
-        for text in ["-", "- 5", "+ 0x10"]:
+        """A sign not directly attached to digits (bare, spaced, or on a non-numeric value) is a syntax error."""
+        for text in ["-", "- 5", "+ 0x10", "-IDLE", '-"str"', "-[1, 2]", "- {x: 10}"]:
             with self.subTest(text=text), self.assertRaises(LarkError):
                 self.parser.parse(f"R00:00:01 CMD_TEST {text}")
 

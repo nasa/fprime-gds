@@ -518,6 +518,34 @@ class TestArrayObjectValidationErrors(unittest.TestCase):
             "invalid_enum_bad_value_error.txt"
         )
 
+    def test_invalid_sign_object(self):
+        """Test error on a sign in front of an object literal."""
+        self.generate_and_check_error(
+            "invalid_sign_object.seq",
+            "invalid_sign_object_error.txt"
+        )
+
+    def test_invalid_sign_enum(self):
+        """Test error on a sign in front of an enum member."""
+        self.generate_and_check_error(
+            "invalid_sign_enum.seq",
+            "invalid_sign_enum_error.txt"
+        )
+
+    def test_invalid_sign_string(self):
+        """Test error on a sign in front of a string literal."""
+        self.generate_and_check_error(
+            "invalid_sign_string.seq",
+            "invalid_sign_string_error.txt"
+        )
+
+    def test_invalid_sign_array(self):
+        """Test error on a sign in front of an array literal."""
+        self.generate_and_check_error(
+            "invalid_sign_array.seq",
+            "invalid_sign_array_error.txt"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
