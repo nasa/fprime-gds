@@ -14,6 +14,10 @@ import crcmod
 class SpaceDataLinkFramerDeframer(FramerDeframer):
     """CCSDS Framer/Deframer Implementation for the TC (uplink / framing) and TM (downlink / deframing)
     protocols. This FramerDeframer is used for framing TC data for uplink and deframing TM data for downlink.
+
+    TM deframing expects the transfer frame data field to carry Space Packets (CCSDS 133.0-B): the First
+    Header Pointer and the Space Packet length field are used to reassemble packets that span frames, so
+    other data field contents are not supported.
     """
 
     # As per CCSDS standard
@@ -22,6 +26,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     TM_HEADER_SIZE = 6
     TM_TRAILER_SIZE = 2
     TC_TRAILER_SIZE = 2
+    VC_FRAME_COUNT_MAXIMUM = 256
     SPACE_PACKET_HEADER_SIZE = 6
 
     # First Header Pointer special values per CCSDS 132.0-B-3 4.1.2.7.6
@@ -30,7 +35,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
     FHP_IDLE_DATA_ONLY = 0x7FE  # Frame contains only idle data
 
     # Maximum reassembled packet size: Space Packet header plus maximum length field value plus 1
-    MAX_PACKET_SIZE = 6 + 65536
+    MAX_PACKET_SIZE = SPACE_PACKET_HEADER_SIZE + 65536
 
     # As per CCSDS standard, use CRC-16 CCITT config with init value
     # all 1s and final XOR value of 0x0000
@@ -144,7 +149,14 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         return sequence
 
     def deframe(self, data, no_copy=False):
-        """Deframe TM frames"""
+        """Deframe TM frames into complete Space Packets
+
+        Validates each fixed-size TM frame (SCID/VCID, CRC) and passes its data field to `reassemble`, which
+        buffers packets spanning frames using the First Header Pointer. Returns the complete Space Packets
+        available after the frame (possibly several concatenated, or None when the frame holds only
+        continuation, idle, or the start of a spanning packet), the unconsumed bytes, and any discarded
+        bytes. Keeps `pending`/`last_vc_count` state across calls.
+        """
         discarded = bytearray()
         if not no_copy:
             data = copy.copy(data)
@@ -174,7 +186,7 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
                 deframed = self.reassemble(field, first_header_pointer, vc_count)
                 if deframed:
                     return deframed, bytes(data), bytes(discarded)
-                # Nothing to emit from this frame (continuation or idle only): keep processing
+                # Nothing complete to emit from this frame (continuation, idle, or partial packet start only)
                 continue
 
             print(
@@ -203,19 +215,17 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
             bytes ready for Space Packet deframing (may be empty)
         """
         # Detect frame loss via virtual channel frame count discontinuity
-        if self.last_vc_count is not None and vc_count != (self.last_vc_count + 1) % self.SEQUENCE_NUMBER_MAXIMUM:
+        if self.last_vc_count is not None and vc_count != (self.last_vc_count + 1) % self.VC_FRAME_COUNT_MAXIMUM:
             if self.pending:
                 print(
                     "[WARNING] TM frame loss detected. Discarding partial packet data.",
                     file=sys.stderr,
                 )
                 self.pending = b""
-            # Discard leading continuation bytes of the lost packet, resync at the first header
-            if first_header_pointer < self.FHP_IDLE_DATA_ONLY:
-                field = field[first_header_pointer:]
-                first_header_pointer = 0
         self.last_vc_count = vc_count
         if first_header_pointer == self.FHP_IDLE_DATA_ONLY:
+            # A packet cannot continue through an idle-only frame: any pending start is stale
+            self.pending = b""
             return b""
         if first_header_pointer == self.FHP_NO_PACKET_START:
             # Continuation data only: the spanning packet continues through this entire frame
@@ -228,8 +238,25 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
                     )
                     self.pending = b""
             return b""
-        # Continuation bytes before the first header complete the pending spanned packet
-        emitted = self.pending + field[:first_header_pointer]
+        if first_header_pointer >= len(field):
+            print(
+                "[WARNING] First Header Pointer beyond TM frame data field. Discarding frame and partial packet data.",
+                file=sys.stderr,
+            )
+            self.pending = b""
+            return b""
+        # Continuation bytes before the first header complete the pending spanned packet. With nothing
+        # pending they belong to a packet whose start was never received (mid-stream attach, frame loss,
+        # or discarded oversize packet) and are dropped.
+        emitted = b""
+        if self.pending:
+            emitted = self.pending + field[:first_header_pointer]
+            if self.split_complete_packets(emitted)[1]:
+                print(
+                    "[WARNING] First Header Pointer inconsistent with pending packet length. Discarding partial packet data.",
+                    file=sys.stderr,
+                )
+                emitted = b""
         # Emit only whole packets; a packet starting in this frame may span into the next
         complete, self.pending = self.split_complete_packets(field[first_header_pointer:])
         return emitted + complete
