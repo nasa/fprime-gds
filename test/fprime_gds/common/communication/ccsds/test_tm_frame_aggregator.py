@@ -50,10 +50,20 @@ def deframer(constants):
     return TmFrameAggregatorFramerDeframer()
 
 
-def make_frame(scid=SCID, vcid=1, mc_count=0, fill=0xAB, size=FRAME_SIZE, version=0):
+DATA_FIELD_SIZE = FRAME_SIZE - 6 - 2
+# Data field status as emitted by Svc::Ccsds::TmFramer: flags clear, segment length ID 0b11, FHP variable
+SEGMENT_LENGTH_ID = 0x3 << 11
+FHP_IDLE = 0x7FE
+FHP_NO_PACKET_START = 0x7FF
+
+
+def make_frame(
+    scid=SCID, vcid=1, mc_count=0, fill=0xAB, size=FRAME_SIZE, version=0, fhp=0, dfs_flags=0
+):
     """Build a fixed-size TM frame with the given header fields (trailer is arbitrary; CRC is not checked)"""
     global_vcid = (version << 14) | ((scid & 0x3FF) << 4) | ((vcid & 0x7) << 1)
-    header = struct.pack(">HBBH", global_vcid, mc_count, mc_count, 0)
+    data_field_status = dfs_flags | SEGMENT_LENGTH_ID | fhp
+    header = struct.pack(">HBBH", global_vcid, mc_count, mc_count, data_field_status)
     trailer = b"\xCC\xCC"
     return header + bytes([fill]) * (size - len(header) - len(trailer)) + trailer
 
@@ -180,6 +190,59 @@ class TestDeframe:
         # Scanning slips one byte at a time until the good header lines up
         assert len(discarded) == FRAME_SIZE
         assert discarded == bad
+
+    @pytest.mark.parametrize(
+        "fhp", [0, 1, DATA_FIELD_SIZE // 2, DATA_FIELD_SIZE - 1, FHP_IDLE, FHP_NO_PACKET_START]
+    )
+    def test_spanning_first_header_pointers_accepted(self, deframer, fhp):
+        # Packets spanning frames move the FHP anywhere in the data field or to a reserved value
+        frame = make_frame(fhp=fhp)
+        assert deframer.deframe(frame) == (frame, b"", b"")
+
+    @pytest.mark.parametrize("fhp", [DATA_FIELD_SIZE, DATA_FIELD_SIZE + 1, FHP_IDLE - 1])
+    def test_first_header_pointer_beyond_data_field_discarded(self, deframer, fhp):
+        bad = make_frame(fhp=fhp)
+        good = make_frame()
+        assert deframer.deframe(bad + good) == (good, b"", bad)
+
+    @pytest.mark.parametrize(
+        "dfs_flags",
+        [1 << 14, 1 << 13, (1 << 14) | (1 << 13)],
+        ids=["sync-flag", "packet-order-flag", "both-flags"],
+    )
+    def test_data_field_status_flags_set_discarded(self, deframer, dfs_flags):
+        bad = make_frame(dfs_flags=dfs_flags)
+        good = make_frame()
+        assert deframer.deframe(bad + good) == (good, b"", bad)
+
+    @pytest.mark.parametrize("segment_length_id", [0, 1, 2])
+    def test_segment_length_id_not_11_discarded(self, deframer, segment_length_id):
+        bad = bytearray(make_frame())
+        struct.pack_into(">H", bad, 4, segment_length_id << 11)
+        bad = bytes(bad)
+        good = make_frame()
+        assert deframer.deframe(bad + good) == (good, b"", bad)
+
+    def test_secondary_header_flag_accepted(self, deframer):
+        # Not constrained: a secondary header does not alter the fixed frame boundaries
+        frame = make_frame(dfs_flags=1 << 15)
+        assert deframer.deframe(frame) == (frame, b"", b"")
+
+    def test_header_judged_progressively(self, deframer):
+        # Bytes 0-5 alone look plausible; a bad data field status is rejected once byte 5 arrives
+        bad = make_frame(dfs_flags=1 << 14)
+        assert deframer.deframe(bad[:5]) == (None, bad[:5], b"")
+        assert deframer.deframe(bad[:6]) == (None, bad[5:6], bad[:5])
+
+    def test_one_byte_slip_resynchronizes_without_scid(self, constants):
+        # Payload bytes rarely form a valid data field status, so a slip re-locks on the next real header
+        del constants[SCID_CONSTANT]
+        deframer = TmFrameAggregatorFramerDeframer()
+        frames = [make_frame(fill=fill) for fill in (0x00, 0x11, 0x22)]
+        stream = b"".join(frames)[1:]
+        packets, leftover, discarded = deframer.deframe_all(stream, no_copy=False)
+        assert packets == frames[1:]
+        assert (leftover, discarded) == (b"", frames[0][1:])
 
     def test_all_virtual_channels_delivered(self, deframer):
         frames = [make_frame(vcid=vcid, fill=vcid) for vcid in range(8)]

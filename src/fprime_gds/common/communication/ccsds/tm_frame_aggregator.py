@@ -23,19 +23,29 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
     """Aggregates downlink bytes into intact fixed-size TM frames; uplink is pass-through
 
     Frame starts are located by the TM primary header: the transfer frame version number must be
-    zero and, when known, the spacecraft ID must match. The frame error control field is not
+    zero, the spacecraft ID must match when known, and the data field status must describe
+    octet-synchronized packets (CCSDS 132.0-B 4.1.2.7) with a first header pointer inside the data
+    field or one of its reserved values. Frame counters and the frame error control field are not
     checked; error detection and virtual channel handling are left to downstream consumers.
     """
 
-    TM_HEADER_SIZE = 6
+    # Primary header: frame ID | master frame count | virtual frame count | data field status
+    TM_HEADER_FORMAT = ">HBBH"
+    TM_HEADER_SIZE = struct.calcsize(TM_HEADER_FORMAT)
     TM_TRAILER_SIZE = 2
-    # Leading header field: 2b version | 10b spacecraft ID | 3b virtual channel ID | 1b OCF flag
+    # Frame ID field: 2b version | 10b spacecraft ID | 3b virtual channel ID | 1b OCF flag
     FRAME_ID_FIELD_FORMAT = ">H"
     FRAME_ID_FIELD_SIZE = struct.calcsize(FRAME_ID_FIELD_FORMAT)
     TM_VERSION = 0
     VERSION_SHIFT = 14
     SCID_SHIFT = 4
     SCID_MASK = 0x3FF
+    # Data field status: 1b secondary header | 1b sync | 1b packet order | 2b segment length ID | 11b FHP
+    DFS_SYNC_FLAG = 1 << 14
+    DFS_PACKET_ORDER_FLAG = 1 << 13
+    DFS_SEGMENT_LENGTH_ID = 0x3 << 11
+    FHP_MASK = 0x7FF
+    FHP_RESERVED = (0x7FE, 0x7FF)
 
     FRAME_SIZE_CONSTANT = "ComCfg.TmFrameFixedSize"
     SCID_CONSTANT = "ComCfg.SpacecraftId"
@@ -57,7 +67,7 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
         if self.scid is None:
             print(
                 f"[WARNING] Spacecraft ID unknown ({self.SCID_CONSTANT} not loaded, no --scid):"
-                " TM frame synchronization uses the version bits only",
+                " TM frame synchronization uses the version and data field status bits only",
                 file=sys.stderr,
             )
         self.check_arguments(self.frame_size, self.scid)
@@ -87,11 +97,26 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
         return data
 
     def is_frame_start(self, data):
-        """Check whether the bytes at the start of data form a plausible TM primary header"""
+        """Check whether the bytes at the start of data form a plausible TM primary header
+
+        With fewer than TM_HEADER_SIZE bytes only the frame ID field is judged; the remaining bytes
+        are inspected once they arrive.
+        """
         frame_id = struct.unpack_from(self.FRAME_ID_FIELD_FORMAT, data)[0]
         if (frame_id >> self.VERSION_SHIFT) != self.TM_VERSION:
             return False
-        return self.scid is None or ((frame_id >> self.SCID_SHIFT) & self.SCID_MASK) == self.scid
+        if self.scid is not None and ((frame_id >> self.SCID_SHIFT) & self.SCID_MASK) != self.scid:
+            return False
+        if len(data) < self.TM_HEADER_SIZE:
+            return True
+        data_field_status = struct.unpack_from(self.TM_HEADER_FORMAT, data)[3]
+        if data_field_status & (self.DFS_SYNC_FLAG | self.DFS_PACKET_ORDER_FLAG):
+            return False
+        if (data_field_status & self.DFS_SEGMENT_LENGTH_ID) != self.DFS_SEGMENT_LENGTH_ID:
+            return False
+        first_header_pointer = data_field_status & self.FHP_MASK
+        data_field_size = self.frame_size - self.TM_HEADER_SIZE - self.TM_TRAILER_SIZE
+        return first_header_pointer < data_field_size or first_header_pointer in self.FHP_RESERVED
 
     def deframe(self, data, no_copy=False):
         """Return the first whole TM frame in data, intact
