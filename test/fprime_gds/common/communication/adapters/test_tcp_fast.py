@@ -603,6 +603,10 @@ class TestPlugin:
     def test_check_arguments_accepts_client_any_port(self):
         TcpFastClientAdapter.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=1)
 
+    def test_client_check_rejects_unresolvable_name(self):
+        with pytest.raises(ValueError, match="resolve"):
+            TcpFastClientAdapter.check_arguments(tcp_fast_address="no-such-host.invalid", tcp_fast_port=50000)
+
     def test_server_check_rejects_busy_port(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy:
             busy.bind(("127.0.0.1", 0))

@@ -115,6 +115,9 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
     def write(self, frame) -> bool:
         """Send the whole frame to the peer
 
+        True means the kernel accepted the frame, not that the peer received it. A peer that stops draining
+        blocks `sendall` until the send buffer frees or keepalive abandons the connection (then drop + reconnect).
+
         :param frame: bytes to send
         :return: True when fully sent, False immediately when disconnected or on error
         """
@@ -410,6 +413,16 @@ class TcpFastClientAdapter(TcpFastAdapter):
         pending, self.pending = self.pending, None
         if pending is not None:
             pending.close()
+
+    @classmethod
+    def check_arguments(cls, tcp_fast_address=None, tcp_fast_port=TcpFastAdapter.DEFAULT_PORT):
+        """Validate the port range and that the address resolves, so a bad name fails at startup, not on the read thread"""
+        super().check_arguments(tcp_fast_address, tcp_fast_port)
+        address = tcp_fast_address if tcp_fast_address is not None else cls.DEFAULT_ADDRESS
+        try:
+            socket.getaddrinfo(address, tcp_fast_port, socket.AF_INET, socket.SOCK_STREAM)
+        except OSError as error:
+            raise ValueError(f"Cannot resolve {address}: {error}")
 
     @classmethod
     def get_name(cls):
