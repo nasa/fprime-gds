@@ -20,7 +20,11 @@ from fprime_gds.executables.cli import (
     StandardPipelineParser,
     PluginArgumentParser,
 )
-from fprime_gds.common.communication.adapters.tcp_fast import TcpFastServerAdapter
+from fprime_gds.common.communication.adapters.ip import IpAdapter
+from fprime_gds.common.communication.adapters.tcp_fast import (
+    TcpFastClientAdapter,
+    TcpFastServerAdapter,
+)
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
 from fprime_gds.plugin.system import Plugins
 
@@ -29,13 +33,13 @@ BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
 
 def app_connection(parsed_args):
     """Address and port the auto-launched app should connect to, or None when the selected adapter does not host it"""
-    if parsed_args.communication_selection == "ip":
+    if parsed_args.communication_selection == IpAdapter.get_name():
         return parsed_args.address, parsed_args.port
     if parsed_args.communication_selection == TcpFastServerAdapter.get_name():
         # A wildcard bind address cannot be connected to, so the app uses loopback
         address = parsed_args.tcp_fast_address
-        if address in (None, "", "0.0.0.0"):
-            address = "127.0.0.1"
+        if address in (None, "", TcpFastServerAdapter.DEFAULT_ADDRESS):
+            address = TcpFastClientAdapter.DEFAULT_ADDRESS
         return address, parsed_args.tcp_fast_port
     return None
 
@@ -253,7 +257,8 @@ def main():
             launchers.append(functools.partial(launch_app, connection=connection))
         else:
             print(
-                "[WARNING] App cannot be auto-launched without the ip or tcp-fast-server adapter",
+                f"[WARNING] App cannot be auto-launched without the {IpAdapter.get_name()} or "
+                f"{TcpFastServerAdapter.get_name()} adapter",
                 file=sys.stderr,
             )
 

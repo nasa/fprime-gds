@@ -4,6 +4,7 @@ All tests use real loopback sockets on ephemeral ports. Timing assertions are de
 adapter's timeouts) so they hold on loaded CI hosts while still catching blocking or spinning regressions.
 """
 
+import errno
 import logging
 import select
 import socket
@@ -141,8 +142,10 @@ class TestServer:
         assert (adapter.address, adapter.port) == ("0.0.0.0", 50000)
 
     def test_open_listens(self, server):
+        assert server.listener is not None
+        assert server.listener.getsockname()[1] == server.port
         with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
-            pass
+            assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is not None)
 
     def test_read_before_peer_returns_empty_within_timeout(self, server):
         start = time.monotonic()
@@ -194,6 +197,49 @@ class TestServer:
                 assert read_until(adapter, 4) == b"late"
         finally:
             adapter.close()
+
+    @pytest.mark.parametrize("code", tcp_fast.ACCEPT_TRANSIENT)
+    def test_transient_accept_error_keeps_listener(self, server, monkeypatch, caplog, code):
+        caplog.set_level(logging.WARNING)
+        listener = server.listener
+
+        class Aborting:
+            """Listener stand-in whose peer vanished between select and accept"""
+
+            def fileno(self):
+                return listener.fileno()
+
+            def accept(self):
+                raise OSError(code, "peer gone")
+
+            def close(self):
+                listener.close()
+
+        server.listener = Aborting()
+        monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([server.listener], [], []))
+        assert server.connect(TIMEOUT) is None
+        assert isinstance(server.listener, Aborting)  # not torn down
+        assert server.next_attempt == 0.0 and not caplog.records
+
+    def test_fatal_accept_error_relistens(self, server, monkeypatch, caplog):
+        caplog.set_level(logging.WARNING)
+        listener = server.listener
+
+        class Broken:
+            def fileno(self):
+                return listener.fileno()
+
+            def accept(self):
+                raise OSError(errno.EINVAL, "listener is not listening")
+
+            def close(self):
+                listener.close()
+
+        server.listener = Broken()
+        monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([server.listener], [], []))
+        assert server.connect(TIMEOUT) is None
+        assert server.listener is None and server.next_attempt > time.monotonic()
+        assert any("accept failed" in record.getMessage() for record in caplog.records)
 
     def test_listener_failure_relistens_without_spinning(self, server):
         dead = server.listener
@@ -267,7 +313,12 @@ class TestClient:
         adapter = TcpFastClientAdapter(tcp_fast_port=free_port())
         attempts = []
         real_begin = adapter.begin
-        monkeypatch.setattr(adapter, "begin", lambda: attempts.append(time.monotonic()) or real_begin())
+
+        def counted_begin():
+            attempts.append(time.monotonic())
+            return real_begin()
+
+        monkeypatch.setattr(adapter, "begin", counted_begin)
         adapter.open()
         try:
             assert adapter.read(TIMEOUT) == b""
@@ -416,7 +467,7 @@ class TestWrite:
         time.sleep(0.05)
         results = [server.write(b"x" * 65536) for _ in range(5)]
         assert False in results
-        assert wait_for(lambda: server.connection is None or server.read(TIMEOUT) == b"" and server.connection is None)
+        assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is None)
 
 
 class TestConnectionOptions:
@@ -445,6 +496,25 @@ class TestConnectionOptions:
         detection = TcpFastAdapter.KEEPALIVE_IDLE + TcpFastAdapter.KEEPALIVE_INTERVAL * TcpFastAdapter.KEEPALIVE_COUNT
         assert detection <= 30
 
+    @pytest.mark.skipif(not hasattr(socket, "TCP_USER_TIMEOUT"), reason="TCP_USER_TIMEOUT not exposed on this platform")
+    def test_unacknowledged_data_bounded_like_keepalive(self, server, peer):
+        # Keepalive probes pause while data is in flight, so the user timeout must carry the same detection budget
+        detection = TcpFastAdapter.KEEPALIVE_IDLE + TcpFastAdapter.KEEPALIVE_INTERVAL * TcpFastAdapter.KEEPALIVE_COUNT
+        assert server.connection.getsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT) == detection * 1000
+
+    def test_keepalive_tuning_failure_keeps_connection(self, server, monkeypatch, caplog):
+        def reject(cls, connection):
+            raise OSError("tuning unsupported")
+
+        monkeypatch.setattr(TcpFastServerAdapter, "configure_keepalive", classmethod(reject))
+        caplog.set_level(logging.WARNING)
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0) as sock:
+            assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is not None)
+            assert server.connection.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) != 0
+            sock.sendall(b"still works")
+            assert read_until(server, len(b"still works")) == b"still works"
+        assert any("keepalive" in record.getMessage() for record in caplog.records)
+
     def test_option_failure_drops_instead_of_raising(self, server):
         with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
             assert wait_for(lambda: len(select_readable(server.listener)) == 1)
@@ -453,11 +523,30 @@ class TestConnectionOptions:
             assert server.established(connection) is False
             assert server.connection is None
 
-    def test_no_threads_started(self, server, peer):
+    @pytest.mark.parametrize("adapter_class", [TcpFastServerAdapter, TcpFastClientAdapter])
+    def test_no_threads_started(self, adapter_class):
+        # Baseline before construction, so threads started in __init__/open()/connect are caught too
         before = threading.active_count()
-        for _ in range(5):
-            server.read(TIMEOUT)
-            server.write(b"x")
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as remote:
+            remote.bind(("127.0.0.1", 0))
+            remote.listen(1)
+            remote.settimeout(2.0)
+            port = remote.getsockname()[1] if adapter_class is TcpFastClientAdapter else free_port()
+            adapter = adapter_class(tcp_fast_port=port)
+            adapter.open()
+            try:
+                if adapter_class is TcpFastClientAdapter:
+                    peer = accept_client(adapter, remote)
+                else:
+                    peer = socket.create_connection(("127.0.0.1", port), timeout=2.0)
+                    assert wait_for(lambda: adapter.read(TIMEOUT) == b"" and adapter.connection is not None)
+                with peer:
+                    for _ in range(5):
+                        adapter.read(TIMEOUT)
+                        assert adapter.write(b"x") is True
+                    assert threading.active_count() == before
+            finally:
+                adapter.close()
         assert threading.active_count() == before
 
 
@@ -492,6 +581,10 @@ class TestClose:
         assert adapter.next_attempt > time.monotonic()
         adapter.close()
         assert adapter.pending is None and not adapter.running
+        # After close, read() still honors its bound rather than spinning
+        start = time.monotonic()
+        assert adapter.read(TIMEOUT) == b""
+        assert TIMEOUT * 0.8 <= time.monotonic() - start < READ_BOUND
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as late:
             late.bind(("127.0.0.1", port))
             late.listen(1)
@@ -511,9 +604,60 @@ class TestClose:
         assert adapter.pending is None
         assert pending.fileno() == -1
 
+    def test_close_during_connect_select_is_silent(self, listener, monkeypatch, caplog):
+        # close() from another thread while connect() waits in select must not warn or schedule a retry
+        adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
+        adapter.open()
+        assert adapter.begin() is True
+        caplog.set_level(logging.WARNING)
+        pending = adapter.pending
+        real_select = select.select
+
+        def close_then_select(*args):
+            adapter.close()  # the pending descriptor is now closed, so the real select raises
+            return real_select(*args)
+
+        monkeypatch.setattr(tcp_fast.select, "select", close_then_select)
+        assert adapter.connect(TIMEOUT) is None
+        assert adapter.next_attempt == 0.0
+        assert not [record for record in caplog.records if "connection failed" in record.getMessage()]
+        assert pending.fileno() == -1
+
+    def test_close_racing_listen_does_not_rebind(self, monkeypatch):
+        # close() between the running check and listen() storing the socket must not leave the port bound
+        port = free_port()
+        adapter = TcpFastServerAdapter(tcp_fast_port=port)
+        adapter.open()
+        adapter.listener.close()
+        adapter.listener = None
+
+        def close_then_proceed(timeout):
+            adapter.close()
+            return False
+
+        monkeypatch.setattr(adapter, "waiting_for_retry", close_then_proceed)
+        assert adapter.read(TIMEOUT) == b""
+        assert adapter.listener is None
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", port))
+
+    def test_close_racing_begin_does_not_keep_pending(self, listener, monkeypatch):
+        adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
+        adapter.open()
+
+        def close_then_proceed(timeout):
+            adapter.close()
+            return False
+
+        monkeypatch.setattr(adapter, "waiting_for_retry", close_then_proceed)
+        assert adapter.read(TIMEOUT) == b""
+        assert adapter.pending is None and adapter.connection is None
+
     def test_close_idempotent(self, server):
         server.close()
         server.close()
+        assert server.listener is None and server.connection is None and not server.running
+        assert server.write(b"x") is False
 
     def test_close_racing_established_closes_socket(self, server):
         # close() between connect() returning and established() storing must not leave a live socket
@@ -595,24 +739,89 @@ class TestPlugin:
         flags = {flag for flags in TcpFastServerAdapter.get_arguments() for flag in flags}
         assert flags == {"--tcp-fast-address", "--tcp-fast-port"}
 
+    @pytest.mark.parametrize("adapter_class", [TcpFastServerAdapter, TcpFastClientAdapter])
     @pytest.mark.parametrize("port", [0, -1, 65536])
-    def test_check_arguments_rejects_bad_port(self, port):
-        with pytest.raises(ValueError):
-            TcpFastClientAdapter.check_arguments(tcp_fast_address=None, tcp_fast_port=port)
+    def test_check_arguments_rejects_bad_port(self, adapter_class, port):
+        with pytest.raises(ValueError, match="1-65535"):
+            adapter_class.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=port)
 
     def test_check_arguments_accepts_client_any_port(self):
         TcpFastClientAdapter.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=1)
 
-    def test_client_check_rejects_unresolvable_name(self):
-        with pytest.raises(ValueError, match="resolve"):
-            TcpFastClientAdapter.check_arguments(tcp_fast_address="no-such-host.invalid", tcp_fast_port=50000)
+    def test_client_check_rejects_unresolvable_name(self, monkeypatch):
+        def unresolvable(*_args, **_kwargs):
+            raise socket.gaierror("Name or service not known")
+
+        monkeypatch.setattr(tcp_fast.socket, "getaddrinfo", unresolvable)
+        with pytest.raises(ValueError, match="Cannot resolve no-such-host"):
+            TcpFastClientAdapter.check_arguments(tcp_fast_address="no-such-host", tcp_fast_port=50000)
+
+    def test_client_re_resolves_hostname_after_failure(self, listener, monkeypatch):
+        # A hostname is looked up again once an attempt fails, so a peer that changed address is found
+        port = listener.getsockname()[1]
+        dead_port = free_port()
+        real_getaddrinfo = socket.getaddrinfo
+        answers = [dead_port, port]
+
+        def moving(host, *args, **kwargs):
+            assert host == "fsw-board"
+            return real_getaddrinfo("127.0.0.1", answers.pop(0), *args[1:], **kwargs)
+
+        monkeypatch.setattr(tcp_fast.socket, "getaddrinfo", moving)
+        adapter = TcpFastClientAdapter(tcp_fast_address="fsw-board", tcp_fast_port=port)
+        adapter.open()
+        try:
+            assert adapter.target == ("127.0.0.1", dead_port)
+            assert adapter.read(TIMEOUT) == b""  # refused at the stale address; re-resolved
+            assert adapter.target == ("127.0.0.1", port)
+            monkeypatch.undo()
+            adapter.next_attempt = 0.0
+            accept_client(adapter, listener).close()
+        finally:
+            adapter.close()
+
+    def test_client_literal_address_is_not_re_resolved(self, monkeypatch):
+        calls = []
+        real_getaddrinfo = socket.getaddrinfo
+
+        def counting(*args, **kwargs):
+            calls.append(args)
+            return real_getaddrinfo(*args, **kwargs)
+
+        monkeypatch.setattr(tcp_fast.socket, "getaddrinfo", counting)
+        adapter = TcpFastClientAdapter(tcp_fast_port=free_port())
+        adapter.open()
+        try:
+            assert adapter.read(TIMEOUT) == b""  # refused
+            assert len(calls) == 1
+        finally:
+            adapter.close()
+
+    def test_client_open_tolerates_resolution_failure(self, listener, monkeypatch):
+        # A lookup that fails at open() (e.g. DNS outage) falls back to the configured address, retried per attempt
+        port = listener.getsockname()[1]
+
+        def unavailable(*_args, **_kwargs):
+            raise socket.gaierror("Temporary failure in name resolution")
+
+        monkeypatch.setattr(tcp_fast.socket, "getaddrinfo", unavailable)
+        adapter = TcpFastClientAdapter(tcp_fast_address="127.0.0.1", tcp_fast_port=port)
+        adapter.open()
+        monkeypatch.undo()
+        try:
+            assert adapter.target == ("127.0.0.1", port)
+            accept_client(adapter, listener).close()
+            assert adapter.connection is not None
+        finally:
+            adapter.close()
 
     def test_server_check_rejects_busy_port(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy:
             busy.bind(("127.0.0.1", 0))
             busy.listen(1)
-            with pytest.raises(ValueError):
-                TcpFastServerAdapter.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=busy.getsockname()[1])
+            port = busy.getsockname()[1]
+            with pytest.raises(ValueError, match=f"Cannot listen on 127.0.0.1:{port}"):
+                TcpFastServerAdapter.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=port)
 
     def test_server_check_accepts_free_port(self):
         TcpFastServerAdapter.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=free_port())
@@ -636,11 +845,11 @@ class TestPlugin:
         assert isinstance(instance, TcpFastClientAdapter)
         assert (instance.address, instance.port) == ("127.0.0.1", 50001)
 
-    def test_cli_rejects_busy_server_port(self, plugin_system):
+    def test_cli_rejects_busy_server_port(self, plugin_system, capsys):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy:
             busy.bind(("127.0.0.1", 0))
             busy.listen(1)
-            with pytest.raises(SystemExit):
+            with pytest.raises(SystemExit) as exit_info:
                 ParserBase.parse_args(
                     [PluginArgumentParser(plugin_system)],
                     arguments=[
@@ -652,3 +861,5 @@ class TestPlugin:
                         str(busy.getsockname()[1]),
                     ],
                 )
+            assert exit_info.value.code != 0
+            assert f"[ERROR] Failed to parse arguments: Cannot listen on 127.0.0.1:{busy.getsockname()[1]}" in capsys.readouterr().err
