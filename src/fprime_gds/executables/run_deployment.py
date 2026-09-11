@@ -20,6 +20,7 @@ from fprime_gds.executables.cli import (
     StandardPipelineParser,
     PluginArgumentParser,
 )
+from fprime_gds.common.communication.adapters.tcp_fast import TcpFastServerAdapter
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
 from fprime_gds.plugin.system import Plugins
 
@@ -30,7 +31,7 @@ def app_connection(parsed_args):
     """Address and port the auto-launched app should connect to, or None when the selected adapter does not host it"""
     if parsed_args.communication_selection == "ip":
         return parsed_args.address, parsed_args.port
-    if parsed_args.communication_selection == "tcp-fast-server":
+    if parsed_args.communication_selection == TcpFastServerAdapter.get_name():
         # A wildcard bind address cannot be connected to, so the app uses loopback
         address = parsed_args.tcp_fast_address
         if address in (None, "", "0.0.0.0"):

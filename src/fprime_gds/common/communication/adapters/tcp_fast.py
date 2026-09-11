@@ -219,7 +219,7 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
 
     @classmethod
     def get_arguments(cls):
-        """Command line arguments shared by both plugins (identical specs, since the CLI merges duplicated flags)"""
+        """Command line arguments shared by both plugins (identical specs; the CLI keeps the first registration of a flag)"""
         return {
             ("--tcp-fast-address",): {
                 "dest": "tcp_fast_address",
@@ -361,21 +361,24 @@ class TcpFastClientAdapter(TcpFastAdapter):
                 return None
             if not self.begin():
                 return None
+        pending = self.pending  # local snapshot: a concurrent close() may clear self.pending
         try:
-            _, writable, failed = select.select([], [self.pending], [self.pending], timeout)
+            _, writable, failed = select.select([], [pending], [pending], timeout)
             if not writable and not failed:
                 if time.monotonic() > self.pending_deadline:
                     self.fail("connect timed out")
                 return None
-            error = self.pending.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            error = pending.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
         except (OSError, ValueError) as exception:
             self.fail(str(exception))
             return None
         if error != 0:
             self.fail(os.strerror(error))
             return None
-        connection, self.pending = self.pending, None
-        return connection
+        if self.pending is not pending:
+            return None  # abandoned by close() while connecting
+        self.pending = None
+        return pending
 
     def begin(self):
         """Start a non-blocking connect"""
