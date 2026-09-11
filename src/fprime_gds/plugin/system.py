@@ -242,7 +242,15 @@ class Plugins(object):
                 "framing": {
                     "class": FramerDeframer,
                     "type": PluginType.SELECTION,
-                    "built-in": [FpFramerDeframer, SpacePacketSpaceDataLinkFramerDeframer, SpacePacketSdlsSpaceDataLinkFramerDeframer, SpacePacketFramerDeframer, SpaceDataLinkFramerDeframer, SdlsCleartextFramerDeframer, TmFrameAggregatorFramerDeframer],
+                    "built-in": [
+                        FpFramerDeframer,
+                        SpacePacketSpaceDataLinkFramerDeframer,
+                        SpacePacketSdlsSpaceDataLinkFramerDeframer,
+                        SpacePacketFramerDeframer,
+                        SpaceDataLinkFramerDeframer,
+                        SdlsCleartextFramerDeframer,
+                        TmFrameAggregatorFramerDeframer,
+                    ],
                 },
                 "communication": {
                     "class": BaseAdapter,

@@ -11,6 +11,7 @@ from fprime_gds.common.utils.config_manager import (
     ConfigBadTypeException,
     ConfigManager,
 )
+from fprime_gds.executables.cli import ParserBase, PluginArgumentParser
 from fprime_gds.plugin.system import Plugins
 
 FRAME_SIZE = 64
@@ -31,6 +32,16 @@ def constants(monkeypatch):
 
     monkeypatch.setattr(ConfigManager, "get_constant", get_constant)
     return values
+
+
+@pytest.fixture
+def plugin_system():
+    """Framing-only plugin system installed as the singleton for CLI binding tests"""
+    previous = Plugins._singleton
+    system = Plugins(["framing"])
+    Plugins._singleton = system
+    yield system
+    Plugins._singleton = previous
 
 
 @pytest.fixture
@@ -75,12 +86,26 @@ class TestConfiguration:
         del constants[FRAME_SIZE_CONSTANT]
         assert TmFrameAggregatorFramerDeframer(frame_size=FRAME_SIZE).frame_size == FRAME_SIZE
 
-    def test_missing_scid_disables_scid_check(self, constants):
+    def test_missing_scid_disables_scid_check(self, constants, capsys):
         del constants[SCID_CONSTANT]
         deframer = TmFrameAggregatorFramerDeframer()
         assert deframer.scid is None
+        assert "spacecraft id unknown" in capsys.readouterr().err.lower()
         frame = make_frame(scid=0x123)
         assert deframer.deframe(frame) == (frame, b"", b"")
+
+    @pytest.mark.parametrize(
+        "name,value,match",
+        [
+            (FRAME_SIZE_CONSTANT, 0, "must exceed header and trailer"),
+            (FRAME_SIZE_CONSTANT, 8, "must exceed header and trailer"),
+            (SCID_CONSTANT, 0x400, "larger than"),
+        ],
+    )
+    def test_invalid_dictionary_values_rejected(self, constants, name, value, match):
+        constants[name] = value
+        with pytest.raises(TypeError, match=match):
+            TmFrameAggregatorFramerDeframer()
 
 
 class TestDeframe:
@@ -120,6 +145,31 @@ class TestDeframe:
         garbage = b"\xFF\xFE\xFD"
         frame = make_frame()
         assert deframer.deframe(garbage + frame) == (frame, b"", garbage)
+
+    def test_garbage_then_partial_frame(self, deframer):
+        garbage = b"\xFF\xFE"
+        frame = make_frame()
+        assert deframer.deframe(garbage + frame[:10]) == (None, frame[:10], garbage)
+
+    def test_garbage_only(self, deframer):
+        garbage = b"\xFF\xFE\xFD"
+        packets, leftover, discarded = deframer.deframe_all(garbage, no_copy=False)
+        # The final byte cannot yet be tested as a header start and is retained
+        assert (packets, leftover, discarded) == ([], garbage[-1:], garbage[:-1])
+
+    @pytest.mark.parametrize("version", [1, 2, 3])
+    def test_bad_version_discarded(self, deframer, version):
+        # Correct SCID, so only the version check can reject this header
+        bad = make_frame(version=version)
+        good = make_frame()
+        assert deframer.deframe(bad + good) == (good, b"", bad)
+
+    def test_bad_version_discarded_without_scid(self, constants):
+        del constants[SCID_CONSTANT]
+        deframer = TmFrameAggregatorFramerDeframer()
+        garbage = b"\xFF\xFF\xFF"
+        good = make_frame(scid=0x123)
+        assert deframer.deframe(garbage + good) == (good, b"", garbage)
 
     def test_scid_mismatch_resynchronizes(self, deframer):
         bad = make_frame(scid=SCID + 1)
@@ -174,10 +224,43 @@ class TestPlugin:
         assert flags == {"--frame-size", "--scid"}
 
     @pytest.mark.parametrize("frame_size,scid", [(None, None), (1024, None), (None, 0x3FF), (9, 0)])
-    def test_check_arguments_accepts(self, frame_size, scid):
+    def test_check_arguments_accepts(self, constants, frame_size, scid):
         TmFrameAggregatorFramerDeframer.check_arguments(frame_size=frame_size, scid=scid)
 
-    @pytest.mark.parametrize("frame_size,scid", [(8, None), (0, None), (-1, None), (None, -1), (None, 0x400)])
-    def test_check_arguments_rejects(self, frame_size, scid):
-        with pytest.raises(TypeError):
+    @pytest.mark.parametrize(
+        "frame_size,scid,match",
+        [
+            (8, None, "must exceed header and trailer"),
+            (0, None, "must exceed header and trailer"),
+            (-1, None, "must exceed header and trailer"),
+            (None, -1, "negative"),
+            (None, 0x400, "larger than"),
+        ],
+    )
+    def test_check_arguments_rejects(self, constants, frame_size, scid, match):
+        with pytest.raises(TypeError, match=match):
             TmFrameAggregatorFramerDeframer.check_arguments(frame_size=frame_size, scid=scid)
+
+    def test_check_arguments_rejects_unknown_frame_size(self, constants):
+        del constants[FRAME_SIZE_CONSTANT]
+        with pytest.raises(TypeError, match=FRAME_SIZE_CONSTANT):
+            TmFrameAggregatorFramerDeframer.check_arguments(frame_size=None, scid=None)
+        TmFrameAggregatorFramerDeframer.check_arguments(frame_size=FRAME_SIZE, scid=None)
+
+    def test_cli_binding(self, constants, plugin_system):
+        ParserBase.parse_args(
+            [PluginArgumentParser(plugin_system)],
+            arguments=["--framing-selection", "tm-frame-aggregator", "--frame-size", "0x80", "--scid", "0x55"],
+        )
+        instance = plugin_system.get_selected_class("framing")()
+        assert isinstance(instance, TmFrameAggregatorFramerDeframer)
+        assert (instance.frame_size, instance.scid) == (0x80, 0x55)
+
+    @pytest.mark.parametrize("extra", [["--frame-size", "8"], []])
+    def test_cli_rejects_invalid(self, constants, plugin_system, extra):
+        del constants[FRAME_SIZE_CONSTANT]
+        with pytest.raises(SystemExit):
+            ParserBase.parse_args(
+                [PluginArgumentParser(plugin_system)],
+                arguments=["--framing-selection", "tm-frame-aggregator"] + extra,
+            )

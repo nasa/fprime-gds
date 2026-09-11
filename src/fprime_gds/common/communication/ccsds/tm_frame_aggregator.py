@@ -4,6 +4,10 @@ Stream-oriented links (TCP, UART) deliver bytes in arbitrary chunks. This defram
 re-establishes the fixed-size TM transfer frame boundaries and hands each frame on intact
 (header, data field, and trailer) for downstream consumers that decode TM frames themselves.
 Uplink data is passed through unchanged.
+
+Select with ``--framing-selection tm-frame-aggregator``. Frame size and spacecraft ID come from
+the dictionary constants ``ComCfg.TmFrameFixedSize`` / ``ComCfg.SpacecraftId`` unless overridden
+with ``--frame-size`` / ``--scid``; a frame size available from neither source is a fatal error.
 """
 
 import copy
@@ -26,7 +30,8 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
     TM_HEADER_SIZE = 6
     TM_TRAILER_SIZE = 2
     # Leading header field: 2b version | 10b spacecraft ID | 3b virtual channel ID | 1b OCF flag
-    SYNC_FIELD_SIZE = 2
+    FRAME_ID_FIELD_FORMAT = ">H"
+    FRAME_ID_FIELD_SIZE = struct.calcsize(FRAME_ID_FIELD_FORMAT)
     TM_VERSION = 0
     VERSION_SHIFT = 14
     SCID_SHIFT = 4
@@ -42,27 +47,20 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
             frame_size: fixed TM frame size override, or None to read ComCfg.TmFrameFixedSize
             scid: spacecraft ID override, or None to read ComCfg.SpacecraftId (unchecked when absent too)
         """
-        dict_frame_size = self.dictionary_constant(self.FRAME_SIZE_CONSTANT)
-        dict_scid = self.dictionary_constant(self.SCID_CONSTANT)
-        if frame_size is not None and dict_frame_size is not None and frame_size != dict_frame_size:
-            print(
-                f"[WARNING] TM frame size value specified through CLI argument does not match value"
-                f" loaded from the dictionary. CLI={frame_size}, Dictionary={dict_frame_size}",
-                file=sys.stderr,
-            )
-        if scid is not None and dict_scid is not None and scid != dict_scid:
-            print(
-                f"[WARNING] SCID value specified through CLI argument does not match value"
-                f" loaded from the dictionary. CLI={scid}, Dictionary={dict_scid}",
-                file=sys.stderr,
-            )
-        self.frame_size = frame_size if frame_size is not None else dict_frame_size
+        self.frame_size = self.resolve_constant(frame_size, self.FRAME_SIZE_CONSTANT, "TM frame size")
         if self.frame_size is None:
             raise ValueError(
                 f"TM frame size unknown: dictionary constant {self.FRAME_SIZE_CONSTANT} not loaded"
                 " and no --frame-size supplied"
             )
-        self.scid = scid if scid is not None else dict_scid
+        self.scid = self.resolve_constant(scid, self.SCID_CONSTANT, "SCID")
+        if self.scid is None:
+            print(
+                f"[WARNING] Spacecraft ID unknown ({self.SCID_CONSTANT} not loaded, no --scid):"
+                " TM frame synchronization uses the version bits only",
+                file=sys.stderr,
+            )
+        self.check_arguments(self.frame_size, self.scid)
 
     @staticmethod
     def dictionary_constant(name):
@@ -72,16 +70,28 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
         except ConfigBadTypeException:
             return None
 
+    @classmethod
+    def resolve_constant(cls, cli_value, constant_name, label):
+        """Return the CLI value when given, else the dictionary constant (None if absent); warn on mismatch"""
+        dict_value = cls.dictionary_constant(constant_name)
+        if cli_value is not None and dict_value is not None and cli_value != dict_value:
+            print(
+                f"[WARNING] {label} value specified through CLI argument does not match value"
+                f" loaded from the dictionary. CLI={cli_value}, Dictionary={dict_value}",
+                file=sys.stderr,
+            )
+        return cli_value if cli_value is not None else dict_value
+
     def frame(self, data):
         """Uplink pass-through: return the data unchanged"""
         return data
 
     def is_frame_start(self, data):
         """Check whether the bytes at the start of data form a plausible TM primary header"""
-        sync_field = struct.unpack_from(">H", data)[0]
-        if (sync_field >> self.VERSION_SHIFT) != self.TM_VERSION:
+        frame_id = struct.unpack_from(self.FRAME_ID_FIELD_FORMAT, data)[0]
+        if (frame_id >> self.VERSION_SHIFT) != self.TM_VERSION:
             return False
-        return self.scid is None or ((sync_field >> self.SCID_SHIFT) & self.SCID_MASK) == self.scid
+        return self.scid is None or ((frame_id >> self.SCID_SHIFT) & self.SCID_MASK) == self.scid
 
     def deframe(self, data, no_copy=False):
         """Return the first whole TM frame in data, intact
@@ -93,7 +103,7 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
         if not no_copy:
             data = copy.copy(data)
         data = memoryview(data)
-        while len(data) >= self.SYNC_FIELD_SIZE:
+        while len(data) >= self.FRAME_ID_FIELD_SIZE:
             if not self.is_frame_start(data):
                 discarded += data[:1]
                 data = data[1:]
@@ -110,22 +120,29 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
         return {
             ("--frame-size",): {
                 "type": lambda input_arg: int(input_arg, 0),
-                "help": "Fixed Size of TM Frames (if specified, overrides dictionary ComCfg value)",
+                "help": "Fixed Size of TM Frames, shared with raw-space-data-link"
+                " (if specified, overrides dictionary ComCfg value)",
                 "required": False,
             },
             ("--scid",): {
                 "type": lambda input_arg: int(input_arg, 0),
-                "help": "Spacecraft ID (if specified, overrides dictionary ComCfg value)",
+                "help": "Spacecraft ID, shared with raw-space-data-link"
+                " (if specified, overrides dictionary ComCfg value)",
                 "required": False,
             },
         }
 
     @classmethod
     def check_arguments(cls, frame_size, scid):
-        """Check arguments from the CLI, raising TypeError on invalid values"""
-        minimum = cls.TM_HEADER_SIZE + cls.TM_TRAILER_SIZE
-        if frame_size is not None and frame_size <= minimum:
-            raise TypeError(f"TM Fixed Frame size {frame_size} must exceed header and trailer size {minimum}")
+        """Check CLI or dictionary-resolved values, raising TypeError on invalid ones"""
+        if frame_size is None and cls.dictionary_constant(cls.FRAME_SIZE_CONSTANT) is None:
+            raise TypeError(
+                f"TM frame size unknown: dictionary constant {cls.FRAME_SIZE_CONSTANT} not loaded"
+                " and no --frame-size supplied"
+            )
+        overhead = cls.TM_HEADER_SIZE + cls.TM_TRAILER_SIZE
+        if frame_size is not None and frame_size <= overhead:
+            raise TypeError(f"TM Fixed Frame size {frame_size} must exceed header and trailer size {overhead}")
         if scid is not None:
             if scid < 0:
                 raise TypeError(f"Spacecraft ID {scid} is negative")
