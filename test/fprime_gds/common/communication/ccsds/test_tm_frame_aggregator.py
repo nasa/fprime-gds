@@ -334,3 +334,6 @@ class TestPlugin:
         )
         with pytest.raises(ValueError, match=FRAME_SIZE_CONSTANT):
             plugin_system.get_selected_class("framing")()
+        # Dictionary loaded after the plugin check (the adverse parser order) must still work
+        constants[FRAME_SIZE_CONSTANT] = FRAME_SIZE
+        assert plugin_system.get_selected_class("framing")().frame_size == FRAME_SIZE
