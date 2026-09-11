@@ -13,6 +13,8 @@ import time
 
 import pytest
 
+from fprime_gds.common.communication.adapters import tcp_fast
+from fprime_gds.common.communication.adapters.ip import IpAdapter
 from fprime_gds.common.communication.adapters.tcp_fast import (
     TcpFastAdapter,
     TcpFastClientAdapter,
@@ -158,6 +160,8 @@ class TestServer:
         with socket.create_connection(("127.0.0.1", server.port), timeout=2.0) as second:
             second.sendall(b"again")
             assert read_until(server, 5) == b"again"
+        assert sum(1 for record in caplog.records if record.levelno == logging.WARNING) == 1
+        assert sum(1 for record in caplog.records if "connected to" in record.getMessage()) == 1
 
     def test_one_peer_at_a_time(self, server, peer):
         # A second connector waits in the backlog; the server keeps reading the first peer
@@ -259,6 +263,40 @@ class TestClient:
         finally:
             adapter.close()
 
+    def test_refused_connect_backs_off(self, monkeypatch):
+        adapter = TcpFastClientAdapter(tcp_fast_port=free_port())
+        attempts = []
+        real_begin = adapter.begin
+        monkeypatch.setattr(adapter, "begin", lambda: attempts.append(time.monotonic()) or real_begin())
+        adapter.open()
+        try:
+            assert adapter.read(TIMEOUT) == b""
+            delay = adapter.next_attempt - time.monotonic()
+            assert TcpFastAdapter.RECONNECT_INTERVAL * 0.5 < delay <= TcpFastAdapter.RECONNECT_INTERVAL
+            end = time.monotonic() + TcpFastAdapter.RECONNECT_INTERVAL * 2.5
+            while time.monotonic() < end:
+                adapter.read(TIMEOUT)
+            # About one attempt per RECONNECT_INTERVAL, not one per read
+            assert 2 <= len(attempts) <= 4
+        finally:
+            adapter.close()
+
+    def test_expired_connect_deadline_fails_and_retries(self, listener, monkeypatch, caplog):
+        # Platform-independent variant of the backlog test: a connect still in progress past its deadline
+        caplog.set_level(logging.WARNING)
+        adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
+        adapter.open()
+        try:
+            assert adapter.begin() is True
+            monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([], [], []))
+            adapter.pending_deadline = 0.0
+            assert adapter.connect(TIMEOUT) is None
+            assert adapter.pending is None and adapter.running
+            assert 0 < adapter.next_attempt - time.monotonic() <= TcpFastAdapter.RECONNECT_INTERVAL
+            assert any("timed out" in record.getMessage() for record in caplog.records)
+        finally:
+            adapter.close()
+
     @pytest.mark.skipif(sys.platform != "linux", reason="Relies on Linux dropping SYNs to a full backlog")
     def test_connect_timeout_gives_up_and_retries(self, monkeypatch, caplog):
         caplog.set_level(logging.WARNING)
@@ -283,6 +321,8 @@ class TestClient:
                     assert time.monotonic() - start < READ_BOUND
                 assert adapter.pending is None
                 assert any("timed out" in record.getMessage() for record in caplog.records)
+                assert adapter.running
+                assert 0 < adapter.next_attempt - time.monotonic() <= TcpFastAdapter.RECONNECT_INTERVAL
             finally:
                 adapter.close()
                 for filler in fillers:
@@ -307,9 +347,11 @@ class TestRead:
     def test_returns_immediately_on_data(self, server, peer):
         peer.sendall(b"x" * 1024)
         start = time.monotonic()
-        data = read_until(server, 1024)
-        assert data == b"x" * 1024
+        # A long timeout: the only way to meet the bound is to return on data, not on expiry
+        data = server.read(timeout=2.0)
+        assert data
         assert time.monotonic() - start < READ_BOUND
+        assert data + read_until(server, 1024 - len(data)) == b"x" * 1024
 
     def test_idle_read_bounded(self, server, peer):
         start = time.monotonic()
@@ -318,9 +360,18 @@ class TestRead:
         assert TIMEOUT * 0.5 <= elapsed < READ_BOUND
 
     def test_default_timeout_is_short(self, server, peer):
+        assert TcpFastAdapter.READ_TIMEOUT == pytest.approx(0.050)
         start = time.monotonic()
         assert server.read() == b""
-        assert time.monotonic() - start < READ_BOUND
+        elapsed = time.monotonic() - start
+        assert TcpFastAdapter.READ_TIMEOUT * 0.5 <= elapsed < READ_BOUND
+
+    def test_socket_error_drops_connection(self, server, peer, caplog):
+        caplog.set_level(logging.WARNING)
+        server.connection.close()  # a dead descriptor makes select/recv raise
+        assert server.read(TIMEOUT) == b""
+        assert server.connection is None
+        assert any("socket error" in record.getMessage() for record in caplog.records)
 
     def test_fragmented_stream_preserved(self, server, peer):
         for chunk in (b"ab", b"cde", b"f"):
@@ -433,14 +484,32 @@ class TestClose:
         with pytest.raises(OSError):
             socket.create_connection(("127.0.0.1", server.port), timeout=0.5)
 
-    def test_client_close_stops_retrying(self, listener):
+    def test_client_close_stops_retrying(self):
+        port = free_port()
+        adapter = TcpFastClientAdapter(tcp_fast_port=port)
+        adapter.open()
+        assert adapter.read(TIMEOUT) == b""  # refused, retry scheduled
+        assert adapter.next_attempt > time.monotonic()
+        adapter.close()
+        assert adapter.pending is None and not adapter.running
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as late:
+            late.bind(("127.0.0.1", port))
+            late.listen(1)
+            late.settimeout(0.3)
+            end = time.monotonic() + RECONNECT_BOUND
+            while time.monotonic() < end:
+                assert adapter.read(TIMEOUT) == b""
+            with pytest.raises(socket.timeout):
+                late.accept()
+
+    def test_client_close_mid_connect_releases_pending_socket(self, listener):
         adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
         adapter.open()
+        assert adapter.begin() is True
+        pending = adapter.pending
         adapter.close()
-        assert adapter.read(TIMEOUT) == b""
-        listener.settimeout(0.3)
-        with pytest.raises(socket.timeout):
-            listener.accept()
+        assert adapter.pending is None
+        assert pending.fileno() == -1
 
     def test_close_idempotent(self, server):
         server.close()
@@ -512,6 +581,13 @@ class TestPlugin:
         assert TcpFastServerAdapter in classes
         assert TcpFastClientAdapter in classes
         assert TcpFastAdapter not in classes
+
+    def test_dests_do_not_collide_with_ip(self):
+        def dests(cls):
+            return {spec["dest"] for spec in cls.get_arguments().values()}
+
+        assert dests(TcpFastServerAdapter) == {"tcp_fast_address", "tcp_fast_port"}
+        assert dests(TcpFastServerAdapter).isdisjoint(dests(IpAdapter))
 
     def test_shared_flags_identical(self):
         # The plugin CLI keeps the first spec for a duplicated flag, so both must declare the same spec
