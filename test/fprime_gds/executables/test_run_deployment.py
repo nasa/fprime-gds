@@ -50,6 +50,39 @@ class TestRunDeployment(unittest.TestCase):
                 cwd=app_path.parent,
             )
 
+    def test_app_connection_ip(self):
+        parsed_args = SimpleNamespace(communication_selection="ip", address="0.0.0.0", port=50000)
+        self.assertEqual(run_deployment.app_connection(parsed_args), ("0.0.0.0", 50000))
+
+    def test_app_connection_tcp_fast_server_defaults_to_loopback(self):
+        parsed_args = SimpleNamespace(
+            communication_selection="tcp-fast-server", tcp_fast_address=None, tcp_fast_port=50123
+        )
+        self.assertEqual(run_deployment.app_connection(parsed_args), ("127.0.0.1", 50123))
+
+    def test_app_connection_tcp_fast_server_explicit_address(self):
+        parsed_args = SimpleNamespace(
+            communication_selection="tcp-fast-server", tcp_fast_address="192.168.1.5", tcp_fast_port=50000
+        )
+        self.assertEqual(run_deployment.app_connection(parsed_args), ("192.168.1.5", 50000))
+
+    def test_app_connection_other_adapters_do_not_launch(self):
+        for selection in ("udp", "uart", "tcp-fast-client", "none"):
+            parsed_args = SimpleNamespace(communication_selection=selection)
+            self.assertIsNone(run_deployment.app_connection(parsed_args), selection)
+
+    def test_launch_app_uses_explicit_connection(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            app_path = Path(temporary_directory) / "bin" / "TestApp"
+            app_path.parent.mkdir()
+            parsed_args = SimpleNamespace(app=app_path, logs=temporary_directory, application_arguments=None)
+            with mock.patch.object(run_deployment, "launch_process") as launch_process:
+                run_deployment.launch_app(parsed_args, connection=("127.0.0.1", 50123))
+            self.assertEqual(
+                launch_process.call_args.args[0],
+                [app_path.absolute(), "-p", "50123", "-a", "127.0.0.1"],
+            )
+
     def create_fake_deployment_structure(self, temporary_directory):
         system_dir = Path(temporary_directory) / platform.system() / "Test"
 

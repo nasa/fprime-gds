@@ -1,0 +1,476 @@
+"""Tests for the tcp-fast-server and tcp-fast-client communication adapters
+
+All tests use real loopback sockets on ephemeral ports. Timing assertions are deliberately loose (multiples of the
+adapter's timeouts) so they hold on loaded CI hosts while still catching blocking or spinning regressions.
+"""
+
+import logging
+import socket
+import sys
+import threading
+import time
+
+import pytest
+
+from fprime_gds.common.communication.adapters.tcp_fast import (
+    TcpFastAdapter,
+    TcpFastClientAdapter,
+    TcpFastServerAdapter,
+)
+from fprime_gds.executables.cli import ParserBase, PluginArgumentParser
+from fprime_gds.plugin.system import Plugins
+
+TIMEOUT = 0.050
+# Generous bound for any single read() call: the adapter's timeout plus scheduling slack
+READ_BOUND = TIMEOUT * 6
+# Generous bound for a client reconnect: backoff plus connect plus slack
+RECONNECT_BOUND = TcpFastAdapter.RECONNECT_INTERVAL * 3
+
+
+def free_port():
+    """Reserve and release an ephemeral loopback port"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def read_until(adapter, expected, deadline=2.0):
+    """Call read() until `expected` bytes have accumulated or the deadline passes"""
+    data = b""
+    end = time.monotonic() + deadline
+    while len(data) < expected and time.monotonic() < end:
+        data += adapter.read(TIMEOUT)
+    return data
+
+
+def wait_for(predicate, deadline=2.0):
+    """Poll a predicate until true or the deadline passes"""
+    end = time.monotonic() + deadline
+    while time.monotonic() < end:
+        if predicate():
+            return True
+        time.sleep(0.005)
+    return predicate()
+
+
+def recv_exact(sock, count, deadline=2.0):
+    """Receive exactly `count` bytes from a blocking socket"""
+    sock.settimeout(deadline)
+    data = b""
+    while len(data) < count:
+        chunk = sock.recv(count - len(data))
+        if not chunk:
+            break
+        data += chunk
+    return data
+
+
+@pytest.fixture
+def server():
+    """Opened tcp-fast-server on an ephemeral port"""
+    adapter = TcpFastServerAdapter(tcp_fast_port=free_port())
+    adapter.open()
+    yield adapter
+    adapter.close()
+
+
+@pytest.fixture
+def peer(server):
+    """A loopback peer connected to the server fixture, with the server having accepted it"""
+    sock = socket.create_connection(("127.0.0.1", server.port), timeout=2.0)
+    assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is not None)
+    yield sock
+    sock.close()
+
+
+@pytest.fixture
+def listener():
+    """A loopback listening socket acting as the remote TcpServer for client tests"""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(1)
+    sock.settimeout(2.0)
+    yield sock
+    sock.close()
+
+
+@pytest.fixture
+def client(listener):
+    """Opened tcp-fast-client pointed at the listener fixture"""
+    adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
+    adapter.open()
+    yield adapter
+    adapter.close()
+
+
+def accept_client(client, listener):
+    """Drive the client until the listener has accepted its connection"""
+    for _ in range(50):
+        client.read(TIMEOUT)
+        if client.connection is not None:
+            break
+    accepted, _ = listener.accept()
+    assert wait_for(lambda: client.read(TIMEOUT) == b"" and client.connection is not None)
+    return accepted
+
+
+@pytest.fixture
+def plugin_system():
+    """Communication-only plugin system installed as the singleton for CLI binding tests"""
+    previous = Plugins._singleton
+    system = Plugins(["communication"])
+    Plugins._singleton = system
+    yield system
+    Plugins._singleton = previous
+
+
+class TestServer:
+    """REQ-TCPF-001: listen, accept one peer at a time, re-accept after disconnect"""
+
+    def test_defaults(self):
+        adapter = TcpFastServerAdapter()
+        assert (adapter.address, adapter.port) == ("0.0.0.0", 50000)
+
+    def test_open_listens(self, server):
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+            pass
+
+    def test_read_before_peer_returns_empty_within_timeout(self, server):
+        start = time.monotonic()
+        assert server.read(TIMEOUT) == b""
+        assert time.monotonic() - start < READ_BOUND
+
+    def test_accept_and_read(self, server, peer):
+        peer.sendall(b"hello")
+        assert read_until(server, 5) == b"hello"
+
+    def test_reaccepts_after_peer_disconnect(self, server, peer, caplog):
+        caplog.set_level(logging.INFO)
+        peer.close()
+        assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is None)
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+            second.sendall(b"again")
+            assert read_until(server, 5) == b"again"
+
+    def test_one_peer_at_a_time(self, server, peer):
+        # A second connector waits in the backlog; the server keeps reading the first peer
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+            second.sendall(b"ignored")
+            peer.sendall(b"first")
+            assert read_until(server, 5) == b"first"
+            assert server.read(TIMEOUT) == b""
+            peer.close()
+            assert wait_for(lambda: server.read(TIMEOUT) == b"ignored")
+
+
+class TestClient:
+    """REQ-TCPF-002: connect, reconnect with backoff after disconnect or failure"""
+
+    def test_defaults(self):
+        adapter = TcpFastClientAdapter()
+        assert (adapter.address, adapter.port) == ("127.0.0.1", 50000)
+
+    def test_connect_read_write(self, client, listener):
+        accepted = accept_client(client, listener)
+        accepted.sendall(b"telemetry")
+        assert read_until(client, 9) == b"telemetry"
+        assert client.write(b"command") is True
+        assert recv_exact(accepted, 7) == b"command"
+        accepted.close()
+
+    def test_reconnects_after_remote_close(self, client, listener):
+        accepted = accept_client(client, listener)
+        accepted.close()
+        assert wait_for(lambda: client.read(TIMEOUT) == b"" and client.connection is None)
+        start = time.monotonic()
+        accepted = accept_client(client, listener)
+        assert time.monotonic() - start < RECONNECT_BOUND
+        accepted.sendall(b"back")
+        assert read_until(client, 4) == b"back"
+        accepted.close()
+
+    def test_connection_refused_then_success(self, caplog):
+        caplog.set_level(logging.WARNING)
+        port = free_port()
+        adapter = TcpFastClientAdapter(tcp_fast_port=port)
+        adapter.open()
+        try:
+            start = time.monotonic()
+            assert adapter.read(TIMEOUT) == b""
+            assert time.monotonic() - start < READ_BOUND
+            assert adapter.connection is None
+            # A refused connect is warned once, not once per retry (several retries happen in this window)
+            end = time.monotonic() + TcpFastAdapter.RECONNECT_INTERVAL * 2.5
+            while time.monotonic() < end:
+                adapter.read(TIMEOUT)
+            assert sum(1 for record in caplog.records if record.levelno == logging.WARNING) == 1
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as late:
+                late.bind(("127.0.0.1", port))
+                late.listen(1)
+                late.settimeout(RECONNECT_BOUND)
+                start = time.monotonic()
+                accepted = accept_client(adapter, late)
+                assert time.monotonic() - start < RECONNECT_BOUND
+                accepted.close()
+        finally:
+            adapter.close()
+
+    @pytest.mark.skipif(sys.platform != "linux", reason="Relies on Linux dropping SYNs to a full backlog")
+    def test_connect_timeout_gives_up_and_retries(self, monkeypatch, caplog):
+        caplog.set_level(logging.WARNING)
+        monkeypatch.setattr(TcpFastClientAdapter, "CONNECT_TIMEOUT", 0.2)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as stalled:
+            stalled.bind(("127.0.0.1", 0))
+            stalled.listen(0)
+            # Fill the backlog so further SYNs are silently dropped and a connect stays in progress
+            fillers = []
+            for _ in range(3):
+                filler = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                filler.setblocking(False)
+                filler.connect_ex(stalled.getsockname())
+                fillers.append(filler)
+            adapter = TcpFastClientAdapter(tcp_fast_port=stalled.getsockname()[1])
+            adapter.open()
+            try:
+                end = time.monotonic() + 1.0
+                while time.monotonic() < end and not caplog.records:
+                    start = time.monotonic()
+                    adapter.read(TIMEOUT)
+                    assert time.monotonic() - start < READ_BOUND
+                assert adapter.pending is None
+                assert any("timed out" in record.getMessage() for record in caplog.records)
+            finally:
+                adapter.close()
+                for filler in fillers:
+                    filler.close()
+
+    def test_read_while_refused_never_exceeds_timeout(self):
+        adapter = TcpFastClientAdapter(tcp_fast_port=free_port())
+        adapter.open()
+        try:
+            end = time.monotonic() + RECONNECT_BOUND
+            while time.monotonic() < end:
+                start = time.monotonic()
+                adapter.read(TIMEOUT)
+                assert time.monotonic() - start < READ_BOUND
+        finally:
+            adapter.close()
+
+
+class TestRead:
+    """REQ-TCPF-003: return as soon as any bytes arrive; bounded idle wait"""
+
+    def test_returns_immediately_on_data(self, server, peer):
+        peer.sendall(b"x" * 1024)
+        start = time.monotonic()
+        data = read_until(server, 1024)
+        assert data == b"x" * 1024
+        assert time.monotonic() - start < READ_BOUND
+
+    def test_idle_read_bounded(self, server, peer):
+        start = time.monotonic()
+        assert server.read(TIMEOUT) == b""
+        elapsed = time.monotonic() - start
+        assert TIMEOUT * 0.5 <= elapsed < READ_BOUND
+
+    def test_default_timeout_is_short(self, server, peer):
+        start = time.monotonic()
+        assert server.read() == b""
+        assert time.monotonic() - start < READ_BOUND
+
+    def test_fragmented_stream_preserved(self, server, peer):
+        for chunk in (b"ab", b"cde", b"f"):
+            peer.sendall(chunk)
+            time.sleep(0.01)
+        assert read_until(server, 6) == b"abcdef"
+
+    def test_large_burst(self, server, peer):
+        payload = bytes(range(256)) * 1024  # 256 KiB, larger than one recv
+        peer.sendall(payload)
+        assert read_until(server, len(payload)) == payload
+
+    def test_read_does_not_alter_write_blocking(self, server, peer):
+        # A socket timeout used for reads would also apply to sendall; select must be used instead
+        server.read(TIMEOUT)
+        assert server.connection.gettimeout() is None
+
+
+class TestWrite:
+    """REQ-TCPF-005: sendall on success, immediate False otherwise"""
+
+    def test_write_to_peer(self, server, peer):
+        assert server.write(b"uplink") is True
+        assert recv_exact(peer, 6) == b"uplink"
+
+    def test_write_without_peer_is_false_and_fast(self, server):
+        start = time.monotonic()
+        assert server.write(b"nobody") is False
+        assert time.monotonic() - start < 0.010
+
+    def test_write_after_peer_gone_drops_connection(self, server, peer):
+        peer.close()
+        time.sleep(0.05)
+        results = [server.write(b"x" * 65536) for _ in range(5)]
+        assert False in results
+        assert wait_for(lambda: server.connection is None or server.read(TIMEOUT) == b"" and server.connection is None)
+
+
+class TestConnectionOptions:
+    """REQ-TCPF-006: single socket, keepalive and nodelay on the connection, no threads"""
+
+    def test_socket_options(self, server, peer):
+        conn = server.connection
+        assert conn.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) != 0
+        assert conn.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) != 0
+
+    def test_client_socket_options(self, client, listener):
+        accepted = accept_client(client, listener)
+        conn = client.connection
+        assert conn.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) != 0
+        assert conn.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) != 0
+        accepted.close()
+
+    def test_no_threads_started(self, server, peer):
+        before = threading.active_count()
+        for _ in range(5):
+            server.read(TIMEOUT)
+            server.write(b"x")
+        assert threading.active_count() == before
+
+
+class TestClose:
+    """REQ-TCPF-007: explicit close releases sockets and stops reconnection"""
+
+    def test_close_releases_port(self):
+        port = free_port()
+        adapter = TcpFastServerAdapter(tcp_fast_port=port)
+        adapter.open()
+        adapter.close()
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", port))
+
+    def test_close_disconnects_peer(self, server, peer):
+        server.close()
+        assert recv_exact(peer, 1) == b""
+
+    def test_after_close_no_reconnect(self, server, peer):
+        server.close()
+        assert server.read(TIMEOUT) == b""
+        assert server.write(b"x") is False
+        assert server.connection is None
+        with pytest.raises(OSError):
+            socket.create_connection(("127.0.0.1", server.port), timeout=0.5)
+
+    def test_client_close_stops_retrying(self, listener):
+        adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
+        adapter.open()
+        adapter.close()
+        assert adapter.read(TIMEOUT) == b""
+        listener.settimeout(0.3)
+        with pytest.raises(socket.timeout):
+            listener.accept()
+
+    def test_close_idempotent(self, server):
+        server.close()
+        server.close()
+
+
+class TestLogging:
+    """REQ-TCPF-010: INFO on connect, one WARNING per outage"""
+
+    def test_connect_logged(self, server, caplog):
+        caplog.set_level(logging.INFO)
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+            assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is not None)
+        assert any(record.levelno == logging.INFO and "connect" in record.getMessage().lower() for record in caplog.records)
+
+    def warnings(self, caplog):
+        return sum(1 for record in caplog.records if record.levelno == logging.WARNING)
+
+    def test_disconnect_warned_once_per_outage(self, server, peer, caplog):
+        caplog.set_level(logging.WARNING)
+        peer.close()
+        for _ in range(10):
+            server.read(TIMEOUT)
+            server.write(b"x")
+        assert self.warnings(caplog) == 1
+        # A new outage after a successful reconnect is warned again
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+            assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is not None)
+        for _ in range(10):
+            server.read(TIMEOUT)
+        assert self.warnings(caplog) == 2
+
+
+class TestPlugin:
+    """REQ-TCPF-008: registration, shared flags, argument validation"""
+
+    def test_names(self):
+        assert TcpFastServerAdapter.get_name() == "tcp-fast-server"
+        assert TcpFastClientAdapter.get_name() == "tcp-fast-client"
+
+    def test_registered_builtin(self, plugin_system):
+        classes = [plugin.plugin_class for plugin in plugin_system.get_plugins("communication")]
+        assert TcpFastServerAdapter in classes
+        assert TcpFastClientAdapter in classes
+        assert TcpFastAdapter not in classes
+
+    def test_shared_flags_identical(self):
+        # The plugin CLI keeps the first spec for a duplicated flag, so both must declare the same spec
+        assert TcpFastServerAdapter.get_arguments() == TcpFastClientAdapter.get_arguments()
+        flags = {flag for flags in TcpFastServerAdapter.get_arguments() for flag in flags}
+        assert flags == {"--tcp-fast-address", "--tcp-fast-port"}
+
+    @pytest.mark.parametrize("port", [0, -1, 65536])
+    def test_check_arguments_rejects_bad_port(self, port):
+        with pytest.raises(ValueError):
+            TcpFastClientAdapter.check_arguments(tcp_fast_address=None, tcp_fast_port=port)
+
+    def test_check_arguments_accepts_client_any_port(self):
+        TcpFastClientAdapter.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=1)
+
+    def test_server_check_rejects_busy_port(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy:
+            busy.bind(("127.0.0.1", 0))
+            busy.listen(1)
+            with pytest.raises(ValueError):
+                TcpFastServerAdapter.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=busy.getsockname()[1])
+
+    def test_server_check_accepts_free_port(self):
+        TcpFastServerAdapter.check_arguments(tcp_fast_address="127.0.0.1", tcp_fast_port=free_port())
+
+    def test_cli_binding_server(self, plugin_system):
+        port = free_port()
+        ParserBase.parse_args(
+            [PluginArgumentParser(plugin_system)],
+            arguments=["--communication-selection", "tcp-fast-server", "--tcp-fast-address", "127.0.0.1", "--tcp-fast-port", str(port)],
+        )
+        instance = plugin_system.get_selected_class("communication")()
+        assert isinstance(instance, TcpFastServerAdapter)
+        assert (instance.address, instance.port) == ("127.0.0.1", port)
+
+    def test_cli_binding_client_default_address(self, plugin_system):
+        ParserBase.parse_args(
+            [PluginArgumentParser(plugin_system)],
+            arguments=["--communication-selection", "tcp-fast-client", "--tcp-fast-port", "50001"],
+        )
+        instance = plugin_system.get_selected_class("communication")()
+        assert isinstance(instance, TcpFastClientAdapter)
+        assert (instance.address, instance.port) == ("127.0.0.1", 50001)
+
+    def test_cli_rejects_busy_server_port(self, plugin_system):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy:
+            busy.bind(("127.0.0.1", 0))
+            busy.listen(1)
+            with pytest.raises(SystemExit):
+                ParserBase.parse_args(
+                    [PluginArgumentParser(plugin_system)],
+                    arguments=[
+                        "--communication-selection",
+                        "tcp-fast-server",
+                        "--tcp-fast-address",
+                        "127.0.0.1",
+                        "--tcp-fast-port",
+                        str(busy.getsockname()[1]),
+                    ],
+                )
