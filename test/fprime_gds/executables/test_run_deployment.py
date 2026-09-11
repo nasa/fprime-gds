@@ -60,6 +60,13 @@ class TestRunDeployment(unittest.TestCase):
         )
         self.assertEqual(run_deployment.app_connection(parsed_args), ("127.0.0.1", 50123))
 
+    def test_app_connection_tcp_fast_server_explicit_wildcard_uses_loopback(self):
+        for wildcard in ("0.0.0.0", ""):
+            parsed_args = SimpleNamespace(
+                communication_selection="tcp-fast-server", tcp_fast_address=wildcard, tcp_fast_port=50000
+            )
+            self.assertEqual(run_deployment.app_connection(parsed_args), ("127.0.0.1", 50000))
+
     def test_app_connection_tcp_fast_server_explicit_address(self):
         parsed_args = SimpleNamespace(
             communication_selection="tcp-fast-server", tcp_fast_address="192.168.1.5", tcp_fast_port=50000

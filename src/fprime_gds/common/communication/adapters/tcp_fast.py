@@ -4,19 +4,21 @@ tcp_fast.py:
 Lightweight TCP-only communication adapters for the F Prime comm-layer, provided as two plugins:
 
 - `tcp-fast-server`: listens for the flight software (`Drv.TcpClient`) and serves one peer at a time.
-- `tcp-fast-client`: connects to the flight software (`Drv.TcpServer`) and reconnects with a backoff.
+- `tcp-fast-client`: connects to the flight software (`Drv.TcpServer`) and retries at a fixed interval.
 
 Both share `TcpFastAdapter`, which owns a single connected socket and no threads of its own: the comm-layer's downlink
 thread calls `read()` and its uplink thread calls `write()`. `read()` returns as soon as any bytes are available and
 otherwise waits at most `timeout` (default 50ms), so the downlink loop is never held by a long read. A remote disconnect
-or socket error drops the connection and the next `read()` re-accepts/reconnects; only an explicit `close()` stops
-reconnection.
+or socket error drops the connection and the next `read()` re-accepts/reconnects; a failed listen is retried the same
+way. Only an explicit `close()` stops reconnection. Silent peer loss (power cycle, cable pull) is detected by TCP
+keepalive probes configured for a few seconds rather than the OS default of about two hours.
 
 Portability notes: `select.select` is used on a single socket (works for sockets on Linux, macOS, and Windows; on POSIX
 it cannot handle descriptor numbers >= 1024, which the comm process never approaches). The non-blocking client connect
 handles both the POSIX `EINPROGRESS` and Windows `WSAEWOULDBLOCK` in-progress codes and checks select's exceptional set,
 where Windows reports a failed connect. `SO_REUSEADDR` is set on POSIX only, where it is needed to re-listen through
-TIME_WAIT and has the expected semantics.
+TIME_WAIT and has the expected semantics. Keepalive timers use `TCP_KEEPIDLE`/`TCP_KEEPALIVE`, `TCP_KEEPINTVL`, and
+`TCP_KEEPCNT` where exposed and `SIO_KEEPALIVE_VALS` on Windows.
 
 @author lestarch
 """
@@ -34,7 +36,9 @@ from fprime_gds.plugin.definitions import gds_plugin_implementation
 
 LOGGER = logging.getLogger("tcp_fast_adapter")
 
-CONNECT_IN_PROGRESS = (errno.EINPROGRESS, errno.EWOULDBLOCK, errno.EAGAIN, getattr(errno, "WSAEWOULDBLOCK", 10035))
+# WinSock reports a non-blocking connect in progress as WSAEWOULDBLOCK, which errno only defines on Windows
+WSAEWOULDBLOCK = 10035
+CONNECT_IN_PROGRESS = (errno.EINPROGRESS, errno.EWOULDBLOCK, errno.EAGAIN, WSAEWOULDBLOCK)
 
 
 class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, abc.ABC):
@@ -47,6 +51,11 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
     MAXIMUM_DATA_SIZE = 65536
     READ_TIMEOUT = 0.050
     RECONNECT_INTERVAL = 1.0
+    # Keepalive probes start after KEEPALIVE_IDLE seconds of silence; a silent peer is dropped after
+    # KEEPALIVE_IDLE + KEEPALIVE_INTERVAL * KEEPALIVE_COUNT seconds (8 s with these values)
+    KEEPALIVE_IDLE = 5
+    KEEPALIVE_INTERVAL = 1
+    KEEPALIVE_COUNT = 3
     DEFAULT_PORT = 50000
     DEFAULT_ADDRESS = None
 
@@ -61,6 +70,7 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
         self.connection = None
         self.running = False
         self.warned = False
+        self.next_attempt = 0.0
         self.lock = threading.Lock()
 
     def __repr__(self):
@@ -84,12 +94,12 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
         """
         connection = self.connection
         if connection is None:
-            if not self.running:
-                return b""
-            connection = self.connect(timeout)
-            if connection is None:
-                return b""
-            self.established(connection)
+            if self.running:
+                connection = self.connect(timeout)
+            if connection is not None:
+                self.established(connection)
+            # The connect step has spent the caller's budget; data is picked up by the next read
+            return b""
         try:
             readable, _, _ = select.select([connection], [], [], timeout)
             if not readable:
@@ -119,18 +129,56 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
             return False
 
     def established(self, connection):
-        """Record a newly connected socket and apply the connection options"""
-        connection.setblocking(True)
-        connection.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        """Configure and record a newly connected socket; returns False (socket closed) on failure or after close()"""
+        try:
+            connection.setblocking(True)
+            connection.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self.configure_keepalive(connection)
+            host, port = connection.getpeername()[:2]
+            peer = f"{host}:{port}"
+        except OSError as error:
+            self.shutdown(connection)
+            self.warn("%s disconnected: failed to configure socket: %s", self, error)
+            return False
         with self.lock:
+            if not self.running:
+                self.shutdown(connection)
+                return False
             self.connection = connection
         self.warned = False
-        try:
-            peer = "%s:%d" % connection.getpeername()[:2]
-        except OSError:
-            peer = "unknown peer"
         LOGGER.info("%s connected to %s", self, peer)
+        return True
+
+    @classmethod
+    def configure_keepalive(cls, connection):
+        """Shorten the keepalive probe schedule so a silent peer is detected in seconds"""
+        if hasattr(socket, "SIO_KEEPALIVE_VALS"):
+            connection.ioctl(
+                socket.SIO_KEEPALIVE_VALS, (1, cls.KEEPALIVE_IDLE * 1000, cls.KEEPALIVE_INTERVAL * 1000)
+            )
+            return
+        # Linux names the idle option TCP_KEEPIDLE; macOS names it TCP_KEEPALIVE
+        if hasattr(socket, "TCP_KEEPIDLE"):
+            connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, cls.KEEPALIVE_IDLE)
+        elif hasattr(socket, "TCP_KEEPALIVE"):
+            connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, cls.KEEPALIVE_IDLE)
+        if hasattr(socket, "TCP_KEEPINTVL"):
+            connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, cls.KEEPALIVE_INTERVAL)
+        if hasattr(socket, "TCP_KEEPCNT"):
+            connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, cls.KEEPALIVE_COUNT)
+
+    @staticmethod
+    def shutdown(connection):
+        """Shut down then close, so a thread blocked in sendall/recv on the socket is released"""
+        try:
+            connection.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            connection.close()
+        except OSError:
+            pass
 
     def drop(self, connection, reason=None):
         """Close `connection` and forget it, unless a newer connection has replaced it. `None` drops whatever is held."""
@@ -142,10 +190,7 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
                 self.connection = None
         if connection is None:
             return
-        try:
-            connection.close()
-        except OSError:
-            pass
+        self.shutdown(connection)
         if current and reason is not None:
             self.warn("%s disconnected: %s", self, reason)
 
@@ -154,6 +199,19 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
         if not self.warned:
             LOGGER.warning(message, *args)
             self.warned = True
+
+    def backoff(self, timeout):
+        """Sleep at most `timeout` while the next connection attempt is not yet due; True when still waiting"""
+        remaining = self.next_attempt - time.monotonic()
+        if remaining <= 0:
+            return False
+        time.sleep(min(timeout, remaining))
+        return True
+
+    def retry_later(self, reason):
+        """Warn once and schedule the next connection attempt"""
+        self.next_attempt = time.monotonic() + self.RECONNECT_INTERVAL
+        self.warn("%s %s (retrying every %.1fs)", self, reason, self.RECONNECT_INTERVAL)
 
     @abc.abstractmethod
     def connect(self, timeout):
@@ -195,9 +253,9 @@ class TcpFastServerAdapter(TcpFastAdapter):
         self.listener = None
 
     def open(self):
-        """Bind and listen"""
-        self.listener = self.listening_socket(self.address, self.port)
+        """Start listening; a failed listen is retried from read()"""
         super().open()
+        self.listen()
 
     def close(self):
         """Release the connection and the listening socket"""
@@ -206,11 +264,22 @@ class TcpFastServerAdapter(TcpFastAdapter):
         if listener is not None:
             listener.close()
 
+    def listen(self):
+        """Create the listening socket, scheduling a retry on failure"""
+        try:
+            self.listener = self.listening_socket(self.address, self.port)
+        except OSError as error:
+            self.retry_later(f"cannot listen: {error}")
+
     def connect(self, timeout):
-        """Accept a pending peer if one arrives within `timeout`"""
+        """Accept a pending peer if one arrives within `timeout`, re-listening first if the listener was lost"""
+        if self.listener is None:
+            if self.backoff(timeout):
+                return None
+            self.listen()
+            if self.listener is None:
+                return None
         listener = self.listener
-        if listener is None:
-            return None
         try:
             readable, _, _ = select.select([listener], [], [], timeout)
             if not readable:
@@ -218,7 +287,10 @@ class TcpFastServerAdapter(TcpFastAdapter):
             connection, _ = listener.accept()
             return connection
         except (OSError, ValueError) as error:
-            self.warn("%s accept failed: %s", self, error)
+            if self.listener is listener:
+                self.listener = None
+                listener.close()
+                self.retry_later(f"accept failed: {error}")
             return None
 
     @staticmethod
@@ -258,7 +330,7 @@ class TcpFastServerAdapter(TcpFastAdapter):
 
 
 class TcpFastClientAdapter(TcpFastAdapter):
-    """TCP client adapter: connects to a flight-software TcpServer, reconnecting with a backoff"""
+    """TCP client adapter: connects to a flight-software TcpServer, retrying every RECONNECT_INTERVAL"""
 
     DEFAULT_ADDRESS = "127.0.0.1"
     CONNECT_TIMEOUT = 5.0
@@ -267,7 +339,15 @@ class TcpFastClientAdapter(TcpFastAdapter):
         super().__init__(tcp_fast_address, tcp_fast_port)
         self.pending = None
         self.pending_deadline = 0.0
-        self.next_attempt = 0.0
+        self.target = (self.address, self.port)
+
+    def open(self):
+        """Resolve the target once so read() never blocks on a name lookup; an unresolvable name is retried per attempt"""
+        super().open()
+        try:
+            self.target = socket.getaddrinfo(self.address, self.port, socket.AF_INET, socket.SOCK_STREAM)[0][4]
+        except (OSError, IndexError):
+            self.target = (self.address, self.port)
 
     def close(self):
         """Release the connection and any in-progress connect"""
@@ -276,10 +356,8 @@ class TcpFastClientAdapter(TcpFastAdapter):
 
     def connect(self, timeout):
         """Advance a non-blocking connect by at most `timeout`; return the socket once connected"""
-        now = time.monotonic()
         if self.pending is None:
-            if now < self.next_attempt:
-                time.sleep(min(timeout, self.next_attempt - now))
+            if self.backoff(timeout):
                 return None
             if not self.begin():
                 return None
@@ -301,12 +379,14 @@ class TcpFastClientAdapter(TcpFastAdapter):
 
     def begin(self):
         """Start a non-blocking connect"""
-        pending = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        pending.setblocking(False)
+        pending = None
         try:
-            code = pending.connect_ex((self.address, self.port))
+            pending = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            pending.setblocking(False)
+            code = pending.connect_ex(self.target)
         except OSError as error:
-            pending.close()
+            if pending is not None:
+                pending.close()
             self.fail(str(error))
             return False
         if code != 0 and code not in CONNECT_IN_PROGRESS:
@@ -320,8 +400,7 @@ class TcpFastClientAdapter(TcpFastAdapter):
     def fail(self, reason):
         """Give up on the in-progress connect and schedule the next attempt"""
         self.abandon()
-        self.next_attempt = time.monotonic() + self.RECONNECT_INTERVAL
-        self.warn("%s connection failed: %s (retrying every %.1fs)", self, reason, self.RECONNECT_INTERVAL)
+        self.retry_later(f"connection failed: {reason}")
 
     def abandon(self):
         """Close any in-progress connect"""

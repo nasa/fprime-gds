@@ -5,6 +5,7 @@ adapter's timeouts) so they hold on loaded CI hosts while still catching blockin
 """
 
 import logging
+import select
 import socket
 import sys
 import threading
@@ -51,6 +52,12 @@ def wait_for(predicate, deadline=2.0):
             return True
         time.sleep(0.005)
     return predicate()
+
+
+def select_readable(sock, timeout=0.5):
+    """Sockets readable within the timeout"""
+    readable, _, _ = select.select([sock], [], [], timeout)
+    return readable
 
 
 def recv_exact(sock, count, deadline=2.0):
@@ -161,6 +168,43 @@ class TestServer:
             assert server.read(TIMEOUT) == b""
             peer.close()
             assert wait_for(lambda: server.read(TIMEOUT) == b"ignored")
+
+    def test_open_with_busy_port_retries_listening(self, caplog):
+        caplog.set_level(logging.WARNING)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy:
+            busy.bind(("127.0.0.1", 0))
+            busy.listen(1)
+            port = busy.getsockname()[1]
+            adapter = TcpFastServerAdapter(tcp_fast_address="127.0.0.1", tcp_fast_port=port)
+            adapter.open()
+            assert adapter.listener is None
+            assert any("listen" in record.getMessage() for record in caplog.records)
+        try:
+            end = time.monotonic() + RECONNECT_BOUND
+            while time.monotonic() < end and adapter.listener is None:
+                start = time.monotonic()
+                adapter.read(TIMEOUT)
+                assert time.monotonic() - start < READ_BOUND
+            with socket.create_connection(("127.0.0.1", port), timeout=2.0) as late:
+                late.sendall(b"late")
+                assert read_until(adapter, 4) == b"late"
+        finally:
+            adapter.close()
+
+    def test_listener_failure_relistens_without_spinning(self, server):
+        dead = server.listener
+        dead.close()  # select/accept now fail on the dead listener
+        calls = 0
+        start = time.monotonic()
+        while server.listener is None or server.listener is dead:
+            assert server.read(TIMEOUT) == b""
+            calls += 1
+            assert time.monotonic() - start < RECONNECT_BOUND
+        # Backoff, not a hot loop: a spin would produce thousands of reads per RECONNECT_INTERVAL
+        assert calls < TcpFastAdapter.RECONNECT_INTERVAL / TIMEOUT * 3
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0) as again:
+            again.sendall(b"again")
+            assert read_until(server, 5) == b"again"
 
 
 class TestClient:
@@ -289,6 +333,15 @@ class TestRead:
         peer.sendall(payload)
         assert read_until(server, len(payload)) == payload
 
+    def test_connecting_read_stays_within_timeout(self, server):
+        # The read() that accepts a peer must not spend a second full timeout waiting for data
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+            time.sleep(0.02)
+            start = time.monotonic()
+            assert server.read(TIMEOUT) == b""
+            assert time.monotonic() - start < TIMEOUT * 1.5
+            assert server.connection is not None
+
     def test_read_does_not_alter_write_blocking(self, server, peer):
         # A socket timeout used for reads would also apply to sendall; select must be used instead
         server.read(TIMEOUT)
@@ -329,6 +382,25 @@ class TestConnectionOptions:
         assert conn.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) != 0
         assert conn.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) != 0
         accepted.close()
+
+    @pytest.mark.skipif(not hasattr(socket, "TCP_KEEPINTVL"), reason="Keepalive timers not exposed on this platform")
+    def test_keepalive_timers_are_short(self, server, peer):
+        conn = server.connection
+        idle_option = socket.TCP_KEEPIDLE if hasattr(socket, "TCP_KEEPIDLE") else socket.TCP_KEEPALIVE
+        assert conn.getsockopt(socket.IPPROTO_TCP, idle_option) == TcpFastAdapter.KEEPALIVE_IDLE
+        assert conn.getsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL) == TcpFastAdapter.KEEPALIVE_INTERVAL
+        assert conn.getsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT) == TcpFastAdapter.KEEPALIVE_COUNT
+        # Detection of a silent peer must take well under a minute, not the 2 h OS default
+        detection = TcpFastAdapter.KEEPALIVE_IDLE + TcpFastAdapter.KEEPALIVE_INTERVAL * TcpFastAdapter.KEEPALIVE_COUNT
+        assert detection <= 30
+
+    def test_option_failure_drops_instead_of_raising(self, server):
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+            assert wait_for(lambda: len(select_readable(server.listener)) == 1)
+            connection, _ = server.listener.accept()
+            connection.close()  # a dead socket makes setsockopt raise
+            assert server.established(connection) is False
+            assert server.connection is None
 
     def test_no_threads_started(self, server, peer):
         before = threading.active_count()
@@ -373,6 +445,32 @@ class TestClose:
     def test_close_idempotent(self, server):
         server.close()
         server.close()
+
+    def test_close_racing_established_closes_socket(self, server):
+        # close() between connect() returning and established() storing must not leave a live socket
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0) as late:
+            assert wait_for(lambda: len(select_readable(server.listener)) == 1)
+            connection, _ = server.listener.accept()
+            server.close()
+            assert server.established(connection) is False
+            assert server.connection is None
+            assert recv_exact(late, 1) == b""
+
+    def test_drop_unblocks_writer_stuck_in_sendall(self, server, peer):
+        # The peer never reads, so a large write fills the window and blocks; drop() must release it
+        results = []
+
+        def writer():
+            results.append(server.write(b"x" * (16 * 1024 * 1024)))
+
+        thread = threading.Thread(target=writer, daemon=True)
+        thread.start()
+        time.sleep(0.2)
+        assert thread.is_alive()
+        server.drop(server.connection, "test")
+        thread.join(2.0)
+        assert not thread.is_alive()
+        assert results == [False]
 
 
 class TestLogging:

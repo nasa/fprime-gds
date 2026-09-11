@@ -27,12 +27,14 @@ BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
 
 
 def app_connection(parsed_args):
-    """Address and port the auto-launched app should connect to, or None when the selected adapter is not a TCP server"""
+    """Address and port the auto-launched app should connect to, or None when the selected adapter does not host it"""
     if parsed_args.communication_selection == "ip":
         return parsed_args.address, parsed_args.port
     if parsed_args.communication_selection == "tcp-fast-server":
-        # A None address binds every interface, so the app connects over loopback
-        address = parsed_args.tcp_fast_address if parsed_args.tcp_fast_address is not None else "127.0.0.1"
+        # A wildcard bind address cannot be connected to, so the app uses loopback
+        address = parsed_args.tcp_fast_address
+        if address in (None, "", "0.0.0.0"):
+            address = "127.0.0.1"
         return address, parsed_args.tcp_fast_port
     return None
 
