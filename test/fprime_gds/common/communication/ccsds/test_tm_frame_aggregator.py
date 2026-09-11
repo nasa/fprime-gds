@@ -304,11 +304,10 @@ class TestPlugin:
         with pytest.raises(TypeError, match=match):
             TmFrameAggregatorFramerDeframer.check_arguments(frame_size=frame_size, scid=scid)
 
-    def test_check_arguments_rejects_unknown_frame_size(self, constants):
+    def test_check_arguments_ignores_dictionary(self, constants):
+        # Parsers run in no fixed order, so an unloaded dictionary must not fail the CLI check
         del constants[FRAME_SIZE_CONSTANT]
-        with pytest.raises(TypeError, match=FRAME_SIZE_CONSTANT):
-            TmFrameAggregatorFramerDeframer.check_arguments(frame_size=None, scid=None)
-        TmFrameAggregatorFramerDeframer.check_arguments(frame_size=FRAME_SIZE, scid=None)
+        TmFrameAggregatorFramerDeframer.check_arguments(frame_size=None, scid=None)
 
     def test_cli_binding(self, constants, plugin_system):
         ParserBase.parse_args(
@@ -319,11 +318,19 @@ class TestPlugin:
         assert isinstance(instance, TmFrameAggregatorFramerDeframer)
         assert (instance.frame_size, instance.scid) == (0x80, 0x55)
 
-    @pytest.mark.parametrize("extra", [["--frame-size", "8"], []])
-    def test_cli_rejects_invalid(self, constants, plugin_system, extra):
-        del constants[FRAME_SIZE_CONSTANT]
+    def test_cli_rejects_invalid_frame_size(self, constants, plugin_system):
         with pytest.raises(SystemExit):
             ParserBase.parse_args(
                 [PluginArgumentParser(plugin_system)],
-                arguments=["--framing-selection", "tm-frame-aggregator"] + extra,
+                arguments=["--framing-selection", "tm-frame-aggregator", "--frame-size", "8"],
             )
+
+    def test_cli_without_frame_size_defers_to_constructor(self, constants, plugin_system):
+        # The dictionary parser may run after this plugin's check; only construction can fail
+        del constants[FRAME_SIZE_CONSTANT]
+        ParserBase.parse_args(
+            [PluginArgumentParser(plugin_system)],
+            arguments=["--framing-selection", "tm-frame-aggregator"],
+        )
+        with pytest.raises(ValueError, match=FRAME_SIZE_CONSTANT):
+            plugin_system.get_selected_class("framing")()

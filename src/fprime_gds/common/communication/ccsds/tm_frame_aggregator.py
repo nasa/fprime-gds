@@ -67,7 +67,8 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
         if self.scid is None:
             print(
                 f"[WARNING] Spacecraft ID unknown ({self.SCID_CONSTANT} not loaded, no --scid):"
-                " TM frame synchronization uses the version and data field status bits only",
+                " TM frame synchronization uses the version and data field status bits only,"
+                " so a byte slip may pass several misaligned frames before re-locking",
                 file=sys.stderr,
             )
         self.check_arguments(self.frame_size, self.scid)
@@ -159,12 +160,11 @@ class TmFrameAggregatorFramerDeframer(FramerDeframer):
 
     @classmethod
     def check_arguments(cls, frame_size, scid):
-        """Check CLI or dictionary-resolved values, raising TypeError on invalid ones"""
-        if frame_size is None and cls.dictionary_constant(cls.FRAME_SIZE_CONSTANT) is None:
-            raise TypeError(
-                f"TM frame size unknown: dictionary constant {cls.FRAME_SIZE_CONSTANT} not loaded"
-                " and no --frame-size supplied"
-            )
+        """Check CLI or dictionary-resolved values, raising TypeError on invalid ones
+
+        The dictionary is not consulted here: CLI parsers run in no fixed order, so it may not be
+        loaded yet. A frame size available from neither source is rejected by the constructor.
+        """
         overhead = cls.TM_HEADER_SIZE + cls.TM_TRAILER_SIZE
         if frame_size is not None and frame_size <= overhead:
             raise TypeError(f"TM Fixed Frame size {frame_size} must exceed header and trailer size {overhead}")
