@@ -148,13 +148,13 @@ class TestServer:
         caplog.set_level(logging.INFO)
         peer.close()
         assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is None)
-        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0) as second:
             second.sendall(b"again")
             assert read_until(server, 5) == b"again"
 
     def test_one_peer_at_a_time(self, server, peer):
         # A second connector waits in the backlog; the server keeps reading the first peer
-        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0) as second:
             second.sendall(b"ignored")
             peer.sendall(b"first")
             assert read_until(server, 5) == b"first"
