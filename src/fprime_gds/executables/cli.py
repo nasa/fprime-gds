@@ -38,7 +38,6 @@ from fprime_gds.plugin.definitions import PluginType
 from fprime_gds.plugin.system import Plugins, PluginsNotLoadedException
 from fprime_gds.common.zmq_transport import ZmqClient
 
-
 GUIS = ["none", "html"]
 
 
@@ -55,7 +54,11 @@ class ParserBase(ABC):
     @property
     def description(self) -> str:
         """Return parser description"""
-        return self.DESCRIPTION if self.DESCRIPTION is not None else "Unknown command line parser"
+        return (
+            self.DESCRIPTION
+            if self.DESCRIPTION is not None
+            else "Unknown command line parser"
+        )
 
     @abstractmethod
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -318,14 +321,30 @@ class ConfigDrivenParser(ParserBase):
 
     DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
 
+    # Takes precedence over DEFAULT_CONFIGURATION_PATH
+    DEFAULT_CONFIGURATION_PATH_ENV = "FPRIME_GDS_CONFIG_PATH"
+
     @classmethod
     def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
 
         Set the path for default configuration file. If unset, will use 'fprime-gds.yml'. Set to None to disable default
-        configuration.
+        configuration. Calling this function disables the environment variable override.
         """
         cls.DEFAULT_CONFIGURATION_PATH = path
+        os.environ.pop(cls.DEFAULT_CONFIGURATION_PATH_ENV, None)
+
+    @classmethod
+    def get_default_configuration(cls):
+        """Get path for (global) default configuration file
+
+        If set, the environment variable (DEFAULT_CONFIGURATION_PATH_ENV) overrides
+        DEFAULT_CONFIGURATION_PATH. Get the path for default configuration file. If unset, will
+        use 'fprime-gds.yml'.
+        """
+        if cls.DEFAULT_CONFIGURATION_PATH_ENV in os.environ:
+            return Path(os.environ[cls.DEFAULT_CONFIGURATION_PATH_ENV])
+        return cls.DEFAULT_CONFIGURATION_PATH
 
     @classmethod
     def parse_args(
@@ -450,7 +469,7 @@ class ConfigDrivenParser(ParserBase):
             ("-c", "--config"): {
                 "dest": "config",
                 "required": False,
-                "default": self.DEFAULT_CONFIGURATION_PATH,
+                "default": self.get_default_configuration(),
                 "type": Path,
                 "help": "Argument configuration file path. [default: %(default)s]",
             },
@@ -969,7 +988,9 @@ class LogDeployParser(ParserBase):
                 args.log_prefix = tool_name
 
             timestamp = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-            dir_name = f"{args.log_prefix}-{timestamp}" if args.log_prefix else timestamp
+            dir_name = (
+                f"{args.log_prefix}-{timestamp}" if args.log_prefix else timestamp
+            )
             args.logs = os.path.abspath(os.path.join(args.logs, dir_name))
             # A dated directory has been set, all log handling must now be direct
             args.log_directly = True
@@ -1175,7 +1196,6 @@ class FileHandlingParser(ParserBase):
                 "type": str,
                 "help": "Directory to store uplink and downlink files. Default: %(default)s",
             },
-
             ("--file-uplink-cooldown",): {
                 "dest": "file_uplink_cooldown",
                 "action": "store",
@@ -1334,11 +1354,11 @@ class GdsParser(ParserBase):
                 "type": str,
                 "help": "Set the GUI server address [default: %(default)s]",
             },
-            ("--skip-browser-open",):{
+            ("--skip-browser-open",): {
                 "dest": "browser_auto_open",
                 "action": "store_false",
-                "help": "Run server without auto-launching the default web browser"
-                }
+                "help": "Run server without auto-launching the default web browser",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
