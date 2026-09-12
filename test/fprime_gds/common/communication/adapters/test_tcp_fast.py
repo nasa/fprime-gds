@@ -31,6 +31,22 @@ READ_BOUND = TIMEOUT * 6
 RECONNECT_BOUND = TcpFastAdapter.RECONNECT_INTERVAL * 3
 
 
+@pytest.fixture(scope="module", autouse=True)
+def reserve_default_port():
+    """Hold the GDS default port for the module so no loopback connection here borrows it as an ephemeral port
+
+    The suite's ip-adapter tests bind 50000 (inside Linux's ephemeral range) without tolerating a TIME_WAIT peer,
+    which a connection made here could otherwise leave behind for 60s.
+    """
+    guard = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        guard.bind(("127.0.0.1", TcpFastAdapter.DEFAULT_PORT))
+    except OSError:
+        pass  # already in use elsewhere; nothing to reserve
+    yield
+    guard.close()
+
+
 def free_port():
     """Reserve and release an ephemeral loopback port"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
