@@ -57,6 +57,22 @@ def wait_for(predicate, deadline=2.0):
     return predicate()
 
 
+class CloseOnFirstEnter:
+    """Lock stand-in whose first acquisition runs adapter.close() first, landing it inside the guarded window"""
+
+    def __init__(self, adapter):
+        self.adapter, self.real, self.fired = adapter, adapter.lock, False
+
+    def __enter__(self):
+        if not self.fired:
+            self.fired = True
+            self.adapter.close()
+        return self.real.__enter__()
+
+    def __exit__(self, *exc):
+        return self.real.__exit__(*exc)
+
+
 def select_readable(sock, timeout=0.5):
     """Sockets readable within the timeout"""
     readable, _, _ = select.select([sock], [], [], timeout)
@@ -405,6 +421,32 @@ class TestClient:
         assert len(created) == 1 and created[0].fileno() == -1
         assert any("connection failed" in record.getMessage() for record in caplog.records)
 
+    def test_connect_failure_reported_in_exceptional_set(self, monkeypatch, caplog):
+        # Windows reports a failed non-blocking connect only in select's exceptional set, with the code in SO_ERROR
+        caplog.set_level(logging.WARNING)
+        adapter = TcpFastClientAdapter(tcp_fast_port=free_port())
+        adapter.open()
+        real_socket = socket.socket
+
+        class WinSock(real_socket):
+            def connect_ex(self, address):
+                return tcp_fast.WSAEWOULDBLOCK
+
+            def getsockopt(self, level, option, *args):
+                return errno.ECONNREFUSED if option == socket.SO_ERROR else super().getsockopt(level, option, *args)
+
+        monkeypatch.setattr(tcp_fast.socket, "socket", WinSock)
+        try:
+            pending = adapter.begin()
+            assert pending is adapter.pending is not None  # WSAEWOULDBLOCK means in progress, not failure
+            monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([], [], [pending]))
+            assert adapter.connect(TIMEOUT) is None
+            assert adapter.pending is None and pending.fileno() == -1
+            assert adapter.next_attempt > time.monotonic()
+            assert any("connection failed" in record.getMessage() for record in caplog.records)
+        finally:
+            adapter.close()
+
     def test_connection_refused_then_success(self, caplog):
         caplog.set_level(logging.WARNING)
         port = free_port()
@@ -582,7 +624,7 @@ class TestWrite:
     def test_write_without_peer_is_false_and_fast(self, server):
         start = time.monotonic()
         assert server.write(b"nobody") is False
-        assert time.monotonic() - start < 0.010
+        assert time.monotonic() - start < TIMEOUT  # no select or sleep on the disconnected write path
 
     def test_write_after_peer_gone_drops_connection(self, server, peer):
         peer.close()
@@ -815,6 +857,15 @@ class TestClose:
     def test_close_racing_begin_does_not_keep_pending(self, listener, monkeypatch):
         adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
         adapter.open()
+        created = []
+        real_socket = socket.socket
+
+        class Recording(real_socket):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+
+        monkeypatch.setattr(tcp_fast.socket, "socket", Recording)
 
         def close_then_proceed(timeout):
             adapter.close()
@@ -823,6 +874,22 @@ class TestClose:
         monkeypatch.setattr(adapter, "waiting_for_retry", close_then_proceed)
         assert adapter.read(TIMEOUT) == b""
         assert adapter.pending is None and adapter.connection is None
+        assert [sock.fileno() for sock in created] == [-1]  # the raced socket was closed, not leaked
+
+    def test_stale_drop_keeps_newer_connection(self, server, peer, caplog):
+        # A writer holding a snapshot of a dropped socket must not kill the connection read() re-established since
+        caplog.set_level(logging.WARNING)
+        stale = server.connection
+        peer.close()
+        assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is None)
+        with socket.create_connection(("127.0.0.1", server.port), timeout=2.0) as second:
+            assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is not None)
+            current = server.connection
+            server.drop(stale, "write failed: late")
+            assert server.connection is current
+            second.sendall(b"alive")
+            assert read_until(server, 5) == b"alive"
+        assert sum(1 for record in caplog.records if record.levelno == logging.WARNING) == 1
 
     def test_close_right_after_begin_is_silent(self, listener, monkeypatch, caplog):
         # close() between begin() publishing the socket and connect() using it must not raise or warn
@@ -843,6 +910,38 @@ class TestClose:
         assert adapter.read(TIMEOUT) == b""
         assert adapter.pending is None and adapter.next_attempt == scheduled[0]  # no failure was recorded
         assert not caplog.records
+
+    def test_close_racing_fatal_accept_is_silent(self, server, monkeypatch, caplog):
+        # close() landing as the fatal-accept branch takes the lock must not log an outage or schedule a retry
+        caplog.set_level(logging.WARNING)
+        listener = server.listener
+
+        class Broken:
+            def fileno(self):
+                return listener.fileno()
+
+            def accept(self):
+                raise OSError(errno.EINVAL, "listener is not listening")
+
+            def close(self):
+                listener.close()
+
+        server.listener = Broken()
+        monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([server.listener], [], []))
+        server.lock = CloseOnFirstEnter(server)
+        assert server.connect(TIMEOUT) is None
+        assert server.listener is None and server.next_attempt == 0.0 and not caplog.records
+
+    def test_close_racing_connect_success_is_silent(self, listener, caplog):
+        # close() landing as connect() claims the connected socket must hand the socket to close(), not read()
+        caplog.set_level(logging.WARNING)
+        adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
+        adapter.open()
+        pending = adapter.begin()
+        assert wait_for(lambda: bool(select.select([], [pending], [], 0)[1]))
+        adapter.lock = CloseOnFirstEnter(adapter)
+        assert adapter.connect(TIMEOUT) is None
+        assert adapter.pending is None and pending.fileno() == -1 and not caplog.records
 
     def test_close_idempotent(self, server):
         server.close()

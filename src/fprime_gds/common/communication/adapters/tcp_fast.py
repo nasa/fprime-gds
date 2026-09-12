@@ -8,19 +8,10 @@ Lightweight TCP-only communication adapters for the F Prime comm-layer, provided
 
 Both share `TcpFastAdapter`, which owns a single connected socket and no threads of its own: the comm-layer's downlink
 thread calls `read()` and its uplink thread calls `write()`. `read()` returns as soon as any bytes are available and
-otherwise waits at most `timeout` (default 50ms), so the downlink loop is never held by a long read. A remote disconnect
-or socket error drops the connection and the next `read()` re-accepts/reconnects; a failed listen is retried the same
-way. Only an explicit `close()` stops reconnection. Silent peer loss (power cycle, cable pull) on an idle connection is
-detected by TCP keepalive probes configured for a few seconds rather than the OS default of about two hours. Keepalive
-probes are suppressed while data is in flight, so on Linux `TCP_USER_TIMEOUT` bounds unacknowledged sends (and a peer
-that stops reading) to the same budget; elsewhere a blocked `sendall` lasts until the OS retransmit limit.
-
-Portability notes: `select.select` is used on a single socket (works for sockets on Linux, macOS, and Windows; on POSIX
-it cannot handle descriptor numbers >= 1024, which the comm process never approaches). The non-blocking client connect
-handles both the POSIX `EINPROGRESS` and Windows `WSAEWOULDBLOCK` in-progress codes and checks select's exceptional set,
-where Windows reports a failed connect. `SO_REUSEADDR` is set on POSIX only, where it is needed to re-listen through
-TIME_WAIT and has the expected semantics. Keepalive timers use `TCP_KEEPIDLE`/`TCP_KEEPALIVE`, `TCP_KEEPINTVL`, and
-`TCP_KEEPCNT` where exposed and `SIO_KEEPALIVE_VALS` on Windows (whose probe count is fixed at 10).
+otherwise waits at most `timeout` (default 50ms). A remote disconnect or socket error drops the connection and the next
+`read()` re-accepts/reconnects; only an explicit `close()` stops reconnection. Silent peer loss is detected by TCP
+keepalive tuned to a few seconds (see `configure_keepalive`). Linux, macOS, and Windows are supported; platform
+differences are handled where they arise (`CONNECT_IN_PROGRESS`, `connect`, `listening_socket`, `configure_keepalive`).
 
 @author lestarch
 """
@@ -108,8 +99,8 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
     def read(self, timeout=READ_TIMEOUT) -> bytes:
         """Return whatever bytes are available, waiting at most `timeout` for data or for a connection
 
-        The bound is exceeded only while the client re-resolves a hostname after a failed attempt (getaddrinfo
-        has no timeout); literal addresses never look anything up.
+        The bound is exceeded only when a hostname (not a literal address) is resolved after a failed attempt:
+        the client in fail()/connect_ex, the server in bind() when re-listening (getaddrinfo has no timeout).
 
         :param timeout: maximum time to wait when no data is available
         :return: received bytes, or b"" when nothing arrived within the timeout or the adapter is disconnected
@@ -345,8 +336,11 @@ class TcpFastServerAdapter(TcpFastAdapter):
                 self.retry_later(f"accept failed: {error}")  # the peer stays queued; do not spin on it
                 return None
             # A listener released by a concurrent close() fails the same way; that is not an outage
-            if self.listener is listener:
-                self.listener = None
+            with self.lock:
+                current = self.listener is listener
+                if current:
+                    self.listener = None
+            if current:
                 listener.close()
                 self.retry_later(f"accept failed: {error}")
             return None
@@ -356,7 +350,7 @@ class TcpFastServerAdapter(TcpFastAdapter):
         """Create a bound, listening socket"""
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            if os.name != "nt":
+            if os.name != "nt":  # needed to re-listen through TIME_WAIT on POSIX; means "share the port" on Windows
                 listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             listener.bind((address, port))
             listener.listen(1)
@@ -431,6 +425,7 @@ class TcpFastClientAdapter(TcpFastAdapter):
             if pending is None:
                 return None
         try:
+            # Windows reports a failed connect in the exceptional set only; POSIX makes the socket writable either way
             _, writable, failed = select.select([], [pending], [pending], timeout)
             if not writable and not failed:
                 if time.monotonic() > self.pending_deadline:
@@ -444,9 +439,10 @@ class TcpFastClientAdapter(TcpFastAdapter):
         if error != 0:
             self.fail(os.strerror(error))
             return None
-        if self.pending is not pending:
-            return None  # abandoned by close() while connecting
-        self.pending = None
+        with self.lock:
+            if self.pending is not pending:
+                return None  # abandoned by close() while connecting
+            self.pending = None
         return pending
 
     def begin(self):
