@@ -41,15 +41,20 @@ LOGGER = logging.getLogger("tcp_fast_adapter")
 # WinSock reports a non-blocking connect in progress as WSAEWOULDBLOCK, which errno only defines on Windows
 WSAEWOULDBLOCK = 10035
 CONNECT_IN_PROGRESS = (errno.EINPROGRESS, errno.EWOULDBLOCK, errno.EAGAIN, WSAEWOULDBLOCK)
-# accept(2) errors that concern the one peer (or descriptor exhaustion), not the listening socket
+# accept(2) errors about the one peer, which the kernel has already dequeued; the listening socket is fine
+WSAECONNABORTED, WSAECONNRESET = 10053, 10054
 ACCEPT_TRANSIENT = (
     errno.ECONNABORTED,
+    errno.ECONNRESET,
     errno.EPROTO,
     errno.EHOSTUNREACH,
     errno.ENETUNREACH,
-    errno.EMFILE,
-    errno.ENFILE,
+    WSAECONNABORTED,
+    WSAECONNRESET,
 )
+# accept(2) errors that leave the peer queued (no descriptor for it), so the listener stays readable
+WSAEMFILE = 10024
+ACCEPT_EXHAUSTED = (errno.EMFILE, errno.ENFILE, WSAEMFILE)
 
 
 class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, abc.ABC):
@@ -93,12 +98,18 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
         self.running = True
 
     def close(self):
-        """Stop the adapter and release the connection. Reads and writes afterwards do nothing."""
-        self.running = False
-        self.drop(self.connection)
+        """Stop the adapter and release the connection; later reads sleep their timeout and return b"", writes return False"""
+        with self.lock:  # same lock as the stores, so a socket cannot be stored after running goes False
+            self.running = False
+            connection, self.connection = self.connection, None
+        if connection is not None:
+            self.close_socket(connection)
 
     def read(self, timeout=READ_TIMEOUT) -> bytes:
         """Return whatever bytes are available, waiting at most `timeout` for data or for a connection
+
+        The bound is exceeded only while the client re-resolves a hostname after a failed attempt (getaddrinfo
+        has no timeout); literal addresses never look anything up.
 
         :param timeout: maximum time to wait when no data is available
         :return: received bytes, or b"" when nothing arrived within the timeout or the adapter is disconnected
@@ -277,6 +288,7 @@ class TcpFastServerAdapter(TcpFastAdapter):
     """TCP server adapter: listens for one flight-software peer at a time"""
 
     DEFAULT_ADDRESS = "0.0.0.0"
+    LOOPBACK_ADDRESS = "127.0.0.1"  # where a locally launched deployment connects when binding the wildcard
 
     def __init__(self, tcp_fast_address=None, tcp_fast_port=TcpFastAdapter.DEFAULT_PORT):
         super().__init__(tcp_fast_address, tcp_fast_port)
@@ -290,7 +302,8 @@ class TcpFastServerAdapter(TcpFastAdapter):
     def close(self):
         """Release the connection and the listening socket"""
         super().close()
-        listener, self.listener = self.listener, None
+        with self.lock:
+            listener, self.listener = self.listener, None
         if listener is not None:
             listener.close()
 
@@ -310,10 +323,10 @@ class TcpFastServerAdapter(TcpFastAdapter):
 
     def connect(self, timeout):
         """Accept a pending peer if one arrives within `timeout`, re-listening first if the listener was lost"""
+        if self.waiting_for_retry(timeout):
+            return None
         listener = self.listener
         if listener is None:
-            if self.waiting_for_retry(timeout):
-                return None
             listener = self.listen()
             if listener is None:
                 return None
@@ -327,7 +340,10 @@ class TcpFastServerAdapter(TcpFastAdapter):
             return None  # peer aborted between select and accept
         except (OSError, ValueError) as error:
             if isinstance(error, OSError) and error.errno in ACCEPT_TRANSIENT:
-                return None  # this peer is gone or descriptors are short; the listener is fine
+                return None  # this peer is gone; the listener is fine
+            if isinstance(error, OSError) and error.errno in ACCEPT_EXHAUSTED:
+                self.retry_later(f"accept failed: {error}")  # the peer stays queued; do not spin on it
+                return None
             # A listener released by a concurrent close() fails the same way; that is not an outage
             if self.listener is listener:
                 self.listener = None
@@ -402,13 +418,18 @@ class TcpFastClientAdapter(TcpFastAdapter):
         self.abandon()
 
     def connect(self, timeout):
-        """Advance a non-blocking connect by at most `timeout`; return the socket once connected"""
-        if self.pending is None:
+        """Advance a non-blocking connect by at most `timeout`; return the socket once connected
+
+        Attempts, not just failures, are spaced RECONNECT_INTERVAL apart, so a peer that accepts and immediately
+        closes cannot drive a connect/disconnect storm.
+        """
+        pending = self.pending  # local snapshot: a concurrent close() may clear self.pending
+        if pending is None:
             if self.waiting_for_retry(timeout):
                 return None
-            if not self.begin():
+            pending = self.begin()
+            if pending is None:
                 return None
-        pending = self.pending  # local snapshot: a concurrent close() may clear self.pending
         try:
             _, writable, failed = select.select([], [pending], [pending], timeout)
             if not writable and not failed:
@@ -429,7 +450,8 @@ class TcpFastClientAdapter(TcpFastAdapter):
         return pending
 
     def begin(self):
-        """Start a non-blocking connect"""
+        """Start a non-blocking connect; returns the pending socket, or None when the attempt failed or close() won"""
+        self.next_attempt = time.monotonic() + self.RECONNECT_INTERVAL
         pending = None
         try:
             pending = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -439,18 +461,18 @@ class TcpFastClientAdapter(TcpFastAdapter):
             if pending is not None:
                 pending.close()
             self.fail(str(error))
-            return False
+            return None
         if code != 0 and code not in CONNECT_IN_PROGRESS:
             pending.close()
             self.fail(os.strerror(code))
-            return False
+            return None
         with self.lock:
             if self.running:
                 self.pending = pending
                 self.pending_deadline = time.monotonic() + self.CONNECT_TIMEOUT
-                return True
+                return pending
         pending.close()  # close() won the race
-        return False
+        return None
 
     def fail(self, reason):
         """Give up on the in-progress connect and schedule the next attempt"""
@@ -469,7 +491,8 @@ class TcpFastClientAdapter(TcpFastAdapter):
 
     def abandon(self):
         """Close any in-progress connect"""
-        pending, self.pending = self.pending, None
+        with self.lock:
+            pending, self.pending = self.pending, None
         if pending is not None:
             pending.close()
 

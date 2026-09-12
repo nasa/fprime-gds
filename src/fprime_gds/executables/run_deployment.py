@@ -21,10 +21,7 @@ from fprime_gds.executables.cli import (
     PluginArgumentParser,
 )
 from fprime_gds.common.communication.adapters.ip import IpAdapter
-from fprime_gds.common.communication.adapters.tcp_fast import (
-    TcpFastClientAdapter,
-    TcpFastServerAdapter,
-)
+from fprime_gds.common.communication.adapters.tcp_fast import TcpFastServerAdapter
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
 from fprime_gds.plugin.system import Plugins
 
@@ -39,7 +36,7 @@ def app_connection(parsed_args):
         # A wildcard bind address cannot be connected to, so the app uses loopback
         address = parsed_args.tcp_fast_address
         if address in (None, "", TcpFastServerAdapter.DEFAULT_ADDRESS):
-            address = TcpFastClientAdapter.DEFAULT_ADDRESS
+            address = TcpFastServerAdapter.LOOPBACK_ADDRESS
         return address, parsed_args.tcp_fast_port
     return None
 

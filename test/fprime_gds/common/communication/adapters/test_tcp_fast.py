@@ -78,7 +78,7 @@ def recv_exact(sock, count, deadline=2.0):
 @pytest.fixture
 def server():
     """Opened tcp-fast-server on an ephemeral port"""
-    adapter = TcpFastServerAdapter(tcp_fast_port=free_port())
+    adapter = TcpFastServerAdapter(tcp_fast_address="127.0.0.1", tcp_fast_port=free_port())
     adapter.open()
     yield adapter
     adapter.close()
@@ -146,6 +146,11 @@ class TestServer:
         assert server.listener.getsockname()[1] == server.port
         with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
             assert wait_for(lambda: server.read(TIMEOUT) == b"" and server.connection is not None)
+
+    def test_listener_is_nonblocking_and_reusable(self, server):
+        assert server.listener.getblocking() is False
+        if sys.platform != "win32":
+            assert server.listener.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR) != 0
 
     def test_read_before_peer_returns_empty_within_timeout(self, server):
         start = time.monotonic()
@@ -221,6 +226,62 @@ class TestServer:
         assert isinstance(server.listener, Aborting)  # not torn down
         assert server.next_attempt == 0.0 and not caplog.records
 
+    def test_nothing_queued_accept_is_silent(self, server, monkeypatch, caplog):
+        # A select that reports readiness with nothing queued makes the non-blocking accept raise EAGAIN
+        caplog.set_level(logging.WARNING)
+        listener = server.listener
+        monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([listener], [], []))
+        assert server.connect(TIMEOUT) is None
+        assert server.listener is listener and server.next_attempt == 0.0 and not caplog.records
+
+    def test_interrupted_accept_is_silent(self, server, monkeypatch, caplog):
+        caplog.set_level(logging.WARNING)
+        listener = server.listener
+
+        class Interrupted:
+            def fileno(self):
+                return listener.fileno()
+
+            def accept(self):
+                raise InterruptedError()
+
+            def close(self):
+                listener.close()
+
+        server.listener = Interrupted()
+        monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([server.listener], [], []))
+        assert server.connect(TIMEOUT) is None
+        assert isinstance(server.listener, Interrupted) and server.next_attempt == 0.0 and not caplog.records
+
+    @pytest.mark.parametrize("code", tcp_fast.ACCEPT_EXHAUSTED)
+    def test_descriptor_exhaustion_paces_accepts(self, server, monkeypatch, caplog, code):
+        # The peer stays queued, so the listener stays readable; retries must be paced, not a hot loop
+        caplog.set_level(logging.WARNING)
+        listener = server.listener
+
+        class Starved:
+            def fileno(self):
+                return listener.fileno()
+
+            def accept(self):
+                raise OSError(code, "too many open files")
+
+            def close(self):
+                listener.close()
+
+        server.listener = Starved()
+        monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([server.listener], [], []))
+        assert server.connect(TIMEOUT) is None
+        assert isinstance(server.listener, Starved)  # not torn down
+        assert server.next_attempt > time.monotonic()
+        calls = 0
+        end = time.monotonic() + TcpFastAdapter.RECONNECT_INTERVAL / 2
+        while time.monotonic() < end:
+            assert server.read(TIMEOUT) == b""
+            calls += 1
+        assert calls < TcpFastAdapter.RECONNECT_INTERVAL / TIMEOUT
+        assert sum(1 for record in caplog.records if "accept failed" in record.getMessage()) == 1
+
     def test_fatal_accept_error_relistens(self, server, monkeypatch, caplog):
         caplog.set_level(logging.WARNING)
         listener = server.listener
@@ -283,6 +344,67 @@ class TestClient:
         assert read_until(client, 4) == b"back"
         accepted.close()
 
+    def test_short_lived_connections_are_paced(self, listener, caplog):
+        # A peer that accepts then immediately closes must not drive a connect/disconnect storm
+        caplog.set_level(logging.INFO)
+        adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
+        adapter.open()
+        listener.settimeout(0.0)
+        try:
+            end = time.monotonic() + TcpFastAdapter.RECONNECT_INTERVAL * 2.5
+            while time.monotonic() < end:
+                start = time.monotonic()
+                adapter.read(TIMEOUT)
+                assert time.monotonic() - start < READ_BOUND
+                try:
+                    listener.accept()[0].close()
+                except (BlockingIOError, socket.timeout):
+                    pass
+            connects = sum(1 for record in caplog.records if "connected to" in record.getMessage())
+            assert 1 <= connects <= 4  # about one per RECONNECT_INTERVAL
+        finally:
+            adapter.close()
+
+    def test_long_lived_connection_reconnects_at_once(self, client, listener):
+        accepted = accept_client(client, listener)
+        client.next_attempt = 0.0  # as if the connection had outlived RECONNECT_INTERVAL
+        accepted.close()
+        assert wait_for(lambda: client.read(TIMEOUT) == b"" and client.connection is None)
+        start = time.monotonic()
+        accept_client(client, listener).close()
+        assert time.monotonic() - start < TcpFastAdapter.RECONNECT_INTERVAL / 2
+
+    def test_begin_socket_creation_failure_retries(self, monkeypatch, caplog):
+        caplog.set_level(logging.WARNING)
+        adapter = TcpFastClientAdapter(tcp_fast_port=free_port())
+        adapter.open()
+
+        def no_sockets(*args, **kwargs):
+            raise OSError(errno.EMFILE, "too many open files")
+
+        monkeypatch.setattr(tcp_fast.socket, "socket", no_sockets)
+        assert adapter.begin() is None
+        assert adapter.pending is None and adapter.next_attempt > time.monotonic()
+        assert any("too many open files" in record.getMessage() for record in caplog.records)
+
+    def test_begin_immediate_refusal_retries(self, monkeypatch, caplog):
+        caplog.set_level(logging.WARNING)
+        adapter = TcpFastClientAdapter(tcp_fast_port=free_port())
+        adapter.open()
+        created = []
+        real_socket = socket.socket
+
+        class Refused(real_socket):
+            def connect_ex(self, address):
+                created.append(self)
+                return errno.ECONNREFUSED
+
+        monkeypatch.setattr(tcp_fast.socket, "socket", Refused)
+        assert adapter.begin() is None
+        assert adapter.pending is None and adapter.next_attempt > time.monotonic()
+        assert len(created) == 1 and created[0].fileno() == -1
+        assert any("connection failed" in record.getMessage() for record in caplog.records)
+
     def test_connection_refused_then_success(self, caplog):
         caplog.set_level(logging.WARNING)
         port = free_port()
@@ -338,7 +460,7 @@ class TestClient:
         adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
         adapter.open()
         try:
-            assert adapter.begin() is True
+            assert adapter.begin() is adapter.pending is not None
             monkeypatch.setattr(tcp_fast.select, "select", lambda *args: ([], [], []))
             adapter.pending_deadline = 0.0
             assert adapter.connect(TIMEOUT) is None
@@ -515,6 +637,54 @@ class TestConnectionOptions:
             assert read_until(server, len(b"still works")) == b"still works"
         assert any("keepalive" in record.getMessage() for record in caplog.records)
 
+    @staticmethod
+    def platform_options(monkeypatch, present):
+        """Make exactly `present` keepalive option names exist on the socket module, with a recording connection"""
+        names = ("TCP_USER_TIMEOUT", "SIO_KEEPALIVE_VALS", "TCP_KEEPIDLE", "TCP_KEEPALIVE", "TCP_KEEPINTVL", "TCP_KEEPCNT")
+        for name in names:
+            if name in present:
+                monkeypatch.setattr(tcp_fast.socket, name, name, raising=False)
+            else:
+                monkeypatch.delattr(tcp_fast.socket, name, raising=False)
+        calls = []
+
+        class Recording:
+            def setsockopt(self, level, option, value):
+                calls.append((option, value))
+
+            def ioctl(self, control, option):
+                calls.append((control, option))
+
+        return Recording(), calls
+
+    def test_keepalive_windows_branch(self, monkeypatch):
+        connection, calls = self.platform_options(monkeypatch, {"SIO_KEEPALIVE_VALS"})
+        TcpFastAdapter.configure_keepalive(connection)
+        idle_ms, interval_ms = TcpFastAdapter.KEEPALIVE_IDLE * 1000, TcpFastAdapter.KEEPALIVE_INTERVAL * 1000
+        assert calls == [("SIO_KEEPALIVE_VALS", (1, idle_ms, interval_ms))]
+
+    def test_keepalive_macos_branch(self, monkeypatch):
+        connection, calls = self.platform_options(monkeypatch, {"TCP_KEEPALIVE", "TCP_KEEPINTVL", "TCP_KEEPCNT"})
+        TcpFastAdapter.configure_keepalive(connection)
+        assert calls == [
+            ("TCP_KEEPALIVE", TcpFastAdapter.KEEPALIVE_IDLE),
+            ("TCP_KEEPINTVL", TcpFastAdapter.KEEPALIVE_INTERVAL),
+            ("TCP_KEEPCNT", TcpFastAdapter.KEEPALIVE_COUNT),
+        ]
+
+    def test_keepalive_linux_branch(self, monkeypatch):
+        connection, calls = self.platform_options(
+            monkeypatch, {"TCP_USER_TIMEOUT", "TCP_KEEPIDLE", "TCP_KEEPINTVL", "TCP_KEEPCNT"}
+        )
+        TcpFastAdapter.configure_keepalive(connection)
+        detection = TcpFastAdapter.KEEPALIVE_IDLE + TcpFastAdapter.KEEPALIVE_INTERVAL * TcpFastAdapter.KEEPALIVE_COUNT
+        assert calls == [
+            ("TCP_USER_TIMEOUT", detection * 1000),
+            ("TCP_KEEPIDLE", TcpFastAdapter.KEEPALIVE_IDLE),
+            ("TCP_KEEPINTVL", TcpFastAdapter.KEEPALIVE_INTERVAL),
+            ("TCP_KEEPCNT", TcpFastAdapter.KEEPALIVE_COUNT),
+        ]
+
     def test_option_failure_drops_instead_of_raising(self, server):
         with socket.create_connection(("127.0.0.1", server.port), timeout=2.0):
             assert wait_for(lambda: len(select_readable(server.listener)) == 1)
@@ -532,7 +702,7 @@ class TestConnectionOptions:
             remote.listen(1)
             remote.settimeout(2.0)
             port = remote.getsockname()[1] if adapter_class is TcpFastClientAdapter else free_port()
-            adapter = adapter_class(tcp_fast_port=port)
+            adapter = adapter_class(tcp_fast_address="127.0.0.1", tcp_fast_port=port)
             adapter.open()
             try:
                 if adapter_class is TcpFastClientAdapter:
@@ -555,7 +725,7 @@ class TestClose:
 
     def test_close_releases_port(self):
         port = free_port()
-        adapter = TcpFastServerAdapter(tcp_fast_port=port)
+        adapter = TcpFastServerAdapter(tcp_fast_address="127.0.0.1", tcp_fast_port=port)
         adapter.open()
         adapter.close()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -598,8 +768,8 @@ class TestClose:
     def test_client_close_mid_connect_releases_pending_socket(self, listener):
         adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
         adapter.open()
-        assert adapter.begin() is True
-        pending = adapter.pending
+        pending = adapter.begin()
+        assert pending is adapter.pending is not None
         adapter.close()
         assert adapter.pending is None
         assert pending.fileno() == -1
@@ -608,9 +778,9 @@ class TestClose:
         # close() from another thread while connect() waits in select must not warn or schedule a retry
         adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
         adapter.open()
-        assert adapter.begin() is True
+        pending = adapter.begin()
+        assert pending is adapter.pending is not None
         caplog.set_level(logging.WARNING)
-        pending = adapter.pending
         real_select = select.select
 
         def close_then_select(*args):
@@ -618,15 +788,16 @@ class TestClose:
             return real_select(*args)
 
         monkeypatch.setattr(tcp_fast.select, "select", close_then_select)
+        scheduled = adapter.next_attempt
         assert adapter.connect(TIMEOUT) is None
-        assert adapter.next_attempt == 0.0
+        assert adapter.next_attempt == scheduled  # no failure was recorded
         assert not [record for record in caplog.records if "connection failed" in record.getMessage()]
         assert pending.fileno() == -1
 
     def test_close_racing_listen_does_not_rebind(self, monkeypatch):
         # close() between the running check and listen() storing the socket must not leave the port bound
         port = free_port()
-        adapter = TcpFastServerAdapter(tcp_fast_port=port)
+        adapter = TcpFastServerAdapter(tcp_fast_address="127.0.0.1", tcp_fast_port=port)
         adapter.open()
         adapter.listener.close()
         adapter.listener = None
@@ -652,6 +823,26 @@ class TestClose:
         monkeypatch.setattr(adapter, "waiting_for_retry", close_then_proceed)
         assert adapter.read(TIMEOUT) == b""
         assert adapter.pending is None and adapter.connection is None
+
+    def test_close_right_after_begin_is_silent(self, listener, monkeypatch, caplog):
+        # close() between begin() publishing the socket and connect() using it must not raise or warn
+        caplog.set_level(logging.WARNING)
+        adapter = TcpFastClientAdapter(tcp_fast_port=listener.getsockname()[1])
+        adapter.open()
+        real_begin = adapter.begin
+
+        scheduled = []
+
+        def begin_then_close():
+            pending = real_begin()
+            scheduled.append(adapter.next_attempt)
+            adapter.close()
+            return pending
+
+        monkeypatch.setattr(adapter, "begin", begin_then_close)
+        assert adapter.read(TIMEOUT) == b""
+        assert adapter.pending is None and adapter.next_attempt == scheduled[0]  # no failure was recorded
+        assert not caplog.records
 
     def test_close_idempotent(self, server):
         server.close()
@@ -765,7 +956,8 @@ class TestPlugin:
 
         def moving(host, *args, **kwargs):
             assert host == "fsw-board"
-            return real_getaddrinfo("127.0.0.1", answers.pop(0), *args[1:], **kwargs)
+            answer = answers.pop(0) if len(answers) > 1 else answers[0]  # settle on the live port
+            return real_getaddrinfo("127.0.0.1", answer, *args[1:], **kwargs)
 
         monkeypatch.setattr(tcp_fast.socket, "getaddrinfo", moving)
         adapter = TcpFastClientAdapter(tcp_fast_address="fsw-board", tcp_fast_port=port)
@@ -774,7 +966,6 @@ class TestPlugin:
             assert adapter.target == ("127.0.0.1", dead_port)
             assert adapter.read(TIMEOUT) == b""  # refused at the stale address; re-resolved
             assert adapter.target == ("127.0.0.1", port)
-            monkeypatch.undo()
             adapter.next_attempt = 0.0
             accept_client(adapter, listener).close()
         finally:
