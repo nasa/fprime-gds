@@ -232,6 +232,10 @@ class Plugins(object):
             )
             from fprime_gds.common.communication.adapters.ip import IpAdapter
             from fprime_gds.common.communication.adapters.udp import UdpAdapter
+            from fprime_gds.common.communication.adapters.tcp_fast import (
+                TcpFastClientAdapter,
+                TcpFastServerAdapter,
+            )
             from fprime_gds.executables.apps import CustomDataHandlers
 
             try:
@@ -257,7 +261,14 @@ class Plugins(object):
                     "type": PluginType.SELECTION,
                     "built-in": [
                         adapter
-                        for adapter in [NoneAdapter, IpAdapter, UdpAdapter, SerialAdapter]
+                        for adapter in [
+                            NoneAdapter,
+                            IpAdapter,
+                            UdpAdapter,
+                            TcpFastServerAdapter,
+                            TcpFastClientAdapter,
+                            SerialAdapter,
+                        ]
                         if adapter is not None
                     ],
                 },
