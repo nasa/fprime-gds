@@ -201,11 +201,11 @@ class TcpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter, 
         try:
             connection.shutdown(socket.SHUT_RDWR)
         except OSError:
-            pass
+            pass  # already disconnected or closed by the other thread
         try:
             connection.close()
         except OSError:
-            pass
+            pass  # already closed; nothing left to release
 
     def drop(self, connection, reason=None):
         """Close `connection` and forget it, unless a newer connection has replaced it; warn when `reason` is given"""

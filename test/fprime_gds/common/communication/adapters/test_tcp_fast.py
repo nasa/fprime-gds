@@ -345,7 +345,8 @@ class TestClient:
         accepted = accept_client(client, listener)
         accepted.sendall(b"telemetry")
         assert read_until(client, 9) == b"telemetry"
-        assert client.write(b"command") is True
+        sent = client.write(b"command")
+        assert sent is True
         assert recv_exact(accepted, 7) == b"command"
         accepted.close()
 
@@ -375,7 +376,7 @@ class TestClient:
                 try:
                     listener.accept()[0].close()
                 except (BlockingIOError, socket.timeout):
-                    pass
+                    pass  # no connect attempt landed in this window
             connects = sum(1 for record in caplog.records if "connected to" in record.getMessage())
             assert 1 <= connects <= 4  # about one per RECONNECT_INTERVAL
         finally:
@@ -618,12 +619,14 @@ class TestWrite:
     """REQ-TCPF-005: sendall on success, immediate False otherwise"""
 
     def test_write_to_peer(self, server, peer):
-        assert server.write(b"uplink") is True
+        sent = server.write(b"uplink")
+        assert sent is True
         assert recv_exact(peer, 6) == b"uplink"
 
     def test_write_without_peer_is_false_and_fast(self, server):
         start = time.monotonic()
-        assert server.write(b"nobody") is False
+        sent = server.write(b"nobody")
+        assert sent is False
         assert time.monotonic() - start < TIMEOUT  # no select or sleep on the disconnected write path
 
     def test_write_after_peer_gone_drops_connection(self, server, peer):
@@ -755,7 +758,8 @@ class TestConnectionOptions:
                 with peer:
                     for _ in range(5):
                         adapter.read(TIMEOUT)
-                        assert adapter.write(b"x") is True
+                        sent = adapter.write(b"x")
+                        assert sent is True
                     assert threading.active_count() == before
             finally:
                 adapter.close()
@@ -780,7 +784,8 @@ class TestClose:
     def test_after_close_no_reconnect(self, server, peer):
         server.close()
         assert server.read(TIMEOUT) == b""
-        assert server.write(b"x") is False
+        sent = server.write(b"x")
+        assert sent is False
         assert server.connection is None
         with pytest.raises(OSError):
             socket.create_connection(("127.0.0.1", server.port), timeout=0.5)
@@ -947,7 +952,8 @@ class TestClose:
         server.close()
         server.close()
         assert server.listener is None and server.connection is None and not server.running
-        assert server.write(b"x") is False
+        sent = server.write(b"x")
+        assert sent is False
 
     def test_close_racing_established_closes_socket(self, server):
         # close() between connect() returning and established() storing must not leave a live socket
