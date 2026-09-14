@@ -12,6 +12,7 @@ to the correct log files and destination files
 
 import logging
 import os
+import posixpath
 
 import fprime_gds.constants
 
@@ -211,12 +212,26 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
     @staticmethod
     def sanitize(filename):
         """
-        Sanitize the given filename by removing slashes that would make new directories.
+        Reduce a remote-supplied destination path to a bare filename.
+
+        destPath comes from the downlink START packet and is therefore not
+        trusted. Both "/" and "\\" are treated as separators regardless of the
+        host's os.sep, so the result cannot traverse out of, or re-root away
+        from, the downlink directory on any platform. ":" is replaced because it
+        would otherwise reintroduce a drive specifier or an NTFS alternate data
+        stream. A name consisting only of dots is replaced outright, since
+        os.path.join() would otherwise resolve it to the downlink directory
+        itself or its parent.
 
         :param filename: filename to sanitize
         :return: sanitized filename
         """
-        return filename.replace(os.sep, "_")
+        flattened = filename.replace("\\", "/")
+        base = posixpath.basename(posixpath.normpath(flattened))
+        base = base.replace(":", "_")
+        if base.strip(".") == "":
+            return "_unnamed_downlink"
+        return base
 
     @property
     def directory(self):
