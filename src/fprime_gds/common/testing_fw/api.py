@@ -628,39 +628,63 @@ class IntegrationTestAPI(DataHandler):
             args: a list of command arguments.
             max_delay: the maximum allowable delay between dispatch and completion (int/float)
             timeout: the number of seconds to wait before terminating the search (int)
-            events: extra event predicates to check for between dispatch and complete
+            events: extra event predicates to check for, in order, between dispatch/complete
             commander: the command dispatching component. Defaults to cmdDisp
         Return:
             returns a list of the EventData objects found by the search, positioned as
-            [dispatch, *events, complete] regardless of the order they actually arrived in
+            [dispatch, *events, complete] regardless of the order dispatch/complete arrived
         """
         if args is None:
             args = []
         cmd_id = self.translate_command_name(command)
         dispatch_pred = self.get_event_pred(f"{commander}.OpCodeDispatched", [cmd_id, None])
         complete_pred = self.get_event_pred(f"{commander}.OpCodeCompleted", [cmd_id])
-        extra_preds = [self.get_event_pred(event) for event in (events or [])]
-        all_preds = [dispatch_pred, *extra_preds, complete_pred]
 
         start = self.event_history.size()
         self.send_command(command, args)
-        results = self.find_history_unordered_set(
-            all_preds, self.event_history, start=start, timeout=timeout
+
+        # Dispatch and completion are searched independently of relative order (see the note
+        # above), but as a pair so their arrival order can still be recovered below.
+        dispatch_result, complete_result = self.find_history_unordered_set(
+            [dispatch_pred, complete_pred],
+            self.event_history,
+            start=start,
+            timeout=timeout,
         )
-        found_count = sum(1 for result in results if result is not None)
-        len_pred = predicates.equal_to(len(all_preds))
-        msg = "checks if the dispatch, completion, and any extra events were all found"
+        pair = (dispatch_result, complete_result)
+        found_count = sum(1 for result in pair if result is not None)
+        len_pred = predicates.equal_to(2)
+        msg = "checks if the dispatch and completion were both found"
         self.__assert_pred("Command dispatch/completion", len_pred, found_count, msg)
 
+        # Extra events, unlike dispatch/completion, keep their original ordering contract: they
+        # must appear as an ordered subsequence, timestamped between whichever of dispatch/
+        # completion arrived first and whichever arrived second. Without the time bound, an
+        # extra predicate could match an unrelated event from before dispatch even happened.
+        extra_results = []
+        if events:
+            earlier_time = min(dispatch_result.get_time(), complete_result.get_time())
+            later_time = max(dispatch_result.get_time(), complete_result.get_time())
+            between_pred = predicates.within_range(earlier_time, later_time)
+            extra_preds = [
+                self.get_event_pred(event, time_pred=between_pred) for event in events
+            ]
+            extra_results = self.find_history_sequence(
+                extra_preds, self.event_history, start=start, timeout=timeout
+            )
+            extra_found = sum(1 for result in extra_results if result is not None)
+            len_pred = predicates.equal_to(len(extra_preds))
+            msg = "checks if the extra events were found, in order, between dispatch/completion"
+            self.__assert_pred("Command extra events", len_pred, extra_found, msg)
+
         if max_delay is not None:
-            dispatch_result, complete_result = results[0], results[-1]
             if dispatch_result.get_time() > complete_result.get_time():
                 delay = dispatch_result.get_time() - complete_result.get_time()
             else:
                 delay = complete_result.get_time() - dispatch_result.get_time()
             msg = f"The delay, {delay}, between the two events should be < {max_delay}"
             assert delay < max_delay, msg
-        return results
+        return [dispatch_result, *extra_results, complete_result]
 
     ######################################################################################
     #   Command Asserts
