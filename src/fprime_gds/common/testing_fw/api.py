@@ -618,30 +618,73 @@ class IntegrationTestAPI(DataHandler):
         within the F' deployment. This helper can retroactively check that the delay between
         dispatch and completion is less than a maximum allowable delay.
 
+        Note: dispatch and completion are searched for independently of their relative arrival
+        order. A synchronous command dispatcher can log OpCodeCompleted before OpCodeDispatched,
+        since the command executes inline before the dispatch EVR is generated, so this does not
+        assume dispatch arrives first the way a single ordered sequence search would.
+
         Args:
             command: the mnemonic (str) or ID (int) of the command to send
             args: a list of command arguments.
             max_delay: the maximum allowable delay between dispatch and completion (int/float)
             timeout: the number of seconds to wait before terminating the search (int)
-            events: extra event predicates to check between  dispatch and complete
+            events: extra event predicates to check for, in order, between dispatch/complete
             commander: the command dispatching component. Defaults to cmdDisp
         Return:
-            returns a list of the EventData objects found by the search
+            returns a list of the EventData objects found by the search, positioned as
+            [dispatch, *events, complete] regardless of the order dispatch/complete arrived
         """
         if args is None:
             args = []
         cmd_id = self.translate_command_name(command)
-        dispatch = [
-            self.get_event_pred(f"{commander}.OpCodeDispatched", [cmd_id, None])
-        ]
-        complete = [self.get_event_pred(f"{commander}.OpCodeCompleted", [cmd_id])]
-        events = dispatch + (events if events else []) + complete
-        results = self.send_and_assert_event(command, args, events, timeout=timeout)
+        dispatch_pred = self.get_event_pred(f"{commander}.OpCodeDispatched", [cmd_id, None])
+        complete_pred = self.get_event_pred(f"{commander}.OpCodeCompleted", [cmd_id])
+
+        start = self.event_history.size()
+        self.send_command(command, args)
+
+        # Dispatch and completion are searched independently of relative order (see the note
+        # above), but as a pair so their arrival order can still be recovered below.
+        dispatch_result, complete_result = self.find_history_unordered_set(
+            [dispatch_pred, complete_pred],
+            self.event_history,
+            start=start,
+            timeout=timeout,
+        )
+        pair = (dispatch_result, complete_result)
+        found_count = sum(1 for result in pair if result is not None)
+        len_pred = predicates.equal_to(2)
+        msg = "checks if the dispatch and completion were both found"
+        self.__assert_pred("Command dispatch/completion", len_pred, found_count, msg)
+
+        # Extra events, unlike dispatch/completion, keep their original ordering contract: they
+        # must appear as an ordered subsequence, timestamped between whichever of dispatch/
+        # completion arrived first and whichever arrived second. Without the time bound, an
+        # extra predicate could match an unrelated event from before dispatch even happened.
+        extra_results = []
+        if events:
+            earlier_time = min(dispatch_result.get_time(), complete_result.get_time())
+            later_time = max(dispatch_result.get_time(), complete_result.get_time())
+            between_pred = predicates.within_range(earlier_time, later_time)
+            extra_preds = [
+                self.get_event_pred(event, time_pred=between_pred) for event in events
+            ]
+            extra_results = self.find_history_sequence(
+                extra_preds, self.event_history, start=start, timeout=timeout
+            )
+            extra_found = sum(1 for result in extra_results if result is not None)
+            len_pred = predicates.equal_to(len(extra_preds))
+            msg = "checks if the extra events were found, in order, between dispatch/completion"
+            self.__assert_pred("Command extra events", len_pred, extra_found, msg)
+
         if max_delay is not None:
-            delay = results[-1].get_time() - results[0].get_time()
+            if dispatch_result.get_time() > complete_result.get_time():
+                delay = dispatch_result.get_time() - complete_result.get_time()
+            else:
+                delay = complete_result.get_time() - dispatch_result.get_time()
             msg = f"The delay, {delay}, between the two events should be < {max_delay}"
             assert delay < max_delay, msg
-        return results
+        return [dispatch_result, *extra_results, complete_result]
 
     ######################################################################################
     #   Command Asserts
@@ -1476,6 +1519,54 @@ class IntegrationTestAPI(DataHandler):
         searcher = __SequenceSearcher(self.__log, seq_preds)
         return self.__search_test_history(
             searcher, "Sequence search", history, start, timeout
+        )
+
+    def find_history_unordered_set(self, preds, history, start=None, timeout=0):
+        """
+        This function can both search and await for a set of elements in a history, the same as
+        find_history_sequence, except the items may satisfy the given predicates in any relative
+        order. Each predicate must still be satisfied by a distinct history item. The function
+        will return when every predicate has been matched, or the timeout occurs.
+        Note: this search will always return a list of objects, positioned to match the order of
+        preds (not the order the items were found in). The user should check if the search was
+        completed; unmatched predicates are represented as None in the returned list.
+
+        Args:
+            preds: a list of predicate objects; each must be matched by a distinct history item
+            history: the history that the function will search and await
+            start: an index or predicate to specify the earliest item from the history to search
+            timeout: the number of seconds to wait before terminating the search (int)
+        Returns:
+            a list of data objects satisfying preds, ordered to match preds
+        """
+
+        class __UnorderedSetSearcher(self.__HistorySearcher):
+            def __init__(self, log, preds):
+                super().__init__()
+                self.log = log
+                self.remaining = list(enumerate(preds))
+                self.ret_val = [None] * len(preds)
+                self.repeats = True
+                msg = f"Beginning an unordered search of {len(preds)} items."
+                self.log(msg, TestLogger.YELLOW)
+
+            def search_current_history(self, items):
+                for item in items:
+                    self.incremental_search(item)
+                return len(self.remaining) == 0
+
+            def incremental_search(self, item):
+                for position, (original_index, pred) in enumerate(self.remaining):
+                    if pred(item):
+                        self.log(f"Unordered search found an item: {item}")
+                        self.ret_val[original_index] = item
+                        del self.remaining[position]
+                        break
+                return len(self.remaining) == 0
+
+        searcher = __UnorderedSetSearcher(self.__log, preds)
+        return self.__search_test_history(
+            searcher, "Unordered search", history, start, timeout
         )
 
     def find_history_count(

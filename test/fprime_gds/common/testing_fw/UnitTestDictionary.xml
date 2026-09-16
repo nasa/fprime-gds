@@ -47,6 +47,17 @@
     </event>
     <event component="apiTester2" name="SeverityFATAL" id="0xA" severity="FATAL" format_string="Unit Test EVR with FATAL Severity">
     </event>
+    <event component="cmdDisp" name="OpCodeDispatched" id="0xB" severity="COMMAND" format_string="Opcode %d dispatched to port %d">
+      <args>
+        <arg name="Opcode" type="U32"/>
+        <arg name="port" type="I32"/>
+      </args>
+    </event>
+    <event component="cmdDisp" name="OpCodeCompleted" id="0xC" severity="COMMAND" format_string="Opcode %d completed">
+      <args>
+        <arg name="Opcode" type="U32"/>
+      </args>
+    </event>
   </events>
   <channels>
     <channel component="apiTester" name="CommandCounter" id="1" description="Counts number of commands sent by the unit test" type="U32"/>

@@ -27,6 +27,14 @@ class UTPipeline(StandardPipeline):
     def __init__(self):
         self.command_count = 0
         self.t0 = TimeType()
+        # When set to "dispatch_first" or "complete_first", send_command also emits
+        # cmdDisp.OpCodeDispatched/OpCodeCompleted events in the given order, simulating an
+        # async (dispatch-then-complete) or synchronous (complete-then-dispatch) dispatcher.
+        self.dispatch_complete_order = None
+        # When set to an event mnemonic, that event is additionally emitted strictly
+        # between the dispatch/complete pair (both in delivery order and timestamp), to
+        # exercise send_and_assert_command's events= against a genuine mid-execution event.
+        self.extra_event_between = None
         StandardPipeline.__init__(self)
 
     def connect(self, address, port):
@@ -58,6 +66,45 @@ class UTPipeline(StandardPipeline):
         ch_temp = self.dictionaries.channel_name["apiTester.CommandCounter"]
         update = ChData(U32Type(self.command_count), self.t0 + time.time(), ch_temp)
         self.enqueue_telemetry(update)
+
+        if self.dispatch_complete_order is not None:
+            # Two distinct timestamps, assigned to match dispatch_complete_order below, so a
+            # complete_first scenario is genuinely earlier-complete-than-dispatch rather than
+            # just reordered in the enqueue list while keeping dispatch's earlier clock time.
+            # If extra_event_between is set, its timestamp is captured strictly between these
+            # two calls, so it is genuinely between the bracket events in time and position.
+            earlier_time = self.t0 + time.time()
+
+            extra_event = None
+            if self.extra_event_between is not None:
+                # Reuses CommandReceived's one-U32-arg shape; a distinct instance from the
+                # one already emitted above, so the time bound in send_and_assert_command
+                # must reject that earlier one and match this one instead.
+                extra_temp = self.dictionaries.event_name[self.extra_event_between]
+                extra_event = EventData(
+                    (U32Type(cmd_data.get_id()),), self.t0 + time.time(), extra_temp
+                )
+
+            later_time = self.t0 + time.time()
+
+            dispatched_temp = self.dictionaries.event_name["cmdDisp.OpCodeDispatched"]
+            completed_temp = self.dictionaries.event_name["cmdDisp.OpCodeCompleted"]
+            dispatched_args = (U32Type(cmd_data.get_id()), I32Type(0))
+            completed_args = (U32Type(cmd_data.get_id()),)
+            if self.dispatch_complete_order == "dispatch_first":
+                dispatched = EventData(dispatched_args, earlier_time, dispatched_temp)
+                completed = EventData(completed_args, later_time, completed_temp)
+                ordered = [dispatched, completed]
+            else:
+                completed = EventData(completed_args, earlier_time, completed_temp)
+                dispatched = EventData(dispatched_args, later_time, dispatched_temp)
+                ordered = [completed, dispatched]
+
+            if extra_event is not None:
+                ordered.insert(1, extra_event)
+
+            for event in ordered:
+                self.enqueue_event(event)
 
     def enqueue_event(self, event):
         """
@@ -102,6 +149,7 @@ class APITestCases(unittest.TestCase):
         self.case_list.append(1)
         self.tHistory = TestHistory()
         self.t0 = TimeType()
+        self.pipeline.dispatch_complete_order = None
 
     @classmethod
     def tearDownClass(cls):
@@ -641,6 +689,65 @@ class APITestCases(unittest.TestCase):
 
         for i in range(6):
             assert results1[i] != results2[i], "These sequences should be unique items"
+
+    def test_send_and_assert_command(self):
+        # Async-style dispatcher: OpCodeDispatched logged before OpCodeCompleted
+        self.pipeline.dispatch_complete_order = "dispatch_first"
+        results = self.api.send_and_assert_command(
+            "apiTester.TEST_CMD_1", max_delay=5, timeout=5
+        )
+        assert len(results) == 2
+        dispatched, completed = results
+        assert dispatched.template.get_name() == "OpCodeDispatched"
+        assert completed.template.get_name() == "OpCodeCompleted"
+
+        self.api.clear_histories()
+
+        # Synchronous-style dispatcher: OpCodeCompleted logged before OpCodeDispatched.
+        # This is the exact ordering that used to make send_and_assert_command fail, since it
+        # searched for OpCodeDispatched then OpCodeCompleted as a strict ordered sequence.
+        self.pipeline.dispatch_complete_order = "complete_first"
+        results = self.api.send_and_assert_command(
+            "apiTester.TEST_CMD_1", max_delay=5, timeout=5
+        )
+        assert len(results) == 2
+        dispatched, completed = results
+        assert dispatched.template.get_name() == "OpCodeDispatched"
+        assert completed.template.get_name() == "OpCodeCompleted"
+
+        self.api.clear_histories()
+
+        # Extra events must still be found, in order, between dispatch and completion. The mock
+        # also emits an unrelated CommandReceived unconditionally at the very start of every
+        # send_command call, well before dispatch/completion; the time bound on the extra
+        # predicate must reject that one and match only the one genuinely emitted in between.
+        self.pipeline.dispatch_complete_order = "complete_first"
+        self.pipeline.extra_event_between = "apiTester.CommandReceived"
+        try:
+            results = self.api.send_and_assert_command(
+                "apiTester.TEST_CMD_1", events=["CommandReceived"], timeout=5
+            )
+        finally:
+            self.pipeline.extra_event_between = None
+        assert len(results) == 3
+        dispatched, extra, completed = results
+        assert dispatched.template.get_name() == "OpCodeDispatched"
+        assert extra.template.get_name() == "CommandReceived"
+        assert completed.template.get_name() == "OpCodeCompleted"
+
+        self.api.clear_histories()
+
+    def test_send_and_assert_command_extra_event_before_dispatch_fails(self):
+        # CommandReceived is only emitted before dispatch/completion here (extra_event_between
+        # is left unset), so it must NOT satisfy events=["CommandReceived"]: an extra predicate
+        # that only matches something from before the command was dispatched is exactly the
+        # "genuinely mis-ordered" case the time bound on extra events exists to reject.
+        self.pipeline.dispatch_complete_order = "complete_first"
+        with self.assertRaises(AssertionError):
+            self.api.send_and_assert_command(
+                "apiTester.TEST_CMD_1", events=["CommandReceived"], timeout=1
+            )
+        self.api.clear_histories()
 
     def test_translate_telemetry_name(self):
         assert self.api.translate_telemetry_name("apiTester.CommandCounter") == 1
