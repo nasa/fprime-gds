@@ -4,6 +4,8 @@
  * Copyright 2011-2020 Twitter, Inc.
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
  */
+
+ /* Default lightmode UI colors */
 :root {
   --breakpoint-xs: 0;
   --breakpoint-sm: 576px;
@@ -26,8 +28,6 @@
   --white: #fff;
   --gray: #6c757d;
   --gray-dark: #343a40;
-
-  /* Lightmode Colors */
 
   --primary: #fc7d09;
   --secondary: #11172f;
@@ -91,8 +91,8 @@
   --charts-navbar-icons-hover: #000;
 }
 
+/* Darkmode UI colors */
 .fprime-darkmode {
-   /* Darkmode Colors */
   --primary: #0080E1;
   --secondary: #7B7B7B;
   --success: #138F00;
