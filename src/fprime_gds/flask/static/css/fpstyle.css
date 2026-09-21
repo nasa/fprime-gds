@@ -5,59 +5,124 @@
  * Events, and  Channels based on severity. These colors should define two pairs, the color, and a .table-hover hover
  * color for use in hover-tables.
  */
- .table-bordered th, .table-bordered td {
-    border: 1px solid rgba(0, 0, 0, 0.125) !important;
+
+/* Default lightmode UI colors */
+:root {
+    --table-border-color: rgba(0, 0, 0, 0.125);
+    --table-hover-text: black;
+
+    --fatal-text: #000000;
+    --fatal-bkg: rgba(251,128,114, 1);
+    --fatal-table-hover-bkg: rgba(251,128,114, 0.7);
+
+    --warn-hi-text: #000000;
+    --warn-hi-bkg: rgba(242,142,44, 1);
+    --warn-hi-table-hover-bkg: rgba(242,142,44, 0.7);
+
+    --warn-lo-text: #000000;
+    --warn-lo-bkg: rgba(237,201,73, 1);
+    --warn-lo-table-hover-bkg: rgba(237,201,73, 0.7);
+
+    --act-hi-text: #000000;
+    --act-hi-bkg: rgba(128,177,211, 1);
+    --act-hi-table-hover-bkg: rgba(128,177,211, 0.7);
+
+    --act-lo-text: #000000;
+    --act-lo-bkg: rgba(186,176,171, 1);
+    --act-lo-table-hover-bkg: rgba(186,176,171, 0.7);
+
+    --command-text: #000000;
+    --command-bkg: rgba(127,201,127, 1);
+    --command-table-hover-bkg: rgba(127,201,127, 0.7);
+
+    --fp-color-logging: #f0fff0;
+}
+
+/* Darkmode UI colors */
+.fpstyle-darkmode {
+    --table-border-color: rgba(255, 255, 255, 0.125);
+    --table-hover-text: white;
+
+    --fatal-text: #FFB6B6;
+    --fatal-bkg: #5E0100;
+    --fatal-table-hover-bkg: #890200;
+
+    --warn-hi-text: #FFC6A3;
+    --warn-hi-bkg: #6E3B0C;
+    --warn-hi-table-hover-bkg: #9F4D00;
+
+    --warn-lo-text: #C8C6A3;
+    --warn-lo-bkg: #665300;
+    --warn-lo-table-hover-bkg: #C09300;
+
+    --act-hi-text: #B3FFF6;
+    --act-hi-bkg: #12403C;
+    --act-hi-table-hover-bkg: #03756B;
+
+    --act-lo-text: #E4B6EF;
+    --act-lo-bkg: #3B363D;
+    --act-lo-table-hover-bkg: #6A5F6D;
+
+    --command-text: #B5FF7D;
+    --command-bkg: #3E5200;
+    --command-table-hover-bkg: #608509;
+
+    --fp-color-logging: #212721;
+}
+
+.table-bordered th, .table-bordered td {
+    border: 1px solid var(--table-border-color) !important;
 }
 .fp-color-fatal {
-    color: #000000;
-    background-color: rgba(251,128,114, 1);
+    color: var(--fatal-text);
+    background-color: var(--fatal-bkg);
 }
 .table-hover .fp-color-fatal:hover {
-    color: #000000;
-    background-color: rgba(251,128,114, 0.7);
+    color: var(--table-hover-text);
+    background-color: var(--fatal-table-hover-bkg);
 }
 .fp-color-warn-hi {
-    color: #000000;
-    background-color: rgba(242,142,44, 1);
+    color: var(--warn-hi-text);
+    background-color: var(--warn-hi-bkg);
 }
 .table-hover .fp-color-warn-hi:hover {
-    color: #000000;
-    background-color: rgb(242,142,44, 0.8);
+    color: var(--table-hover-text);
+    background-color: var(--warn-hi-table-hover-bkg);
 }
 .fp-color-warn-lo {
-    color: #000000;
-    background-color: rgba(237,201,73, 1);
+    color: var(--warn-lo-text);
+    background-color: var(--warn-lo-bkg);
 }
 .table-hover .fp-color-warn-lo:hover {
-    color: #000000;
-    background-color: rgba(237,201,73, 0.7);
+    color: black;
+    background-color: var(--warn-lo-table-hover-bkg);
 }
 .fp-color-act-hi {
-    color: #000000;
-    background-color: rgba(128,177,211, 1);
+    color: var(--act-hi-text);
+    background-color: var(--act-hi-bkg);
 }
 .table-hover .fp-color-act-hi:hover {
-    color: #000000;
-    background-color: rgba(128,177,211, 0.7);
+    color: var(--table-hover-text);
+    background-color: var(--act-hi-table-hover-bkg);
 }
 .fp-color-act-lo {
-    color: #000000;
-    background-color: rgba(186,176,171, 1);
+    color: var(--act-lo-text);
+    background-color: var(--act-lo-bkg);
 }
 .table-hover .fp-color-act-lo:hover {
-    color: #000000;
-    background-color: rgba(186,176,171, 0.7);
+    color: var(--table-hover-text);
+    background-color: var(--act-lo-table-hover-bkg);
 }
 .fp-color-command {
-    color: #000000;
-    background-color: rgba(127,201,127, 1);
+    color: var(--command-text);
+    background-color: var(--command-bkg);
 }
 .table-hover .fp-color-command:hover {
-    color: #000000;
-    background-color: rgba(127,201,127, 0.7);
+    color: var(--table-hover-text);
+    background-color: var(--command-table-hover-bkg);
 }
 .fp-color-logging {
-    background-color: #f0fff0;
+    background-color: var(--fp-color-logging);
 }
 /**
  * Filter the orb image when there is no data flow.
