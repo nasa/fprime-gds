@@ -398,9 +398,12 @@ class ConfigDrivenParser(ParserBase):
         )
         config_options = ns_config.config_values.get("command-line-options", {})
         # Configuration files may be shared between tools; drop options unsupported by this tool
-        supported_flags = {
+        argument_specs = CompositeParser(parser_classes, description).get_arguments()
+        supported_flags = {flag for flags in argument_specs for flag in flags}
+        extend_flags = {
             flag
-            for flags in CompositeParser(parser_classes, description).get_arguments()
+            for flags, spec in argument_specs.items()
+            if spec.get("action") in ("extend", "append")
             for flag in flags
         }
         unsupported = [
@@ -414,7 +417,7 @@ class ConfigDrivenParser(ParserBase):
                 file=sys.stderr,
             )
             del config_options[option]
-        config_args = ConfigDrivenParser.flatten_options(config_options)
+        config_args = ConfigDrivenParser.flatten_options(config_options, extend_flags)
 
         # Argparse allows repeated (overridden) arguments, thus the CLI override is accomplished by providing
         # remaining arguments after the configured ones
@@ -431,17 +434,26 @@ class ConfigDrivenParser(ParserBase):
         return ns_final, parser, remaining
 
     @staticmethod
-    def flatten_options(configured_options):
-        """Flatten options down to arguments"""
+    def flatten_options(configured_options, extend_flags=frozenset()):
+        """Flatten options down to arguments
+
+        Options whose flag is in extend_flags (extend/append actions) are emitted as one "--flag=value" per
+        item so values beginning with "-" are not mistaken for flags by argparse.
+        """
         flattened = []
         if configured_options is None:
             return flattened
         for option, value in configured_options.items():
-            flattened.append(f"--{option}")
-            if value is not None:
-                flattened.extend(
-                    value if isinstance(value, (list, tuple)) else [f"{value}"]
-                )
+            values = (
+                []
+                if value is None
+                else [f"{item}" for item in value] if isinstance(value, (list, tuple)) else [f"{value}"]
+            )
+            if f"--{option}" in extend_flags:
+                flattened.extend(f"--{option}={item}" for item in values)
+            else:
+                flattened.append(f"--{option}")
+                flattened.extend(values)
         return flattened
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -1381,8 +1393,11 @@ class BinaryDeployment(DetectionParser):
                 ("--application-arguments",): {
                     "dest": "application_arguments",
                     "nargs": "*",
+                    "action": "extend",
                     "default": None,
-                    "help": "Arguments to pass to the application binary, replacing the default -p/-a arguments.",
+                    "help": "Arguments to pass to the application binary, replacing the default -p/-a arguments. "
+                    "Arguments starting with '-' must use the '--application-arguments=-x' form; a list in the "
+                    "configuration file is passed through as-is.",
                 },
             },
         }
