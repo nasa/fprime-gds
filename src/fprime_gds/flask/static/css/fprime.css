@@ -3247,25 +3247,25 @@ input[type="button"].btn-block {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  height: 45px;
+  height: 30px;
   width: fit-content;
-  padding: .25em;
+  padding: .15em .3em;
   color: white;
   background-color: #131313;
   border: 1px solid white;
-  border-radius: 25px; 
-  margin-right: 2rem;
+  border-radius: 15px;
+  margin-left: .75rem;
 }
 
 .navbar-darkmode-label {
   display: inline-block;
-  font-size: 1.5rem; }
+  font-size: 1rem; }
 
 .navbar-darkmode-switch {
   position: relative;
   display: inline-block;
-  width: 60px;
-  height: 34px; 
+  width: 42px;
+  height: 24px;
   margin: 0px;
   padding: 1px 0px;
 }
@@ -3284,17 +3284,17 @@ input[type="button"].btn-block {
   bottom: 0;
   background-color: #4f4f4f;
   border: 1px solid white;
-  border-radius: 34px;
+  border-radius: 24px;
   -webkit-transition: .4s;
   transition: .4s; }
 
 .navbar-darkmode-slider:before {
   position: absolute;
   content: "";
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 2px;
   background-color: white;
   border-radius: 50%;
   -webkit-transition: .4s;
@@ -3307,9 +3307,9 @@ input:focus + .navbar-darkmode-slider {
   box-shadow: 0 0 1px #2196F3; }
 
 input:checked + .navbar-darkmode-slider:before {
-  -webkit-transform: translateX(26px);
-  -ms-transform: translateX(26px);
-  transform: translateX(26px); }
+  -webkit-transform: translateX(18px);
+  -ms-transform: translateX(18px);
+  transform: translateX(18px); }
 
 /* END Darkmode Switch */
 
