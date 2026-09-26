@@ -177,7 +177,7 @@ def parse_arguments():
     args = parser.parse_args()
 
     # Validate arguments
-    if args.name is not None and not re.match("[a-zA-Z_][a-zA-Z_0-9]*"):
+    if args.name is not None and not re.fullmatch("[a-zA-Z_][a-zA-Z_0-9]*", args.name):
         raise ValueError(f"--name '{args.name}' is an invalid identifier")
     if not args.dictionary1.exists():
         raise ValueError(f"'{args.dictionary1}' does not exist")
