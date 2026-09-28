@@ -7,6 +7,8 @@
     ],
     "dictionarySpecVersion" : "1.0.0"
   },
+  "constants" : [
+  ],
   "typeDefinitions" : [
     {
       "kind" : "alias",

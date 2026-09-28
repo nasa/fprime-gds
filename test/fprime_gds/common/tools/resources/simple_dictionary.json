@@ -48,5 +48,15 @@
             "id" : 4353,
             "annotation" : "Multiple enumeration parameter via Array"
         }
+    ],
+    "events" : [
+    ],
+    "telemetryChannels" : [
+    ],
+    "typeDefinitions" : [
+    ],
+    "constants" : [
+    ],
+    "telemetryPacketSets" : [
     ]
 }
