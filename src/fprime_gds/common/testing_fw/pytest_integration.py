@@ -16,6 +16,7 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 """
 
 import itertools
+import os
 import sys
 from pathlib import Path
 import pytest
@@ -39,16 +40,14 @@ def pytest_addoption(parser):
     for flags, specifiers in StandardPipelineParser().get_arguments().items():
         # Reduce flags to only the long option (i.e. --something) form
         flags = [flag for flag in flags if flag.startswith("--")]
-        # Suppress "store" action defaults here so that reproduce_cli_args() (used in the
-        # fprime_test_api_session fixture below) can tell an option the user actually passed on
-        # the pytest command line apart from one left at its default; only the former should be
-        # reproduced onto the command line ConfigDrivenParser parses, otherwise these defaults
-        # take precedence over the configuration file. store_true/store_false actions are left
-        # alone since their boolean defaults already round-trip correctly through
-        # reproduce_cli_args. The "real" default (from the config file, or otherwise the
-        # underlying argparse default) is still applied later by ConfigDrivenParser itself. Any
-        # %(default)s in the help text is substituted here first, since argparse would otherwise
-        # render the suppressed "None" in `pytest --help`.
+        # Suppress "store" action defaults so reproduce_cli_args() (in the fprime_test_api_session
+        # fixture below) can distinguish an option the user passed from one left at its default;
+        # only the former is reproduced onto the command line ConfigDrivenParser parses, otherwise
+        # defaults would take precedence over the configuration file. store_true/store_false are
+        # left alone since their defaults already round-trip correctly. ConfigDrivenParser applies
+        # the real default later -- except code reading config.getoption() before that parse runs
+        # (e.g. --logs in pytest_configure() below) must supply its own fallback. Substitute
+        # %(default)s in the help text first, since argparse would otherwise render "None".
         if (
             specifiers.get("action", "store") == "store"
             and specifiers.get("default") is not None
@@ -99,12 +98,13 @@ def pytest_configure(config):
 
     This hook is called for every initial conftest file after command line options have been parsed. After that, the
     hook is called for other conftest files as they are registered.
+
+    Note: runs before ConfigDrivenParser resolves --logs from the config file, so an unset
+    --logs falls back to LogDeployParser's own default here instead.
     """
     # Create a JUnit XML report file to capture the test result in a specified location
     if config.getoption("--gen-junitxml"):
-        logs = config.getoption("--logs")
-        if not logs:
-            raise pytest.UsageError("--gen-junitxml requires --logs to be specified")
+        logs = config.getoption("--logs") or os.path.join(os.getcwd(), "logs")
         config.option.xmlpath = Path(logs) / config.getoption("--junit-xml-file")
 
 

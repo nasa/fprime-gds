@@ -344,6 +344,18 @@ class ConfigDrivenParser(ParserBase):
         cls._DEFAULT_CONFIGURATION_EXPLICIT = True
 
     @classmethod
+    def _env_configuration_path(cls):
+        """Path from DEFAULT_CONFIGURATION_PATH_ENV, or None if unset/empty/overridden
+
+        Shared by get_default_configuration() and handle_arguments() so both agree on whether
+        set_default_configuration() has overridden the environment variable.
+        """
+        if cls._DEFAULT_CONFIGURATION_EXPLICIT:
+            return None
+        env_path = os.environ.get(cls.DEFAULT_CONFIGURATION_PATH_ENV)
+        return Path(env_path) if env_path else None
+
+    @classmethod
     def get_default_configuration(cls):
         """Get path for (global) default configuration file
 
@@ -351,10 +363,7 @@ class ConfigDrivenParser(ParserBase):
         (DEFAULT_CONFIGURATION_PATH_ENV) overrides DEFAULT_CONFIGURATION_PATH. An empty value is treated the same as
         unset. If unset, will use 'fprime-gds.yml'.
         """
-        env_path = os.environ.get(cls.DEFAULT_CONFIGURATION_PATH_ENV)
-        if not cls._DEFAULT_CONFIGURATION_EXPLICIT and env_path:
-            return Path(env_path)
-        return cls.DEFAULT_CONFIGURATION_PATH
+        return cls._env_configuration_path() or cls.DEFAULT_CONFIGURATION_PATH
 
     @classmethod
     def parse_args(
@@ -513,13 +522,13 @@ class ConfigDrivenParser(ParserBase):
         must exist, otherwise ValueError is raised; the implicit 'fprime-gds.yml' default is skipped when absent.
         """
         args.config_values = {}
-        # Determine whether a configuration file was explicitly requested (as opposed to
-        # falling back to a default)
+        # Was a configuration file explicitly requested, vs. falling back to a default?
+        # See _env_configuration_path() for why the env var is checked through that helper.
         arguments = kwargs.get("arguments", sys.argv[1:])
         explicitly_configured = (
             "-c" in arguments
             or "--config" in arguments
-            or bool(os.environ.get(self.DEFAULT_CONFIGURATION_PATH_ENV))
+            or self._env_configuration_path() is not None
         )
         # Specified but non-existent config file is a hard error
         if explicitly_configured and not args.config.exists():

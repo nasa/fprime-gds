@@ -7,7 +7,6 @@ import os
 import sys
 import copy
 import functools
-import pathlib
 import webbrowser
 
 from fprime_gds.executables.cli import (
@@ -172,7 +171,11 @@ def launch_app(parsed_args, connection=None):
     if parsed_args.application_arguments is not None:
         app_cmd = [app_path.absolute()] + parsed_args.application_arguments
     else:
-        address, port = connection if connection is not None else (parsed_args.address, parsed_args.port)
+        address, port = (
+            connection
+            if connection is not None
+            else (parsed_args.address, parsed_args.port)
+        )
         app_cmd = [app_path.absolute(), "-p", str(port), "-a", address]
     return launch_process(
         app_cmd,

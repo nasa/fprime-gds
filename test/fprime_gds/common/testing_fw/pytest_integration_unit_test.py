@@ -35,9 +35,9 @@ def _parse_pytest_args(args):
 class TestPytestIntegrationConfigPrecedence(unittest.TestCase):
     def test_defaulted_option_is_filled_in_from_config_file(self):
         """A pytest option left at its default should be overridden by the configuration file"""
-        namespace = _parse_pytest_args(["--logs", "/tmp/logs"])
-
         with tempfile.TemporaryDirectory() as tmp_dir:
+            namespace = _parse_pytest_args(["--logs", str(Path(tmp_dir) / "logs")])
+
             config_path = Path(tmp_dir) / "fprime-gds.yml"
             config_path.write_text("command-line-options:\n  tts-port: 60000\n")
 
@@ -54,11 +54,11 @@ class TestPytestIntegrationConfigPrecedence(unittest.TestCase):
 
     def test_explicit_pytest_flag_wins_over_config_file(self):
         """An option given explicitly on the pytest command line must not be overridden by the file"""
-        namespace = _parse_pytest_args(
-            ["--logs", "/tmp/logs", "--tts-addr", "10.0.0.5"]
-        )
-
         with tempfile.TemporaryDirectory() as tmp_dir:
+            namespace = _parse_pytest_args(
+                ["--logs", str(Path(tmp_dir) / "logs"), "--tts-addr", "10.0.0.5"]
+            )
+
             config_path = Path(tmp_dir) / "fprime-gds.yml"
             config_path.write_text(
                 "command-line-options:\n  tts-port: 60000\n  tts-addr: 10.0.0.9\n"
