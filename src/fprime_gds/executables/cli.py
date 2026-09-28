@@ -335,12 +335,14 @@ class ConfigDrivenParser(ParserBase):
 
     @classmethod
     def set_default_configuration(cls, path: Path):
+    _DEFAULT_CONFIGURATION_EXPLICIT = False
+
+    @classmethod
+    def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
 
         Set the path for default configuration file. If unset, will use 'fprime-gds.yml'. Set to None to disable default
-        configuration. Calling this function disables the environment variable override for the remainder of this
-        process (the override is tracked as in-process class state, not via the environment, so it is not visible to
-        and does not affect any child processes).
+        configuration. Calling this function disables the environment variable override.
         """
         cls.DEFAULT_CONFIGURATION_PATH = path
         cls._DEFAULT_CONFIGURATION_EXPLICIT = True
@@ -349,13 +351,15 @@ class ConfigDrivenParser(ParserBase):
     def get_default_configuration(cls):
         """Get path for (global) default configuration file
 
-        If set (and set_default_configuration() has not been called), the environment variable
-        (DEFAULT_CONFIGURATION_PATH_ENV) overrides DEFAULT_CONFIGURATION_PATH. An empty value is treated the same as
-        unset. If unset, will use 'fprime-gds.yml'.
+        If set, the environment variable (DEFAULT_CONFIGURATION_PATH_ENV) overrides
+        DEFAULT_CONFIGURATION_PATH unless set_default_configuration() has been called. If unset,
+        will use 'fprime-gds.yml'.
         """
-        env_path = os.environ.get(cls.DEFAULT_CONFIGURATION_PATH_ENV)
-        if not cls._DEFAULT_CONFIGURATION_EXPLICIT and env_path:
-            return Path(env_path)
+        if (
+            not cls._DEFAULT_CONFIGURATION_EXPLICIT
+            and cls.DEFAULT_CONFIGURATION_PATH_ENV in os.environ
+        ):
+            return Path(os.environ[cls.DEFAULT_CONFIGURATION_PATH_ENV])
         return cls.DEFAULT_CONFIGURATION_PATH
 
     @classmethod
