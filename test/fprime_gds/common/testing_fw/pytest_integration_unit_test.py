@@ -76,6 +76,26 @@ class TestPytestIntegrationConfigPrecedence(unittest.TestCase):
         self.assertEqual(arg_ns.tts_addr, "10.0.0.5")
         self.assertEqual(arg_ns.tts_port, 60000)
 
+    def test_help_text_reports_real_default_despite_suppression(self):
+        """Suppressing the pytest-side default must not leak "None" into `pytest --help`"""
+        real_default = next(
+            specifiers["default"]
+            for flags, specifiers in StandardPipelineParser().get_arguments().items()
+            if "--tts-port" in flags
+        )
+
+        parser = Parser(_ispytest=True)
+        pytest_addoption(parser)
+        option = next(
+            option
+            for option in parser._anonymous.options
+            if "--tts-port" in option.names()
+        )
+
+        self.assertIsNone(option.attrs().get("default"))
+        self.assertNotIn("%(default)s", option.attrs()["help"])
+        self.assertIn(str(real_default), option.attrs()["help"])
+
 
 if __name__ == "__main__":
     unittest.main()

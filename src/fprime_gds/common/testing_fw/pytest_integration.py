@@ -46,12 +46,18 @@ def pytest_addoption(parser):
         # take precedence over the configuration file. store_true/store_false actions are left
         # alone since their boolean defaults already round-trip correctly through
         # reproduce_cli_args. The "real" default (from the config file, or otherwise the
-        # underlying argparse default) is still applied later by ConfigDrivenParser itself.
+        # underlying argparse default) is still applied later by ConfigDrivenParser itself. Any
+        # %(default)s in the help text is substituted here first, since argparse would otherwise
+        # render the suppressed "None" in `pytest --help`.
         if (
             specifiers.get("action", "store") == "store"
             and specifiers.get("default") is not None
         ):
+            real_default = specifiers["default"]
+            help_text = specifiers.get("help")
             specifiers = {**specifiers, "default": None}
+            if help_text:
+                specifiers["help"] = help_text.replace("%(default)s", str(real_default))
         parser.addoption(*flags, **specifiers)
 
     # Add an option to specify JUnit XML report file

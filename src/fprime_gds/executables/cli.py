@@ -335,10 +335,6 @@ class ConfigDrivenParser(ParserBase):
 
     @classmethod
     def set_default_configuration(cls, path: Path):
-    _DEFAULT_CONFIGURATION_EXPLICIT = False
-
-    @classmethod
-    def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
 
         Set the path for default configuration file. If unset, will use 'fprime-gds.yml'. Set to None to disable default
@@ -351,15 +347,13 @@ class ConfigDrivenParser(ParserBase):
     def get_default_configuration(cls):
         """Get path for (global) default configuration file
 
-        If set, the environment variable (DEFAULT_CONFIGURATION_PATH_ENV) overrides
-        DEFAULT_CONFIGURATION_PATH unless set_default_configuration() has been called. If unset,
-        will use 'fprime-gds.yml'.
+        If set (and set_default_configuration() has not been called), the environment variable
+        (DEFAULT_CONFIGURATION_PATH_ENV) overrides DEFAULT_CONFIGURATION_PATH. An empty value is treated the same as
+        unset. If unset, will use 'fprime-gds.yml'.
         """
-        if (
-            not cls._DEFAULT_CONFIGURATION_EXPLICIT
-            and cls.DEFAULT_CONFIGURATION_PATH_ENV in os.environ
-        ):
-            return Path(os.environ[cls.DEFAULT_CONFIGURATION_PATH_ENV])
+        env_path = os.environ.get(cls.DEFAULT_CONFIGURATION_PATH_ENV)
+        if not cls._DEFAULT_CONFIGURATION_EXPLICIT and env_path:
+            return Path(env_path)
         return cls.DEFAULT_CONFIGURATION_PATH
 
     @classmethod
@@ -482,7 +476,11 @@ class ConfigDrivenParser(ParserBase):
             values = (
                 []
                 if value is None
-                else [f"{item}" for item in value] if isinstance(value, (list, tuple)) else [f"{value}"]
+                else (
+                    [f"{item}" for item in value]
+                    if isinstance(value, (list, tuple))
+                    else [f"{value}"]
+                )
             )
             if f"--{option}" in extend_flags:
                 flattened.extend(f"--{option}={item}" for item in values)
@@ -511,7 +509,8 @@ class ConfigDrivenParser(ParserBase):
         """Handle the arguments
 
         Loads the configuration file specified and fills in the `config_values` attribute of the namespace with the
-        loaded configuration dictionary.
+        loaded configuration dictionary. A file selected explicitly (via -c/--config or DEFAULT_CONFIGURATION_PATH_ENV)
+        must exist, otherwise ValueError is raised; the implicit 'fprime-gds.yml' default is skipped when absent.
         """
         args.config_values = {}
         # Determine whether a configuration file was explicitly requested (as opposed to
