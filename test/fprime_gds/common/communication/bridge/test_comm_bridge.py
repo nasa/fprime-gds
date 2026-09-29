@@ -319,12 +319,12 @@ def raw_bridge_setup():
     yield from tcp_bridge(["--framing-selection", "raw-space-data-link"])
 
 
-def make_tm_frame_with_field(field, mc_count=0):
-    """Build a CRC-valid TM frame on the raw-space-data-link default VCID, its data field starting a Space Packet (FHP = 0)"""
+def make_tm_frame_with_field(field, count=0, first_header_pointer=0):
+    """Build a CRC-valid TM frame on the raw-space-data-link default VCID carrying `field` with the given FHP"""
     assert len(field) == TM_FRAME_SIZE - 6 - 2
     global_vcid = ((TM_SCID & 0x3FF) << 4) | ((TM_VCID & 0x7) << 1)
-    data_field_status = 0x3 << 11
-    body = struct.pack(">HBBH", global_vcid, mc_count, mc_count, data_field_status) + field
+    data_field_status = (0x3 << 11) | (first_header_pointer & 0x7FF)
+    body = struct.pack(">HBBH", global_vcid, count, count, data_field_status) + field
     return body + struct.pack(">H", SpaceDataLinkFramerDeframer.CCITT_CRC_FUNCTION(body))
 
 
@@ -385,6 +385,20 @@ class TestRawSpacePacketBridgeFlow:
         idle = space_packet(SPACE_PACKET_IDLE_APID, b"\x00" * (field_size - len(first) - len(second) - 6))
         peer.sendall(make_tm_frame_with_field(first + second + idle))
         assert [tm_socket.recvfrom(65507)[0] for _ in range(2)] == [first, second]
+        TestBridgeFlow.assert_no_more_datagrams(tm_socket)
+
+    def test_packet_spanning_frames_reassembled(self, raw_bridge_setup):
+        """A Space Packet split across two TM frames must be reassembled and emitted once, complete"""
+        peer, tm_socket, _, _, _ = raw_bridge_setup
+        field_size = TM_FRAME_SIZE - 6 - 2
+        spanning = space_packet(3, bytes(range(field_size + 4)))
+        tail = spanning[field_size:]
+        idle = space_packet(SPACE_PACKET_IDLE_APID, b"\x00" * (field_size - len(tail) - 6))
+        peer.sendall(make_tm_frame_with_field(spanning[:field_size], count=0, first_header_pointer=0))
+        time.sleep(0.1)
+        TestBridgeFlow.assert_no_more_datagrams(tm_socket)
+        peer.sendall(make_tm_frame_with_field(tail + idle, count=1, first_header_pointer=len(tail)))
+        assert tm_socket.recvfrom(65507)[0] == spanning
         TestBridgeFlow.assert_no_more_datagrams(tm_socket)
 
     def test_space_packet_uplinked_in_tc_frame(self, raw_bridge_setup):
