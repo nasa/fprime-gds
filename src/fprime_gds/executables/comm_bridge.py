@@ -5,7 +5,9 @@ communication adapter plugin: TCP, UART, etc.) and a ground system exchanging pa
 datagrams (YAMCS, OpenC3 COSMOS, ...). A single stage of framing/deframing (an F Prime GDS
 framing plugin) sits between the two sides. The ground side is the `udp-fast` communication
 adapter, configured through its own `--udp-fast-*` options: packets are sent to
-`--udp-fast-address`:`--udp-fast-send-port` and received on `--udp-fast-recv-port`.
+`--udp-fast-address`:`--udp-fast-send-port` and received on
+`--udp-fast-bind-address`:`--udp-fast-recv-port` from the peer, loopback, and
+`--udp-fast-allowed-source` hosts.
 
 By default the endpoint side is a `tcp-fast-server` on port 50000 (the F Prime GDS default
 the `Ref` deployment's Drv.TcpClient connects to) and the framing stage is the
@@ -89,6 +91,19 @@ def main():
             "system link) and cannot also be selected for the F Prime side.",
             GROUND_ADAPTER.get_name(),
             GROUND_ADAPTER.get_name(),
+        )
+        return 1
+    registered = {
+        plugin.get_name(): plugin.plugin_class
+        for plugin in Plugins.system().get_plugins("communication")
+    }
+    provider = registered.get(GROUND_ADAPTER.get_name())
+    if provider is not GROUND_ADAPTER:
+        LOGGER.error(
+            "The '%s' communication plugin is provided by %s instead of fprime-gds; the bridge's ground side "
+            "requires the built-in adapter. Remove the conflicting plugin.",
+            GROUND_ADAPTER.get_name(),
+            "no plugin" if provider is None else provider.__module__,
         )
         return 1
     if (

@@ -32,6 +32,7 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
     """UDP adapter: one datagram per read and per write, no threads, source-filtered receive"""
 
     MAXIMUM_DATA_SIZE = 65535
+    MAXIMUM_WARNED_SOURCES = 32
     READ_TIMEOUT = 0.050
     RECONNECT_INTERVAL = 1.0
     DEFAULT_ADDRESS = "127.0.0.1"
@@ -136,11 +137,23 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
             self.drop(recv_socket, f"receive failed: {error}")
             return b""
         if source[0] not in self.allowed_sources:
-            if source[0] not in self.warned_sources:
-                self.warned_sources.add(source[0])
-                LOGGER.warning("%s dropping datagrams from unexpected source %s", self, source[0])
+            self.warn_source(source[0])
             return b""
         return datagram
+
+    def warn_source(self, source):
+        """Warn once per unexpected source, then once more when the remembered sources reach the cap"""
+        if source in self.warned_sources or len(self.warned_sources) > self.MAXIMUM_WARNED_SOURCES:
+            return
+        self.warned_sources.add(source)
+        if len(self.warned_sources) > self.MAXIMUM_WARNED_SOURCES:
+            LOGGER.warning(
+                "%s dropping datagrams from more than %d unexpected sources; further sources are not reported",
+                self,
+                self.MAXIMUM_WARNED_SOURCES,
+            )
+        else:
+            LOGGER.warning("%s dropping datagrams from unexpected source %s", self, source)
 
     def write(self, frame) -> bool:
         """Send the whole frame as one datagram to the peer

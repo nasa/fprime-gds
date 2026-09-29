@@ -339,6 +339,20 @@ def test_duplicate_plugin_name_first_registered_wins(plugins, caplog):
     assert len(warnings) == 1 and "Ignoring framing plugin 'no-op'" in warnings[0]
 
 
+def test_duplicate_plugin_name_entry_point_order(monkeypatch, caplog):
+    """A same-named plugin registered before the built-ins (env-module/entry-point order) wins; warned once per instance"""
+    monkeypatch.setenv(Plugins.PLUGIN_ENVIRONMENT_VARIABLE, f"{ShadowingNoOp.__module__}:ShadowingNoOp")
+    with caplog.at_level("WARNING", logger="fprime_gds.plugin.system"):
+        system = Plugins(["framing"])
+        framings = system.get_plugins("framing")
+        system.get_plugins("framing")
+    names = [plugin.get_name() for plugin in framings]
+    assert len(names) == len(set(names))
+    assert [plugin.plugin_class for plugin in framings if plugin.get_name() == "no-op"] == [ShadowingNoOp]
+    warnings = [record.getMessage() for record in caplog.records if "no-op" in record.getMessage()]
+    assert len(warnings) == 1 and NoOpFramerDeframer.__module__ in warnings[0]
+
+
 def test_base_plugin(plugins):
     """Tests good framing plugins are returned"""
     plugin_options = plugins.get_plugins("framing")

@@ -461,9 +461,10 @@ class TestGroundAdapter:
 class StubAdapter:
     """Minimal communication adapter stub for unit-testing the bridge loops"""
 
-    def __init__(self, reads=None, fail=False):
+    def __init__(self, reads=None, fail=False, refuse_writes=False):
         self.reads = list(reads or [])
         self.fail = fail
+        self.refuse_writes = refuse_writes
         self.written = []
 
     def open(self):
@@ -479,7 +480,7 @@ class StubAdapter:
 
     def write(self, data):
         self.written.append(data)
-        return True
+        return not self.refuse_writes
 
 
 class WithholdingFramer(NoOpFramerDeframer):
@@ -570,6 +571,23 @@ class TestBridgeRobustness:
         assert flight.written == [b"ok"]
         assert not failed.is_set()
         assert any("cannot be framed" in record.getMessage() for record in caplog.records)
+
+    def test_refused_ground_write_warned_once_per_outage(self, caplog):
+        """A ground adapter refusing writes yields one warning per outage; the pump keeps running"""
+        failed = threading.Event()
+        flight = StubAdapter(reads=[b"down-1", b"down-2", b"down-3"])
+        ground = StubAdapter(refuse_writes=True)
+        bridge = PacketBridge(flight, NoOpFramerDeframer(), ground, failure_handler=failed.set)
+        with caplog.at_level(logging.WARNING, logger="fprime_gds.common.communication.bridge.bridge"):
+            bridge.start()
+            end = time.time() + TIMEOUT
+            while time.time() < end and len(ground.written) < 3:
+                time.sleep(0.05)
+            bridge.stop()
+        assert ground.written == [b"down-1", b"down-2", b"down-3"]
+        assert not failed.is_set()
+        warnings = [record.getMessage() for record in caplog.records if "Failed to write" in record.getMessage()]
+        assert warnings == ["Failed to write 6 bytes to the ground adapter; further failures are not reported until a write succeeds"]
 
     def test_ground_closed_when_flight_open_fails(self):
         """start() must release the ground adapter when the flight adapter cannot be opened"""

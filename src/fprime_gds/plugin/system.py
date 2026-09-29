@@ -59,6 +59,7 @@ class Plugins(object):
         self.metadata = copy.deepcopy(self.get_plugin_metadata())
         categories = self.get_all_categories() if categories is None else categories
         self.categories = categories
+        self.shadowed_plugins_warned = set()
         self.manager = pluggy.PluginManager(PROJECT_NAME)
 
         # Load hook specifications from only the configured categories
@@ -122,13 +123,16 @@ class Plugins(object):
         for plugin in reversed(plugins):
             name = plugin.get_name()
             if name in kept:
-                LOGGER.warning(
-                    "Ignoring %s plugin '%s' from %s: already registered by %s",
-                    category,
-                    name,
-                    plugin.get_implementor().__module__,
-                    kept[name].get_implementor().__module__,
-                )
+                shadowed = (category, name, plugin.get_implementor())
+                if shadowed not in self.shadowed_plugins_warned:
+                    self.shadowed_plugins_warned.add(shadowed)
+                    LOGGER.warning(
+                        "Ignoring %s plugin '%s' from %s: already registered by %s",
+                        category,
+                        name,
+                        plugin.get_implementor().__module__,
+                        kept[name].get_implementor().__module__,
+                    )
                 continue
             kept[name] = plugin
         return [plugin for plugin in plugins if kept[plugin.get_name()] is plugin]

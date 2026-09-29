@@ -80,6 +80,12 @@ Unframed downlink data that never resynchronises is discarded once it exceeds ~6
 warning at the start of each such outage. With `no-op` framing over a stream adapter (TCP, UART)
 packet boundaries are not preserved: each `read()` chunk becomes one datagram.
 
+`udp-fast` is also an ordinary communication adapter plugin (`fprime-gds --communication-selection udp-fast`,
+`fprime-cli`, ...) for datagram-oriented flight links. Unlike `udp`, it reads the socket directly in the
+caller's thread (no receive thread or queue), returns exactly one datagram per read, binds its receive
+port to `--udp-fast-bind-address` (`127.0.0.1` by default rather than all interfaces), and drops datagrams
+from sources other than `--udp-fast-address`, loopback, and `--udp-fast-allowed-source` hosts.
+
 The bridge's integration tests (`test/fprime_gds/common/communication/bridge/test_comm_bridge.py`) use
 `socat` to emulate a UART endpoint; without it those tests are skipped.
 

@@ -29,6 +29,7 @@ LOGGER = logging.getLogger(__name__)
 # CCSDS Space Packet primary header size and the idle packet APID (CCSDS 133.0-B-2)
 SPACE_PACKET_HEADER_SIZE = SpaceDataLinkFramerDeframer.SPACE_PACKET_HEADER_SIZE
 SPACE_PACKET_IDLE_APID = SpacePacketFramerDeframer.IDLE_APID
+SPACE_PACKET_APID_MASK = 0x07FF
 
 # Maximum size of a UDP payload; the ground side emits one packet per datagram
 MAXIMUM_DATAGRAM_SIZE = 65507
@@ -55,7 +56,7 @@ def split_space_packets(data: bytes) -> Tuple[List[bytes], bytes]:
         end = offset + SPACE_PACKET_HEADER_SIZE + length + 1
         if end > len(data):
             break
-        if (identification & SPACE_PACKET_IDLE_APID) != SPACE_PACKET_IDLE_APID:
+        if (identification & SPACE_PACKET_APID_MASK) != SPACE_PACKET_IDLE_APID:
             packets.append(data[offset:end])
         offset = end
     return packets, data[offset:]
@@ -80,6 +81,7 @@ class PacketBridge:
         self.ground = ground
         self.splitter = splitter
         self.failure_handler = failure_handler
+        self.write_failed = set()
         self.running = True
         self.downlink_thread = threading.Thread(
             target=self.downlink_loop, name="DownlinkThread", daemon=True
@@ -147,11 +149,22 @@ class PacketBridge:
                     discarded_total = 0
                 for packet in packets:
                     for unit in self.split(packet):
-                        if not self.ground.write(unit):
-                            LOGGER.warning("Failed to write %d bytes to the ground adapter", len(unit))
+                        self.write_or_warn(self.ground, "ground", unit)
         except Exception as error:
             self.report_failure("Downlink", error)
         LOGGER.debug("Downlink loop exited")
+
+    def write_or_warn(self, adapter, side, data):
+        """Write to an adapter, warning once per outage (until a write succeeds again) when it refuses the data"""
+        if adapter.write(data):
+            self.write_failed.discard(side)
+        elif side not in self.write_failed:
+            self.write_failed.add(side)
+            LOGGER.warning(
+                "Failed to write %d bytes to the %s adapter; further failures are not reported until a write succeeds",
+                len(data),
+                side,
+            )
 
     def split(self, packet) -> List[bytes]:
         """Split a deframed unit into the packets emitted to the ground side"""
@@ -178,10 +191,7 @@ class PacketBridge:
                         error,
                     )
                     continue
-                if not self.flight.write(framed):
-                    LOGGER.warning(
-                        "Failed to write %d bytes to flight adapter", len(framed)
-                    )
+                self.write_or_warn(self.flight, "flight", framed)
         except Exception as error:
             self.report_failure("Uplink", error)
         LOGGER.debug("Uplink loop exited")

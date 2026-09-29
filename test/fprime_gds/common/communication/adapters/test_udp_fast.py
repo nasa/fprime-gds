@@ -125,6 +125,20 @@ class TestPlugin:
             port = reservation.getsockname()[1]
         UdpFastAdapter.check_arguments(udp_fast_recv_port=port)
 
+    @pytest.mark.parametrize(
+        "arguments",
+        [{"udp_fast_address": "nope.invalid"}, {"udp_fast_allowed_sources": ["127.0.0.1", "nope.invalid"]}],
+    )
+    def test_check_arguments_rejects_unresolvable_host(self, arguments, monkeypatch):
+        def resolve(host):
+            if host == "nope.invalid":
+                raise socket.gaierror(socket.EAI_NONAME, "Name or service not known")
+            return host
+
+        monkeypatch.setattr(socket, "gethostbyname", resolve)
+        with pytest.raises(ValueError, match="Cannot resolve nope.invalid"):
+            UdpFastAdapter.check_arguments(**arguments)
+
 
 class TestWrite:
     def test_write_is_one_datagram(self, adapter, peer):
@@ -360,3 +374,20 @@ class TestBind:
     def test_close_is_idempotent(self, adapter):
         adapter.close()
         adapter.close()
+
+
+class TestSourceWarningCap:
+    def test_unexpected_source_warnings_capped(self, caplog):
+        """One warning per unexpected source, then a single suppression notice; the remembered set stays bounded"""
+        adapter = UdpFastAdapter()
+        cap = UdpFastAdapter.MAXIMUM_WARNED_SOURCES
+        with caplog.at_level(logging.WARNING, logger="udp_fast_adapter"):
+            for index in range(cap + 10):
+                source = f"10.0.{index // 256}.{index % 256}"
+                adapter.warn_source(source)
+                adapter.warn_source(source)
+        messages = [record.getMessage() for record in caplog.records]
+        assert len(messages) == cap + 1
+        assert all("unexpected source 10.0." in message for message in messages[:cap])
+        assert f"more than {cap} unexpected sources" in messages[-1]
+        assert len(adapter.warned_sources) == cap + 1
