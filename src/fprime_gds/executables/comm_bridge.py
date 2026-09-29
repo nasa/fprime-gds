@@ -27,7 +27,7 @@ from typing import Any, Dict
 import fprime_gds.common.communication.adapters.udp_fast
 import fprime_gds.executables.cli
 from fprime_gds.common.communication.bridge import DEFAULT_COMMUNICATION, DEFAULT_FRAMING
-from fprime_gds.common.communication.bridge.bridge import PacketBridge, split_space_packets
+from fprime_gds.common.communication.bridge.bridge import PacketBridge
 from fprime_gds.plugin.system import Plugins
 
 LOGGER = logging.getLogger("comm_bridge")
@@ -36,9 +36,6 @@ LOGGER = logging.getLogger("comm_bridge")
 # no-op framing cannot reliably preserve packet boundaries
 STREAM_ADAPTERS = {"uart", "ip", "tcp-fast-server", "tcp-fast-client"}
 
-
-# Framing selection whose deframed units are concatenated Space Packets, split before emission
-SPACE_PACKET_FRAMING = "raw-space-data-link"
 
 # Communication adapter plugin used for the ground-system side of the bridge
 GROUND_ADAPTER = fprime_gds.common.communication.adapters.udp_fast.UdpFastAdapter
@@ -134,7 +131,6 @@ def main():
         LOGGER.error("Invalid '%s' ground adapter options: %s", GROUND_ADAPTER.get_name(), error)
         return 1
     ground = GROUND_ADAPTER(**ground_arguments)
-    splitter = split_space_packets if args.framing_selection == SPACE_PACKET_FRAMING else None
     LOGGER.info(
         "Bridging '%s' adapter and '%s' ground adapter using '%s' framing",
         args.communication_selection,
@@ -150,7 +146,7 @@ def main():
         failure_event.set()
         shutdown_event.set()
 
-    bridge = PacketBridge(flight, framer, ground, splitter=splitter, failure_handler=fail)
+    bridge = PacketBridge(flight, framer, ground, failure_handler=fail)
 
     def shutdown(*_):
         """Shutdown handler for signals"""
