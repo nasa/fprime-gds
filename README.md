@@ -152,6 +152,32 @@ as well as configuration from the FSW JSON dictionary. It can be controlled via
 the `set_*` methods, but it is recommended to use the `DictionaryParser` class
 to automatically load FSW dictionary data into the config manager.
 
+### Framing Plugins
+Framing plugins (`--framing-selection`) frame uplink data and deframe downlink
+bytes into packets in `fprime_gds.common.communication`. The CCSDS plugins in
+`fprime_gds.common.communication.ccsds` are chains of single-purpose stages
+(`ChainedFramerDeframer`); deframing runs the stages from the link inward:
+
+| Plugin | Deframing stages (outermost first) | Deframed element |
+|---|---|---|
+| `fprime` | F Prime framing | F Prime packet |
+| `raw-space-packet` | Space Packet splitter, Space Packet header strip | Space Packet payload |
+| `raw-space-data-link` | TM Space Data Link, Space Packet splitter | whole Space Packet (header included) |
+| `space-packet-space-data-link` | TM Space Data Link, Space Packet splitter, Space Packet header strip | Space Packet payload |
+| `space-packet-sdls-space-data-link` | TM Space Data Link, SDLS cleartext, Space Packet splitter, Space Packet header strip | Space Packet payload |
+| `space-packet-splitter` | Space Packet splitter | whole Space Packet (header included) |
+| `raw-sdls-cleartext` | SDLS cleartext | cleartext payload |
+| `tm-frame-aggregator` | TM frame aggregation | whole TM frame |
+
+The Space Packet splitter (`space_packet_splitter.py`) is the single home of
+Space Packet chopping: it yields exactly one whole non-idle Space Packet per
+deframed element, drops idle packets (APID 0x7FF), resynchronizes on bytes that
+cannot start a valid header, and holds a partial packet until the rest of a byte
+stream arrives. The Space Packet header strip (`space_packet.py`) then expects
+exactly one whole packet, removes the primary header, and checks the sequence
+count. Uplink framing runs the stages in the reverse order; the splitter passes
+uplink data through unchanged.
+
 ## Modify GDS Structure
 To setup the structure of the GDS, instances of the above classes are first
 created. Then, they are registered to one another by calling the data producer's

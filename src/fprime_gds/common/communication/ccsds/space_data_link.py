@@ -1,4 +1,9 @@
-"""F Prime Framer/Deframer Implementation of the CCSDS Space Data Link (TC/TM) Protocols"""
+"""F Prime Framer/Deframer Implementation of the CCSDS Space Data Link (TC/TM) Protocols
+
+TM deframing emits the complete Space Packets of a frame concatenated, idle packets included. The
+"raw-space-data-link" plugin in `fprime_gds.common.communication.ccsds.chain` chains this class with
+`SpacePacketSplitterFramerDeframer` to yield one whole non-idle Space Packet per deframed element.
+"""
 
 import sys
 import struct
@@ -6,7 +11,6 @@ import copy
 
 from fprime_gds.common.utils.config_manager import ConfigBadTypeException, ConfigManager
 from fprime_gds.common.communication.framing import FramerDeframer
-from fprime_gds.plugin.definitions import gds_plugin_implementation
 
 import crcmod
 
@@ -321,14 +325,3 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
 
         if frame_size is not None and frame_size < 0:
             raise TypeError(f"TM Fixed Frame size {frame_size} is negative")
-
-    @classmethod
-    def get_name(cls):
-        """Name of this implementation provided to CLI"""
-        return "raw-space-data-link"
-
-    @classmethod
-    @gds_plugin_implementation
-    def register_framing_plugin(cls):
-        """Register the MyPlugin plugin"""
-        return cls
