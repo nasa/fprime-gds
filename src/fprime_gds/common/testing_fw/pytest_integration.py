@@ -1,4 +1,4 @@
-""" pytest_integration.py: F´ fixture API fixture
+"""pytest_integration.py: F´ fixture API fixture
 
 pytest uses fixtures to provide for extra functionality when writing tests. This fixture sets up the F´ stack allowing
 our tests to use a configured test API without needing to create any specific setup to use that API. i.e. write a test
@@ -14,19 +14,21 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 
 @author lestarch
 """
+
 import itertools
+import os
 import sys
 from pathlib import Path
 import pytest
 
 from fprime_gds.common.testing_fw.api import IntegrationTestAPI
-from fprime_gds.executables.cli import StandardPipelineParser
+from fprime_gds.executables.cli import StandardPipelineParser, ConfigDrivenParser
 
 SEQUENCE_COUNTER = itertools.count()
 
 
 def pytest_addoption(parser):
-    """ Add fprime-gds options to the pytest parser
+    """Add fprime-gds options to the pytest parser
 
     Pytest allows users to add options to its parser. These options act very similar to argparse options and thus can be
     reused from the standard GDS command line processing. Note: pytest restricts the use of short flags (-[a-z]) thus we
@@ -38,8 +40,25 @@ def pytest_addoption(parser):
     for flags, specifiers in StandardPipelineParser().get_arguments().items():
         # Reduce flags to only the long option (i.e. --something) form
         flags = [flag for flag in flags if flag.startswith("--")]
+        # Suppress "store" action defaults so reproduce_cli_args() (in the fprime_test_api_session
+        # fixture below) can distinguish an option the user passed from one left at its default;
+        # only the former is reproduced onto the command line ConfigDrivenParser parses, otherwise
+        # defaults would take precedence over the configuration file. store_true/store_false are
+        # left alone since their defaults already round-trip correctly. ConfigDrivenParser applies
+        # the real default later -- except code reading config.getoption() before that parse runs
+        # (e.g. --logs in pytest_configure() below) must supply its own fallback. Substitute
+        # %(default)s in the help text first, since argparse would otherwise render "None".
+        if (
+            specifiers.get("action", "store") == "store"
+            and specifiers.get("default") is not None
+        ):
+            real_default = specifiers["default"]
+            help_text = specifiers.get("help")
+            specifiers = {**specifiers, "default": None}
+            if help_text:
+                specifiers["help"] = help_text.replace("%(default)s", str(real_default))
         parser.addoption(*flags, **specifiers)
-        
+
     # Add an option to specify JUnit XML report file
     parser.addoption(
         "--junit-xml-file",
@@ -51,7 +70,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--gen-junitxml",
         action="store_true",
-        help="Enable JUnitXML report generation to a specified location"
+        help="Enable JUnitXML report generation to a specified location",
     )
     # Add an option to specify a json config file that maps components
     parser.addoption(
@@ -64,35 +83,41 @@ def pytest_addoption(parser):
     parser.addoption(
         "--use-yamcs",
         action="store_true",
-        help="Use YAMCS transport instead of TCP socket"
+        help="Use YAMCS transport instead of TCP socket",
     )
     parser.addoption(
         "--yamcs-url",
         action="store",
         default="http://localhost:8090",
-        help="YAMCS server URL [default: %(default)s]"
+        help="YAMCS server URL [default: %(default)s]",
     )
 
+
 def pytest_configure(config):
-    """ This is a hook to allow plugins and conftest files to perform initial configuration
-    
-    This hook is called for every initial conftest file after command line options have been parsed. After that, the 
+    """This is a hook to allow plugins and conftest files to perform initial configuration
+
+    This hook is called for every initial conftest file after command line options have been parsed. After that, the
     hook is called for other conftest files as they are registered.
+
+    Note: runs before ConfigDrivenParser resolves --logs from the config file, so an unset
+    --logs falls back to LogDeployParser's own default here instead.
     """
     # Create a JUnit XML report file to capture the test result in a specified location
     if config.getoption("--gen-junitxml"):
-        logs = config.getoption("--logs")
-        if not logs:
-            raise pytest.UsageError("--gen-junitxml requires --logs to be specified")
+        logs = config.getoption("--logs") or os.path.join(os.getcwd(), "logs")
         config.option.xmlpath = Path(logs) / config.getoption("--junit-xml-file")
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def fprime_test_api_session(request):
-    """ Create a session-level fprime test API
+    """Create a session-level fprime test API
 
     This is a pytest session fixture. Using the options added above, this will parse the necessary options for
-    connecting the standard pipeline to the running GDS. This pipeline is supplied to the fprime test API returned as
-    the result of this fixture. This has several implications:
+    connecting the standard pipeline to the running GDS. Options not given on the pytest command line are read from
+    the fprime-gds configuration file ($FPRIME_GDS_CONFIG_PATH, else ./fprime-gds.yml), as `fprime-gds` does; the
+    plugin exposes no --config flag, so the file is selected only through that variable or the working directory.
+    This pipeline is supplied to the fprime test API returned as the result of this fixture. This has several
+    implications:
       1. APIs all use one connection to the GDS
       2. APIs and the connections are live across the whole pytest session. See fprime_test_api.
 
@@ -106,11 +131,25 @@ def fprime_test_api_session(request):
         fprime test API connected to the GDS.  Note: a second call will shut down that object.
     """
     pipeline_parser = StandardPipelineParser()
+
+    # Use the ConfigDrivenParser to retrieve default configuration from a file (so that pytest
+    # behavior matches fprime-gds CLI behavior). ConfigDrivenParser.parse_known_args() can NOT
+    # be called with arguments=None here, as that defaults to sys.argv[1:] which is pytest's own
+    # command line (e.g. -v, --color=yes) and not fprime-gds options. Instead, reproduce only the
+    # standard-pipeline flags that pytest actually parsed (i.e. those given a value on the pytest
+    # command line, since pytest_addoption() above suppresses their argparse defaults), and let
+    # ConfigDrivenParser fill in the rest from the configuration file.
+    reproduced_args = pipeline_parser.reproduce_cli_args(
+        request.config.known_args_namespace
+    )
+    arg_ns, _, _ = ConfigDrivenParser.parse_known_args(
+        [StandardPipelineParser], arguments=reproduced_args, client=True
+    )
+
     pipeline = None
     api = None
     deployment_config = None
     try:
-        arg_ns = pipeline_parser.handle_arguments(request.config.known_args_namespace, client=True)
 
         if request.config.getoption("--use-yamcs"):
             try:
@@ -154,9 +193,9 @@ def fprime_test_api_session(request):
             print(f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def fprime_test_api(fprime_test_api_session, request):
-    """ Provide a per-testcase fixture
+    """Provide a per-testcase fixture
 
     Although the test API should exist across all testcases and thus be created at the "session" level, individual test
     cases need a clean test API that has logged the testcases has started. Thus, the session API is refined into a

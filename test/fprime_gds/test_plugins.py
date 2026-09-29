@@ -279,6 +279,10 @@ def start_up(request):
     environment = os.environ.copy()
     environment[Plugins.PLUGIN_ENVIRONMENT_VARIABLE] = extra_plugins
     environment["PYTHONPATH"] = f"{environment.get('PYTHONPATH', '')}:{parent_path}"
+    # Prevent ConfigDrivenParser from picking up an ambient fprime-gds.yml (e.g. from a real
+    # user's working directory or FPRIME_GDS_CONFIG_PATH), which would override the explicit
+    # command-line arguments this test relies on.
+    environment.pop("FPRIME_GDS_CONFIG_PATH", None)
     with TemporaryDirectory() as temp_dir:
         # Command line arguments including a temporary directory for the ZMQ transport
         # sockets used in this test.
