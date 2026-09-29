@@ -238,6 +238,7 @@ class Plugins(object):
                 TcpFastClientAdapter,
                 TcpFastServerAdapter,
             )
+            from fprime_gds.common.communication.adapters.udp_fast import UdpFastAdapter
             from fprime_gds.executables.apps import CustomDataHandlers
 
             try:
@@ -271,6 +272,7 @@ class Plugins(object):
                             UdpAdapter,
                             TcpFastServerAdapter,
                             TcpFastClientAdapter,
+                            UdpFastAdapter,
                             SerialAdapter,
                         ]
                         if adapter is not None

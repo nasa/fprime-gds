@@ -22,10 +22,10 @@ import pytest
 
 from fprime_gds.common.communication.framing import FpFramerDeframer
 from fprime_gds.executables.cli import DictionaryParser
-from fprime_gds.executables.comm_bridge import OptionalDictionaryParser
-from fprime_gds.common.communication.bridge.bridge import MAXIMUM_PENDING_SIZE, UdpBridge
+from fprime_gds.executables.comm_bridge import GROUND_ADAPTER, OptionalDictionaryParser, ground_adapter_arguments
+from fprime_gds.common.communication.adapters.udp_fast import UdpFastAdapter
+from fprime_gds.common.communication.bridge.bridge import MAXIMUM_PENDING_SIZE, PacketBridge
 from fprime_gds.common.communication.bridge.framing import NoOpFramerDeframer
-from fprime_gds.common.communication.bridge.udp import UdpLinks
 
 SOCAT = shutil.which("socat")
 TIMEOUT = 10.0
@@ -118,9 +118,9 @@ def start_bridge(uart_device: Path, tm_port: int, tc_port: int, framing: str):
             "--uart-skip-port-check",
             "--framing-selection",
             framing,
-            "--tm-port",
+            "--udp-fast-send-port",
             str(tm_port),
-            "--tc-port",
+            "--udp-fast-recv-port",
             str(tc_port),
         ],
         stderr=subprocess.PIPE,
@@ -283,6 +283,13 @@ def unused_tcp_port():
         return reservation.getsockname()[1]
 
 
+def unused_udp_port():
+    """Reserve a UDP port number"""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        return reservation.getsockname()[1]
+
+
 @pytest.fixture
 def tcp_bridge_setup(unused_udp_ports):
     """Run the bridge with its default adapter/framing (tcp-fast-server, tm-frame-aggregator)"""
@@ -304,9 +311,9 @@ def tcp_bridge_setup(unused_udp_ports):
             str(TM_FRAME_SIZE),
             "--scid",
             str(TM_SCID),
-            "--tm-port",
+            "--udp-fast-send-port",
             str(tm_port),
-            "--tc-port",
+            "--udp-fast-recv-port",
             str(tc_port),
         ],
         stderr=subprocess.PIPE,
@@ -373,28 +380,33 @@ class TestDefaultTcpBridgeFlow:
         assert received == command
 
 
-class TestUdpLinksSources:
-    """Unit tests for TC source resolution and filtering"""
+class TestGroundAdapter:
+    """Unit tests for the ground-side adapter selection and its argument extraction"""
 
-    def test_hostnames_resolved(self):
-        """Configured hostnames must resolve to numeric addresses"""
-        udp = UdpLinks("localhost", 50000, "127.0.0.1", 50001, ["localhost"])
-        assert "127.0.0.1" in udp.allowed_sources
-        assert all("localhost" != source for source in udp.allowed_sources)
+    def test_ground_adapter_is_udp_fast(self):
+        assert GROUND_ADAPTER is UdpFastAdapter
 
-    def test_extra_source_accepted(self):
-        """A datagram from a --tc-allowed-source address must be accepted"""
-        udp = UdpLinks("127.0.0.1", 50000, "127.0.0.1", 0, ["127.0.0.2"])
-        udp.open()
-        try:
-            tc_port = udp.tc_socket.getsockname()[1]
-            sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sender.bind(("127.0.0.2", 0))
-            sender.sendto(b"extra-source-command", ("127.0.0.1", tc_port))
-            sender.close()
-            assert udp.receive() == b"extra-source-command"
-        finally:
-            udp.close()
+    def test_arguments_extracted_from_plugin_options(self):
+        """Every plugin option is forwarded to the constructor under its destination name"""
+        args = Namespace(
+            udp_fast_address="10.0.0.5",
+            udp_fast_send_port=61000,
+            udp_fast_recv_port=61001,
+            udp_fast_bind_address="0.0.0.0",
+            udp_fast_allowed_sources=["10.0.0.6"],
+            unrelated="ignored",
+        )
+        extracted = ground_adapter_arguments(args)
+        assert extracted == {
+            "udp_fast_address": "10.0.0.5",
+            "udp_fast_send_port": 61000,
+            "udp_fast_recv_port": 61001,
+            "udp_fast_bind_address": "0.0.0.0",
+            "udp_fast_allowed_sources": ["10.0.0.6"],
+        }
+        adapter = UdpFastAdapter(**extracted)
+        assert adapter.destination == ("10.0.0.5", 61000)
+        assert adapter.extra_sources == ["10.0.0.6"]
 
 
 class StubAdapter:
@@ -421,26 +433,6 @@ class StubAdapter:
         return True
 
 
-class StubUdp:
-    """Minimal UdpLinks stub for unit-testing the bridge loops"""
-
-    def __init__(self):
-        self.sent = []
-
-    def open(self):
-        pass
-
-    def close(self):
-        pass
-
-    def send(self, packet):
-        self.sent.append(packet)
-        return True
-
-    def receive(self):
-        return None
-
-
 class WithholdingFramer(NoOpFramerDeframer):
     """Framer stub that never yields packets, leaving all input pending"""
 
@@ -454,10 +446,10 @@ class TestBridgeRobustness:
     def test_failure_handler_fires_on_loop_exception(self):
         """An abnormal pump-thread exit must invoke the failure handler"""
         failed = threading.Event()
-        bridge = UdpBridge(
+        bridge = PacketBridge(
             StubAdapter(fail=True),
             NoOpFramerDeframer(),
-            StubUdp(),
+            StubAdapter(),
             failure_handler=failed.set,
         )
         bridge.start()
@@ -468,8 +460,8 @@ class TestBridgeRobustness:
         """Undeframable pending data must be dropped once it exceeds the cap"""
         chunk = b"x" * (MAXIMUM_PENDING_SIZE // 2)
         adapter = StubAdapter(reads=[chunk, chunk, chunk, b"final"])
-        udp = StubUdp()
-        bridge = UdpBridge(adapter, WithholdingFramer(), udp)
+        ground = StubAdapter()
+        bridge = PacketBridge(adapter, WithholdingFramer(), ground)
         with caplog.at_level(logging.WARNING, logger="fprime_gds.common.communication.bridge.bridge"):
             bridge.start()
             end = time.time() + TIMEOUT
@@ -477,23 +469,54 @@ class TestBridgeRobustness:
                 time.sleep(0.05)
             bridge.stop()
         assert not adapter.reads, "Bridge stalled instead of dropping pending data"
-        assert udp.sent == []
+        assert ground.written == []
         assert "Dropping" in caplog.text
+
+    def test_packets_flow_both_ways_through_stubs(self):
+        """Deframed packets reach the ground adapter; ground packets are framed and written to the flight adapter"""
+        flight = StubAdapter(reads=[b"down-1", b"down-2"])
+        ground = StubAdapter(reads=[b"up-1"])
+        bridge = PacketBridge(flight, NoOpFramerDeframer(), ground)
+        bridge.start()
+        end = time.time() + TIMEOUT
+        while time.time() < end and (len(ground.written) < 2 or len(flight.written) < 1):
+            time.sleep(0.05)
+        bridge.stop()
+        assert ground.written == [b"down-1", b"down-2"]
+        assert flight.written == [b"up-1"]
 
 
 class TestCliValidation:
     """Tests for CLI argument validation failure paths"""
 
-    @pytest.mark.parametrize("flag,value", [("--tm-port", "0"), ("--tc-port", "70000")])
+    @pytest.mark.parametrize("flag,value", [("--udp-fast-send-port", "0"), ("--udp-fast-recv-port", "70000")])
     def test_invalid_port_rejected(self, flag, value):
         result = subprocess.run(
-            [sys.executable, "-m", "fprime_gds.executables.comm_bridge", "--tcp-fast-port", str(unused_tcp_port()), flag, value],
+            [
+                sys.executable, "-m", "fprime_gds.executables.comm_bridge", "--tcp-fast-port", str(unused_tcp_port()),
+                "--frame-size", str(TM_FRAME_SIZE), "--scid", str(TM_SCID), flag, value,
+            ],
             capture_output=True,
             text=True,
             timeout=TIMEOUT * 3,
         )
         assert result.returncode != 0
-        assert "Invalid UDP port" in result.stderr
+        assert "Invalid 'udp-fast' ground adapter options" in result.stderr
+        assert "not in the range 1-65535" in result.stderr
+
+    def test_ground_adapter_as_flight_selection_rejected(self):
+        """udp-fast is reserved for the ground side; selecting it for the F Prime side is an error"""
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "fprime_gds.executables.comm_bridge", "--communication-selection", "udp-fast",
+                "--udp-fast-recv-port", str(unused_udp_port()), "--frame-size", str(TM_FRAME_SIZE), "--scid", str(TM_SCID),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT * 3,
+        )
+        assert result.returncode != 0
+        assert "cannot also be selected for the F Prime side" in result.stderr
 
     def test_missing_dictionary_rejected(self, tmp_path):
         result = subprocess.run(
@@ -530,14 +553,3 @@ class TestCliValidation:
         args = Namespace(**{"dictionary": None, "deployment": None, **supplied})
         assert OptionalDictionaryParser().handle_arguments(args) is args
         assert bool(calls) == loads
-
-    def test_unresolvable_host_rejected(self, monkeypatch):
-        """Host resolution failures must surface as OSError (main exits 1 on it)"""
-
-        def fail_resolution(_):
-            raise socket.gaierror("resolution failed")
-
-        # Patched to avoid live DNS egress from the test suite
-        monkeypatch.setattr(socket, "gethostbyname", fail_resolution)
-        with pytest.raises(OSError):
-            UdpLinks("no-such-host.invalid", 50000, "127.0.0.1", 50001)

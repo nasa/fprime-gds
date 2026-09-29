@@ -3,7 +3,9 @@
 fprime-comm-bridge bridges an F Prime endpoint (reached through an F Prime GDS
 communication adapter plugin: TCP, UART, etc.) and a ground system exchanging packets as UDP
 datagrams (YAMCS, OpenC3 COSMOS, ...). A single stage of framing/deframing (an F Prime GDS
-framing plugin) sits between the two sides.
+framing plugin) sits between the two sides. The ground side is the `udp-fast` communication
+adapter, configured through its own `--udp-fast-*` options: packets are sent to
+`--udp-fast-address`:`--udp-fast-send-port` and received on `--udp-fast-recv-port`.
 
 By default the endpoint side is a `tcp-fast-server` on port 50000 (the F Prime GDS default
 the `Ref` deployment's Drv.TcpClient connects to) and the framing stage is the
@@ -18,16 +20,16 @@ import logging
 import signal
 import sys
 import threading
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 # Required adapters built on standard tools
 import fprime_gds.common.communication.adapters.base
 import fprime_gds.common.communication.adapters.ip
 import fprime_gds.common.communication.adapters.tcp_fast
+import fprime_gds.common.communication.adapters.udp_fast
 import fprime_gds.executables.cli
 from fprime_gds.common.communication.bridge import DEFAULT_COMMUNICATION, DEFAULT_FRAMING
-from fprime_gds.common.communication.bridge.bridge import UdpBridge
-from fprime_gds.common.communication.bridge.udp import UdpLinks
+from fprime_gds.common.communication.bridge.bridge import PacketBridge
 from fprime_gds.plugin.system import Plugins
 
 # Uses non-standard PIP package pyserial, so test the waters before getting a hard-import crash
@@ -43,54 +45,16 @@ LOGGER = logging.getLogger(__name__)
 STREAM_ADAPTERS = {"uart", "ip", "tcp-fast-server", "tcp-fast-client"}
 
 
-class UdpLinksParser(fprime_gds.executables.cli.ParserBase):
-    """Parser for the ground system UDP intake/outlet options"""
+# Communication adapter plugin used for the ground-system side of the bridge
+GROUND_ADAPTER = fprime_gds.common.communication.adapters.udp_fast.UdpFastAdapter
 
-    DESCRIPTION = "UDP Link Options"
 
-    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """Arguments for the UDP side of the bridge"""
-        return {
-            ("--tm-host",): {
-                "dest": "tm_host",
-                "type": str,
-                "default": "127.0.0.1",
-                "help": "Host of the ground system UDP telemetry intake to send packets to.",
-            },
-            ("--tm-port",): {
-                "dest": "tm_port",
-                "type": int,
-                "default": 50000,
-                "help": "Port of the ground system UDP telemetry intake to send packets to.",
-            },
-            ("--tc-host",): {
-                "dest": "tc_host",
-                "type": str,
-                "default": "127.0.0.1",
-                "help": "Local address to bind for receiving ground system UDP command packets.",
-            },
-            ("--tc-port",): {
-                "dest": "tc_port",
-                "type": int,
-                "default": 50001,
-                "help": "Local port to bind for receiving ground system UDP command packets.",
-            },
-            ("--tc-allowed-source",): {
-                "dest": "tc_sources",
-                "type": str,
-                "action": "append",
-                "default": None,
-                "help": "Additional source address allowed to send command packets "
-                "(repeatable). The TM host and loopback are always allowed.",
-            },
-        }
-
-    def handle_arguments(self, args, **kwargs):
-        """Validate the UDP link arguments"""
-        for port in (args.tm_port, args.tc_port):
-            if not 0 < port <= 65535:
-                raise ValueError(f"Invalid UDP port: {port}")
-        return args
+def ground_adapter_arguments(args) -> Dict[str, Any]:
+    """Constructor arguments of the ground-side adapter, read from its plugin options in the parsed namespace"""
+    return {
+        specification["dest"]: getattr(args, specification["dest"])
+        for specification in GROUND_ADAPTER.get_arguments().values()
+    }
 
 
 class OptionalDictionaryParser(fprime_gds.executables.cli.DictionaryParser):
@@ -119,11 +83,19 @@ def main():
     # fprime-comm-bridge supports 2 and only 2 plugin categories
     Plugins.system(["communication", "framing"])
     args, _ = fprime_gds.executables.cli.ParserBase.parse_args(
-        [OptionalDictionaryParser, UdpLinksParser, BridgePluginArgumentParser],
+        [OptionalDictionaryParser, BridgePluginArgumentParser],
         description="F Prime communication adapter to UDP packet bridge.",
     )
     if args.communication_selection == "none":
         LOGGER.error("Comm adapter set to 'none'. Nothing to do but exit.")
+        return 1
+    if args.communication_selection == GROUND_ADAPTER.get_name():
+        LOGGER.error(
+            "'%s' is the bridge's ground-side adapter (its --%s-* options configure the ground "
+            "system link) and cannot also be selected for the F Prime side.",
+            GROUND_ADAPTER.get_name(),
+            GROUND_ADAPTER.get_name(),
+        )
         return 1
     if (
         args.framing_selection == "no-op"
@@ -140,22 +112,23 @@ def main():
             args.communication_selection,
         )
 
-    adapter = Plugins.system().get_selected_class("communication")()
+    flight = Plugins.system().get_selected_class("communication")()
     try:
         framer = Plugins.system().get_selected_class("framing")()
     except (TypeError, ValueError) as error:
         LOGGER.error("Failed to configure '%s' framing: %s", args.framing_selection, error)
         return 1
+    ground_arguments = ground_adapter_arguments(args)
     try:
-        udp = UdpLinks(
-            args.tm_host, args.tm_port, args.tc_host, args.tc_port, args.tc_sources
-        )
-    except OSError as error:
-        LOGGER.error("Failed to resolve UDP hosts: %s", error)
+        GROUND_ADAPTER.check_arguments(**ground_arguments)
+    except ValueError as error:
+        LOGGER.error("Invalid '%s' ground adapter options: %s", GROUND_ADAPTER.get_name(), error)
         return 1
+    ground = GROUND_ADAPTER(**ground_arguments)
     LOGGER.info(
-        "Bridging '%s' adapter and UDP links using '%s' framing",
+        "Bridging '%s' adapter and '%s' ground adapter using '%s' framing",
         args.communication_selection,
+        GROUND_ADAPTER.get_name(),
         args.framing_selection,
     )
 
@@ -167,7 +140,7 @@ def main():
         failure_event.set()
         shutdown_event.set()
 
-    bridge = UdpBridge(adapter, framer, udp, failure_handler=fail)
+    bridge = PacketBridge(flight, framer, ground, failure_handler=fail)
 
     def shutdown(*_):
         """Shutdown handler for signals"""

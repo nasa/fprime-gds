@@ -1,13 +1,12 @@
-"""fprime_gds.common.communication.bridge.bridge: bidirectional data pump between an endpoint and UDP links
+"""fprime_gds.common.communication.bridge.bridge: bidirectional data pump between two communication adapters
 
 Runs two threads:
 
-1. Downlink: reads bytes from the F Prime communication adapter (UART, IP, etc.), deframes
-   them with the configured framer/deframer plugin, and pushes each resulting packet as a
-   UDP datagram to the ground system's telemetry intake.
-2. Uplink: receives UDP datagrams from the ground system's command outlet, frames each
-   datagram with the configured framer/deframer plugin, and writes the result to the
-   communication adapter.
+1. Downlink: reads bytes from the flight-side communication adapter (UART, TCP, etc.), deframes
+   them with the configured framer/deframer plugin, and writes each resulting packet to the
+   ground-side adapter (one datagram per packet over `udp-fast`).
+2. Uplink: reads packets from the ground-side adapter, frames each one with the configured
+   framer/deframer plugin, and writes the result to the flight-side adapter.
 
 With the no-op framer/deframer, data passes through unmodified in both directions.
 """
@@ -15,9 +14,10 @@ With the no-op framer/deframer, data passes through unmodified in both direction
 import logging
 import threading
 
-from fprime_gds.common.communication.bridge.udp import MAXIMUM_DATAGRAM_SIZE
-
 LOGGER = logging.getLogger(__name__)
+
+# Maximum size of a UDP payload; the ground side emits one packet per datagram
+MAXIMUM_DATAGRAM_SIZE = 65507
 
 # Cap on buffered unframed downlink data before it is discarded
 MAXIMUM_PENDING_SIZE = 10 * MAXIMUM_DATAGRAM_SIZE
@@ -26,21 +26,21 @@ MAXIMUM_PENDING_SIZE = 10 * MAXIMUM_DATAGRAM_SIZE
 STOP_JOIN_TIMEOUT = 5.0
 
 
-class UdpBridge:
-    """Bidirectional bridge between a communication adapter and ground system UDP links"""
+class PacketBridge:
+    """Bidirectional bridge between a flight-side and a ground-side communication adapter"""
 
-    def __init__(self, adapter, framer, udp, failure_handler=None):
+    def __init__(self, flight, framer, ground, failure_handler=None):
         """Initialize the bridge
 
         Args:
-            adapter: BaseAdapter instance for the F Prime endpoint side
+            flight: BaseAdapter instance for the F Prime endpoint side
             framer: FramerDeframer instance used for one stage of framing/deframing
-            udp: UdpLinks instance for the ground system side
+            ground: BaseAdapter instance for the ground system side; each read returns one packet
             failure_handler: callable invoked when a pump thread exits abnormally
         """
-        self.adapter = adapter
+        self.flight = flight
         self.framer = framer
-        self.udp = udp
+        self.ground = ground
         self.failure_handler = failure_handler
         self.running = True
         self.downlink_thread = threading.Thread(
@@ -51,20 +51,20 @@ class UdpBridge:
         )
 
     def start(self):
-        """Open resources and start both data pump threads"""
-        self.udp.open()
-        self.adapter.open()
+        """Open both adapters and start the data pump threads"""
+        self.ground.open()
+        self.flight.open()
         self.downlink_thread.start()
         self.uplink_thread.start()
         LOGGER.info("Bridge up: downlink and uplink pumps running")
 
     def stop(self):
-        """Stop the data pump threads and release resources"""
+        """Stop the data pump threads and release both adapters"""
         self.running = False
         self.downlink_thread.join(timeout=STOP_JOIN_TIMEOUT)
         self.uplink_thread.join(timeout=STOP_JOIN_TIMEOUT)
-        self.adapter.close()
-        self.udp.close()
+        self.flight.close()
+        self.ground.close()
 
     def report_failure(self, direction, error):
         """Report the abnormal exit of a pump thread"""
@@ -73,11 +73,11 @@ class UdpBridge:
             self.failure_handler()
 
     def downlink_loop(self):
-        """Read from the adapter, deframe, and push packets to the UDP telemetry intake"""
+        """Read from the flight adapter, deframe, and write packets to the ground adapter"""
         try:
             pending = b""
             while self.running:
-                data = self.adapter.read()
+                data = self.flight.read()
                 if not data:
                     continue
                 pending += data
@@ -95,22 +95,22 @@ class UdpBridge:
                         "Discarded %d bytes of unframed data", len(discarded)
                     )
                 for packet in packets:
-                    self.udp.send(packet)
+                    self.ground.write(packet)
         except Exception as error:
             self.report_failure("Downlink", error)
         LOGGER.debug("Downlink loop exited")
 
     def uplink_loop(self):
-        """Receive datagrams from the UDP command outlet, frame, and write to the adapter"""
+        """Read packets from the ground adapter, frame, and write to the flight adapter"""
         try:
             while self.running:
-                datagram = self.udp.receive()
-                if datagram is None:
+                packet = self.ground.read()
+                if not packet:
                     continue
-                framed = self.framer.frame(datagram)
-                if not self.adapter.write(framed):
+                framed = self.framer.frame(packet)
+                if not self.flight.write(framed):
                     LOGGER.warning(
-                        "Failed to write %d bytes to adapter", len(framed)
+                        "Failed to write %d bytes to flight adapter", len(framed)
                     )
         except Exception as error:
             self.report_failure("Uplink", error)

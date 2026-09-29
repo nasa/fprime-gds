@@ -49,11 +49,13 @@ The Integration Test API is a tool that provides the ability to write integratio
 `fprime-comm-bridge` bridges bidirectional communication between an F´ endpoint, reached through a
 GDS communication adapter plugin (`--communication-selection`: `tcp-fast-server` by default, or
 `tcp-fast-client`, `uart`, `ip`, or any installed adapter plugin), and a ground system exchanging
-packets as UDP datagrams such as YAMCS or OpenC3 COSMOS. Deframed packets are pushed one per
-datagram to the telemetry intake (`--tm-host`/`--tm-port`, default `127.0.0.1:50000`) and command
-datagrams received on a local UDP port (`--tc-host`/`--tc-port`, default `127.0.0.1:50001`) are
-framed and written to the endpoint. Command datagrams are accepted only from the TM host, loopback,
-and hosts supplied via `--tc-allowed-source`.
+packets as UDP datagrams such as YAMCS or OpenC3 COSMOS. The ground side is the `udp-fast`
+communication adapter, configured through its own options: deframed packets are sent one per
+datagram to `--udp-fast-address`:`--udp-fast-send-port` (default `127.0.0.1:50000`) and command
+datagrams received on `--udp-fast-bind-address`:`--udp-fast-recv-port` (default `127.0.0.1:50001`)
+are framed and written to the endpoint. Command datagrams are accepted only from the peer address,
+loopback, and hosts supplied via `--udp-fast-allowed-source`; `udp-fast` is therefore not available
+as the endpoint-side selection of the bridge.
 
 A single GDS framing plugin stage (`--framing-selection`) sits between the two sides. The default
 `tm-frame-aggregator` re-establishes CCSDS TM transfer frame boundaries in the endpoint byte stream
@@ -64,7 +66,7 @@ framing TC frames on uplink), `no-op` passes bytes through unchanged, and `fprim
 legacy F´ start-word/length framing.
 
 ```bash
-fprime-comm-bridge --deployment build-artifacts/Linux/Ref --tm-port 50000 --tc-port 50001
+fprime-comm-bridge --deployment build-artifacts/Linux/Ref --udp-fast-send-port 50000 --udp-fast-recv-port 50001
 fprime-comm-bridge --communication-selection uart --uart-device /dev/ttyUSB0 --uart-baud 115200 \
     --framing-selection raw-space-data-link --dictionary build-artifacts/Linux/Ref/dict/RefTopologyDictionary.json
 ```
