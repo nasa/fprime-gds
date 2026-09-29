@@ -281,6 +281,12 @@ class TestPacketsAndNamespaceAll(unittest.TestCase):
                          ("Pkts", ["DeploymentA.Sub.X", "DeploymentA.Ref.a.Y"], ["DeploymentA.Ref.a.Y"]))
         merged, _ = merge_ok(d1, d2, namespace_all=True, prefixes=["Alpha", "Beta"])
         self.assertEqual(names(merged, "telemetryChannels"), ["Alpha.Sub.X", "Alpha.Ref.a.Y", "Beta.Ref.b.Z"])
+        # a packet set named in both inputs still follows the collision rule: both copies renamed
+        d2["telemetryPacketSets"] = [packet_set("Pkts", ("Q", ["Ref.b.Z"]))]
+        merged, report = merge_ok(d1, d2, namespace_all=True)
+        self.assertEqual(names(merged, "telemetryPacketSets"), ["DeploymentA.Pkts", "DeploymentB.Pkts"])
+        self.assertEqual(merged["telemetryPacketSets"][1]["members"][0]["members"], ["DeploymentB.Ref.b.Z"])
+        self.assertEqual((count(report.warnings, W_RENAMED), count(report.warnings, W_PACKET_SETS)), (1, 1))
         # prefixes must be distinct even without a collision
         d2["metadata"]["deploymentName"] = "Other.DeploymentA"
         self.assertEqual(count(merge_fails(d1, d2, namespace_all=True), E_SAME_PREFIX), 1)

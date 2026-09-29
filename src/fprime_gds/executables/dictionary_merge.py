@@ -180,7 +180,7 @@ class Merger:
                 conflict = (f"{section} {id_key} {entry[id_key]:#x} is used by '{same_id['name']}' in "
                             f"{primary.path} and '{name}' in {secondary.path}")
                 self.drop(section, entry, conflict, f"{conflict}; '{name}' dropped in favour of '{same_id['name']}'")
-            elif held is None or self.options.namespace_all:
+            elif held is None or (id_key and self.options.namespace_all):
                 kept.append(entry)
             else:
                 conflict = (f"{section} '{name}' is in {located(0, held)} and {located(1, entry)} with different "
