@@ -24,7 +24,7 @@ from fprime_gds.common.communication.framing import FpFramerDeframer
 from fprime_gds.executables.cli import DictionaryParser
 from fprime_gds.executables.comm_bridge import GROUND_ADAPTER, OptionalDictionaryParser, ground_adapter_arguments
 from fprime_gds.common.communication.adapters.udp_fast import UdpFastAdapter
-from fprime_gds.common.communication.bridge.bridge import MAXIMUM_PENDING_SIZE, PacketBridge
+from fprime_gds.common.communication.bridge.bridge import MAXIMUM_PENDING_SIZE, PacketBridge, split_space_packets
 from fprime_gds.common.communication.bridge.framing import NoOpFramerDeframer
 
 SOCAT = shutil.which("socat")
@@ -484,6 +484,48 @@ class TestBridgeRobustness:
         bridge.stop()
         assert ground.written == [b"down-1", b"down-2"]
         assert flight.written == [b"up-1"]
+
+
+def space_packet(apid, payload):
+    """Build a CCSDS Space Packet with the given APID and payload"""
+    return struct.pack(">HHH", apid & 0x7FF, 0xC000, len(payload) - 1) + payload
+
+
+class TestSpacePacketSplitting:
+    """Unit tests for splitting concatenated Space Packets before emission"""
+
+    def test_concatenated_packets_split(self):
+        """Concatenated packets are emitted individually, idle packets are dropped"""
+        telemetry = space_packet(1, b"tlm" * 20)
+        event = space_packet(2, b"e")
+        idle = space_packet(0x7FF, b"\x00" * 50)
+        assert split_space_packets(telemetry + idle + event) == ([telemetry, event], b"")
+
+    def test_partial_trailing_packet_is_remainder(self):
+        """A trailing incomplete packet is returned as the remainder, not emitted"""
+        whole = space_packet(1, b"abc")
+        partial = space_packet(2, b"defgh")[:-2]
+        assert split_space_packets(whole + partial) == ([whole], partial)
+        assert split_space_packets(b"\x08\x01\xc0") == ([], b"\x08\x01\xc0")
+
+    def test_empty(self):
+        """No data yields no packets"""
+        assert split_space_packets(b"") == ([], b"")
+
+    def test_bridge_emits_one_packet_per_write(self, caplog):
+        """The bridge writes each split packet separately and warns about unsplittable trailing bytes"""
+        first, second = space_packet(1, b"one"), space_packet(2, b"two")
+        flight = StubAdapter(reads=[first + space_packet(0x7FF, b"pad") + second + b"\x00\x01"])
+        ground = StubAdapter()
+        bridge = PacketBridge(flight, NoOpFramerDeframer(), ground, splitter=split_space_packets)
+        with caplog.at_level(logging.WARNING, logger="fprime_gds.common.communication.bridge.bridge"):
+            bridge.start()
+            end = time.time() + TIMEOUT
+            while time.time() < end and len(ground.written) < 2:
+                time.sleep(0.05)
+            bridge.stop()
+        assert ground.written == [first, second]
+        assert "trailing bytes" in caplog.text
 
 
 class TestCliValidation:

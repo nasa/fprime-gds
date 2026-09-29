@@ -3,8 +3,9 @@
 Runs two threads:
 
 1. Downlink: reads bytes from the flight-side communication adapter (UART, TCP, etc.), deframes
-   them with the configured framer/deframer plugin, and writes each resulting packet to the
-   ground-side adapter (one datagram per packet over `udp-fast`).
+   them with the configured framer/deframer plugin, optionally splits each result into individual
+   packets (e.g. the Space Packets a TM frame deframer yields concatenated), and writes each packet
+   to the ground-side adapter (one datagram per packet over `udp-fast`).
 2. Uplink: reads packets from the ground-side adapter, frames each one with the configured
    framer/deframer plugin, and writes the result to the flight-side adapter.
 
@@ -12,9 +13,15 @@ With the no-op framer/deframer, data passes through unmodified in both direction
 """
 
 import logging
+import struct
 import threading
+from typing import List, Tuple
 
 LOGGER = logging.getLogger(__name__)
+
+# CCSDS Space Packet primary header size and the idle packet APID (CCSDS 133.0-B-2)
+SPACE_PACKET_HEADER_SIZE = 6
+SPACE_PACKET_IDLE_APID = 0x7FF
 
 # Maximum size of a UDP payload; the ground side emits one packet per datagram
 MAXIMUM_DATAGRAM_SIZE = 65507
@@ -26,21 +33,45 @@ MAXIMUM_PENDING_SIZE = 10 * MAXIMUM_DATAGRAM_SIZE
 STOP_JOIN_TIMEOUT = 5.0
 
 
+def split_space_packets(data: bytes) -> Tuple[List[bytes], bytes]:
+    """Split concatenated CCSDS Space Packets into individual packets, discarding idle packets
+
+    Args:
+        data: header-aligned concatenation of complete Space Packets
+    Return:
+        (packets, remainder) where remainder holds trailing bytes not forming a complete packet
+    """
+    packets = []
+    offset = 0
+    while len(data) - offset >= SPACE_PACKET_HEADER_SIZE:
+        identification, _, length = struct.unpack_from(">HHH", data, offset)
+        end = offset + SPACE_PACKET_HEADER_SIZE + length + 1
+        if end > len(data):
+            break
+        if (identification & SPACE_PACKET_IDLE_APID) != SPACE_PACKET_IDLE_APID:
+            packets.append(data[offset:end])
+        offset = end
+    return packets, data[offset:]
+
+
 class PacketBridge:
     """Bidirectional bridge between a flight-side and a ground-side communication adapter"""
 
-    def __init__(self, flight, framer, ground, failure_handler=None):
+    def __init__(self, flight, framer, ground, splitter=None, failure_handler=None):
         """Initialize the bridge
 
         Args:
             flight: BaseAdapter instance for the F Prime endpoint side
             framer: FramerDeframer instance used for one stage of framing/deframing
             ground: BaseAdapter instance for the ground system side; each read returns one packet
+            splitter: optional callable splitting a deframed unit into the packets to emit, returning
+                (packets, remainder) with remainder being unsplittable trailing bytes that are discarded
             failure_handler: callable invoked when a pump thread exits abnormally
         """
         self.flight = flight
         self.framer = framer
         self.ground = ground
+        self.splitter = splitter
         self.failure_handler = failure_handler
         self.running = True
         self.downlink_thread = threading.Thread(
@@ -95,10 +126,20 @@ class PacketBridge:
                         "Discarded %d bytes of unframed data", len(discarded)
                     )
                 for packet in packets:
-                    self.ground.write(packet)
+                    for unit in self.split(packet):
+                        self.ground.write(unit)
         except Exception as error:
             self.report_failure("Downlink", error)
         LOGGER.debug("Downlink loop exited")
+
+    def split(self, packet) -> List[bytes]:
+        """Split a deframed unit into the packets emitted to the ground side"""
+        if self.splitter is None:
+            return [packet]
+        units, remainder = self.splitter(packet)
+        if remainder:
+            LOGGER.warning("Discarded %d trailing bytes not forming a whole packet", len(remainder))
+        return units
 
     def uplink_loop(self):
         """Read packets from the ground adapter, frame, and write to the flight adapter"""

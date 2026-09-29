@@ -61,9 +61,10 @@ A single GDS framing plugin stage (`--framing-selection`) sits between the two s
 `tm-frame-aggregator` re-establishes CCSDS TM transfer frame boundaries in the endpoint byte stream
 (frame size and spacecraft ID from `--dictionary`/`--deployment`, or `--frame-size`/`--scid`) and
 passes uplink frames through unchanged, so the ground system performs TM/TC (de)framing itself.
-`raw-space-data-link` exposes CCSDS Space Packets instead (deframing TM frames on downlink and
-framing TC frames on uplink), `no-op` passes bytes through unchanged, and `fprime` handles the
-legacy F´ start-word/length framing.
+`raw-space-data-link` exposes CCSDS Space Packets instead: TM frames are deframed on downlink and
+the bridge emits one datagram per Space Packet (idle packets dropped), while each uplink datagram
+is one Space Packet framed into a TC frame. `no-op` passes bytes through unchanged, and `fprime`
+handles the legacy F´ start-word/length framing.
 
 ```bash
 fprime-comm-bridge --deployment build-artifacts/Linux/Ref --udp-fast-send-port 50000 --udp-fast-recv-port 50001
