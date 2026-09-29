@@ -82,6 +82,7 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
 
         :raises OSError: when the peer or an allowed source cannot be resolved
         """
+        self.close()  # a reopen must not leak the previous sockets
         self.destination = (socket.gethostbyname(self.address), self.send_port)
         self.allowed_sources = {
             socket.gethostbyname(source)

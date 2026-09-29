@@ -54,8 +54,9 @@ GROUND_ADAPTER = fprime_gds.common.communication.adapters.udp_fast.UdpFastAdapte
 
 def ground_adapter_arguments(args) -> Dict[str, Any]:
     """Constructor arguments of the ground-side adapter, read from its plugin options in the parsed namespace"""
+    values = vars(args)
     return {
-        specification["dest"]: getattr(args, specification["dest"])
+        specification["dest"]: values[specification["dest"]]
         for specification in GROUND_ADAPTER.get_arguments().values()
     }
 

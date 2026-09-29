@@ -304,6 +304,18 @@ class TestBind:
         adapter.close()
         UdpFastAdapter.receiving_socket("127.0.0.1", port).close()
 
+    def test_reopen_releases_previous_sockets(self, peer):
+        """Opening an already-open adapter closes the earlier sockets rather than leaking them"""
+        with udp_socket() as reservation:
+            port = reservation.getsockname()[1]
+        adapter = make_adapter(peer, udp_fast_recv_port=port)
+        adapter.open()
+        first_send, first_recv = adapter.send_socket, adapter.recv_socket
+        adapter.open()
+        assert first_send.fileno() == -1 and first_recv.fileno() == -1
+        assert adapter.recv_socket is not None and recv_port(adapter) == port
+        adapter.close()
+
     def test_close_is_idempotent(self, adapter):
         adapter.close()
         adapter.close()
