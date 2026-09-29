@@ -440,8 +440,57 @@ class WithholdingFramer(NoOpFramerDeframer):
         return None, data, b""
 
 
+class RejectingFramer(NoOpFramerDeframer):
+    """Framer stub that, like the CCSDS framers, raises on a packet it cannot frame"""
+
+    LIMIT = 4
+
+    def frame(self, data):
+        if len(data) > self.LIMIT:
+            raise AssertionError("Length too-large for the frame")
+        return data
+
+
+class FailingOpenAdapter(StubAdapter):
+    """Adapter stub whose open() fails"""
+
+    def open(self):
+        raise OSError("cannot open")
+
+
+class ClosableStubAdapter(StubAdapter):
+    """Adapter stub recording whether close() was called"""
+
+    def __init__(self):
+        super().__init__()
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+class DiscardingFramer(NoOpFramerDeframer):
+    """Framer stub that discards everything it is given"""
+
+    def deframe(self, data, no_copy=False):
+        return None, b"", data
+
+
 class TestBridgeRobustness:
     """Unit tests for the bridge failure and overflow handling"""
+
+    def test_discard_warning_once_per_outage(self, caplog):
+        """Continuous discarding warns once, not once per read"""
+        adapter = StubAdapter(reads=[b"junk"] * 5)
+        bridge = PacketBridge(adapter, DiscardingFramer(), StubAdapter())
+        with caplog.at_level(logging.WARNING, logger="fprime_gds.common.communication.bridge.bridge"):
+            bridge.start()
+            end = time.time() + TIMEOUT
+            while time.time() < end and adapter.reads:
+                time.sleep(0.05)
+            bridge.stop()
+        assert not adapter.reads
+        assert len([record for record in caplog.records if "Discarded" in record.getMessage()]) == 1
 
     def test_failure_handler_fires_on_loop_exception(self):
         """An abnormal pump-thread exit must invoke the failure handler"""
@@ -455,6 +504,30 @@ class TestBridgeRobustness:
         bridge.start()
         assert failed.wait(timeout=TIMEOUT)
         bridge.stop()
+
+    def test_unframeable_ground_packet_dropped(self, caplog):
+        """A ground packet the framer rejects is dropped with a warning; the pump keeps running"""
+        failed = threading.Event()
+        flight = StubAdapter()
+        ground = StubAdapter(reads=[b"too-large", b"ok"])
+        bridge = PacketBridge(flight, RejectingFramer(), ground, failure_handler=failed.set)
+        with caplog.at_level(logging.WARNING, logger="fprime_gds.common.communication.bridge.bridge"):
+            bridge.start()
+            end = time.time() + TIMEOUT
+            while time.time() < end and not flight.written:
+                time.sleep(0.05)
+            bridge.stop()
+        assert flight.written == [b"ok"]
+        assert not failed.is_set()
+        assert any("cannot be framed" in record.getMessage() for record in caplog.records)
+
+    def test_ground_closed_when_flight_open_fails(self):
+        """start() must release the ground adapter when the flight adapter cannot be opened"""
+        ground = ClosableStubAdapter()
+        bridge = PacketBridge(FailingOpenAdapter(), NoOpFramerDeframer(), ground)
+        with pytest.raises(OSError):
+            bridge.start()
+        assert ground.closed
 
     def test_pending_overflow_dropped(self, caplog):
         """Undeframable pending data must be dropped once it exceeds the cap"""

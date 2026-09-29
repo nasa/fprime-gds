@@ -8,7 +8,8 @@ one datagram per call with a single peer: `write()` sends the frame as one datag
 The adapter owns no threads: the comm-layer's downlink thread calls `read()` and its uplink thread calls `write()`.
 `read()` waits at most `timeout` (default 50ms) on the receive socket with `select`. Datagrams from sources other than
 the peer address, loopback, and any configured extra sources are dropped, since a UDP port is unauthenticated. A
-receive socket that cannot be bound (port busy) is retried from `read()`; only an explicit `close()` stops retrying.
+receive port that is busy at start-up is rejected by `check_arguments`; a receive socket lost afterwards is rebound
+from `read()` every RECONNECT_INTERVAL until an explicit `close()`.
 
 Beyond `comm.py`, this adapter is the ground-system side of `fprime-comm-bridge` (YAMCS or OpenC3 COSMOS UDP links).
 
@@ -66,7 +67,8 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         self.send_socket = None
         self.recv_socket = None
         self.running = False
-        self.warned = False
+        self.send_warned = False
+        self.recv_warned = False
         self.next_attempt = 0.0
         self.lock = threading.Lock()
 
@@ -78,7 +80,8 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         """Resolve the peer and accepted sources, create the send socket, and bind the receive socket
 
         Names are resolved here so the read and write paths never do a lookup. A receive port that cannot be bound
-        is not an error: binding is retried from `read()` every RECONNECT_INTERVAL.
+        here (e.g. lost between `check_arguments` and `open()`) is not an error: binding is retried from `read()`
+        every RECONNECT_INTERVAL.
 
         :raises OSError: when the peer or an allowed source cannot be resolved
         """
@@ -125,6 +128,8 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
             if not readable:
                 return b""
             datagram, source = recv_socket.recvfrom(self.MAXIMUM_DATA_SIZE)
+        except (BlockingIOError, InterruptedError):
+            return b""  # spurious readiness (e.g. a datagram discarded for a bad checksum, select(2) BUGS) or EINTR
         except ConnectionResetError:
             return b""  # Windows reports a peer's ICMP port-unreachable here; the socket itself is fine
         except (OSError, ValueError) as error:  # select raises ValueError on a socket closed concurrently (fd -1)
@@ -151,9 +156,11 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         try:
             send_socket.sendto(frame, self.destination)
         except (OSError, ValueError) as error:
-            self.warn("%s send failed: %s", self, error)
+            if not self.send_warned:
+                LOGGER.warning("%s send failed: %s", self, error)
+                self.send_warned = True
             return False
-        self.warned = False
+        self.send_warned = False
         return True
 
     def bind(self):
@@ -166,7 +173,7 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         with self.lock:
             if self.running:
                 self.recv_socket = recv_socket
-                self.warned = False
+                self.recv_warned = False
                 LOGGER.info("%s receiving", self)
                 return recv_socket
         recv_socket.close()  # close() won the race; do not leave the port bound
@@ -183,10 +190,10 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
             self.retry_later(reason)
 
     def warn(self, message, *args):
-        """Log a warning once per outage"""
-        if not self.warned:
+        """Log a receive-side warning once per outage"""
+        if not self.recv_warned:
             LOGGER.warning(message, *args)
-            self.warned = True
+            self.recv_warned = True
 
     def waiting_for_retry(self, timeout):
         """True while the next bind attempt is not yet due, sleeping at most `timeout` of the remaining wait"""

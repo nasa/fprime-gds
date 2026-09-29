@@ -17,11 +17,18 @@ import struct
 import threading
 from typing import List, Tuple
 
+from fprime_gds.common.communication.ccsds.space_data_link import (
+    SpaceDataLinkFramerDeframer,
+)
+from fprime_gds.common.communication.ccsds.space_packet import (
+    SpacePacketFramerDeframer,
+)
+
 LOGGER = logging.getLogger(__name__)
 
 # CCSDS Space Packet primary header size and the idle packet APID (CCSDS 133.0-B-2)
-SPACE_PACKET_HEADER_SIZE = 6
-SPACE_PACKET_IDLE_APID = 0x7FF
+SPACE_PACKET_HEADER_SIZE = SpaceDataLinkFramerDeframer.SPACE_PACKET_HEADER_SIZE
+SPACE_PACKET_IDLE_APID = SpacePacketFramerDeframer.IDLE_APID
 
 # Maximum size of a UDP payload; the ground side emits one packet per datagram
 MAXIMUM_DATAGRAM_SIZE = 65507
@@ -84,7 +91,11 @@ class PacketBridge:
     def start(self):
         """Open both adapters and start the data pump threads"""
         self.ground.open()
-        self.flight.open()
+        try:
+            self.flight.open()
+        except Exception:
+            self.ground.close()
+            raise
         self.downlink_thread.start()
         self.uplink_thread.start()
         LOGGER.info("Bridge up: downlink and uplink pumps running")
@@ -107,6 +118,7 @@ class PacketBridge:
         """Read from the flight adapter, deframe, and write packets to the ground adapter"""
         try:
             pending = b""
+            discarded_total = 0
             while self.running:
                 data = self.flight.read()
                 if not data:
@@ -122,9 +134,17 @@ class PacketBridge:
                     pending, no_copy=True
                 )
                 if discarded:
-                    LOGGER.warning(
-                        "Discarded %d bytes of unframed data", len(discarded)
+                    if not discarded_total:
+                        LOGGER.warning(
+                            "Discarded %d bytes of unframed data", len(discarded)
+                        )
+                    discarded_total += len(discarded)
+                if packets and discarded_total:
+                    LOGGER.info(
+                        "Resynchronised after discarding %d bytes of unframed data",
+                        discarded_total,
                     )
+                    discarded_total = 0
                 for packet in packets:
                     for unit in self.split(packet):
                         self.ground.write(unit)
@@ -148,7 +168,15 @@ class PacketBridge:
                 packet = self.ground.read()
                 if not packet:
                     continue
-                framed = self.framer.frame(packet)
+                try:
+                    framed = self.framer.frame(packet)
+                except Exception as error:
+                    LOGGER.warning(
+                        "Dropping %d byte ground packet that cannot be framed: %s",
+                        len(packet),
+                        error,
+                    )
+                    continue
                 if not self.flight.write(framed):
                     LOGGER.warning(
                         "Failed to write %d bytes to flight adapter", len(framed)

@@ -6,6 +6,7 @@ adapter's timeouts) so they hold on loaded CI hosts while still catching blockin
 
 import inspect
 import logging
+import select
 import socket
 import threading
 import time
@@ -293,6 +294,36 @@ class TestBind:
             assert read_until(adapter) == b"late"
         finally:
             adapter.close()
+
+    def test_busy_port_warns_once_while_writing(self, peer, caplog):
+        """Successful writes must not reset the receive-side warning: one 'cannot bind' per outage"""
+        holder = udp_socket()
+        adapter = make_adapter(peer, udp_fast_recv_port=holder.getsockname()[1])
+        adapter.RECONNECT_INTERVAL = 0.05
+        with caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
+            adapter.open()
+            end = time.monotonic() + 0.5
+            while time.monotonic() < end:
+                assert adapter.write(b"telemetry")
+                adapter.read(TIMEOUT)
+        try:
+            assert adapter.recv_socket is None
+            assert len([record for record in caplog.records if "cannot bind" in record.getMessage()]) == 1
+        finally:
+            adapter.close()
+            holder.close()
+
+    def test_spurious_readiness_keeps_socket(self, adapter, peer, caplog, monkeypatch):
+        """select reporting readiness with nothing to receive is transient: no warning, no rebind"""
+        recv_socket = adapter.recv_socket
+        monkeypatch.setattr(select, "select", lambda *_: ([recv_socket], [], []))
+        with caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
+            assert adapter.read(TIMEOUT) == b""
+        monkeypatch.undo()
+        assert adapter.recv_socket is recv_socket
+        assert not caplog.records
+        peer.sendto(b"after", ("127.0.0.1", recv_port(adapter)))
+        assert read_until(adapter) == b"after"
 
     def test_no_reuseaddr(self, adapter):
         """A second adapter must not be able to share the receive port"""

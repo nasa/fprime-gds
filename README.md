@@ -72,6 +72,13 @@ fprime-comm-bridge --communication-selection uart --uart-device /dev/ttyUSB0 --u
     --framing-selection raw-space-data-link --dictionary build-artifacts/Linux/Ref/dict/RefTopologyDictionary.json
 ```
 
+Operational notes: a ground datagram the framer cannot frame (e.g. a Space Packet too large for a
+TC frame) is dropped with a warning and the bridge keeps running, whereas a failure of either pump
+(an adapter error) stops the bridge with a non-zero exit status so a supervisor can restart it.
+Unframed downlink data that never resynchronises is discarded once it exceeds ~640 KB, with a
+warning at the start of each such outage. With `no-op` framing over a stream adapter (TCP, UART)
+packet boundaries are not preserved: each `read()` chunk becomes one datagram.
+
 The bridge's integration tests (`test/fprime_gds/common/communication/bridge/test_comm_bridge.py`) use
 `socat` to emulate a UART endpoint; without it those tests are skipped.
 
