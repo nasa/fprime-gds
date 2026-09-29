@@ -45,6 +45,33 @@ commands and registering consumers to the GDS decoders. The Standard Pipeline ca
 ### GDS Integration Test API
 The Integration Test API is a tool that provides the ability to write integration-level tests for an F´ deployment using the GDS. The tool provides history searches/asserts, command sending, a detailed test log, sub-histories and convenient access to GDS data objects. The test API comes with its own [user guide](https://fprime.jpl.nasa.gov/latest/docs/user-manual/gds/gds-test-api-guide/) and is built on top of the Standard Pipeline.
 
+### F Prime Communication Bridge
+`fprime-comm-bridge` bridges bidirectional communication between an F´ endpoint, reached through a
+GDS communication adapter plugin (`--communication-selection`: `tcp-fast-server` by default, or
+`tcp-fast-client`, `uart`, `ip`, or any installed adapter plugin), and a ground system exchanging
+packets as UDP datagrams such as YAMCS or OpenC3 COSMOS. Deframed packets are pushed one per
+datagram to the telemetry intake (`--tm-host`/`--tm-port`, default `127.0.0.1:50000`) and command
+datagrams received on a local UDP port (`--tc-host`/`--tc-port`, default `127.0.0.1:50001`) are
+framed and written to the endpoint. Command datagrams are accepted only from the TM host, loopback,
+and hosts supplied via `--tc-allowed-source`.
+
+A single GDS framing plugin stage (`--framing-selection`) sits between the two sides. The default
+`tm-frame-aggregator` re-establishes CCSDS TM transfer frame boundaries in the endpoint byte stream
+(frame size and spacecraft ID from `--dictionary`/`--deployment`, or `--frame-size`/`--scid`) and
+passes uplink frames through unchanged, so the ground system performs TM/TC (de)framing itself.
+`raw-space-data-link` exposes CCSDS Space Packets instead (deframing TM frames on downlink and
+framing TC frames on uplink), `no-op` passes bytes through unchanged, and `fprime` handles the
+legacy F´ start-word/length framing.
+
+```bash
+fprime-comm-bridge --deployment build-artifacts/Linux/Ref --tm-port 50000 --tc-port 50001
+fprime-comm-bridge --communication-selection uart --uart-device /dev/ttyUSB0 --uart-baud 115200 \
+    --framing-selection raw-space-data-link --dictionary build-artifacts/Linux/Ref/dict/RefTopologyDictionary.json
+```
+
+The bridge's integration tests (`test/fprime_gds/common/communication/bridge/test_comm_bridge.py`) use
+`socat` to emulate a UART endpoint; without it those tests are skipped.
+
 ## GDS GUI Usage
 
 A guide for how to use the GDS is available in the [F Prime documentation](https://fprime.jpl.nasa.gov/latest/docs/user-manual/overview/gds-introduction)
