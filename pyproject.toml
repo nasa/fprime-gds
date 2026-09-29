@@ -75,10 +75,6 @@ fprime-prm-decode = "fprime_gds.common.tools.params:main_decode"
 fprime-merge-dictionary = "fprime_gds.executables.dictionary_merge:main"
 fprime-comm-bridge = "fprime_gds.executables.comm_bridge:main"
 
-# Framing plugins shipped outside the built-in set
-[project.entry-points."fprime_gds"]
-fprime_comm_bridge_no_op_framing = "fprime_gds.common.communication.bridge.framing:NoOpFramerDeframer"
-
 # For Pytest fixtures
 [project.entry-points."pytest11"]
 fprime_test_api = "fprime_gds.common.testing_fw.pytest_integration"

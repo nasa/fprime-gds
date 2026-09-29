@@ -227,6 +227,7 @@ class Plugins(object):
             from fprime_gds.common.communication.ccsds.space_packet_splitter import SpacePacketSplitterFramerDeframer
             from fprime_gds.common.communication.ccsds.sdls import SdlsCleartextFramerDeframer
             from fprime_gds.common.communication.ccsds.tm_frame_aggregator import TmFrameAggregatorFramerDeframer
+            from fprime_gds.common.communication.bridge.framing import NoOpFramerDeframer
             from fprime_gds.common.communication.adapters.base import (
                 BaseAdapter,
                 NoneAdapter,
@@ -256,6 +257,7 @@ class Plugins(object):
                         SpacePacketSplitterFramerDeframer,
                         SdlsCleartextFramerDeframer,
                         TmFrameAggregatorFramerDeframer,
+                        NoOpFramerDeframer,
                     ],
                 },
                 "communication": {
