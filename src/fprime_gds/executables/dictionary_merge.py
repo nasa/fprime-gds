@@ -74,11 +74,11 @@ def validate(loaded, report):
 def valid_packet_set(packet_set):
     """ members (packets, each with a members list of channel names) and omitted must be arrays or null """
     def channel_names(value):
-        return isinstance(value, list) and all(isinstance(name, str) for name in value)
+        return value is None or isinstance(value, list) and all(isinstance(name, str) for name in value)
 
-    packets = packet_set.get("members") or []
-    return (channel_names(packet_set.get("omitted") or []) and isinstance(packets, list)
-            and all(isinstance(packet, dict) and channel_names(packet.get("members") or []) for packet in packets))
+    packets = packet_set.get("members")
+    return channel_names(packet_set.get("omitted")) and (packets is None or isinstance(packets, list) and all(
+        isinstance(packet, dict) and channel_names(packet.get("members")) for packet in packets))
 
 
 def namespace_prefix(loaded):
@@ -96,6 +96,7 @@ class Merger:
         self.report = Report()
         self.renamed = (set(), set())  # per input: (section, name) of entries renamed '<prefix>.<name>'
         self.dropped_channels = set()  # the secondary's channels dropped by --prefer-primary
+        self.shared_channels = set()  # the secondary's channels identical to the primary's
         self._prefixes = None
 
     def merge(self):
@@ -159,7 +160,6 @@ class Merger:
         id_key = UNIQUE_SECTIONS.get(section)
         by_name = {entry["name"]: entry for entry in entries[0]}
         by_id = {entry[id_key]: entry for entry in entries[0]} if id_key else {}
-        literal_names = {entry["name"] for entry in entries[0] + entries[1]}
 
         def located(index, entry):
             return self.inputs[index].path + (f" ({entry[id_key]:#x})" if id_key else "")
@@ -170,6 +170,8 @@ class Merger:
             held = by_name.get(name)
             same_id = by_id.get(entry[id_key]) if id_key else None
             if held == entry:
+                if section == "telemetryChannels":
+                    self.shared_channels.add(name)
                 continue
             if same_id is not None and same_id["name"] == name:
                 conflict = f"{section} '{name}' has different definitions in {primary.path} and {secondary.path}"
@@ -187,17 +189,18 @@ class Merger:
                     self.drop(section, entry, f"{conflict}; use --prefer-primary",
                               f"{conflict}; {secondary.path}'s dropped in favour of {primary.path}'s")
                     continue
-                targets = [f"{prefix}.{name}" for prefix in self.prefixes()]
-                for target in targets:
-                    if target in literal_names:
-                        self.report.errors.append(f"cannot rename {section} '{name}' to '{target}': "
-                                                  f"that name already exists")
+                alpha, beta = self.prefixes()
                 for renamed in self.renamed:
                     renamed.add((section, name))
-                self.report.warnings.append(f"{conflict}; renamed to '{targets[0]}' and '{targets[1]}'")
+                self.report.warnings.append(f"{conflict}; renamed to '{alpha}.{name}' and '{beta}.{name}'")
                 kept.append(entry)
-        return [{**entry, "name": self.output_name(index, section, entry["name"])}
-                for index, side in enumerate((entries[0], kept)) for entry in side]
+        merged = [{**entry, "name": self.output_name(index, section, entry["name"])}
+                  for index, side in enumerate((entries[0], kept)) for entry in side]
+        names = [entry["name"] for entry in merged]
+        for name in sorted({name for name in names if names.count(name) > 1}):
+            self.report.errors.append(f"cannot rename {section} entries to '{name}': the merged dictionary would "
+                                      f"hold two entries with that name")
+        return merged
 
     def drop(self, section, entry, error, warning):
         """ The secondary's entry loses a conflict: an error, or with --prefer-primary a warning and it is dropped """
@@ -232,7 +235,7 @@ class Merger:
         dropped = self.dropped_channels if index == 1 else set()
 
         def channel(name):
-            return self.output_name(index, "telemetryChannels", name)
+            return self.output_name(0 if name in self.shared_channels else index, "telemetryChannels", name)
 
         packets = []
         for packet in packet_set.get("members") or []:

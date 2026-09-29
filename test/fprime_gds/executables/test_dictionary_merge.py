@@ -321,11 +321,27 @@ class TestMetadataAndStructure(unittest.TestCase):
 
     def test_malformed_packet_sets_and_root(self):
         good = make_dictionary("Ref.One")
-        for override in [{"members": "P"}, {"members": [{"name": "P", "members": [1]}]}, {"omitted": [None]}]:
+        for override in [{"members": "P"}, {"members": [{"name": "P", "members": [1]}]}, {"omitted": [None]},
+                         {"members": 0}, {"omitted": ""}, {"members": [{"name": "P", "members": {}}]}]:
             bad = {**make_dictionary("Ref.Two"), "telemetryPacketSets": [{"name": "Pkts", **override}]}
             errors = merge_fails(good, bad)
             self.assertEqual((len(errors), count(errors, "arrays of channel names")), (1, 1), errors)
         self.assertEqual(count(merge_fails(good, []), E_MALFORMED), 1)
+
+    def test_namespace_all_shared_channel_references_and_name_collisions(self):
+        # a packet set of the secondary referencing a channel shared with the primary follows the primary's prefix
+        d1 = make_dictionary("Ref.Alpha", channels=[channel("Sub.X", 1)])
+        d2 = make_dictionary("Ref.Beta", channels=[channel("Sub.X", 1), channel("Sub.Y", 2)],
+                             packet_sets=[packet_set("Pkts", ("P", ["Sub.X", "Sub.Y"]), omitted=["Sub.X"])])
+        merged, _ = merge_ok(d1, d2, namespace_all=True)
+        pkts = merged["telemetryPacketSets"][0]
+        self.assertEqual((pkts["members"][0]["members"], pkts["omitted"]),
+                         (["Alpha.Sub.X", "Beta.Sub.Y"], ["Alpha.Sub.X"]))
+        # prefixes that make two distinct entries collide on their output name are rejected
+        d1 = make_dictionary("Ref.A", commands=[command("B.X", 1)])
+        d2 = make_dictionary("Ref.B", commands=[command("X", 2)])
+        errors = merge_fails(d1, d2, namespace_all=True, prefixes=["A", "A.B"])
+        self.assertEqual((len(errors), count(errors, E_RENAME_TARGET), count(errors, "'A.B.X'")), (1, 1, 1), errors)
 
 
 class TestCli(unittest.TestCase):
