@@ -22,6 +22,7 @@ from fprime_gds.common.communication.adapters.ip import IpAdapter
 from fprime_gds.common.communication.adapters.base import NoneAdapter
 from fprime_gds.common.communication.adapters.uart import SerialAdapter
 from fprime_gds.common.communication.framing import FramerDeframer, FpFramerDeframer
+from fprime_gds.common.communication.bridge.framing import NoOpFramerDeframer
 from fprime_gds.common.pipeline.standard import StandardPipeline
 from fprime_gds.executables.cli import ParserBase, PluginArgumentParser
 from fprime_gds.executables.apps import GdsFunction, GdsApp, GdsStandardApp
@@ -307,6 +308,35 @@ def start_up(request):
             process.send_signal(signal.SIGINT)
             _ = process.communicate(None, 5)
             yield temp_file
+
+
+class ShadowingNoOp(FramerDeframer):
+    """A framing plugin reusing the built-in "no-op" plugin name, as an outdated fprime-yamcs entry point does"""
+
+    def frame(self, data):
+        return data
+
+    def deframe(self, data, no_copy=False):
+        return data, b"", b""
+
+    @classmethod
+    def get_name(cls):
+        return "no-op"
+
+    @classmethod
+    @gds_plugin_implementation
+    def register_framing_plugin(cls):
+        return cls
+
+
+def test_duplicate_plugin_name_first_registered_wins(plugins, caplog):
+    """A plugin registered later under an existing name must be dropped with a warning, keeping the first"""
+    plugins.register_plugin(ShadowingNoOp)
+    with caplog.at_level("WARNING", logger="fprime_gds.plugin.system"):
+        no_ops = [plugin for plugin in plugins.get_plugins("framing") if plugin.get_name() == "no-op"]
+    assert [plugin.plugin_class for plugin in no_ops] == [NoOpFramerDeframer]
+    warnings = [record.getMessage() for record in caplog.records if "no-op" in record.getMessage()]
+    assert len(warnings) == 1 and "Ignoring framing plugin 'no-op'" in warnings[0]
 
 
 def test_base_plugin(plugins):

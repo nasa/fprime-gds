@@ -97,7 +97,9 @@ class Plugins(object):
         """Get available plugins for the given category
 
         Gets all plugin implementors of "category" by looking for register_<category>_plugin implementors. If such a
-        function does not exist then this results in an exception.
+        function does not exist then this results in an exception. When several implementors share a plugin name, the
+        first registered (entry points, then environment modules, then built-ins) is kept and the others are dropped
+        with a warning.
 
         Args:
             category: category of the plugin requested
@@ -110,11 +112,26 @@ class Plugins(object):
         except KeyError as error:
             raise InvalidCategoryException(f"Invalid plugin category: {error}")
 
-        return [
+        plugins = [
             Plugin(category, self.get_category_plugin_type(category), plugin_class)
             for plugin_class in plugin_classes
             if self.validate_selection(category, plugin_class)
         ]
+        # pluggy yields results last-registered first; walk in reverse so the first registered implementor wins
+        kept = {}
+        for plugin in reversed(plugins):
+            name = plugin.get_name()
+            if name in kept:
+                LOGGER.warning(
+                    "Ignoring %s plugin '%s' from %s: already registered by %s",
+                    category,
+                    name,
+                    plugin.get_implementor().__module__,
+                    kept[name].get_implementor().__module__,
+                )
+                continue
+            kept[name] = plugin
+        return [plugin for plugin in plugins if kept[plugin.get_name()] is plugin]
 
     def start_loading(self, category: str):
         """Start a category loading
