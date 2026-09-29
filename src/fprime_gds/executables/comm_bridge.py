@@ -22,23 +22,13 @@ import sys
 import threading
 from typing import Any, Dict
 
-# Required adapters built on standard tools
-import fprime_gds.common.communication.adapters.base
-import fprime_gds.common.communication.adapters.ip
-import fprime_gds.common.communication.adapters.tcp_fast
 import fprime_gds.common.communication.adapters.udp_fast
 import fprime_gds.executables.cli
 from fprime_gds.common.communication.bridge import DEFAULT_COMMUNICATION, DEFAULT_FRAMING
 from fprime_gds.common.communication.bridge.bridge import PacketBridge, split_space_packets
 from fprime_gds.plugin.system import Plugins
 
-# Uses non-standard PIP package pyserial, so test the waters before getting a hard-import crash
-try:
-    import fprime_gds.common.communication.adapters.uart
-except ImportError:
-    pass
-
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("comm_bridge")
 
 # Adapters known to expose a byte stream, where read-chunk boundaries are arbitrary and
 # no-op framing cannot reliably preserve packet boundaries

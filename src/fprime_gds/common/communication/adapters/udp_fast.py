@@ -273,10 +273,18 @@ class UdpFastAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         udp_fast_bind_address=DEFAULT_BIND_ADDRESS,
         udp_fast_allowed_sources=None,
     ):
-        """Validate the port ranges and that the receive address:port can be bound, raising ValueError on failure"""
+        """Validate ports, that the peer and allowed-source names resolve and that the receive address:port can be bound
+
+        Raises ValueError on failure so a bad configuration fails at start-up rather than in the read path.
+        """
         for port in (udp_fast_send_port, udp_fast_recv_port):
             if not 0 < port < 65536:
                 raise ValueError(f"Port {port} is not in the range 1-65535")
+        for host in [udp_fast_address, *(udp_fast_allowed_sources or [])]:
+            try:
+                socket.gethostbyname(host)
+            except OSError as error:
+                raise ValueError(f"Cannot resolve {host}: {error}")
         try:
             cls.receiving_socket(udp_fast_bind_address, udp_fast_recv_port).close()
         except OSError as error:

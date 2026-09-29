@@ -54,8 +54,9 @@ communication adapter, configured through its own options: deframed packets are 
 datagram to `--udp-fast-address`:`--udp-fast-send-port` (default `127.0.0.1:50000`) and command
 datagrams received on `--udp-fast-bind-address`:`--udp-fast-recv-port` (default `127.0.0.1:50001`)
 are framed and written to the endpoint. Command datagrams are accepted only from the peer address,
-loopback, and hosts supplied via `--udp-fast-allowed-source`; `udp-fast` is therefore not available
-as the endpoint-side selection of the bridge.
+loopback, and hosts supplied via `--udp-fast-allowed-source`. Because the plugin system instantiates one
+communication selection per process and `udp-fast` is the bridge's ground-side adapter, `udp-fast` cannot
+also be selected as the endpoint-side communication of the bridge.
 
 A single GDS framing plugin stage (`--framing-selection`) sits between the two sides. The default
 `tm-frame-aggregator` re-establishes CCSDS TM transfer frame boundaries in the endpoint byte stream

@@ -24,6 +24,16 @@ REBIND_BOUND = UdpFastAdapter.RECONNECT_INTERVAL * 3
 LOGGER_NAME = "udp_fast_adapter"
 
 
+def loopback_alias_or_skip(address="127.0.0.2"):
+    """A second loopback address to send from (Linux binds the whole 127/8 range; skip where it cannot be bound)"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.bind((address, 0))
+    except OSError:
+        pytest.skip(f"{address} cannot be bound on this host")
+    return address
+
+
 def udp_socket(address="127.0.0.1"):
     """A UDP socket bound to an ephemeral port on `address`, with a short receive timeout"""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -225,7 +235,7 @@ class TestSources:
             adapter.close()
 
     def test_unexpected_source_dropped_and_warned_once(self, adapter, caplog):
-        with udp_socket("127.0.0.2") as rogue, caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
+        with udp_socket(loopback_alias_or_skip()) as rogue, caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
             rogue.sendto(b"rogue-1", ("127.0.0.1", recv_port(adapter)))
             rogue.sendto(b"rogue-2", ("127.0.0.1", recv_port(adapter)))
             assert read_until(adapter, deadline=READ_BOUND * 2) == b""
@@ -236,7 +246,7 @@ class TestSources:
         adapter = make_adapter(peer, udp_fast_allowed_sources=["127.0.0.2"])
         adapter.open()
         try:
-            with udp_socket("127.0.0.2") as extra:
+            with udp_socket(loopback_alias_or_skip()) as extra:
                 extra.sendto(b"extra-source-command", ("127.0.0.1", recv_port(adapter)))
             assert read_until(adapter) == b"extra-source-command"
         finally:

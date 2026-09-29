@@ -5,6 +5,7 @@ the full bridge: a socat-provided PTY pair stands in for a UART endpoint on one 
 UDP sockets stand in for the ground system intake/outlet on the other.
 """
 
+import contextlib
 import logging
 import os
 import shutil
@@ -16,7 +17,6 @@ import sys
 import threading
 import time
 from argparse import Namespace
-from pathlib import Path
 
 import pytest
 
@@ -24,8 +24,14 @@ from fprime_gds.common.communication.framing import FpFramerDeframer
 from fprime_gds.executables.cli import DictionaryParser
 from fprime_gds.executables.comm_bridge import GROUND_ADAPTER, OptionalDictionaryParser, ground_adapter_arguments
 from fprime_gds.common.communication.adapters.udp_fast import UdpFastAdapter
-from fprime_gds.common.communication.bridge.bridge import MAXIMUM_PENDING_SIZE, PacketBridge, split_space_packets
+from fprime_gds.common.communication.bridge.bridge import (
+    MAXIMUM_PENDING_SIZE,
+    SPACE_PACKET_IDLE_APID,
+    PacketBridge,
+    split_space_packets,
+)
 from fprime_gds.common.communication.bridge.framing import NoOpFramerDeframer
+from fprime_gds.common.communication.ccsds.space_data_link import SpaceDataLinkFramerDeframer
 
 SOCAT = shutil.which("socat")
 TIMEOUT = 10.0
@@ -59,6 +65,16 @@ class TestNoOpFramerDeframer:
         assert packets == [b"hello"]
         assert leftover == b""
         assert discarded == b""
+
+
+def loopback_alias_or_skip(address="127.0.0.2"):
+    """A second loopback address to send from (Linux binds the whole 127/8 range; skip where it cannot be bound)"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.bind((address, 0))
+    except OSError:
+        pytest.skip(f"{address} cannot be bound on this host")
+    return address
 
 
 def wait_for_line(lines, needle, timeout=TIMEOUT):
@@ -104,71 +120,26 @@ def pty_pair(tmp_path):
     process.wait(timeout=TIMEOUT)
 
 
-def start_bridge(uart_device: Path, tm_port: int, tc_port: int, framing: str):
-    """Start the fprime-comm-bridge process"""
-    return subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "fprime_gds.executables.comm_bridge",
-            "--communication-selection",
-            "uart",
-            "--uart-device",
-            str(uart_device),
-            "--uart-skip-port-check",
-            "--framing-selection",
-            framing,
-            "--udp-fast-send-port",
-            str(tm_port),
-            "--udp-fast-recv-port",
-            str(tc_port),
-        ],
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-
-
 @pytest.fixture(params=["no-op", "fprime"])
-def bridge_setup(request, pty_pair, unused_udp_ports):
+def bridge_setup(request, pty_pair):
     """Run the bridge against one PTY end, exposing the peer PTY and UDP sockets"""
     link_a, link_b = pty_pair
-    tm_port, tc_port = unused_udp_ports
+    tm_port, tc_port = unused_udp_port(), unused_udp_port()
 
     tm_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     tm_socket.bind(("127.0.0.1", tm_port))
     tm_socket.settimeout(TIMEOUT)
     tc_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    bridge = start_bridge(link_a, tm_port, tc_port, request.param)
-    stderr_lines = []
-    reader = threading.Thread(
-        target=lambda: stderr_lines.extend(iter(bridge.stderr.readline, "")),
-        daemon=True,
-    )
-    reader.start()
-    peer_fd = os.open(link_b, os.O_RDWR | os.O_NONBLOCK)
-    # Wait for the bridge to report that both data pumps are running
-    assert wait_for_line(stderr_lines, "Bridge up"), "Bridge failed to start"
-    assert bridge.poll() is None, "Bridge process exited prematurely"
-    yield request.param, peer_fd, tm_socket, tc_socket, tc_port, stderr_lines
-    bridge.send_signal(signal.SIGINT)
-    bridge.wait(timeout=TIMEOUT)
-    reader.join(timeout=TIMEOUT)
-    os.close(peer_fd)
+    with run_bridge(
+        "--communication-selection", "uart", "--uart-device", str(link_a), "--uart-skip-port-check",
+        "--framing-selection", request.param, "--udp-fast-send-port", str(tm_port), "--udp-fast-recv-port", str(tc_port),
+    ) as stderr_lines:
+        peer_fd = os.open(link_b, os.O_RDWR | os.O_NONBLOCK)
+        yield request.param, peer_fd, tm_socket, tc_socket, tc_port, stderr_lines
+        os.close(peer_fd)
     tm_socket.close()
     tc_socket.close()
-
-
-@pytest.fixture
-def unused_udp_ports():
-    """Reserve two distinct UDP port numbers"""
-    sockets = [socket.socket(socket.AF_INET, socket.SOCK_DGRAM) for _ in range(2)]
-    for reservation in sockets:
-        reservation.bind(("127.0.0.1", 0))
-    ports = [reservation.getsockname()[1] for reservation in sockets]
-    for reservation in sockets:
-        reservation.close()
-    return ports
 
 
 @pytest.mark.skipif(SOCAT is None, reason="socat is not available")
@@ -250,7 +221,7 @@ class TestBridgeFlow:
         """TC datagrams from sources outside the allowed set must not reach the endpoint"""
         framing, peer_fd, _, tc_socket, tc_port, _ = bridge_setup
         rogue = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        rogue.bind(("127.0.0.2", 0))
+        rogue.bind((loopback_alias_or_skip(), 0))
         rogue.sendto(b"rogue-command", ("127.0.0.1", tc_port))
         rogue.close()
         assert read_available(peer_fd, minimum=1, timeout=1.0) == b""
@@ -266,6 +237,7 @@ class TestBridgeFlow:
 
 TM_FRAME_SIZE = 64
 TM_SCID = 0x44
+TM_VCID = 1  # raw-space-data-link --vcid default
 
 
 def make_tm_frame(mc_count=0, fill=0xAB):
@@ -290,32 +262,11 @@ def unused_udp_port():
         return reservation.getsockname()[1]
 
 
-@pytest.fixture
-def tcp_bridge_setup(unused_udp_ports):
-    """Run the bridge with its default adapter/framing (tcp-fast-server, tm-frame-aggregator)"""
-    tm_port, tc_port = unused_udp_ports
-    tcp_port = unused_tcp_port()
-    tm_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    tm_socket.bind(("127.0.0.1", tm_port))
-    tm_socket.settimeout(TIMEOUT)
-    tc_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
+@contextlib.contextmanager
+def run_bridge(*arguments):
+    """Run `fprime-comm-bridge` with `arguments` until the block exits, yielding its stderr lines once it is up"""
     bridge = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "fprime_gds.executables.comm_bridge",
-            "--tcp-fast-port",
-            str(tcp_port),
-            "--frame-size",
-            str(TM_FRAME_SIZE),
-            "--scid",
-            str(TM_SCID),
-            "--udp-fast-send-port",
-            str(tm_port),
-            "--udp-fast-recv-port",
-            str(tc_port),
-        ],
+        [sys.executable, "-m", "fprime_gds.executables.comm_bridge", *arguments],
         stderr=subprocess.PIPE,
         text=True,
     )
@@ -325,17 +276,56 @@ def tcp_bridge_setup(unused_udp_ports):
         daemon=True,
     )
     reader.start()
-    assert wait_for_line(stderr_lines, "Bridge up"), "Bridge failed to start"
-    assert bridge.poll() is None, "Bridge process exited prematurely"
-    peer = socket.create_connection(("127.0.0.1", tcp_port), timeout=TIMEOUT)
-    peer.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    yield peer, tm_socket, tc_socket, tc_port, stderr_lines
-    bridge.send_signal(signal.SIGINT)
-    bridge.wait(timeout=TIMEOUT)
-    reader.join(timeout=TIMEOUT)
-    peer.close()
+    try:
+        assert wait_for_line(stderr_lines, "Bridge up"), "Bridge failed to start"
+        assert bridge.poll() is None, "Bridge process exited prematurely"
+        yield stderr_lines
+    finally:
+        if bridge.poll() is None:
+            bridge.send_signal(signal.SIGINT)
+        bridge.wait(timeout=TIMEOUT)
+        reader.join(timeout=TIMEOUT)
+
+
+def tcp_bridge(framing_arguments):
+    """Run the bridge with the default tcp-fast-server adapter and TCP peer, TM/TC UDP sockets and `framing_arguments`"""
+    tm_port, tc_port = unused_udp_port(), unused_udp_port()
+    tcp_port = unused_tcp_port()
+    tm_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    tm_socket.bind(("127.0.0.1", tm_port))
+    tm_socket.settimeout(TIMEOUT)
+    tc_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    with run_bridge(
+        "--tcp-fast-port", str(tcp_port), "--frame-size", str(TM_FRAME_SIZE), "--scid", str(TM_SCID),
+        "--udp-fast-send-port", str(tm_port), "--udp-fast-recv-port", str(tc_port), *framing_arguments,
+    ) as stderr_lines:
+        peer = socket.create_connection(("127.0.0.1", tcp_port), timeout=TIMEOUT)
+        peer.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        yield peer, tm_socket, tc_socket, tc_port, stderr_lines
+        peer.close()
     tm_socket.close()
     tc_socket.close()
+
+
+@pytest.fixture
+def tcp_bridge_setup():
+    """Run the bridge with its default adapter/framing (tcp-fast-server, tm-frame-aggregator)"""
+    yield from tcp_bridge([])
+
+
+@pytest.fixture
+def raw_bridge_setup():
+    """Run the bridge with tcp-fast-server and raw-space-data-link framing (Space Packets on the UDP side)"""
+    yield from tcp_bridge(["--framing-selection", "raw-space-data-link"])
+
+
+def make_tm_frame_with_field(field, mc_count=0):
+    """Build a CRC-valid TM frame on the raw-space-data-link default VCID, its data field starting a Space Packet (FHP = 0)"""
+    assert len(field) == TM_FRAME_SIZE - 6 - 2
+    global_vcid = ((TM_SCID & 0x3FF) << 4) | ((TM_VCID & 0x7) << 1)
+    data_field_status = 0x3 << 11
+    body = struct.pack(">HBBH", global_vcid, mc_count, mc_count, data_field_status) + field
+    return body + struct.pack(">H", SpaceDataLinkFramerDeframer.CCITT_CRC_FUNCTION(body))
 
 
 class TestDefaultTcpBridgeFlow:
@@ -378,6 +368,51 @@ class TestDefaultTcpBridgeFlow:
             assert chunk, "TCP endpoint closed before the command arrived"
             received += chunk
         assert received == command
+
+
+class TestRawSpacePacketBridgeFlow:
+    """Integration tests for the opt-in raw-space-data-link topology: TM frames in, one Space Packet per datagram out"""
+
+    def test_raw_framing_selected(self, raw_bridge_setup):
+        _, _, _, _, stderr_lines = raw_bridge_setup
+        assert any("tcp-fast-server" in line and "raw-space-data-link" in line for line in stderr_lines)
+
+    def test_one_datagram_per_space_packet_idle_dropped(self, raw_bridge_setup):
+        """Complete Space Packets in one TM frame must each arrive as one datagram; idle fill must not"""
+        peer, tm_socket, _, _, _ = raw_bridge_setup
+        first, second = space_packet(1, b"one"), space_packet(2, b"two")
+        field_size = TM_FRAME_SIZE - 6 - 2
+        idle = space_packet(SPACE_PACKET_IDLE_APID, b"\x00" * (field_size - len(first) - len(second) - 6))
+        peer.sendall(make_tm_frame_with_field(first + second + idle))
+        assert [tm_socket.recvfrom(65507)[0] for _ in range(2)] == [first, second]
+        TestBridgeFlow.assert_no_more_datagrams(tm_socket)
+
+    def test_space_packet_uplinked_in_tc_frame(self, raw_bridge_setup):
+        """A Space Packet datagram must reach the TCP endpoint wrapped in a TC transfer frame"""
+        peer, _, tc_socket, tc_port, _ = raw_bridge_setup
+        packet = space_packet(0, b"\x00\x00\x01\x00\x00\x00")
+        tc_socket.sendto(packet, ("127.0.0.1", tc_port))
+        expected_size = SpaceDataLinkFramerDeframer.TC_HEADER_SIZE + len(packet) + 2
+        received = b""
+        while len(received) < expected_size:
+            chunk = peer.recv(4096)
+            assert chunk, "TCP endpoint closed before the command arrived"
+            received += chunk
+        assert len(received) == expected_size
+        assert received[SpaceDataLinkFramerDeframer.TC_HEADER_SIZE:-2] == packet
+
+    def test_oversized_space_packet_dropped_bridge_survives(self, raw_bridge_setup):
+        """A ground datagram too large for a TC frame is dropped with a warning; later commands still flow"""
+        peer, _, tc_socket, tc_port, stderr_lines = raw_bridge_setup
+        tc_socket.sendto(space_packet(0, b"\x00" * 2000), ("127.0.0.1", tc_port))
+        assert wait_for_line(stderr_lines, "Dropping 2006 byte ground packet")
+        packet = space_packet(0, b"ok")
+        tc_socket.sendto(packet, ("127.0.0.1", tc_port))
+        received = b""
+        while packet not in received:
+            chunk = peer.recv(4096)
+            assert chunk, "TCP endpoint closed before the command arrived"
+            received += chunk
 
 
 class TestGroundAdapter:
@@ -492,13 +527,14 @@ class TestBridgeRobustness:
         assert not adapter.reads
         assert len([record for record in caplog.records if "Discarded" in record.getMessage()]) == 1
 
-    def test_failure_handler_fires_on_loop_exception(self):
-        """An abnormal pump-thread exit must invoke the failure handler"""
+    @pytest.mark.parametrize("flight_fails,ground_fails", [(True, False), (False, True)])
+    def test_failure_handler_fires_on_loop_exception(self, flight_fails, ground_fails):
+        """An abnormal exit of either pump thread must invoke the failure handler"""
         failed = threading.Event()
         bridge = PacketBridge(
-            StubAdapter(fail=True),
+            StubAdapter(fail=flight_fails),
             NoOpFramerDeframer(),
-            StubAdapter(),
+            StubAdapter(fail=ground_fails),
             failure_handler=failed.set,
         )
         bridge.start()

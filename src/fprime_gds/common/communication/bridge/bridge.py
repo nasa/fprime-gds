@@ -147,7 +147,8 @@ class PacketBridge:
                     discarded_total = 0
                 for packet in packets:
                     for unit in self.split(packet):
-                        self.ground.write(unit)
+                        if not self.ground.write(unit):
+                            LOGGER.warning("Failed to write %d bytes to the ground adapter", len(unit))
         except Exception as error:
             self.report_failure("Downlink", error)
         LOGGER.debug("Downlink loop exited")
