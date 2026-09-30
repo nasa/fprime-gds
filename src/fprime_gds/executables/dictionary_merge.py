@@ -68,9 +68,9 @@ def validate(loaded, report):
             if not isinstance(entry, dict) or not isinstance(entry.get(name_key), str):
                 malformed(f"'{section}' entry #{position} must have a string '{name_key}'")
             elif id_key and type(entry.get(id_key)) is not int:  # not isinstance: bool is an int subclass
-                malformed(f"'{section}' entry '{entry[name_key]}' must have an integer '{id_key}'")
+                malformed(f"'{section}' entry {entry[name_key]!r} must have an integer '{id_key}'")
             elif section == "telemetryPacketSets" and not valid_packet_set(entry):
-                malformed(f"'{section}' entry '{entry[name_key]}' must have arrays of channel names")
+                malformed(f"'{section}' entry {entry[name_key]!r} must have arrays of channel names")
 
 
 def valid_packet_set(packet_set):
@@ -100,8 +100,8 @@ class Merger:
         self.options = options
         self.report = Report()
         self.renamed = (set(), set())  # per input: (section, name) of entries renamed '<prefix>.<name>'
-        self.dropped_channels = set()  # the secondary's channels dropped by --prefer-primary
-        self.shared_channels = set()  # the secondary's channels identical to the primary's
+        self.dropped_channels = set()  # secondary channel names that leave the merge: packets listing them go too
+        self.shared_channels = set()  # secondary channel names that resolve to the primary's entry (same id)
         self._prefixes = None
 
     def merge(self):
@@ -113,7 +113,7 @@ class Merger:
         primary, secondary = self.inputs
         merged = {"metadata": self.merge_metadata()}
         for section in QUALIFIED_NAME_SECTIONS:
-            merged[section] = self.merge_non_unique(section)
+            merged[section] = self.merge_by_qualified_name(section)
         for section in ID_KEYS:
             merged[section] = self.merge_entries(section, primary.data[section], secondary.data[section])
         packet_sets = [[self.rewrite_packet_set(index, packet_set) for packet_set in loaded.data["telemetryPacketSets"]]
@@ -132,7 +132,7 @@ class Merger:
         if name is None:
             name = f"{first.get('deploymentName', 'unknown')}_{second.get('deploymentName', 'unknown')}_merged"
         elif not DOTTED_IDENTIFIER.fullmatch(name):
-            self.report.errors.append(f"--name '{name}' is not a valid dotted identifier")
+            self.report.errors.append(f"--name {name!r} is not a valid dotted identifier")
         if not self.options.permissive:
             for version in VERSION_FIELDS:
                 if first.get(version) != second.get(version):
@@ -144,7 +144,7 @@ class Merger:
                                             f"{secondary.path}; keeping {primary.path}'s")
         return {**first, "deploymentName": name}
 
-    def merge_non_unique(self, section):
+    def merge_by_qualified_name(self, section):
         """ typeDefinitions/constants: one copy per qualifiedName; differing definitions of a name conflict """
         primary, secondary = self.inputs
         held = {entry["qualifiedName"]: entry for entry in primary.data[section]}
@@ -154,7 +154,7 @@ class Merger:
             if name not in held:
                 kept.append(entry)
             elif held[name] != entry:
-                conflict = f"{section} '{name}' has inconsistent definitions in {primary.path} and {secondary.path}"
+                conflict = f"{section} {name!r} has inconsistent definitions in {primary.path} and {secondary.path}"
                 self.drop(section, entry, error=conflict, warning=f"{conflict}; kept definition from {primary.path}")
         return primary.data[section] + kept
 
@@ -181,18 +181,18 @@ class Merger:
                     self.shared_channels.add(name)
                 continue
             if same_id is not None and same_id["name"] == name:
-                conflict = f"{section} '{name}' has different definitions in {primary.path} and {secondary.path}"
+                conflict = f"{section} {name!r} has different definitions in {primary.path} and {secondary.path}"
                 self.drop(section, entry, error=conflict, name_kept=True,
-                          warning=f"{conflict}; kept definition '{name}' from {primary.path}")
+                          warning=f"{conflict}; kept definition {name!r} from {primary.path}")
             elif same_id is not None:
-                conflict = (f"{section} {id_key} {entry[id_key]:#x} is used by '{same_id['name']}' in "
-                            f"{primary.path} and '{name}' in {secondary.path}")
+                conflict = (f"{section} {id_key} {entry[id_key]:#x} is used by {same_id['name']!r} in "
+                            f"{primary.path} and {name!r} in {secondary.path}")
                 self.drop(section, entry, error=conflict,
-                          warning=f"{conflict}; '{name}' dropped in favour of '{same_id['name']}'")
+                          warning=f"{conflict}; {name!r} dropped in favour of {same_id['name']!r}")
             elif held is None or prefixed_anyway:
                 kept.append(entry)
             else:
-                conflict = (f"{section} '{name}' is in {located(0, held)} and {located(1, entry)} with different "
+                conflict = (f"{section} {name!r} is in {located(0, held)} and {located(1, entry)} with different "
                             f"{id_key or 'definition'}s")
                 if self.options.no_namespace:
                     self.drop(section, entry, error=f"{conflict}; use --prefer-primary",
@@ -205,11 +205,11 @@ class Merger:
                     kept.append(entry)
         merged = [{**entry, "name": self.output_name(index, section, entry["name"])}
                   for index, side in enumerate((primary_entries, kept)) for entry in side]
-        if None in (self._prefixes or ()):  # already reported; the 'None.<name>' names would only add noise
-            return merged
+        if self._prefixes is not None and (None in self._prefixes or self._prefixes[0] == self._prefixes[1]):
+            return merged  # prefixes() already reported the problem; the derived collisions would only add noise
         names = collections.Counter(entry["name"] for entry in merged)
         for name in sorted(name for name, occurrences in names.items() if occurrences > 1):
-            self.report.errors.append(f"cannot rename {section} entries to '{name}': the merged dictionary would "
+            self.report.errors.append(f"cannot rename {section} entries to {name!r}: the merged dictionary would "
                                       f"hold two entries with that name")
         return merged
 
@@ -234,7 +234,7 @@ class Merger:
                                               f"metadata.deploymentName must end in an identifier; use --prefix")
             if None not in self._prefixes and self._prefixes[0] == self._prefixes[1]:
                 self.report.errors.append(f"{self.inputs[0].path} and {self.inputs[1].path} both have the namespace "
-                                          f"prefix '{self._prefixes[0]}'; use --prefix to tell them apart")
+                                          f"prefix {self._prefixes[0]!r}; use --prefix to tell them apart")
         return self._prefixes
 
     def output_name(self, index, section, name):
@@ -255,9 +255,10 @@ class Merger:
             members = packet.get("members") or []
             lost = sorted(dropped.intersection(members))
             if lost:
-                self.report.warnings.append(f"packet '{packet.get('name')}' of packet set '{packet_set['name']}' in "
+                self.report.warnings.append(f"packet {packet.get('name')!r} of packet set {packet_set['name']!r} in "
                                             f"{self.inputs[index].path} removed because it references dropped "
-                                            f"channel(s) {', '.join(lost)}")
+                                            f"channel(s) {', '.join(map(repr, lost))}; its other "
+                                            f"{len(members) - len(lost)} channel(s) are no longer packetized")
             else:
                 packets.append({**packet, "members": [channel(name) for name in members]})
         omitted = [channel(name) for name in packet_set.get("omitted") or [] if name not in dropped]
@@ -275,7 +276,7 @@ class Merger:
         for packet_set in packet_sets:
             references = {name for packet in packet_set["members"] for name in packet["members"]}
             for name in sorted(references.union(packet_set["omitted"]) - channels):
-                self.report.errors.append(f"packet set '{packet_set['name']}' references unknown channel '{name}'")
+                self.report.errors.append(f"packet set {packet_set['name']!r} references unknown channel {name!r}")
 
 
 def merge_two(primary, secondary, options):
@@ -285,7 +286,7 @@ def merge_two(primary, secondary, options):
 
 
 def merge_dictionaries(dictionary1, dictionary2, name=None, permissive=False):
-    """ Merge two dictionaries' contents with the CLI's default rules; raises ValueError listing every error """
+    """ Merge two dictionaries' contents with the CLI's default merge rules; raises ValueError listing every error """
     merged, report = merge_two(LoadedInput("dictionary1", dictionary1), LoadedInput("dictionary2", dictionary2),
                                MergeOptions(name=name, permissive=permissive))
     if merged is None:
@@ -304,7 +305,8 @@ def parse_arguments(argv):
     parser.add_argument("--prefer-primary", action="store_true",
                         help="On id or definition conflicts (and, with --no-namespace, name conflicts) keep the "
                              "primary dictionary's entry and drop the other with a warning. Data the other deployment "
-                             "emits under a dropped id is then decoded as the primary's entry")
+                             "emits under a dropped id is then decoded as the primary's entry; data under an id "
+                             "dropped by a name conflict is unknown to the GDS")
     namespacing = parser.add_mutually_exclusive_group()
     namespacing.add_argument("--no-namespace", action="store_true",
                              help="Treat a name used with different ids as an error (a drop with --prefer-primary) "
@@ -326,13 +328,21 @@ def parse_arguments(argv):
     return args
 
 
+def load_input(path, prefix):
+    """ Read one input; parse failures name the file """
+    try:
+        return LoadedInput(str(path), json.loads(path.read_text()), prefix)
+    except (ValueError, RecursionError) as exception:
+        raise ValueError(f"{path}: {exception}") from exception
+
+
 def main(argv=None):
     """ Main entry point """
     args = parse_arguments(argv)
     options = MergeOptions(name=args.name, permissive=args.permissive, prefer_primary=args.prefer_primary,
                            no_namespace=args.no_namespace, namespace_all=args.namespace_all)
     try:
-        inputs = [LoadedInput(str(path), json.loads(path.read_text()), prefix)
+        inputs = [load_input(path, prefix)
                   for path, prefix in zip((args.dictionary1, args.dictionary2), args.prefix or (None, None))]
         merged, report = merge_two(*inputs, options)
         for warning in report.warnings:
@@ -343,7 +353,7 @@ def main(argv=None):
             print(f"[ERROR] Merge failed with {len(report.errors)} error(s); no output written", file=sys.stderr)
             sys.exit(1)
         args.output.write_text(json.dumps(merged, indent=2))
-    except (OSError, ValueError, RecursionError) as exception:  # unreadable/invalid input, unwritable output
+    except (OSError, ValueError) as exception:  # unreadable/invalid input, unwritable output
         print(f"[ERROR] {exception}", file=sys.stderr)
         sys.exit(1)
     sys.exit(0)

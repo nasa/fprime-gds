@@ -218,7 +218,8 @@ class TestCollisionRules(unittest.TestCase):
     def test_prefix_is_last_segment_and_must_differ(self):
         d1 = make_dictionary("X.Same", commands=[command("Sub.X", 1)])
         d2 = make_dictionary("Y.Same", commands=[command("Sub.X", 2)])
-        self.assertEqual(count(merge_fails(d1, d2), E_SAME_PREFIX), 1)
+        errors = merge_fails(d1, d2)  # one error for the root cause, none for the 'Same.Sub.X' collision it causes
+        self.assertEqual((len(errors), count(errors, E_SAME_PREFIX)), (1, 1), errors)
         merged, _ = merge_ok(d1, d2, prefixes=["Alpha", "Site.Beta"])
         self.assertEqual(names(merged), ["Alpha.Sub.X", "Site.Beta.Sub.X"])
         # an unusable deploymentName is only an error once a prefix is needed; --prefix rescues it
@@ -227,6 +228,9 @@ class TestCollisionRules(unittest.TestCase):
         self.assertEqual((len(errors), count(errors, E_PREFIX)), (1, 1), errors)
         del d2["metadata"]["deploymentName"]
         self.assertEqual(count(merge_fails(d1, d2), E_PREFIX), 1)
+        d1["metadata"]["deploymentName"] = "not an identifier"
+        errors = merge_fails(d1, d2)
+        self.assertEqual((len(errors), count(errors, E_PREFIX)), (2, 2), errors)
         merge_ok(d1, d2, prefixes=["Alpha", "Beta"])
         d2["commands"] = [command("Sub.Y", 2)]
         merge_ok(d1, d2)
@@ -310,6 +314,10 @@ class TestPacketsAndNamespaceAll(unittest.TestCase):
                          ("Pkts", ["DeploymentA.Sub.X", "DeploymentA.Ref.a.Y"], ["DeploymentA.Ref.a.Y"]))
         merged, _ = merge_ok(d1, d2, namespace_all=True, prefixes=["Alpha", "Beta"])
         self.assertEqual(names(merged, "telemetryChannels"), ["Alpha.Sub.X", "Alpha.Ref.a.Y", "Beta.Ref.b.Z"])
+        merged, _ = merge_ok(A, B2, namespace_all=True)
+        for section in ("parameters", "records", "containers"):
+            self.assertEqual(names(merged, section),
+                             [f"DeploymentA.{A[section][0]['name']}", f"DeploymentB.{B2[section][0]['name']}"])
         # a packet set named in both inputs still follows the collision rule: both copies renamed
         d2["telemetryPacketSets"] = [packet_set("Pkts", ("Q", ["Ref.b.Z"]))]
         merged, report = merge_ok(d1, d2, namespace_all=True)
@@ -442,9 +450,9 @@ class TestCli(unittest.TestCase):
         self.assertIn("Merge failed with 6 error(s); no output written", lines[-1])
         (self.tmp / "bad.json").write_text("{not json")
         (self.tmp / "deep.json").write_text("[" * 100000 + "]" * 100000)
-        for argv, message in [([self.a, self.tmp / "bad.json"], "Expecting property name"),
+        for argv, message in [([self.a, self.tmp / "bad.json"], "bad.json: Expecting property name"),
                               ([self.a, self.tmp / "missing.json"], "No such file"),
-                              ([self.a, self.tmp / "deep.json"], "recursion"),
+                              ([self.a, self.tmp / "deep.json"], "deep.json: maximum recursion"),
                               ([self.a, self.b2, "--namespace-all"], "No such file")]:
             code, lines, _ = self.run_cli(*argv, output=self.tmp / "nope" / "out.json")
             self.assertEqual((code, len(lines), count(lines, "[ERROR] "), count(lines, message)), (1, 1, 1, 1), lines)
