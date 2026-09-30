@@ -151,24 +151,32 @@ class TestPlugin:
 
 class TestWrite:
     def test_write_is_one_datagram(self, adapter, peer):
-        assert adapter.write(b"hello") is True
-        assert adapter.write(b"world") is True
+        sent = adapter.write(b"hello")
+        assert sent is True
+        sent = adapter.write(b"world")
+        assert sent is True
         assert peer.recvfrom(65535)[0] == b"hello"
         assert peer.recvfrom(65535)[0] == b"world"
 
     def test_write_before_open_is_false(self, peer):
-        assert make_adapter(peer).write(b"x") is False
+        sent = make_adapter(peer).write(b"x")
+        assert sent is False
 
     def test_write_after_close_is_false(self, adapter):
         adapter.close()
-        assert adapter.write(b"x") is False
+        sent = adapter.write(b"x")
+        assert sent is False
 
     def test_oversized_write_is_false_and_warns_once(self, adapter, peer, caplog):
         with caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
-            assert adapter.write(b"x" * 70000) is False
-            assert adapter.write(b"x" * 70000) is False
-            assert adapter.write(b"ok") is True
-            assert adapter.write(b"x" * 70000) is False
+            sent = adapter.write(b"x" * 70000)
+            assert sent is False
+            sent = adapter.write(b"x" * 70000)
+            assert sent is False
+            sent = adapter.write(b"ok")
+            assert sent is True
+            sent = adapter.write(b"x" * 70000)
+            assert sent is False
         warnings = [record for record in caplog.records if "send failed" in record.getMessage()]
         assert len(warnings) == 2  # one per outage: a successful write ends an outage
         assert peer.recvfrom(65535)[0] == b"ok"
@@ -177,7 +185,8 @@ class TestWrite:
         size = max_datagram_payload()
         payload = (bytes(range(256)) * 256)[:size]
         assert len(payload) == size
-        assert adapter.write(payload) is True
+        sent = adapter.write(payload)
+        assert sent is True
         assert peer.recvfrom(65535)[0] == payload
 
 
@@ -286,7 +295,8 @@ class TestSources:
                 raise AssertionError("name lookup on the read/write path")
 
             monkeypatch.setattr(socket, "gethostbyname", no_lookup)
-            assert adapter.write(b"ping") is True
+            sent = adapter.write(b"ping")
+            assert sent is True
             assert peer.recvfrom(65535)[0] == b"ping"
             peer.sendto(b"pong", ("127.0.0.1", recv_port(adapter)))
             assert read_until(adapter) == b"pong"
@@ -338,7 +348,8 @@ class TestBind:
             adapter.open()
             end = time.monotonic() + 0.5
             while time.monotonic() < end:
-                assert adapter.write(b"telemetry")
+                sent = adapter.write(b"telemetry")
+                assert sent
                 adapter.read(TIMEOUT)
         try:
             assert adapter.recv_socket is None
