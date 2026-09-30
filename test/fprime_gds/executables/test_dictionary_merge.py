@@ -13,6 +13,7 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 from fprime_gds.common.loaders.ch_json_loader import ChJsonLoader
 from fprime_gds.common.loaders.cmd_json_loader import CmdJsonLoader
@@ -182,8 +183,8 @@ class TestCollisionRules(unittest.TestCase):
     def test_same_id_different_name(self):
         d1 = make_dictionary("Ref.One", channels=[channel("Ref.a.X", 0)])
         d2 = make_dictionary("Ref.Two", channels=[channel("Ref.b.Y", 0), channel("Ref.b.Z", 1)],
-                             packet_sets=[packet_set("Pkts", ("P", ["Ref.b.Y", "Ref.b.Z"]), ("Q", ["Ref.b.Z"]),
-                                                     omitted=["Ref.b.Y", "Ref.b.Z"])])
+                             packet_sets=[packet_set("Pkts", ("P", ["Ref.b.Y", "Ref.b.Z", "Ref.b.Z"]),
+                                                     ("Q", ["Ref.b.Z"]), omitted=["Ref.b.Y", "Ref.b.Z"])])
         self.assertEqual(count(merge_fails(d1, d2), E_ID_CLASH), 1)
         merged, report = merge_ok(d1, d2, prefer_primary=True)
         self.assertEqual(names(merged, "telemetryChannels"), ["Ref.a.X", "Ref.b.Z"])
@@ -468,6 +469,10 @@ class TestCli(unittest.TestCase):
                               ([self.a, self.b2, "--namespace-all"], "No such file")]:
             code, lines, _ = self.run_cli(*argv, output=self.tmp / "nope" / "out.json")
             self.assertEqual((code, len(lines), count(lines, "[ERROR] "), count(lines, message)), (1, 1, 1, 1), lines)
+        with mock.patch.object(json, "dumps", side_effect=RecursionError("maximum recursion depth exceeded")):
+            code, lines, output = self.run_cli(self.a, self.b2)
+        self.assertEqual((code, count(lines, "[ERROR] "), count(lines, "out.json: merged dictionary is nested too"),
+                          output.exists()), (1, 1, 1, False), lines)
         code, lines, _ = self.run_cli("--name", "1bad", self.a, self.b2)
         self.assertEqual((code, count(lines, "not a valid dotted identifier")), (1, 1), lines)
         usage = [[self.a], ["--prefix", "Alpha", self.a, self.b2], ["--prefix", "A", "--prefix", "A", self.a, self.b2],

@@ -199,10 +199,10 @@ class Merger:
                     self.drop(section, entry, error=f"{conflict}; use --prefer-primary",
                               warning=f"{conflict}; {secondary.path}'s dropped in favour of {primary.path}'s")
                 else:
-                    alpha, beta = self.prefixes()
                     for renamed in self.renamed:
                         renamed.add((section, name))
-                    self.report.warnings.append(f"{conflict}; renamed to {f'{alpha}.{name}'!r} and {f'{beta}.{name}'!r}")
+                    alpha, beta = (self.output_name(index, section, name) for index in (0, 1))
+                    self.report.warnings.append(f"{conflict}; renamed to {alpha!r} and {beta!r}")
                     kept.append(entry)
         merged = [{**entry, "name": self.output_name(index, section, entry["name"])}
                   for index, side in enumerate((primary_entries, kept)) for entry in side]
@@ -258,10 +258,11 @@ class Merger:
             members = packet.get("members") or []
             lost = sorted(dropped.intersection(members))
             if lost:
+                others = len(set(members) - dropped)
                 self.report.warnings.append(f"packet {packet.get('name')!r} of packet set {packet_set['name']!r} in "
                                             f"{self.inputs[index].path} removed because it references dropped "
-                                            f"channel(s) {', '.join(map(repr, lost))}; the GDS will discard that packet, "
-                                            f"so its other {len(set(members) - dropped)} channel(s) are lost too")
+                                            f"channel(s) {', '.join(map(repr, lost))}; the GDS will discard that packet"
+                                            + (f", so its other {others} channel(s) are lost too" if others else ""))
             else:
                 packets.append({**packet, "members": [channel(name) for name in members]})
         omitted = [channel(name) for name in packet_set.get("omitted") or [] if name not in dropped]
@@ -355,8 +356,12 @@ def main(argv=None):
         if merged is None:
             print(f"[ERROR] Merge failed with {len(report.errors)} error(s); no output written", file=sys.stderr)
             sys.exit(1)
-        args.output.write_text(json.dumps(merged, indent=2))
-    except (OSError, ValueError, RecursionError) as exception:  # unreadable/invalid input, unwritable/too-deep output
+        try:
+            text = json.dumps(merged, indent=2)
+        except RecursionError as exception:
+            raise ValueError(f"{args.output}: merged dictionary is nested too deeply to write") from exception
+        args.output.write_text(text)
+    except (OSError, ValueError, RecursionError) as exception:  # unreadable/invalid input, unwritable output
         print(f"[ERROR] {exception}", file=sys.stderr)
         sys.exit(1)
     sys.exit(0)
