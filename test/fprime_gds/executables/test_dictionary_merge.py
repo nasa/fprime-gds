@@ -170,8 +170,10 @@ class TestCollisionRules(unittest.TestCase):
             self.assertEqual(merged[section], A[section] + B2[section], section)
         # the body does not matter (ids are authoritative), nor does --prefer-primary
         other = make_dictionary("Ref.Two", channels=[channel("Sub.X", 2, format="{} ms")])
-        merged, _ = merge_ok(make_dictionary("Ref.One", channels=[channel("Sub.X", 1)]), other, prefer_primary=True)
+        one = make_dictionary("Ref.One", channels=[channel("Sub.X", 1)])
+        merged, report = merge_ok(one, other, prefer_primary=True)
         self.assertEqual(names(merged, "telemetryChannels"), ["One.Sub.X", "Two.Sub.X"])
+        self.assertEqual(count(report.warnings, "renamed to 'One.Sub.X' and 'Two.Sub.X'"), 1, report.warnings)
 
     def test_no_namespace(self):
         errors = merge_fails(A, B2, no_namespace=True)
@@ -220,14 +222,16 @@ class TestCollisionRules(unittest.TestCase):
     def test_prefix_is_last_segment_and_must_differ(self):
         d1 = make_dictionary("X.Same", commands=[command("Sub.X", 1)])
         d2 = make_dictionary("Y.Same", commands=[command("Sub.X", 2)])
-        errors = merge_fails(d1, d2)  # one error for the root cause, none for the 'Same.Sub.X' collision it causes
-        self.assertEqual((len(errors), count(errors, E_SAME_PREFIX)), (1, 1), errors)
+        merged, report = merge(d1, d2)  # one error for the root cause; no 'Same.Sub.X' collision or rename noise
+        self.assertEqual((merged, len(report.errors), count(report.errors, E_SAME_PREFIX), report.warnings),
+                         (None, 1, 1, []), report)
         merged, _ = merge_ok(d1, d2, prefixes=["Alpha", "Site.Beta"])
         self.assertEqual(names(merged), ["Alpha.Sub.X", "Site.Beta.Sub.X"])
         # an unusable deploymentName is only an error once a prefix is needed; --prefix rescues it
         d2["metadata"]["deploymentName"] = "not an identifier"
-        errors = merge_fails(d1, d2)
-        self.assertEqual((len(errors), count(errors, E_PREFIX)), (1, 1), errors)
+        merged, report = merge(d1, d2)
+        self.assertEqual((merged, len(report.errors), count(report.errors, E_PREFIX), report.warnings),
+                         (None, 1, 1, []), report)
         del d2["metadata"]["deploymentName"]
         self.assertEqual(count(merge_fails(d1, d2), E_PREFIX), 1)
         d1["metadata"]["deploymentName"] = "not an identifier"
@@ -255,7 +259,8 @@ class TestCollisionRules(unittest.TestCase):
         merged, report = merge_ok(d1, d2, prefer_primary=True)
         self.assertEqual((merged["telemetryChannels"], merged["telemetryPacketSets"][0]["members"]),
                          (d1["telemetryChannels"], []))
-        self.assertEqual(count(report.warnings, W_KEPT_BODY), 0)
+        self.assertEqual((count(report.warnings, W_KEPT_BODY), count(report.warnings, W_PACKET_REMOVED),
+                          count(report.warnings, "are lost too")), (0, 1, 0), report.warnings)
 
     def test_chained_merge_is_not_supported(self):
         merged, _ = merge_ok(A, B2)

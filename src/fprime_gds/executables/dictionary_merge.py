@@ -202,7 +202,8 @@ class Merger:
                     for renamed in self.renamed:
                         renamed.add((section, name))
                     alpha, beta = (self.output_name(index, section, name) for index in (0, 1))
-                    self.report.warnings.append(f"{conflict}; renamed to {alpha!r} and {beta!r}")
+                    if not self.prefix_error:  # prefixes() already reported; the renames it produced are noise
+                        self.report.warnings.append(f"{conflict}; renamed to {alpha!r} and {beta!r}")
                     kept.append(entry)
         merged = [{**entry, "name": self.output_name(index, section, entry["name"])}
                   for index, side in enumerate((primary_entries, kept)) for entry in side]
@@ -258,11 +259,12 @@ class Merger:
             members = packet.get("members") or []
             lost = sorted(dropped.intersection(members))
             if lost:
-                others = len(set(members) - dropped)
+                survivors = len(set(members) - dropped)
+                lost_too = f", so its other {survivors} channel(s) are lost too" if survivors else ""
                 self.report.warnings.append(f"packet {packet.get('name')!r} of packet set {packet_set['name']!r} in "
                                             f"{self.inputs[index].path} removed because it references dropped "
-                                            f"channel(s) {', '.join(map(repr, lost))}; the GDS will discard that packet"
-                                            + (f", so its other {others} channel(s) are lost too" if others else ""))
+                                            f"channel(s) {', '.join(map(repr, lost))}; the GDS will discard that "
+                                            f"packet{lost_too}")
             else:
                 packets.append({**packet, "members": [channel(name) for name in members]})
         omitted = [channel(name) for name in packet_set.get("omitted") or [] if name not in dropped]
@@ -361,7 +363,7 @@ def main(argv=None):
         except RecursionError as exception:
             raise ValueError(f"{args.output}: merged dictionary is nested too deeply to write") from exception
         args.output.write_text(text)
-    except (OSError, ValueError, RecursionError) as exception:  # unreadable/invalid input, unwritable output
+    except (OSError, ValueError, RecursionError) as exception:  # bad input, unwritable output, too-deep merge
         print(f"[ERROR] {exception}", file=sys.stderr)
         sys.exit(1)
     sys.exit(0)
