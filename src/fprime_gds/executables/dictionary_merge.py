@@ -131,6 +131,8 @@ class Merger:
         name = self.options.name
         if name is None:
             name = f"{first.get('deploymentName', 'unknown')}_{second.get('deploymentName', 'unknown')}_merged"
+        elif not DOTTED_IDENTIFIER.fullmatch(name):
+            self.report.errors.append(f"--name '{name}' is not a valid dotted identifier")
         if not self.options.permissive:
             for version in VERSION_FIELDS:
                 if first.get(version) != second.get(version):
@@ -315,8 +317,6 @@ def parse_arguments(argv):
     parser.add_argument("dictionary1", type=Path, help="Primary dictionary to merge")
     parser.add_argument("dictionary2", type=Path, help="Secondary dictionary to merge")
     args = parser.parse_args(argv)
-    if args.name is not None and not DOTTED_IDENTIFIER.fullmatch(args.name):
-        parser.error(f"--name '{args.name}' is not a valid dotted identifier")
     if args.prefix and len(args.prefix) != 2:
         parser.error("--prefix must be given exactly twice, once per dictionary")
     if args.prefix and args.no_namespace:

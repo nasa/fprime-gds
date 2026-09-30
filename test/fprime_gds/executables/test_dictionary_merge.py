@@ -416,6 +416,8 @@ class TestCli(unittest.TestCase):
         self.assertEqual(merge_dictionaries(A, ground, permissive=True), expected)
         with self.assertRaisesRegex(ValueError, E_ID_CLASH):
             merge_dictionaries(A, B)
+        with self.assertRaisesRegex(ValueError, "not a valid dotted identifier"):
+            merge_dictionaries(A, ground, name="bad name", permissive=True)
 
     def test_output_loads_in_gds(self):
         b2 = {**B2, "telemetryPacketSets": [packet_set("Pkts", ("P", [DISPATCHED]))]}
@@ -446,9 +448,11 @@ class TestCli(unittest.TestCase):
                               ([self.a, self.b2, "--namespace-all"], "No such file")]:
             code, lines, _ = self.run_cli(*argv, output=self.tmp / "nope" / "out.json")
             self.assertEqual((code, len(lines), count(lines, "[ERROR] "), count(lines, message)), (1, 1, 1, 1), lines)
+        code, lines, _ = self.run_cli("--name", "1bad", self.a, self.b2)
+        self.assertEqual((code, count(lines, "not a valid dotted identifier")), (1, 1), lines)
         usage = [[self.a], ["--prefix", "Alpha", self.a, self.b2], ["--prefix", "A", "--prefix", "A", self.a, self.b2],
                  ["--no-namespace", "--prefix", "A", "--prefix", "B", self.a, self.b2],
-                 ["--no-namespace", "--namespace-all", self.a, self.b2], ["--name", "1bad", self.a, self.b2]]
+                 ["--no-namespace", "--namespace-all", self.a, self.b2]]
         for argv in usage:
             self.assertEqual(self.run_cli(*argv)[0], 2, argv)
         # options may appear between positionals
