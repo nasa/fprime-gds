@@ -208,9 +208,7 @@ bytes into packets in `fprime_gds.common.communication`. The CCSDS plugins in
 | `raw-space-packet` | Space Packet splitter, Space Packet header strip | Space Packet payload |
 | `raw-space-data-link` | TM Space Data Link, Space Packet splitter | whole Space Packet (header included) |
 | `space-packet-space-data-link` | TM Space Data Link, Space Packet splitter, Space Packet header strip | Space Packet payload |
-| `space-packet-sdls-space-data-link` | TM Space Data Link, SDLS cleartext, Space Packet splitter, Space Packet header strip | Space Packet payload |
 | `space-packet-splitter` | Space Packet splitter | whole Space Packet (header included) |
-| `raw-sdls-cleartext` | SDLS cleartext | cleartext payload |
 | `tm-frame-aggregator` | TM frame aggregation | whole TM frame |
 
 The Space Packet splitter (`space_packet_splitter.py`) is the single home of

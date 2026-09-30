@@ -6,7 +6,6 @@ Composites are listed in framing order (innermost first); deframing runs the rev
     raw-space-packet:                  SpacePacket <- SpacePacketSplitter
     raw-space-data-link:               SpacePacketSplitter <- SpaceDataLink
     space-packet-space-data-link:      SpacePacket <- SpacePacketSplitter <- SpaceDataLink
-    space-packet-sdls-space-data-link: SpacePacket <- SpacePacketSplitter <- SdlsCleartext <- SpaceDataLink
 
 `ChainedFramerDeframer.deframe_all` reports only the outermost stage's remainder. The splitter is the only
 stage holding partial data, and it is either outermost (byte streams) or fed whole packets by the Space
@@ -19,7 +18,6 @@ from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.common.communication.ccsds.space_data_link import SpaceDataLinkFramerDeframer
 from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
 from fprime_gds.common.communication.ccsds.space_packet_splitter import SpacePacketSplitterFramerDeframer
-from fprime_gds.common.communication.ccsds.sdls import SdlsCleartextFramerDeframer
 from fprime_gds.plugin.definitions import gds_plugin
 
 
@@ -182,24 +180,3 @@ class SpacePacketSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
     def get_name(cls):
         """ Name of this implementation provided to CLI """
         return "space-packet-space-data-link"
-
-
-@gds_plugin(FramerDeframer)
-class SpacePacketSdlsSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
-    """ Space Data Link Protocol framing and deframing with a cleartext SDLS layer around Space Packets """
-
-    @classmethod
-    def get_composites(cls) -> List[Type[FramerDeframer]]:
-        """ Return the composite list of this chain 
-        Innermost FramerDeframer should be first in the list. """
-        return [
-            SpacePacketFramerDeframer,
-            SpacePacketSplitterFramerDeframer,
-            SdlsCleartextFramerDeframer,
-            SpaceDataLinkFramerDeframer
-        ]
-
-    @classmethod
-    def get_name(cls):
-        """ Name of this implementation provided to CLI """
-        return "space-packet-sdls-space-data-link"
