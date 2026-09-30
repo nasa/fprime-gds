@@ -1,11 +1,23 @@
-""" fprime_encryption.framing.chain: implementation of a chained framer/deframer """
+""" fprime_gds.common.communication.ccsds.chain: chained framer/deframers and the CCSDS framing plugins
+
+Composites are listed in framing order (innermost first); deframing runs the reverse order. The CCSDS
+"framing" plugins are chains of single-purpose stages:
+
+    raw-space-packet:                  SpacePacket <- SpacePacketSplitter
+    raw-space-data-link:               SpacePacketSplitter <- SpaceDataLink
+    space-packet-space-data-link:      SpacePacket <- SpacePacketSplitter <- SpaceDataLink
+
+`ChainedFramerDeframer.deframe_all` reports only the outermost stage's remainder. The splitter is the only
+stage holding partial data, and it is either outermost (byte streams) or fed whole packets by the Space
+Data Link stage (whose `reassemble` emits complete packets only), so no inner remainder is dropped.
+"""
 from abc import ABC, abstractmethod
 from functools import reduce
 from typing import Any, Dict, List, Type
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.common.communication.ccsds.space_data_link import SpaceDataLinkFramerDeframer
 from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
-from fprime_gds.common.communication.ccsds.sdls import SdlsCleartextFramerDeframer
+from fprime_gds.common.communication.ccsds.space_packet_splitter import SpacePacketSplitterFramerDeframer
 from fprime_gds.plugin.definitions import gds_plugin
 
 
@@ -113,6 +125,44 @@ class ChainedFramerDeframer(FramerDeframer, ABC):
 
 
 @gds_plugin(FramerDeframer)
+class RawSpacePacketFramerDeframer(ChainedFramerDeframer):
+    """ Space Packet framing and deframing of a byte stream, yielding Space Packet payloads """
+
+    @classmethod
+    def get_composites(cls) -> List[Type[FramerDeframer]]:
+        """ Return the composite list of this chain
+        Innermost FramerDeframer should be first in the list. """
+        return [
+            SpacePacketFramerDeframer,
+            SpacePacketSplitterFramerDeframer
+        ]
+
+    @classmethod
+    def get_name(cls):
+        """ Name of this implementation provided to CLI """
+        return "raw-space-packet"
+
+
+@gds_plugin(FramerDeframer)
+class RawSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
+    """ Space Data Link Protocol framing and deframing, yielding one whole non-idle Space Packet per element """
+
+    @classmethod
+    def get_composites(cls) -> List[Type[FramerDeframer]]:
+        """ Return the composite list of this chain
+        Innermost FramerDeframer should be first in the list. """
+        return [
+            SpacePacketSplitterFramerDeframer,
+            SpaceDataLinkFramerDeframer
+        ]
+
+    @classmethod
+    def get_name(cls):
+        """ Name of this implementation provided to CLI """
+        return "raw-space-data-link"
+
+
+@gds_plugin(FramerDeframer)
 class SpacePacketSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
     """ Space Data Link Protocol framing and deframing that has a data unit of Space Packets as the central """
 
@@ -122,6 +172,7 @@ class SpacePacketSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
         Innermost FramerDeframer should be first in the list. """
         return [
             SpacePacketFramerDeframer,
+            SpacePacketSplitterFramerDeframer,
             SpaceDataLinkFramerDeframer
         ]
 
@@ -129,23 +180,3 @@ class SpacePacketSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
     def get_name(cls):
         """ Name of this implementation provided to CLI """
         return "space-packet-space-data-link"
-
-
-@gds_plugin(FramerDeframer)
-class SpacePacketSdlsSpaceDataLinkFramerDeframer(ChainedFramerDeframer):
-    """ Space Data Link Protocol framing and deframing with a cleartext SDLS layer around Space Packets """
-
-    @classmethod
-    def get_composites(cls) -> List[Type[FramerDeframer]]:
-        """ Return the composite list of this chain 
-        Innermost FramerDeframer should be first in the list. """
-        return [
-            SpacePacketFramerDeframer,
-            SdlsCleartextFramerDeframer,
-            SpaceDataLinkFramerDeframer
-        ]
-
-    @classmethod
-    def get_name(cls):
-        """ Name of this implementation provided to CLI """
-        return "space-packet-sdls-space-data-link"

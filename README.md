@@ -45,6 +45,50 @@ commands and registering consumers to the GDS decoders. The Standard Pipeline ca
 ### GDS Integration Test API
 The Integration Test API is a tool that provides the ability to write integration-level tests for an F´ deployment using the GDS. The tool provides history searches/asserts, command sending, a detailed test log, sub-histories and convenient access to GDS data objects. The test API comes with its own [user guide](https://fprime.jpl.nasa.gov/latest/docs/user-manual/gds/gds-test-api-guide/) and is built on top of the Standard Pipeline.
 
+### F Prime Communication Bridge
+`fprime-comm-bridge` bridges bidirectional communication between an F´ endpoint, reached through a
+GDS communication adapter plugin (`--communication-selection`: `tcp-fast-server` by default, or
+`tcp-fast-client`, `uart`, `ip`, or any installed adapter plugin), and a ground system exchanging
+packets as UDP datagrams such as YAMCS or OpenC3 COSMOS. The ground side is the `udp-fast`
+communication adapter, configured through its own options: deframed packets are sent one per
+datagram to `--udp-fast-address`:`--udp-fast-send-port` (default `127.0.0.1:50000`) and command
+datagrams received on `--udp-fast-bind-address`:`--udp-fast-recv-port` (default `127.0.0.1:50001`)
+are framed and written to the endpoint. Command datagrams are accepted only from the peer address,
+loopback, and hosts supplied via `--udp-fast-allowed-source`. Because the plugin system instantiates one
+communication selection per process and `udp-fast` is the bridge's ground-side adapter, `udp-fast` cannot
+also be selected as the endpoint-side communication of the bridge.
+
+A single GDS framing plugin stage (`--framing-selection`) sits between the two sides. The default
+`tm-frame-aggregator` re-establishes CCSDS TM transfer frame boundaries in the endpoint byte stream
+(frame size and spacecraft ID from `--dictionary`/`--deployment`, or `--frame-size`/`--scid`) and
+passes uplink frames through unchanged, so the ground system performs TM/TC (de)framing itself.
+`raw-space-data-link` exposes CCSDS Space Packets instead: TM frames are deframed on downlink and
+the bridge emits one datagram per Space Packet (idle packets dropped), while each uplink datagram
+is one Space Packet framed into a TC frame. `no-op` passes bytes through unchanged, and `fprime`
+handles the legacy F´ start-word/length framing.
+
+```bash
+fprime-comm-bridge --deployment build-artifacts/Linux/Ref --udp-fast-send-port 50000 --udp-fast-recv-port 50001
+fprime-comm-bridge --communication-selection uart --uart-device /dev/ttyUSB0 --uart-baud 115200 \
+    --framing-selection raw-space-data-link --dictionary build-artifacts/Linux/Ref/dict/RefTopologyDictionary.json
+```
+
+Operational notes: a ground datagram the framer cannot frame (e.g. a Space Packet too large for a
+TC frame) is dropped with a warning and the bridge keeps running, whereas a failure of either pump
+(an adapter error) stops the bridge with a non-zero exit status so a supervisor can restart it.
+Unframed downlink data that never resynchronises is discarded once it exceeds ~640 KB, with a
+warning at the start of each such outage. With `no-op` framing over a stream adapter (TCP, UART)
+packet boundaries are not preserved: each `read()` chunk becomes one datagram.
+
+`udp-fast` is also an ordinary communication adapter plugin (`fprime-gds --communication-selection udp-fast`,
+`fprime-cli`, ...) for datagram-oriented flight links. Unlike `udp`, it reads the socket directly in the
+caller's thread (no receive thread or queue), returns exactly one datagram per read, binds its receive
+port to `--udp-fast-bind-address` (`127.0.0.1` by default rather than all interfaces), and drops datagrams
+from sources other than `--udp-fast-address`, loopback, and `--udp-fast-allowed-source` hosts.
+
+The bridge's integration tests (`test/fprime_gds/common/communication/bridge/test_comm_bridge.py`) use
+`socat` to emulate a UART endpoint; without it those tests are skipped.
+
 ## GDS GUI Usage
 
 A guide for how to use the GDS is available in the [F Prime documentation](https://fprime.jpl.nasa.gov/latest/docs/user-manual/overview/gds-introduction)
@@ -151,6 +195,30 @@ configurations used by GDS classes, including internal GDS types and constants,
 as well as configuration from the FSW JSON dictionary. It can be controlled via
 the `set_*` methods, but it is recommended to use the `DictionaryParser` class
 to automatically load FSW dictionary data into the config manager.
+
+### Framing Plugins
+Framing plugins (`--framing-selection`) frame uplink data and deframe downlink
+bytes into packets in `fprime_gds.common.communication`. The CCSDS plugins in
+`fprime_gds.common.communication.ccsds` are chains of single-purpose stages
+(`ChainedFramerDeframer`); deframing runs the stages from the link inward:
+
+| Plugin | Deframing stages (outermost first) | Deframed element |
+|---|---|---|
+| `fprime` | F Prime framing | F Prime packet |
+| `raw-space-packet` | Space Packet splitter, Space Packet header strip | Space Packet payload |
+| `raw-space-data-link` | TM Space Data Link, Space Packet splitter | whole Space Packet (header included) |
+| `space-packet-space-data-link` | TM Space Data Link, Space Packet splitter, Space Packet header strip | Space Packet payload |
+| `space-packet-splitter` | Space Packet splitter | whole Space Packet (header included) |
+| `tm-frame-aggregator` | TM frame aggregation | whole TM frame |
+
+The Space Packet splitter (`space_packet_splitter.py`) is the single home of
+Space Packet chopping: it yields exactly one whole non-idle Space Packet per
+deframed element, drops idle packets (APID 0x7FF), resynchronizes on bytes that
+cannot start a valid header, and holds a partial packet until the rest of a byte
+stream arrives. The Space Packet header strip (`space_packet.py`) then expects
+exactly one whole packet, removes the primary header, and checks the sequence
+count. Uplink framing runs the stages in the reverse order; the splitter passes
+uplink data through unchanged.
 
 ## Modify GDS Structure
 To setup the structure of the GDS, instances of the above classes are first

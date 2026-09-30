@@ -1,6 +1,7 @@
 import pytest
 import struct
 
+from fprime_gds.common.communication.ccsds.chain import RawSpaceDataLinkFramerDeframer
 from fprime_gds.common.communication.ccsds.space_data_link import (
     SpaceDataLinkFramerDeframer,
 )
@@ -269,3 +270,37 @@ def test_deframe_fhp_beyond_data_field():
     assert remaining == b""
     assert deframer.pending == b""
     assert deframer.deframe(frame3)[0] == packet
+
+
+def test_raw_space_data_link_chain_yields_one_packet_per_element():
+    """The raw-space-data-link plugin yields each whole non-idle Space Packet as its own element."""
+    chain = RawSpaceDataLinkFramerDeframer(scid=SCID_TEST_VALUE, vcid=VCID_TEST_VALUE, frame_size=FRAME_SIZE_TEST_VALUE)
+    small = make_space_packet(0x100, 100)
+    span = make_space_packet(0x101, DATA_FIELD_SIZE + 184)
+    frame1_portion = DATA_FIELD_SIZE - len(small)
+    remainder = len(span) - frame1_portion
+    idle = make_space_packet(0x7FF, DATA_FIELD_SIZE - remainder)
+    frame1 = make_tm_frame(small + span[:frame1_portion], 0, vc_count=0)
+    frame2 = make_tm_frame(span[frame1_portion:] + idle, remainder, vc_count=1)
+
+    packets, remaining, discarded = chain.deframe_all(frame1, no_copy=False)
+    assert packets == [small]
+    assert remaining == b""
+    assert discarded == b""
+    packets, remaining, discarded = chain.deframe_all(frame2, no_copy=False)
+    assert packets == [span]  # Idle packet absent
+    assert remaining == b""
+    assert discarded == b""
+
+
+def test_raw_space_data_link_chain_multiple_packets_in_frame():
+    """Several whole packets in one frame are emitted as separate elements, idle excluded."""
+    chain = RawSpaceDataLinkFramerDeframer(scid=SCID_TEST_VALUE, vcid=VCID_TEST_VALUE, frame_size=FRAME_SIZE_TEST_VALUE)
+    packets = [make_space_packet(0x100 + i, 700) for i in range(3)]
+    idle = make_space_packet(0x7FF, DATA_FIELD_SIZE - 3 * 700)
+    frame = make_tm_frame(b"".join(packets) + idle, 0, vc_count=0)
+
+    deframed, remaining, discarded = chain.deframe_all(frame, no_copy=False)
+    assert deframed == packets
+    assert remaining == b""
+    assert discarded == b""
