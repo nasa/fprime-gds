@@ -175,8 +175,10 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         # Note: baud rate may not *always* work. These are a superset.
         try:
             baud = int(baud)
+            if baud <= 0: 
+                raise ValueError()
         except ValueError:
-            msg = f"Serial baud rate '{baud}' not integer - supply an integer."
+            msg = f"Serial baud rate '{baud}' not valid - supply an integer > 1."
             raise ValueError(
                 msg
             )
