@@ -26,39 +26,6 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
     device handle and a baudrate for the given serial device.
     """
 
-    BAUDS = [
-        50,
-        75,
-        110,
-        134,
-        150,
-        200,
-        300,
-        600,
-        1200,
-        1800,
-        2400,
-        4800,
-        9600,
-        19200,
-        38400,
-        57600,
-        115200,
-        230400,
-        460800,
-        500000,
-        576000,
-        921600,
-        1000000,
-        1152000,
-        1500000,
-        2000000,
-        2500000,
-        3000000,
-        3500000,
-        4000000,
-    ]
-
     def __init__(self, device, baud, skip_check):
         """
         Initialize the serial adapter using the default settings. This does not open the serial port, but sets up all
@@ -209,12 +176,7 @@ class SerialAdapter(fprime_gds.common.communication.adapters.base.BaseAdapter):
         try:
             baud = int(baud)
         except ValueError:
-            msg = f"Serial baud rate '{baud}' not integer. Use one of: {SerialAdapter.BAUDS}"
-            raise ValueError(
-                msg
-            )
-        if baud not in SerialAdapter.BAUDS:
-            msg = f"Serial baud rate '{baud}' not supported. Use one of: {SerialAdapter.BAUDS}"
+            msg = f"Serial baud rate '{baud}' not integer - supply an integer."
             raise ValueError(
                 msg
             )
