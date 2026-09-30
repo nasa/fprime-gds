@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ID_KEYS = {"commands": "opcode", "parameters": "id", "events": "id", "telemetryChannels": "id", "records": "id",
-           "containers": "id"}  # the sections whose entries carry an id; these are the ones namespacing renames
+           "containers": "id"}  # the sections whose entries carry an id (their identity) and that --namespace-all prefixes
 QUALIFIED_NAME_SECTIONS = ["typeDefinitions", "constants"]
 ARRAY_SECTIONS = [*QUALIFIED_NAME_SECTIONS, *ID_KEYS, "telemetryPacketSets"]
 SECTION_ORDER = ["metadata", *ARRAY_SECTIONS]
@@ -103,6 +103,7 @@ class Merger:
         self.dropped_channels = set()  # secondary channel names that leave the merge: packets listing them go too
         self.shared_channels = set()  # secondary channel names that resolve to the primary's entry (same id)
         self._prefixes = None
+        self.prefix_error = False  # set by prefixes() when a prefix is missing or shared; renames are then meaningless
 
     def merge(self):
         """ Returns the merged dictionary, or None once any error has been recorded """
@@ -132,7 +133,7 @@ class Merger:
         if name is None:
             name = f"{first.get('deploymentName', 'unknown')}_{second.get('deploymentName', 'unknown')}_merged"
         elif not DOTTED_IDENTIFIER.fullmatch(name):
-            self.report.errors.append(f"--name {name!r} is not a valid dotted identifier")
+            self.report.errors.append(f"deploymentName {name!r} is not a valid dotted identifier")
         if not self.options.permissive:
             for version in VERSION_FIELDS:
                 if first.get(version) != second.get(version):
@@ -201,11 +202,11 @@ class Merger:
                     alpha, beta = self.prefixes()
                     for renamed in self.renamed:
                         renamed.add((section, name))
-                    self.report.warnings.append(f"{conflict}; renamed to '{alpha}.{name}' and '{beta}.{name}'")
+                    self.report.warnings.append(f"{conflict}; renamed to {f'{alpha}.{name}'!r} and {f'{beta}.{name}'!r}")
                     kept.append(entry)
         merged = [{**entry, "name": self.output_name(index, section, entry["name"])}
                   for index, side in enumerate((primary_entries, kept)) for entry in side]
-        if self._prefixes is not None and (None in self._prefixes or self._prefixes[0] == self._prefixes[1]):
+        if self.prefix_error:
             return merged  # prefixes() already reported the problem; the derived collisions would only add noise
         names = collections.Counter(entry["name"] for entry in merged)
         for name in sorted(name for name, occurrences in names.items() if occurrences > 1):
@@ -228,6 +229,7 @@ class Merger:
         """ Both namespace prefixes; problems are reported once, the first time a prefix is needed """
         if self._prefixes is None:
             self._prefixes = [namespace_prefix(loaded) for loaded in self.inputs]
+            errors_before = len(self.report.errors)
             for loaded, prefix in zip(self.inputs, self._prefixes):
                 if prefix is None:
                     self.report.errors.append(f"cannot derive a namespace prefix for {loaded.path}: "
@@ -235,6 +237,7 @@ class Merger:
             if None not in self._prefixes and self._prefixes[0] == self._prefixes[1]:
                 self.report.errors.append(f"{self.inputs[0].path} and {self.inputs[1].path} both have the namespace "
                                           f"prefix {self._prefixes[0]!r}; use --prefix to tell them apart")
+            self.prefix_error = len(self.report.errors) > errors_before
         return self._prefixes
 
     def output_name(self, index, section, name):
@@ -257,8 +260,8 @@ class Merger:
             if lost:
                 self.report.warnings.append(f"packet {packet.get('name')!r} of packet set {packet_set['name']!r} in "
                                             f"{self.inputs[index].path} removed because it references dropped "
-                                            f"channel(s) {', '.join(map(repr, lost))}; its other "
-                                            f"{len(members) - len(lost)} channel(s) are no longer packetized")
+                                            f"channel(s) {', '.join(map(repr, lost))}; the GDS will discard that packet, "
+                                            f"so its other {len(set(members) - dropped)} channel(s) are lost too")
             else:
                 packets.append({**packet, "members": [channel(name) for name in members]})
         omitted = [channel(name) for name in packet_set.get("omitted") or [] if name not in dropped]
@@ -353,7 +356,7 @@ def main(argv=None):
             print(f"[ERROR] Merge failed with {len(report.errors)} error(s); no output written", file=sys.stderr)
             sys.exit(1)
         args.output.write_text(json.dumps(merged, indent=2))
-    except (OSError, ValueError) as exception:  # unreadable/invalid input, unwritable output
+    except (OSError, ValueError, RecursionError) as exception:  # unreadable/invalid input, unwritable/too-deep output
         print(f"[ERROR] {exception}", file=sys.stderr)
         sys.exit(1)
     sys.exit(0)

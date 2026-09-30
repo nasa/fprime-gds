@@ -190,7 +190,8 @@ class TestCollisionRules(unittest.TestCase):
         # a packet that referenced the dropped channel goes with it; an omitted reference is just filtered
         pkts = merged["telemetryPacketSets"][0]
         self.assertEqual(([p["name"] for p in pkts["members"]], pkts["omitted"]), (["Q"], ["Ref.b.Z"]))
-        self.assertEqual((count(report.warnings, W_DROPPED), count(report.warnings, W_PACKET_REMOVED)), (1, 1))
+        self.assertEqual((count(report.warnings, W_DROPPED), count(report.warnings, W_PACKET_REMOVED),
+                          count(report.warnings, "its other 1 channel(s) are lost too")), (1, 1, 1))
 
     def test_same_name_same_id_different_body(self):
         d1 = make_dictionary("Ref.One", events=[event("Sub.E", 1)], channels=[channel("Sub.X", 1)])
@@ -364,6 +365,17 @@ class TestMetadataAndStructure(unittest.TestCase):
                         "telemetryPacketSets": [{"name": "Pkts", "members": None, "omitted": None}]}
         merged, _ = merge_ok(good, null_members)
         self.assertEqual(merged["telemetryPacketSets"], [{"name": "Pkts", "members": [], "omitted": []}])
+
+    def test_untrusted_names_are_escaped_in_diagnostics(self):
+        name = "Sub.\x1b[31mX"
+        d1 = make_dictionary("Ref.One", events=[event(name, 1)])
+        d2 = make_dictionary("Ref.Two", events=[event(name, 1, format="other")])
+        lines = merge_fails(d1, d2)
+        _, report = merge_ok(d1, d2, prefer_primary=True)
+        lines += report.warnings
+        _, report = merge_ok(d1, {**d2, "events": [event(name, 2)]})
+        lines += report.warnings
+        self.assertEqual((count(lines, repr(name)), count(lines, "\x1b")), (3, 0), lines)
 
     def test_malformed_packet_sets_and_root(self):
         good = make_dictionary("Ref.One")
