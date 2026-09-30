@@ -8,6 +8,8 @@ import inspect
 import logging
 import select
 import socket
+import subprocess
+import sys
 import threading
 import time
 
@@ -22,6 +24,13 @@ READ_BOUND = TIMEOUT * 6
 # Generous bound for a bind retry: backoff plus slack
 REBIND_BOUND = UdpFastAdapter.RECONNECT_INTERVAL * 3
 LOGGER_NAME = "udp_fast_adapter"
+
+
+def max_datagram_payload() -> int:
+    """Largest UDP payload the host sends over loopback: IPv4 limit, or macOS's net.inet.udp.maxdgram sysctl"""
+    if sys.platform == "darwin":
+        return int(subprocess.check_output(["sysctl", "-n", "net.inet.udp.maxdgram"]).strip())
+    return 65507
 
 
 def loopback_alias_or_skip(address="127.0.0.2"):
@@ -165,8 +174,9 @@ class TestWrite:
         assert peer.recvfrom(65535)[0] == b"ok"
 
     def test_maximum_payload(self, adapter, peer):
-        payload = bytes(range(256)) * 255 + b"\0" * (65507 - 65280)
-        assert len(payload) == 65507
+        size = max_datagram_payload()
+        payload = (bytes(range(256)) * 256)[:size]
+        assert len(payload) == size
         assert adapter.write(payload) is True
         assert peer.recvfrom(65535)[0] == payload
 
@@ -181,7 +191,7 @@ class TestRead:
         assert adapter.read(TIMEOUT) == b""
 
     def test_maximum_payload(self, adapter, peer):
-        payload = b"\xaa" * 65507
+        payload = b"\xaa" * max_datagram_payload()
         peer.sendto(payload, ("127.0.0.1", recv_port(adapter)))
         assert read_until(adapter) == payload
 

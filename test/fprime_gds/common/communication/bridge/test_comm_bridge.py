@@ -281,7 +281,10 @@ def run_bridge(*arguments):
         yield stderr_lines
     finally:
         if bridge.poll() is None:
-            bridge.send_signal(signal.SIGINT)
+            if sys.platform == "win32":
+                bridge.terminate()
+            else:
+                bridge.send_signal(signal.SIGINT)
         bridge.wait(timeout=TIMEOUT)
         reader.join(timeout=TIMEOUT)
 
