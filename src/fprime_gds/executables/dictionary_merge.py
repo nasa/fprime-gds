@@ -57,6 +57,8 @@ def validate(loaded, report):
         return
     if not isinstance(loaded.data.get("metadata"), dict):
         malformed("'metadata' must be an object")
+    elif not isinstance(loaded.data["metadata"].get("deploymentName", ""), str):
+        malformed("'metadata.deploymentName' must be a string")
     for section in ARRAY_SECTIONS:
         entries = loaded.data.get(section)
         if not isinstance(entries, list):
@@ -65,21 +67,27 @@ def validate(loaded, report):
         name_key = "qualifiedName" if section in QUALIFIED_NAME_SECTIONS else "name"
         id_key = ID_KEYS.get(section)
         for position, entry in enumerate(entries):
-            if not isinstance(entry, dict) or not isinstance(entry.get(name_key), str):
-                malformed(f"'{section}' entry #{position} must have a string '{name_key}'")
+            if not isinstance(entry, dict) or not isinstance(entry.get(name_key), str) or not entry[name_key]:
+                malformed(f"'{section}' entry #{position} must have a non-empty string '{name_key}'")
             elif id_key and type(entry.get(id_key)) is not int:  # not isinstance: bool is an int subclass
                 malformed(f"'{section}' entry {entry[name_key]!r} must have an integer '{id_key}'")
             elif section == "telemetryPacketSets" and not valid_packet_set(entry):
-                malformed(f"'{section}' entry {entry[name_key]!r} must have arrays of channel names")
+                malformed(f"'{section}' entry {entry[name_key]!r} must have packets with a string 'name', an "
+                          f"integer 'id' and arrays of channel names")
+        for key in (name_key, id_key) if id_key else (name_key,):  # entries are unique by name and by id
+            values = collections.Counter(entry.get(key) for entry in entries if isinstance(entry, dict))
+            for value in sorted(map(repr, (v for v, n in values.items() if n > 1))):
+                malformed(f"'{section}' has two entries with {key} {value}")
 
 
 def valid_packet_set(packet_set):
-    """ members (packets, each with a members list of channel names) and omitted must be arrays or null """
+    """ members (packets: name, id and a members list of channel names) and omitted must be arrays or null """
     def is_channel_name_list(value):
         return value is None or (isinstance(value, list) and all(isinstance(name, str) for name in value))
 
     def is_packet(value):
-        return isinstance(value, dict) and is_channel_name_list(value.get("members"))
+        return (isinstance(value, dict) and isinstance(value.get("name"), str) and type(value.get("id")) is int
+                and is_channel_name_list(value.get("members")))
 
     packets = packet_set.get("members")
     packets_ok = packets is None or (isinstance(packets, list) and all(is_packet(packet) for packet in packets))
@@ -134,15 +142,14 @@ class Merger:
             name = f"{first.get('deploymentName', 'unknown')}_{second.get('deploymentName', 'unknown')}_merged"
         elif not DOTTED_IDENTIFIER.fullmatch(name):
             self.report.errors.append(f"deploymentName {name!r} is not a valid dotted identifier")
-        if not self.options.permissive:
-            for version in VERSION_FIELDS:
-                if first.get(version) != second.get(version):
-                    self.report.errors.append(f"Inconsistent metadata values for field '{version}': "
-                                              f"{first.get(version)!r} in {primary.path}, "
-                                              f"{second.get(version)!r} in {secondary.path}")
-            if first.get("libraryVersions") != second.get("libraryVersions"):
-                self.report.warnings.append(f"metadata libraryVersions differ between {primary.path} and "
-                                            f"{secondary.path}; keeping {primary.path}'s")
+        problems = self.report.warnings if self.options.permissive else self.report.errors
+        for version in VERSION_FIELDS:
+            if first.get(version) != second.get(version):
+                problems.append(f"Inconsistent metadata values for field '{version}': {first.get(version)!r} in "
+                                f"{primary.path}, {second.get(version)!r} in {secondary.path}; keeping {primary.path}'s")
+        if first.get("libraryVersions") != second.get("libraryVersions"):
+            self.report.warnings.append(f"metadata libraryVersions differ between {primary.path} and "
+                                        f"{secondary.path}; keeping {primary.path}'s")
         return {**first, "deploymentName": name}
 
     def merge_by_qualified_name(self, section):
@@ -272,12 +279,12 @@ class Merger:
 
     def check_packet_sets(self, merged):
         """ Every referenced channel must exist in the merged channels; the GDS loads a single packet set """
+        if self.report.errors:  # the channel list is incomplete after a conflict; unknown-channel errors would be noise
+            return
         packet_sets = merged["telemetryPacketSets"]
         if len(packet_sets) > 1:
             self.report.warnings.append(f"merged dictionary has {len(packet_sets)} packet sets; fprime-gds needs "
                                         f"--packet-set-name to start and decodes only the selected set")
-        if self.report.errors:  # the channel list is incomplete after a conflict; unknown-channel errors would be noise
-            return
         channels = {channel["name"] for channel in merged["telemetryChannels"]}
         for packet_set in packet_sets:
             references = {name for packet in packet_set["members"] for name in packet["members"]}
@@ -307,7 +314,7 @@ def parse_arguments(argv):
     parser.add_argument("--output", type=Path, default=Path("MergedAppDictionary.json"),
                         help="Output dictionary path. Default: MergedAppDictionary.json")
     parser.add_argument("--permissive", action="store_true",
-                        help="Ignore version discrepancies between the metadata blocks")
+                        help="Only warn about version discrepancies between the metadata blocks")
     parser.add_argument("--prefer-primary", action="store_true",
                         help="On id or definition conflicts (and, with --no-namespace, name conflicts) keep the "
                              "primary dictionary's entry and drop the other with a warning. Data the other deployment "

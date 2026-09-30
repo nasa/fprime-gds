@@ -343,7 +343,7 @@ class TestMetadataAndStructure(unittest.TestCase):
         d2 = make_dictionary("Ref.Two", projectVersion="p2", libraryVersions=["lib@2"])
         self.assertEqual(count(merge_fails(d1, d2), E_META), 1)
         merged, report = merge_ok(d1, d2, permissive=True)
-        self.assertEqual(report.warnings, [])
+        self.assertEqual((count(report.warnings, E_META), count(report.warnings, W_LIBS)), (1, 1), report.warnings)
         self.assertEqual(merged["metadata"], {**d1["metadata"], "deploymentName": "Ref.One_Ref.Two_merged"})
         d2["metadata"]["projectVersion"] = "p1"
         merged, report = merge_ok(d1, d2, name="Hub.Ground")
@@ -355,10 +355,16 @@ class TestMetadataAndStructure(unittest.TestCase):
     def test_malformed_inputs(self):
         good = make_dictionary("Ref.One")
         broken = [({"metadata": "meta"}, "'metadata' must be an object"),
+                  ({"metadata": {"deploymentName": None}}, "'metadata.deploymentName' must be a string"),
                   ({"commands": {}}, "'commands' must be an array"),
                   ({"commands": [{"name": "X"}]}, "integer 'opcode'"),
                   ({"commands": [command("X", "1")]}, "integer 'opcode'"),
-                  ({"typeDefinitions": [{"kind": "enum"}]}, "string 'qualifiedName'")]
+                  ({"commands": [command("", 1)]}, "non-empty string 'name'"),
+                  ({"typeDefinitions": [{"kind": "enum"}]}, "string 'qualifiedName'"),
+                  # duplicates within one input are malformed, not collisions: same name, same id, same type
+                  ({"commands": [command("X", 1), command("X", 2)]}, "'commands' has two entries with name 'X'"),
+                  ({"events": [event("X", 1), event("Y", 1)]}, "'events' has two entries with id 1"),
+                  ({"constants": [constant("K", 1)] * 2}, "two entries with qualifiedName 'K'")]
         for override, message in broken:
             errors = merge_fails(good, {**make_dictionary("Ref.Two"), **override})
             self.assertEqual(len(errors), 1, errors)
@@ -385,8 +391,9 @@ class TestMetadataAndStructure(unittest.TestCase):
 
     def test_malformed_packet_sets_and_root(self):
         good = make_dictionary("Ref.One")
-        for override in [{"members": "P"}, {"members": [{"name": "P", "members": [1]}]}, {"omitted": [None]},
-                         {"members": 0}, {"omitted": ""}, {"members": [{"name": "P", "members": {}}]}]:
+        for override in [{"members": "P"}, {"members": [{"name": "P", "id": 1, "members": [1]}]}, {"omitted": [None]},
+                         {"members": 0}, {"omitted": ""}, {"members": [{"name": "P", "id": 1, "members": {}}]},
+                         {"members": [{"members": []}]}, {"members": [{"name": "P", "id": "1", "members": []}]}]:
             bad = {**make_dictionary("Ref.Two"), "telemetryPacketSets": [{"name": "Pkts", **override}]}
             errors = merge_fails(good, bad)
             self.assertEqual((len(errors), count(errors, "arrays of channel names")), (1, 1), errors)
@@ -437,7 +444,7 @@ class TestCli(unittest.TestCase):
         for section in ARRAY_SECTIONS:
             expected[section] = A[section] + ground[section]
         code, lines, output = self.run_cli("--permissive", self.a, self.write("G.json", ground))
-        self.assertEqual((code, lines), (0, []))
+        self.assertEqual((code, count(lines, E_META), count(lines, W_LIBS)), (0, 2, 1), lines)
         self.assertEqual(output.read_bytes(), json.dumps(expected, indent=2).encode())
         self.assertEqual(merge_dictionaries(A, ground, permissive=True), expected)
         with self.assertRaisesRegex(ValueError, E_ID_CLASH):
