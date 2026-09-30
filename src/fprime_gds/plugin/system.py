@@ -222,10 +222,8 @@ class Plugins(object):
                 RawSpacePacketFramerDeframer,
                 RawSpaceDataLinkFramerDeframer,
                 SpacePacketSpaceDataLinkFramerDeframer,
-                SpacePacketSdlsSpaceDataLinkFramerDeframer,
             )
             from fprime_gds.common.communication.ccsds.space_packet_splitter import SpacePacketSplitterFramerDeframer
-            from fprime_gds.common.communication.ccsds.sdls import SdlsCleartextFramerDeframer
             from fprime_gds.common.communication.ccsds.tm_frame_aggregator import TmFrameAggregatorFramerDeframer
             from fprime_gds.common.communication.adapters.base import (
                 BaseAdapter,
@@ -250,11 +248,9 @@ class Plugins(object):
                     "built-in": [
                         FpFramerDeframer,
                         SpacePacketSpaceDataLinkFramerDeframer,
-                        SpacePacketSdlsSpaceDataLinkFramerDeframer,
                         RawSpacePacketFramerDeframer,
                         RawSpaceDataLinkFramerDeframer,
                         SpacePacketSplitterFramerDeframer,
-                        SdlsCleartextFramerDeframer,
                         TmFrameAggregatorFramerDeframer,
                     ],
                 },

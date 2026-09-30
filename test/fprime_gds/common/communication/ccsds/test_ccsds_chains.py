@@ -9,9 +9,7 @@ from fprime_gds.common.communication.ccsds.chain import (
     RawSpacePacketFramerDeframer,
     RawSpaceDataLinkFramerDeframer,
     SpacePacketSpaceDataLinkFramerDeframer,
-    SpacePacketSdlsSpaceDataLinkFramerDeframer,
 )
-from fprime_gds.common.communication.ccsds.sdls import SdlsCleartextFramerDeframer
 from fprime_gds.common.communication.ccsds.space_data_link import SpaceDataLinkFramerDeframer
 from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
 from fprime_gds.common.communication.ccsds.space_packet_splitter import SpacePacketSplitterFramerDeframer
@@ -47,7 +45,8 @@ def test_plugin_chain_compositions():
     assert plugins["raw-space-packet"] is RawSpacePacketFramerDeframer
     assert plugins["raw-space-data-link"] is RawSpaceDataLinkFramerDeframer
     assert plugins["space-packet-space-data-link"] is SpacePacketSpaceDataLinkFramerDeframer
-    assert plugins["space-packet-sdls-space-data-link"] is SpacePacketSdlsSpaceDataLinkFramerDeframer
+    assert "space-packet-sdls-space-data-link" not in plugins
+    assert "raw-sdls-cleartext" not in plugins
     assert RawSpacePacketFramerDeframer.get_composites() == [
         SpacePacketFramerDeframer,
         SpacePacketSplitterFramerDeframer,
@@ -59,12 +58,6 @@ def test_plugin_chain_compositions():
     assert SpacePacketSpaceDataLinkFramerDeframer.get_composites() == [
         SpacePacketFramerDeframer,
         SpacePacketSplitterFramerDeframer,
-        SpaceDataLinkFramerDeframer,
-    ]
-    assert SpacePacketSdlsSpaceDataLinkFramerDeframer.get_composites() == [
-        SpacePacketFramerDeframer,
-        SpacePacketSplitterFramerDeframer,
-        SdlsCleartextFramerDeframer,
         SpaceDataLinkFramerDeframer,
     ]
     assert len(plugins) == len(set(plugins))
