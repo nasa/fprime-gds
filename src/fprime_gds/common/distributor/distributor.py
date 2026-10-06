@@ -16,7 +16,7 @@ descriptor header will be passed on to the registered objects.
 
 import logging
 
-from fprime_gds.common.models.serialize.type_exceptions import DeserializeException
+from fprime_gds.common.models.serialize.type_exceptions import TypeException
 from fprime_gds.common.decoders.decoder import DecodingException
 from fprime_gds.common.handlers import DataHandler
 from fprime_gds.common.utils.config_manager import ConfigManager
@@ -196,13 +196,13 @@ class Distributor(DataHandler):
                 data_desc_key = (
                     ConfigManager().get_type("ComCfg.Apid").from_int(data_desc).val
                 )
-            except DeserializeException as deserialize_exception:
-                LOGGER.warning(f"Invalid message: {deserialize_exception}")
-                return
+            except TypeException as type_exception:
+                LOGGER.warning(f"Invalid message: {type_exception}")
+                continue
             decoders = self.__decoders.get(data_desc_key, None)
             if not decoders:
                 LOGGER.warning(f"No decoder registered for: {data_desc_key}")
-                return
+                continue
 
             for d in decoders:
                 try:

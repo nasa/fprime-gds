@@ -56,3 +56,36 @@ def test_distributor():
     assert (test_msg_2 == data_2), f"expected 2nd msg to be {list(data_2)} but found {list(test_msg_2)}"
 
     ConfigManager()._set_defaults()  # reset defaults not to interfere with other tests
+
+
+class RecordingDecoder:
+    """Decoder stand-in that records the messages it receives"""
+
+    def __init__(self):
+        self.received = []
+
+    def data_callback(self, data):
+        self.received.append(bytes(data))
+
+
+def test_distributor_skips_unknown_descriptor():
+    """
+    A message with a descriptor missing from ComCfg.Apid is skipped and later messages
+    are still distributed (https://github.com/nasa/fprime/issues/6148)
+    """
+    ConfigManager().set_config("msg_len", U16Type)
+    ConfigManager().set_type("FwPacketDescriptorType", U32Type)
+    try:
+        dist = Distributor()
+        decoder = RecordingDecoder()
+        dist.register("FW_PACKET_TELEM", decoder)
+
+        unknown_msg = b"\x00\x06\x00\x01\x00\x00\xAA\xBB"  # descriptor 65536
+        telem_msg = b"\x00\x06\x00\x00\x00\x01\xCC\xDD"  # descriptor 1 (FW_PACKET_TELEM)
+
+        dist.on_recv(unknown_msg + telem_msg)
+        dist.on_recv(telem_msg)
+
+        assert decoder.received == [b"\xCC\xDD", b"\xCC\xDD"]
+    finally:
+        ConfigManager()._set_defaults()
