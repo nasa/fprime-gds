@@ -56,3 +56,38 @@ def test_distributor():
     assert (test_msg_2 == data_2), f"expected 2nd msg to be {list(data_2)} but found {list(test_msg_2)}"
 
     ConfigManager()._set_defaults()  # reset defaults not to interfere with other tests
+
+
+class RecordingDecoder:
+    """Decoder stub recording the messages it receives"""
+
+    def __init__(self):
+        self.received = []
+
+    def data_callback(self, data):
+        self.received.append(bytes(data))
+
+
+def test_distributor_skips_malformed_messages():
+    """
+    Tests that malformed messages (unknown descriptor, truncated descriptor) and messages with no
+    registered decoder are skipped without raising, and that subsequent valid messages in the same
+    batch are still delivered
+    """
+    ConfigManager().set_config("msg_len", U16Type)
+    ConfigManager().set_type("FwPacketDescriptorType", U32Type)
+    try:
+        dist = Distributor()
+        decoder = RecordingDecoder()
+        dist.register("FW_PACKET_TELEM", decoder)
+
+        unknown_desc = b"\x00\x06\x00\x01\x00\x00\xAA\xBB"  # descriptor 65536 is not a valid ComCfg.Apid
+        truncated_desc = b"\x00\x02\x00\x01"  # too short to hold a U32 descriptor
+        no_decoder = b"\x00\x06\x00\x00\x00\x02\xEE\xFF"  # FW_PACKET_LOG, no decoder registered
+        valid_telem = b"\x00\x06\x00\x00\x00\x01\xCC\xDD"  # FW_PACKET_TELEM
+
+        dist.on_recv(unknown_desc + truncated_desc + no_decoder + valid_telem)
+
+        assert decoder.received == [b"\xCC\xDD"]
+    finally:
+        ConfigManager()._set_defaults()  # reset defaults not to interfere with other tests
