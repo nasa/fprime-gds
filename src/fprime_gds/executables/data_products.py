@@ -48,13 +48,14 @@ def decode_files(dictionaries: Dictionaries, bin_files: List[Path], output: Opti
             print(f"Error: skipping {bin_file}: output {resolved_output} already written from {written[resolved_output]}", file=sys.stderr)
             failures += 1
             continue
-        written[resolved_output] = bin_file
         try:
             success = DataProductDecoder(dictionaries, str(bin_file), output_path, disable_decompression).process()
         except Exception as e:
             print(f"Error: failed to decode {bin_file}: {e}", file=sys.stderr)
             success = False
-        if not success:
+        if success:
+            written[resolved_output] = bin_file
+        else:
             failures += 1
     return failures
 

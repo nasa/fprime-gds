@@ -164,6 +164,16 @@ class TestDecodeBinDir:
         assert "Decoded 1/2 data products" in captured.out
         assert first.name in captured.err
 
+    def test_rename_id_collision_after_failure_still_decodes(self, tmp_path, capsys):
+        """A failed decode must not reserve its output name"""
+        stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00002576_00000010_00000020.fdp", HEADER_CORRUPT_OFFSET)
+        stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_2576_00000010_00000020.fdp")
+        assert run_decode("--bin-dir", str(tmp_path), "-r") == 1
+        assert_decoded(tmp_path / f"Dp_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
+        captured = capsys.readouterr()
+        assert "already written" not in captured.err
+        assert "Decoded 1/2 data products" in captured.out
+
     def test_single_file_summary(self, tmp_path, capsys):
         stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00002576_00000010_00000020.fdp")
         assert run_decode("--bin-dir", str(tmp_path)) == 0
