@@ -303,18 +303,23 @@ class DataProductDecoder:
 
         return results
 
-    def process(self):
-        """Main processing: decode binary file and write JSON output."""
+    def process(self) -> bool:
+        """Main processing: decode binary file and write JSON output.
+
+        Returns:
+            True on success, False if the data product could not be decoded
+        """
         try:
             print(f"Decoding {self.binary_file_path}...")
             data = self.decode()
             with open(self.output_json_path, 'w') as f:
                 json.dump(data, f, indent=2, default=str)
-            print("Decoding complete!")
-            
+            print(f"Decoding complete: {self.output_json_path}")
+            return True
+
         except DataProductError as e:
             print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
+            return False
         except Exception as e:
             print(f"Unexpected error: {e}", file=sys.stderr)
             raise
