@@ -37,11 +37,18 @@ def renamed_output_path(dictionaries: Dictionaries, bin_file: Path) -> Optional[
 def decode_files(dictionaries: Dictionaries, bin_files: List[Path], output: Optional[str], disable_decompression: bool, rename_id: bool) -> int:
     """Decode each binary file, continuing past failures. Returns the number of failures."""
     failures = 0
+    written = {}
     for bin_file in bin_files:
         output_path = output
         if output_path is None and rename_id:
             renamed = renamed_output_path(dictionaries, bin_file)
             output_path = str(renamed) if renamed is not None else None
+        resolved_output = Path(output_path if output_path is not None else bin_file.with_suffix(".json")).resolve()
+        if resolved_output in written:
+            print(f"Error: skipping {bin_file}: output {resolved_output} already written from {written[resolved_output]}", file=sys.stderr)
+            failures += 1
+            continue
+        written[resolved_output] = bin_file
         try:
             success = DataProductDecoder(dictionaries, str(bin_file), output_path, disable_decompression).process()
         except Exception as e:

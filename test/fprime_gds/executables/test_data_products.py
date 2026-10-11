@@ -153,6 +153,17 @@ class TestDecodeBinDir:
         assert "failed to decode" in captured.err
         assert "Decoded 1/3 data products" in captured.out
 
+    def test_rename_id_output_collision_is_reported(self, tmp_path, capsys):
+        """Two inputs that rename to the same JSON must not silently overwrite each other"""
+        first = stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00002576_00000010_00000020.fdp")
+        stage(tmp_path, "DpDemoCompressed.fdp", "Dp_2576_00000010_00000020.fdp")
+        assert run_decode("--bin-dir", str(tmp_path), "-r") == 1
+        assert_decoded(tmp_path / f"Dp_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
+        captured = capsys.readouterr()
+        assert "already written" in captured.err
+        assert "Decoded 1/2 data products" in captured.out
+        assert first.name in captured.err
+
     def test_single_file_summary(self, tmp_path, capsys):
         stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00002576_00000010_00000020.fdp")
         assert run_decode("--bin-dir", str(tmp_path)) == 0
