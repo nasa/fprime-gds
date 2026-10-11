@@ -85,6 +85,12 @@ class TestDecodeBinFile:
         assert_decoded(output)
         assert list(tmp_path.glob("*.json")) == [output]
 
+    def test_rename_id_downlinked_name(self, tmp_path):
+        """Downlinked copies are named after the sanitized flight path (./DpCat/Dp_... -> ._DpCat_Dp_...)"""
+        bin_file = stage(tmp_path, "DpDemoUncompressed.fdp", f"._DpCat_Dp_{DP_DEMO_CONTAINER_ID:08d}_00000010_00000020.fdp")
+        assert run_decode("-b", str(bin_file), "--rename-id") == 0
+        assert_decoded(tmp_path / f"._DpCat_Dp_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
+
     def test_rename_id_unknown_container_keeps_name(self, tmp_path, capsys):
         bin_file = stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00000001_00000010_00000020.fdp")
         assert run_decode("-b", str(bin_file), "--rename-id") == 0
@@ -146,6 +152,11 @@ class TestDecodeBinDir:
         assert "CRC mismatch" in captured.err
         assert "failed to decode" in captured.err
         assert "Decoded 1/3 data products" in captured.out
+
+    def test_single_file_summary(self, tmp_path, capsys):
+        stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00002576_00000010_00000020.fdp")
+        assert run_decode("--bin-dir", str(tmp_path)) == 0
+        assert "Decoded 1/1 data products" in capsys.readouterr().out
 
     def test_empty_dir(self, tmp_path):
         assert run_decode("--bin-dir", str(tmp_path)) == 1

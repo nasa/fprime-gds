@@ -8,9 +8,10 @@ from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.dp.decoder import DataProductDecoder
 from fprime_gds.common.dp.validator import DataProductValidator
 
-# Matches file names produced by Svc::DpWriter (see DP_FILENAME_FORMAT in DpCfg.hpp):
-# Dp_<container id>_<seconds>_<microseconds>.fdp
-DP_FILENAME_PATTERN = re.compile(r"^Dp_(?P<id>\d+)_(?P<rest>.*)$")
+# Matches the container id in file names produced by Svc::DpWriter (see DP_FILENAME_FORMAT in
+# DpCfg.hpp): Dp_<container id>_<seconds>_<microseconds>.fdp. Searched rather than anchored so that
+# downlinked copies, whose names are the sanitized flight path (e.g. ._DpCat_Dp_<id>_...), also match.
+DP_CONTAINER_ID_PATTERN = re.compile(r"Dp_(?P<id>\d+)_")
 
 
 def renamed_output_path(dictionaries: Dictionaries, bin_file: Path) -> Optional[Path]:
@@ -19,7 +20,8 @@ def renamed_output_path(dictionaries: Dictionaries, bin_file: Path) -> Optional[
     Returns None when the file name does not follow the DpWriter naming convention or the container
     id is not present in the dictionary. The caller falls back to the default output path.
     """
-    match = DP_FILENAME_PATTERN.match(bin_file.stem)
+    stem = bin_file.stem
+    match = DP_CONTAINER_ID_PATTERN.search(stem)
     if match is None:
         print(f"Warning: {bin_file.name} does not match Dp_<id>_<sec>_<usec> naming, keeping file name", file=sys.stderr)
         return None
@@ -28,7 +30,8 @@ def renamed_output_path(dictionaries: Dictionaries, bin_file: Path) -> Optional[
     if container is None:
         print(f"Warning: container id {container_id} ({bin_file.name}) not found in dictionary, keeping file name", file=sys.stderr)
         return None
-    return bin_file.with_name(f"Dp_{container.get_name()}_{match.group('rest')}.json")
+    renamed_stem = f"{stem[:match.start()]}Dp_{container.get_name()}_{stem[match.end():]}"
+    return bin_file.with_name(f"{renamed_stem}.json")
 
 
 def decode_files(dictionaries: Dictionaries, bin_files: List[Path], output: Optional[str], disable_decompression: bool, rename_id: bool) -> int:
@@ -90,7 +93,7 @@ def main():
         else:
             bin_files = [Path(args.bin_file)]
         failures = decode_files(args.dictionaries, bin_files, args.output, args.disable_decompression, args.rename_id)
-        if len(bin_files) > 1:
+        if args.bin_dir is not None:
             print(f"Decoded {len(bin_files) - failures}/{len(bin_files)} data products")
         return 1 if failures else 0
 
