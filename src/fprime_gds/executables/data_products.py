@@ -1,8 +1,52 @@
 import argparse
+import re
+import sys
+from pathlib import Path
+from typing import List, Optional
 
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.dp.decoder import DataProductDecoder
 from fprime_gds.common.dp.validator import DataProductValidator
+
+# Matches file names produced by Svc::DpWriter (see DP_FILENAME_FORMAT in DpCfg.hpp):
+# Dp_<container id>_<seconds>_<microseconds>.fdp
+DP_FILENAME_PATTERN = re.compile(r"^Dp_(?P<id>\d+)_(?P<rest>.*)$")
+
+
+def renamed_output_path(dictionaries: Dictionaries, bin_file: Path) -> Optional[Path]:
+    """Compute the output path for --rename-id, replacing the container id with the container name.
+
+    Returns None when the file name does not follow the DpWriter naming convention or the container
+    id is not present in the dictionary. The caller falls back to the default output path.
+    """
+    match = DP_FILENAME_PATTERN.match(bin_file.stem)
+    if match is None:
+        print(f"Warning: {bin_file.name} does not match Dp_<id>_<sec>_<usec> naming, keeping file name", file=sys.stderr)
+        return None
+    container_id = int(match.group("id"))
+    container = dictionaries.dp_container_id.get(container_id)
+    if container is None:
+        print(f"Warning: container id {container_id} ({bin_file.name}) not found in dictionary, keeping file name", file=sys.stderr)
+        return None
+    return bin_file.with_name(f"Dp_{container.get_name()}_{match.group('rest')}.json")
+
+
+def decode_files(dictionaries: Dictionaries, bin_files: List[Path], output: Optional[str], disable_decompression: bool, rename_id: bool) -> int:
+    """Decode each binary file, continuing past failures. Returns the number of failures."""
+    failures = 0
+    for bin_file in bin_files:
+        output_path = output
+        if output_path is None and rename_id:
+            renamed = renamed_output_path(dictionaries, bin_file)
+            output_path = str(renamed) if renamed is not None else None
+        try:
+            success = DataProductDecoder(dictionaries, str(bin_file), output_path, disable_decompression).process()
+        except Exception as e:
+            print(f"Error: failed to decode {bin_file}: {e}", file=sys.stderr)
+            success = False
+        if not success:
+            failures += 1
+    return failures
 
 
 def main():
@@ -10,9 +54,12 @@ def main():
     subcommands_parser = root_parser.add_subparsers(dest='command')
 
     decode_parser = subcommands_parser.add_parser('decode', help='Decode a data product binary into a human-readable format')
-    decode_parser.add_argument("-b", "--bin-file", required=True, help="Path to input data product binary file (.fdp)")
+    decode_input = decode_parser.add_mutually_exclusive_group(required=True)
+    decode_input.add_argument("-b", "--bin-file", help="Path to input data product binary file (.fdp)")
+    decode_input.add_argument("-B", "--bin-dir", help="Directory of data product binary files; every *.fdp file in it is decoded to <binFilename>.json")
     decode_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
-    decode_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json)")
+    decode_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json). Not allowed with --bin-dir")
+    decode_parser.add_argument("-r", "--rename-id", action='store_true', help="Name output files Dp_<containerName>_<sec>_<usec>.json instead of Dp_<containerId>_<sec>_<usec>.json, using the dictionary")
     decode_parser.add_argument("-z", "--disable-decompression", action='store_true', help="Disable automatic decompression of data products")
 
     validate_parser = subcommands_parser.add_parser('validate', help='Validate a data product')
@@ -30,7 +77,22 @@ def main():
 
     if args.command == "decode":
         assert args.dictionaries is not None, "Dictionaries must be loaded"
-        DataProductDecoder(args.dictionaries, args.bin_file, args.output, args.disable_decompression).process()
+        if args.bin_dir is not None:
+            if args.output is not None:
+                decode_parser.error("--output cannot be used with --bin-dir")
+            bin_dir = Path(args.bin_dir)
+            if not bin_dir.is_dir():
+                decode_parser.error(f"{args.bin_dir} is not a directory")
+            bin_files = sorted(path for path in bin_dir.glob("*.fdp") if path.is_file())
+            if not bin_files:
+                print(f"No .fdp files found in {bin_dir}", file=sys.stderr)
+                return 1
+        else:
+            bin_files = [Path(args.bin_file)]
+        failures = decode_files(args.dictionaries, bin_files, args.output, args.disable_decompression, args.rename_id)
+        if len(bin_files) > 1:
+            print(f"Decoded {len(bin_files) - failures}/{len(bin_files)} data products")
+        return 1 if failures else 0
 
     elif args.command == "validate":
         success = DataProductValidator(
@@ -47,5 +109,4 @@ def main():
 
 # For debugging
 if __name__ == "__main__":
-    import sys
     sys.exit(main())
