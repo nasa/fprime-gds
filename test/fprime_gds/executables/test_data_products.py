@@ -15,7 +15,7 @@ TEST_DATA_DIR = Path(__file__).parent.parent / "common" / "dp" / "test_dp_data"
 DICTIONARY_REF_PATH = TEST_DATA_DIR / "dictionary_ref.json"
 # Container id of Ref.dpDemo.DpDemoContainer in dictionary_ref.json
 DP_DEMO_CONTAINER_ID = 2576
-DP_DEMO_CONTAINER_NAME = "Ref.dpDemo.DpDemoContainer"
+DP_DEMO_CONTAINER_NAME = "DpDemoContainer"  # short name of Ref.dpDemo.DpDemoContainer
 
 
 @pytest.fixture(autouse=True)
@@ -75,7 +75,7 @@ class TestDecodeBinFile:
     def test_rename_id(self, tmp_path):
         bin_file = stage(tmp_path, "DpDemoUncompressed.fdp", f"Dp_{DP_DEMO_CONTAINER_ID:08d}_00000010_00000020.fdp")
         assert run_decode("-b", str(bin_file), "--rename-id") == 0
-        assert_decoded(tmp_path / f"Dp_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
+        assert_decoded(tmp_path / f"{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
         assert not bin_file.with_suffix(".json").exists()
 
     def test_rename_id_explicit_output_wins(self, tmp_path):
@@ -89,7 +89,7 @@ class TestDecodeBinFile:
         """Downlinked copies are named after the sanitized flight path (./DpCat/Dp_... -> ._DpCat_Dp_...)"""
         bin_file = stage(tmp_path, "DpDemoUncompressed.fdp", f"._DpCat_Dp_{DP_DEMO_CONTAINER_ID:08d}_00000010_00000020.fdp")
         assert run_decode("-b", str(bin_file), "--rename-id") == 0
-        assert_decoded(tmp_path / f"._DpCat_Dp_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
+        assert_decoded(tmp_path / f"._DpCat_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
 
     def test_rename_id_unknown_container_keeps_name(self, tmp_path, capsys):
         bin_file = stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00000001_00000010_00000020.fdp")
@@ -137,8 +137,8 @@ class TestDecodeBinDir:
         stage(tmp_path, "DpDemoUncompressed.fdp", f"Dp_{DP_DEMO_CONTAINER_ID:08d}_00000010_00000020.fdp")
         stage(tmp_path, "DpDemoCompressed.fdp", f"Dp_{DP_DEMO_CONTAINER_ID:08d}_00000011_00000021.fdp")
         assert run_decode("--bin-dir", str(tmp_path), "-r") == 0
-        assert_decoded(tmp_path / f"Dp_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
-        assert_decoded(tmp_path / f"Dp_{DP_DEMO_CONTAINER_NAME}_00000011_00000021.json")
+        assert_decoded(tmp_path / f"{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
+        assert_decoded(tmp_path / f"{DP_DEMO_CONTAINER_NAME}_00000011_00000021.json")
 
     def test_continues_past_failures(self, tmp_path, capsys):
         bad_crc = stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00002576_00000009_00000019.fdp", HEADER_CORRUPT_OFFSET)
@@ -158,7 +158,7 @@ class TestDecodeBinDir:
         first = stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00002576_00000010_00000020.fdp")
         stage(tmp_path, "DpDemoCompressed.fdp", "Dp_2576_00000010_00000020.fdp")
         assert run_decode("--bin-dir", str(tmp_path), "-r") == 1
-        assert_decoded(tmp_path / f"Dp_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
+        assert_decoded(tmp_path / f"{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
         captured = capsys.readouterr()
         assert "already written" in captured.err
         assert "Decoded 1/2 data products" in captured.out
@@ -169,7 +169,7 @@ class TestDecodeBinDir:
         stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_00002576_00000010_00000020.fdp", HEADER_CORRUPT_OFFSET)
         stage(tmp_path, "DpDemoUncompressed.fdp", "Dp_2576_00000010_00000020.fdp")
         assert run_decode("--bin-dir", str(tmp_path), "-r") == 1
-        assert_decoded(tmp_path / f"Dp_{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
+        assert_decoded(tmp_path / f"{DP_DEMO_CONTAINER_NAME}_00000010_00000020.json")
         captured = capsys.readouterr()
         assert "already written" not in captured.err
         assert "Decoded 1/2 data products" in captured.out

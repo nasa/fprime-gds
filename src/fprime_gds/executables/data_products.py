@@ -15,7 +15,10 @@ DP_CONTAINER_ID_PATTERN = re.compile(r"Dp_(?P<id>\d+)_")
 
 
 def renamed_output_path(dictionaries: Dictionaries, bin_file: Path) -> Optional[Path]:
-    """Compute the output path for --rename-id, replacing the container id with the container name.
+    """Compute the output path for --rename-id, replacing `Dp_<container id>` with the container's short name.
+
+    For `Dp_00002576_01791745803_00594527.fdp` and container `Ref.dpDemo.DpDemoContainer` the output is
+    `DpDemoContainer_01791745803_00594527.json`.
 
     Returns None when the file name does not follow the DpWriter naming convention or the container
     id is not present in the dictionary. The caller falls back to the default output path.
@@ -30,7 +33,8 @@ def renamed_output_path(dictionaries: Dictionaries, bin_file: Path) -> Optional[
     if container is None:
         print(f"Warning: container id {container_id} ({bin_file.name}) not found in dictionary, keeping file name", file=sys.stderr)
         return None
-    renamed_stem = f"{stem[:match.start()]}Dp_{container.get_name()}_{stem[match.end():]}"
+    short_name = container.get_name().rsplit(".", 1)[-1]
+    renamed_stem = f"{stem[:match.start()]}{short_name}_{stem[match.end():]}"
     return bin_file.with_name(f"{renamed_stem}.json")
 
 
@@ -70,7 +74,7 @@ def main():
     decode_input.add_argument("-B", "--bin-dir", help="Directory of data product binary files; every *.fdp file in it is decoded to <binFilename>.json")
     decode_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
     decode_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json). Not allowed with --bin-dir")
-    decode_parser.add_argument("-r", "--rename-id", action='store_true', help="Name output files Dp_<containerName>_<sec>_<usec>.json instead of Dp_<containerId>_<sec>_<usec>.json, using the dictionary")
+    decode_parser.add_argument("-r", "--rename-id", action='store_true', help="Name output files <containerName>_<sec>_<usec>.json instead of Dp_<containerId>_<sec>_<usec>.json, using the container's short name from the dictionary")
     decode_parser.add_argument("-z", "--disable-decompression", action='store_true', help="Disable automatic decompression of data products")
 
     validate_parser = subcommands_parser.add_parser('validate', help='Validate a data product')
