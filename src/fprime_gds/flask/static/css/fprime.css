@@ -89,6 +89,9 @@
   --charts-navbar-icons-text: #ffffff;
   --charts-navbar-icons-shadow: #000;
   --charts-navbar-icons-hover: #000;
+
+  --table-success-bkg: #c3e6cb;
+  --table-success-hover-bkg: #b1dfbb;
 }
 
 /* Darkmode UI colors */
@@ -158,6 +161,9 @@
   --charts-navbar-icons-text: #fff;
   --charts-navbar-icons-shadow: rgba(0, 0, 0, 0);
   --charts-navbar-icons-hover: rgb(130, 140, 255);
+
+  --table-success-bkg: #3E5200;
+  --table-success-hover-bkg: #608509;
 }
 
 
@@ -1368,7 +1374,7 @@ pre {
 .table-success,
 .table-success > th,
 .table-success > td {
-  background-color: #c3e6cb; }
+  background-color: (--var(table-success-bkg)); }
 
 .table-success th,
 .table-success td,
@@ -1377,10 +1383,10 @@ pre {
   border-color: #8fd19e; }
 
 .table-hover .table-success:hover {
-  background-color: #b1dfbb; }
+  background-color: --var(table-success-hover-bkg); }
   .table-hover .table-success:hover > td,
   .table-hover .table-success:hover > th {
-    background-color: #b1dfbb; }
+    background-color: --var(table-success-hover-bkg); }
 
 .table-info,
 .table-info > th,
