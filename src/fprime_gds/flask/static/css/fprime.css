@@ -48,6 +48,7 @@
 
   --secondary-btn-bkg: #11172f;
   --secondary-btn-text: #fff;
+  --secondary-outline-btn-text: #11172f;
   --secondary-btn-bkg-disabled: #11172f;
   --secondary-btn-border-disabled: var(--form-input-border);
 
@@ -115,6 +116,7 @@
   
   --secondary-btn-bkg: #004c58;
   --secondary-btn-text: var(--light);
+  --secondary-outline-btn-text: var(--light);
   --secondary-btn-bkg-disabled: var(--body-bkg);
   --secondary-btn-border-disabled: var(--form-input-border);
 
@@ -2165,8 +2167,8 @@ fieldset:disabled a.btn {
       box-shadow: 0 0 0 0.2rem rgba(252, 125, 9, 0.5); }
 
 .btn-outline-secondary {
-  color: var(--secondary-btn-text);
-  border-color: var(--secondary-btn-text); }
+  color: var(--secondary-outline-btn-text);
+  border-color: var(--secondary-outline-btn-text); }
   .btn-outline-secondary:hover {
     color: #fff;
     background-color: var(--secondary-hover);
