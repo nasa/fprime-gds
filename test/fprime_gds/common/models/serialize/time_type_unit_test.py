@@ -1,3 +1,4 @@
+import datetime
 import unittest
 
 from fprime_gds.common.models.serialize.time_type import TimeType
@@ -121,6 +122,18 @@ class TimeTypeTestCases(unittest.TestCase):
         assert t3 == 3, "dividing 6 by 1.7 with floor division is 3"
         t3 = 5.5 // self.t15
         assert t3 == 3, "dividing 5.5 by 1.5 with floor division is 3"
+
+    def test_set_datetime_aware(self):
+        t = TimeType()
+        dt = datetime.datetime(2026, 7, 1, 12, 0, 0, 123456, tzinfo=datetime.timezone.utc)
+        t.set_datetime(dt, TimeType.TimeBase("TB_WORKSTATION_TIME"))
+        assert (t.seconds, t.useconds) == (1782907200, 123456)
+
+    def test_set_datetime_naive_round_trip(self):
+        t = TimeType()
+        dt = datetime.datetime(2026, 7, 1, 12, 0, 0, 123456)
+        t.set_datetime(dt, TimeType.TimeBase("TB_WORKSTATION_TIME"))
+        assert t.get_datetime() == dt
 
 
 if __name__ == "__main__":

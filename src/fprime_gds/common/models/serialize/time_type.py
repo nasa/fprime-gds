@@ -339,11 +339,14 @@ class TimeType(type_base.BaseType):
         Sets the timebase from a datetime object.
 
         Args:
-            dt (datetime): datetime object to read from time.
+            dt (datetime): datetime object to read from time. A naive datetime
+               is interpreted as local time, matching get_datetime(tz=None).
         """
-        total_seconds = (dt - datetime.datetime.fromtimestamp(0)).total_seconds()
-        seconds = int(total_seconds)
-        useconds = int((total_seconds - seconds) * 1000000)
+        if dt.tzinfo is None:
+            dt = dt.astimezone()
+        delta = dt - datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
+        seconds = delta.days * 86400 + delta.seconds
+        useconds = delta.microseconds
 
         self.timeBase = time_base
         self.seconds = seconds

@@ -6,7 +6,6 @@ YAMCS-backed transport for the F Prime GDS.
 @author yuktiv
 """
 
-import datetime
 import logging
 import time
 from pathlib import Path
@@ -375,8 +374,6 @@ class YamcsClient(TransportClient):
     def _build_time_type(yamcs_timestamp):
         if yamcs_timestamp is None:
             return TimeType()
-        if yamcs_timestamp.tzinfo is not None:
-            yamcs_timestamp = yamcs_timestamp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
         time_obj = TimeType()
         time_obj.set_datetime(yamcs_timestamp, TimeType.TimeBase("TB_WORKSTATION_TIME"))
         return time_obj
