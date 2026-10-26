@@ -1374,7 +1374,7 @@ pre {
 .table-success,
 .table-success > th,
 .table-success > td {
-  background-color: (--var(table-success-bkg)); }
+  background-color: var(--table-success-bkg); }
 
 .table-success th,
 .table-success td,
@@ -1383,10 +1383,10 @@ pre {
   border-color: #8fd19e; }
 
 .table-hover .table-success:hover {
-  background-color: --var(table-success-hover-bkg); }
+  background-color: var(--table-success-hover-bkg); }
   .table-hover .table-success:hover > td,
   .table-hover .table-success:hover > th {
-    background-color: --var(table-success-hover-bkg); }
+    background-color: var(--table-success-hover-bkg); }
 
 .table-info,
 .table-info > th,
