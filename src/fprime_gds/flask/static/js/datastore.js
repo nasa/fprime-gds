@@ -357,11 +357,13 @@ class DataStore {
             let bound = (handler instanceof HistoryHelper) ? handler.update.bind(handler) : handler.bind(this);
             let processor = _validator.wrapResponseHandler(endpoint, bound);
             if (endpoint === "events") {
-                let severity_processor = (severity) => {
-                    return severity.value.replace("EventSeverity.", "");
+                // Events arrive without severity (see flask/json.py minimal_event), so look it up in the dictionary
+                let severity_processor = (id) => {
+                    let template = _dictionaries.events[id];
+                    return (template) ? template.severity.value.replace("EventSeverity.", "") : null;
                 };
                 processor = _validator.wrapFieldCounter(
-                    "severity",
+                    "id",
                     processor,
                     severity_processor,
                     Object.fromEntries(Object.keys(config.summaryFields).map((field_key) => [field_key, 0]))
