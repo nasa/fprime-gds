@@ -2,6 +2,8 @@
 Unit tests for the YAMCS-backed GDS transport (fprime_gds.common.yamcs_transport)
 """
 
+import datetime
+import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -108,6 +110,21 @@ class TestBuildValueObject:
 
     def test_string_passthrough(self):
         assert YamcsClient._build_value_object("hello", StringArgType).val == "hello"
+
+
+class TestBuildTimeType:
+    @pytest.mark.parametrize("tz", ["UTC", "America/Los_Angeles", "Europe/Paris"])
+    def test_timestamp_independent_of_local_timezone(self, monkeypatch, tz):
+        monkeypatch.setenv("TZ", tz)
+        time.tzset()
+        try:
+            stamp = datetime.datetime(2026, 7, 1, 12, 0, 0, 123456, tzinfo=datetime.timezone.utc)
+            time_obj = YamcsClient._build_time_type(stamp.astimezone())
+            assert time_obj.seconds == 1782907200
+            assert time_obj.useconds == 123456
+        finally:
+            monkeypatch.undo()
+            time.tzset()
 
 
 class TestBuildEventDataMissingArgs:
