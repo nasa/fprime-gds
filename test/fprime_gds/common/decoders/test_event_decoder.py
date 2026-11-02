@@ -49,3 +49,69 @@ def test_event_decoder_multiple_events():
     assert events[0].get_display_text() == "count=42"
     assert events[1].get_id() == 2
     assert events[1].get_display_text() == "abc True 123"
+
+
+def test_event_decoder_bool_not_truncated():
+    """Regression test for nasa/fprime#4860.
+
+    A bool argument must not truncate the event's format string: the literal
+    text that follows the bool in "abc {} 123" must be preserved.
+    """
+    flag_temp = EventTemplate(
+        1,
+        "BoolEvent",
+        "test_comp",
+        [("flag", None, BoolType)],
+        EventSeverity.ACTIVITY_HI,
+        "abc {} 123",
+    )
+    decoder = EventDecoder({1: flag_temp})
+
+    (true_event,) = decoder.decode_api(serialize_event(1, [BoolType(True)]))
+    assert true_event.get_display_text() == "abc True 123"
+
+    (false_event,) = decoder.decode_api(serialize_event(1, [BoolType(False)]))
+    assert false_event.get_display_text() == "abc False 123"
+
+
+def test_event_decoder_bool_followed_by_arg_not_truncated():
+    """nasa/fprime#4860: a value after the bool must survive too."""
+    temp = EventTemplate(
+        2,
+        "BoolThenNum",
+        "test_comp",
+        [("flag", None, BoolType), ("n", None, U32Type)],
+        EventSeverity.ACTIVITY_HI,
+        "flag={} n={}",
+    )
+    decoder = EventDecoder({2: temp})
+
+    (event,) = decoder.decode_api(serialize_event(2, [BoolType(True), U32Type(42)]))
+    assert event.get_display_text() == "flag=True n=42"
+
+
+def test_event_decoder_single_event_preserved():
+    """Preservation test for the decode_api pointer change.
+
+    A buffer holding exactly one event must decode to exactly one EventData
+    with the correct id, time and argument. This must hold both before and
+    after switching decode_api to advance by the returned offset, proving the
+    normal one-event-per-buffer path is unaffected by the fix.
+    """
+    temp = EventTemplate(
+        3,
+        "CountEvent",
+        "test_comp",
+        [("count", None, U32Type)],
+        EventSeverity.ACTIVITY_HI,
+        "count={}",
+    )
+    decoder = EventDecoder({3: temp})
+
+    events = decoder.decode_api(serialize_event(3, [U32Type(7)]))
+
+    assert len(events) == 1
+    assert events[0].get_id() == 3
+    assert events[0].time.seconds == 1533758629
+    assert events[0].time.useconds == 123456
+    assert events[0].get_display_text() == "count=7"
