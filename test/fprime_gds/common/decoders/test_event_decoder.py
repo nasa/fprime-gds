@@ -110,8 +110,29 @@ def test_event_decoder_single_event_preserved():
 
     events = decoder.decode_api(serialize_event(3, [U32Type(7)]))
 
+    # Exactly one event back: the pointer consumed the whole buffer and the
+    # loop did not re-enter on leftover bytes (under-advance) or warn about
+    # missing data (over-advance).
     assert len(events) == 1
     assert events[0].get_id() == 3
     assert events[0].time.seconds == 1533758629
     assert events[0].time.useconds == 123456
     assert events[0].get_display_text() == "count=7"
+
+    # Same guarantee when the single argument is a bool: the offset returned by
+    # decode_args must land exactly past the 1-byte bool, which is the spot the
+    # decode_api pointer change touches.
+    bool_temp = EventTemplate(
+        4,
+        "FlagEvent",
+        "test_comp",
+        [("flag", None, BoolType)],
+        EventSeverity.ACTIVITY_HI,
+        "abc {} 123",
+    )
+    bool_decoder = EventDecoder({4: bool_temp})
+    bool_events = bool_decoder.decode_api(serialize_event(4, [BoolType(True)]))
+
+    assert len(bool_events) == 1
+    assert bool_events[0].get_id() == 4
+    assert bool_events[0].get_display_text() == "abc True 123"
