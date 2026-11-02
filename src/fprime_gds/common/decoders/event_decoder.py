@@ -88,11 +88,10 @@ class EventDecoder(decoder.Decoder):
 
             event_temp = self.__dict[event_id]
 
-            (size, arg_vals) = self.decode_args(data, ptr, event_temp)
+            # decode_args returns the offset just past the last argument
+            (ptr, arg_vals) = self.decode_args(data, ptr, event_temp)
 
             event_list.append(event_data.EventData(arg_vals, event_time, event_temp))
-            # add up argument sizes
-            ptr += size
         return event_list
 
     @staticmethod
