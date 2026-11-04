@@ -359,8 +359,8 @@ class DataStore {
             if (endpoint === "events") {
                 // Events arrive without severity (see flask/json.py minimal_event), so look it up in the dictionary
                 let severity_processor = (id) => {
-                    let template = _dictionaries.events[id];
-                    return (template) ? template.severity.value.replace("EventSeverity.", "") : null;
+                    let severity = ((_dictionaries.events || {})[id] || {}).severity;
+                    return (severity && severity.value) ? severity.value.replace("EventSeverity.", "") : null;
                 };
                 processor = _validator.wrapFieldCounter(
                     "id",
