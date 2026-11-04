@@ -36,6 +36,8 @@
     --command-table-hover-bkg: rgba(127,201,127, 0.7);
 
     --fp-color-logging: #f0fff0;
+
+    --danger: maroon;
 }
 
 /* Darkmode UI colors */
@@ -68,6 +70,8 @@
     --command-table-hover-bkg: #608509;
 
     --fp-color-logging: #212721;
+
+    --danger: #DB3737;
 }
 
 .table-bordered th, .table-bordered td {
@@ -356,7 +360,7 @@ table td:has(table.embedded_table) {
     width: 100%;
     margin-top: 0.25rem;
     font-size: 80%;
-    color: maroon;
+    color: var(--danger);
 }
 
 fieldset.fp-subform {
