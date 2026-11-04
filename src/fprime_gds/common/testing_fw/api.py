@@ -8,6 +8,8 @@ telemetry and dictionaries.
 :author: koran
 """
 
+import argparse
+import sys
 import time
 from pathlib import Path
 import shutil
@@ -23,6 +25,7 @@ from fprime_gds.common.logger.test_logger import TestLogger
 from fprime_gds.common.testing_fw import predicates
 from fprime_gds.common.tools.seqgen import SeqGenException, generateSequence
 from fprime_gds.common.utils.event_severity import EventSeverity
+from fprime_gds.executables.cli import ConfigDrivenParser, StandardPipelineParser
 
 
 class IntegrationTestAPI(DataHandler):
@@ -1610,3 +1613,68 @@ class IntegrationTestAPI(DataHandler):
             msg += f"\nReceived Second:{data.get_str(verbose=True)}"
             self.__log(msg, TestLogger.ORANGE)
         self.last_evr = data
+
+
+class IntegrationTestAPIContext:
+    """
+    Context manager providing an IntegrationTestAPI connected to a running GDS without pytest.
+
+    This performs the same setup and teardown as the fprime_test_api pytest fixture, so plain scripts (e.g. testbed
+    setup scripts) can command and check telemetry/events:
+
+    ```python
+    from fprime_gds.common.testing_fw.api import IntegrationTestAPIContext
+
+    with IntegrationTestAPIContext() as api:
+        api.send_and_assert_command("cmdDisp.CMD_NO_OP")
+    ```
+
+    Standard pipeline options (e.g. --dictionary, --tts-addr, --tts-port, --logs) are read from the script's command
+    line and, as with `fprime-gds`, from the fprime-gds configuration file. Unrecognized arguments are ignored so the
+    script may define its own.
+    """
+
+    def __init__(self, arguments=None, deployment_config=None):
+        """
+        Args:
+            arguments: list of command line arguments to parse. Defaults to sys.argv[1:].
+            deployment_config: path to a deployment configuration file. Defaults to --deployment-config if given.
+        """
+        self.arguments = arguments
+        self.deployment_config = deployment_config
+        self.pipeline = None
+        self.api = None
+
+    def __enter__(self):
+        arg_ns, _, remaining = ConfigDrivenParser.parse_known_args(
+            [StandardPipelineParser], arguments=self.arguments, client=True
+        )
+        deployment_config = self.deployment_config
+        if deployment_config is None:
+            parser = argparse.ArgumentParser(add_help=False)
+            parser.add_argument("--deployment-config", type=Path, default=None)
+            deployment_config = parser.parse_known_args(remaining)[0].deployment_config
+        try:
+            self.pipeline = StandardPipelineParser.pipeline_factory(arg_ns)
+            self.api = IntegrationTestAPI(self.pipeline, deployment_config, arg_ns.logs)
+            self.api.setup()
+        except BaseException:
+            # __exit__ is not called when __enter__ raises, so clean up anything already set up
+            self.__exit__(None, None, None)
+            raise
+        return self.api
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if self.api is not None:
+                self.api.teardown()
+        except Exception as exc:
+            print(f"[WARNING] Exception in API teardown: {exc}", file=sys.stderr)
+        try:
+            if self.pipeline is not None:
+                self.pipeline.disconnect()
+        except Exception as exc:
+            print(f"[WARNING] Exception in pipeline teardown: {exc}", file=sys.stderr)
+        self.api = None
+        self.pipeline = None
+        return False
