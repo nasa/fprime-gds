@@ -474,13 +474,15 @@ class TestCli(unittest.TestCase):
         self.assertEqual((code, count(lines, E_ID_CLASH), output.exists()), (1, 6, False))
         self.assertIn("Merge failed with 6 error(s); no output written", lines[-1])
         (self.tmp / "bad.json").write_text("{not json")
-        (self.tmp / "deep.json").write_text("[" * 100000 + "]" * 100000)
         for argv, message in [([self.a, self.tmp / "bad.json"], "bad.json: Expecting property name"),
                               ([self.a, self.tmp / "missing.json"], "No such file"),
-                              ([self.a, self.tmp / "deep.json"], "deep.json: maximum recursion"),
                               ([self.a, self.b2, "--namespace-all"], "No such file")]:
             code, lines, _ = self.run_cli(*argv, output=self.tmp / "nope" / "out.json")
             self.assertEqual((code, len(lines), count(lines, "[ERROR] "), count(lines, message)), (1, 1, 1, 1), lines)
+        (self.tmp / "deep.json").write_text("[]")
+        with mock.patch.object(json, "loads", side_effect=[json.loads(self.a.read_text()), RecursionError("maximum recursion depth exceeded")]):
+            code, lines, _ = self.run_cli(self.a, self.tmp / "deep.json", output=self.tmp / "nope" / "out.json")
+        self.assertEqual((code, len(lines), count(lines, "[ERROR] "), count(lines, "deep.json: maximum recursion")), (1, 1, 1, 1), lines)
         with mock.patch.object(json, "dumps", side_effect=RecursionError("maximum recursion depth exceeded")):
             code, lines, output = self.run_cli(self.a, self.b2)
         self.assertEqual((code, count(lines, "[ERROR] "), count(lines, "out.json: merged dictionary is nested too"),
