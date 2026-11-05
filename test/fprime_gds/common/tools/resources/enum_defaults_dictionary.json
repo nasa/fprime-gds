@@ -1,0 +1,123 @@
+{
+  "metadata": {
+    "deploymentName": "test",
+    "projectVersion": "0",
+    "frameworkVersion": "0",
+    "libraryVersions": [],
+    "dictionarySpecVersion": "1.0.0"
+  },
+  "typeDefinitions": [
+    {
+      "kind": "enum",
+      "qualifiedName": "Fw.Enabled",
+      "representationType": {
+        "name": "I32",
+        "kind": "integer",
+        "size": 32,
+        "signed": true
+      },
+      "enumeratedConstants": [
+        {
+          "name": "DISABLED",
+          "value": 0
+        },
+        {
+          "name": "ENABLED",
+          "value": 1
+        }
+      ],
+      "default": "Fw.Enabled.DISABLED"
+    },
+    {
+      "kind": "struct",
+      "qualifiedName": "Test.ChannelConfig",
+      "members": {
+        "timeout": {
+          "type": {
+            "name": "U32",
+            "kind": "integer",
+            "size": 32,
+            "signed": false
+          },
+          "index": 0
+        },
+        "dequeue_enabled": {
+          "type": {
+            "name": "Fw.Enabled",
+            "kind": "qualifiedIdentifier"
+          },
+          "index": 1
+        }
+      },
+      "default": {
+        "timeout": 0,
+        "dequeue_enabled": "Fw.Enabled.DISABLED"
+      }
+    },
+    {
+      "kind": "array",
+      "qualifiedName": "Test.ChannelConfigArray",
+      "size": 2,
+      "elementType": {
+        "name": "Test.ChannelConfig",
+        "kind": "qualifiedIdentifier"
+      },
+      "default": [
+        {
+          "timeout": 0,
+          "dequeue_enabled": "Fw.Enabled.DISABLED"
+        },
+        {
+          "timeout": 0,
+          "dequeue_enabled": "Fw.Enabled.DISABLED"
+        }
+      ]
+    }
+  ],
+  "commands": [],
+  "events": [],
+  "telemetryChannels": [],
+  "constants": [],
+  "telemetryPacketSets": [],
+  "parameters": [
+    {
+      "name": "cfdp.Enabled",
+      "type": {
+        "name": "Fw.Enabled",
+        "kind": "qualifiedIdentifier"
+      },
+      "id": 256,
+      "default": "Fw.Enabled.ENABLED"
+    },
+    {
+      "name": "cfdp.Config",
+      "type": {
+        "name": "Test.ChannelConfig",
+        "kind": "qualifiedIdentifier"
+      },
+      "id": 257,
+      "default": {
+        "timeout": 5,
+        "dequeue_enabled": "Fw.Enabled.ENABLED"
+      }
+    },
+    {
+      "name": "cfdp.Channels",
+      "type": {
+        "name": "Test.ChannelConfigArray",
+        "kind": "qualifiedIdentifier"
+      },
+      "id": 258,
+      "default": [
+        {
+          "timeout": 5,
+          "dequeue_enabled": "Fw.Enabled.ENABLED"
+        },
+        {
+          "timeout": 10,
+          "dequeue_enabled": "Fw.Enabled.DISABLED"
+        }
+      ]
+    }
+  ]
+}

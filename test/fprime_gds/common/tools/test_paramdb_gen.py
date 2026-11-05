@@ -1,9 +1,15 @@
 import filecmp
+import json
 from pathlib import Path
 import pytest
 import tempfile
 
-from fprime_gds.common.tools.params import convert_json, parse_json
+from fprime_gds.common.tools.params import (
+    convert_json,
+    parse_json,
+    parsed_json_to_dat,
+    parsed_json_to_seq,
+)
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
 
 
@@ -48,3 +54,31 @@ def test_parse_json_keeps_falsy_values(value):
     result = parse_json({"cmdDisp": {"FAKE_PRM": value}}, name_dict, False)
     names = [t.prm_name for t, _ in result]
     assert "FAKE_PRM" in names
+
+
+@pytest.mark.parametrize(
+    "prm_name, expected",
+    [
+        ("Enabled", "ENABLED"),
+        ("Config", {"timeout": 5, "dequeue_enabled": "ENABLED"}),
+        (
+            "Channels",
+            [
+                {"timeout": 5, "dequeue_enabled": "ENABLED"},
+                {"timeout": 10, "dequeue_enabled": "DISABLED"},
+            ],
+        ),
+    ],
+)
+def test_defaults_with_qualified_enums(prm_name, expected):
+    """Dictionary enum defaults are fully qualified (e.g. Fw.Enabled.ENABLED)"""
+    dict_file = Path(__file__).parent / "resources" / "enum_defaults_dictionary.json"
+    _, name_dict, _ = PrmJsonLoader(str(dict_file)).construct_dicts(str(dict_file))
+    name_dict = {name: t for name, t in name_dict.items() if t.prm_name == prm_name}
+    templates_and_values = parse_json({}, name_dict, True)
+
+    parsed_json_to_dat(templates_and_values)
+    [(_, value)] = templates_and_values
+    assert value == expected
+    [_, seq_cmd] = parsed_json_to_seq(templates_and_values)
+    assert seq_cmd.endswith(json.dumps(expected))

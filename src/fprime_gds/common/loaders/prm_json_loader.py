@@ -9,6 +9,9 @@ Loads flight dictionary (JSON) and returns id and mnemonic based Python dictiona
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime_gds.common.loaders.json_loader import JsonLoader
 from fprime_gds.common.data_types.exceptions import GdsDictionaryParsingException
+from fprime_gds.common.models.serialize.array_type import ArrayType
+from fprime_gds.common.models.serialize.enum_type import EnumType
+from fprime_gds.common.models.serialize.serializable_type import SerializableType
 
 
 class PrmJsonLoader(JsonLoader):
@@ -74,7 +77,9 @@ class PrmJsonLoader(JsonLoader):
                 f"{str(e)} key missing from parameter dictionary entry or its associated type in the dictionary: {str(prm_dict)}"
             )
 
-        prm_default_val = prm_dict.get(self.DEFAULT, None)
+        prm_default_val = unqualify_enum_values(
+            prm_dict.get(self.DEFAULT, None), type_obj
+        )
 
         return PrmTemplate(
             prm_id,
@@ -83,3 +88,21 @@ class PrmJsonLoader(JsonLoader):
             type_obj,
             prm_default_val
         )
+
+
+def unqualify_enum_values(value, type_obj):
+    """Strip the enum type prefix from enum values (e.g. Fw.Enabled.ENABLED -> ENABLED), recursing
+    through arrays and structs. The dictionary gives enum values fully qualified, but EnumType
+    expects the bare member name."""
+    if value is None:
+        return None
+    if issubclass(type_obj, EnumType):
+        return value.removeprefix(type_obj.__name__ + ".")
+    if issubclass(type_obj, ArrayType):
+        return [unqualify_enum_values(item, type_obj.MEMBER_TYPE) for item in value]
+    if issubclass(type_obj, SerializableType):
+        return {
+            member_name: unqualify_enum_values(value[member_name], member_type)
+            for member_name, member_type, _, _ in type_obj.MEMBER_LIST
+        }
+    return value
