@@ -88,7 +88,13 @@ class SpaceDataLinkFramerDeframer(FramerDeframer):
         self.last_vc_count = None
         self.vcid = vcid
         # Priority order: command line arg > dictionary value > fallback value
-        self.scid = scid or dict_scid or self.FALLBACK_SCID
+        if scid is not None:
+            self.scid = scid
+        elif dict_scid is not None:
+            self.scid = dict_scid
+        else:
+            self.scid = self.FALLBACK_SCID
+
         self.frame_size = frame_size or dict_frame_size or self.FALLBACK_FRAME_SIZE
 
     def frame(self, data):
