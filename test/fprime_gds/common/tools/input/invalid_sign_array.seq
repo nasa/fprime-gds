@@ -1,0 +1,2 @@
+; Sign in front of an array is not a negative number
+R00:00:01 cmdDisp.CMD_ARRAY_INT -[1, 2, 3]

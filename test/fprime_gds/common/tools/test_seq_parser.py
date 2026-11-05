@@ -184,6 +184,10 @@ class TestEnhancedArguments(unittest.TestCase):
         """Test sequence with nested structures (arrays of structs, structs with arrays)."""
         self.generate_and_compare("valid_nested_args.seq", "valid_nested_args.bin")
 
+    def test_negative_arguments(self):
+        """Test sequence with negative/signed numeric arguments, including inside arrays and objects."""
+        self.generate_and_compare("valid_negative_args.seq", "valid_negative_args.bin")
+
 
 class TestSequenceErrors(unittest.TestCase):
     """Test error handling for invalid sequence files."""
@@ -512,6 +516,34 @@ class TestArrayObjectValidationErrors(unittest.TestCase):
         self.generate_and_check_error(
             "invalid_enum_bad_value.seq",
             "invalid_enum_bad_value_error.txt"
+        )
+
+    def test_invalid_sign_object(self):
+        """Test error on a sign in front of an object literal."""
+        self.generate_and_check_error(
+            "invalid_sign_object.seq",
+            "invalid_sign_object_error.txt"
+        )
+
+    def test_invalid_sign_enum(self):
+        """Test error on a sign in front of an enum member."""
+        self.generate_and_check_error(
+            "invalid_sign_enum.seq",
+            "invalid_sign_enum_error.txt"
+        )
+
+    def test_invalid_sign_string(self):
+        """Test error on a sign in front of a string literal."""
+        self.generate_and_check_error(
+            "invalid_sign_string.seq",
+            "invalid_sign_string_error.txt"
+        )
+
+    def test_invalid_sign_array(self):
+        """Test error on a sign in front of an array literal."""
+        self.generate_and_check_error(
+            "invalid_sign_array.seq",
+            "invalid_sign_array_error.txt"
         )
 
 

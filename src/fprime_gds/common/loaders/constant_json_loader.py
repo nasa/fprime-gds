@@ -33,7 +33,9 @@ class ConstantJsonLoader(JsonLoader):
 
         constants = self.json_dict.get(self.CONSTANTS_FIELD, [])
         if self.CONSTANTS_FIELD not in self.json_dict:
-            print(f"[WARNING] Ground Dictionary has no 'constants' field; no constants will be loaded. In: {str(self.json_file)}")
+            raise GdsDictionaryParsingException(
+                f"Ground Dictionary missing '{self.CONSTANTS_FIELD}' field: {str(self.json_file)}"
+            )
 
         for constant in constants:
             try:

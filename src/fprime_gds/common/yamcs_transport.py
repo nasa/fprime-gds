@@ -9,6 +9,7 @@ YAMCS-backed transport for the F Prime GDS.
 import datetime
 import logging
 import time
+from pathlib import Path
 
 from yamcs.client import YamcsClient as YamcsLibClient
 
@@ -22,14 +23,18 @@ from fprime_gds.common.models.serialize.numerical_types import (
 from fprime_gds.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.models.serialize.string_type import StringType
 from fprime_gds.common.models.serialize.time_type import TimeType
-from fprime_gds.common.transport import TransportClient
+from fprime_gds.common.transport import TransportationException, TransportClient
 
 LOGGER = logging.getLogger("transport")
 
 YAMCS_URI_SCHEME = "yamcs://"
+YAMCS_SECURE_URI_SCHEME = "yamcs+https://"
 FILE_TRANSFER_POLL_INTERVAL = 2
 FILE_TRANSFER_SERVICE_NAME = "FprimeFilePacketService"
 FILE_TRANSFER_BUCKET = "fprimeFilesIn"
+TRANSFER_STATE_COMPLETED = "COMPLETED"
+TRANSFER_STATE_FAILED = "FAILED"
+DEFAULT_PROCESSOR_NAME = "realtime"
 
 
 class YamcsWrapper:
@@ -76,6 +81,7 @@ class YamcsWrapper:
         self.yamcs_client = None
         self.processor = None
         self.instance = None
+        self.namespace = ""
 
     def issue_command(self, cmd_name, cmd_args):
         return self.processor.issue_command(command=cmd_name, args=cmd_args)
@@ -104,7 +110,7 @@ class YamcsWrapper:
         return self.namespace + "/" + fprime_name.replace(".", "/")
 
     def to_yamcs_cmd_name(self, fprime_name):
-        return self.namespace + "/" + fprime_name.replace(".", "/")
+        return self.to_yamcs_param_name(fprime_name)
 
     def to_yamcs_qualified_arg(self, yamcs_cmd_name, arg_name):
         leaf = yamcs_cmd_name.lstrip("/")
@@ -152,6 +158,7 @@ class YamcsClient(TransportClient):
 
     def disconnect(self):
         self.yamcs.disconnect()
+        self._pending_cmd = None
 
     def send(self, data):
         if self._pending_cmd:
@@ -245,9 +252,16 @@ class YamcsClient(TransportClient):
                     "Event may not display correctly. Extra fields: %s",
                     event.event_type, arg_name, list(extra.keys())
                 )
-                # Create empty value object - will cause format string to show None or empty
+                # Substitute a benign default so downstream formatting does not fail
                 arg_obj = arg_type_class()
-                arg_obj.val = "" if isinstance(arg_obj, StringType) else None
+                if isinstance(arg_obj, StringType):
+                    arg_obj.val = ""
+                elif isinstance(arg_obj, BoolType):
+                    arg_obj.val = False
+                elif isinstance(arg_obj, (IntegerType, FloatType)):
+                    arg_obj.val = 0
+                else:
+                    arg_obj.val = None
             else:
                 arg_obj = self._build_value_object(arg_value, arg_type_class)
 
@@ -258,7 +272,7 @@ class YamcsClient(TransportClient):
     def upload_file(self, local_path, remote_path, bucket_name=FILE_TRANSFER_BUCKET,
                     service_name=FILE_TRANSFER_SERVICE_NAME, timeout=120):
         storage = self.yamcs.get_storage_client()
-        object_name = local_path.split("/")[-1] if "/" in local_path else local_path
+        object_name = Path(local_path).name
         with open(local_path, "rb") as f:
             storage.upload_object(
                 bucket_name=bucket_name,
@@ -293,23 +307,29 @@ class YamcsClient(TransportClient):
                 current = subscription.get_transfer(transfer.id)
                 if current is not None:
                     state = str(current.state)
-                    if "COMPLETED" in state:
+                    if state == TRANSFER_STATE_COMPLETED:
                         LOGGER.info("Transfer %s completed", transfer.id)
                         return current
-                    if "FAILED" in state:
+                    if state == TRANSFER_STATE_FAILED:
                         LOGGER.error("Transfer %s failed", transfer.id)
-                        return current
+                        raise TransportationException(
+                            f"File transfer {transfer.id} failed: {getattr(current, 'failure_reason', 'unknown reason')}"
+                        )
                 time.sleep(FILE_TRANSFER_POLL_INTERVAL)
         finally:
             subscription.cancel()
         LOGGER.warning("Transfer %s timed out after %ds", transfer.id, timeout)
-        return transfer
+        raise TransportationException(f"File transfer {transfer.id} timed out after {timeout} seconds")
 
     @staticmethod
     def _parse_uri(transport_url):
-        if transport_url.startswith(YAMCS_URI_SCHEME):
+        scheme = "http://"
+        if transport_url.startswith(YAMCS_SECURE_URI_SCHEME):
+            transport_url = transport_url[len(YAMCS_SECURE_URI_SCHEME):]
+            scheme = "https://"
+        elif transport_url.startswith(YAMCS_URI_SCHEME):
             transport_url = transport_url[len(YAMCS_URI_SCHEME):]
-        return "http://" + transport_url.split("/")[0]
+        return scheme + transport_url.split("/")[0]
 
     @staticmethod
     def _discover_instance_and_processor(yamcs_url):
@@ -322,7 +342,9 @@ class YamcsClient(TransportClient):
             raise RuntimeError("Multiple running YAMCS instances found at %s: %s" % (yamcs_url, names))
         instance = running[0].name
         processors = list(client.list_processors(instance=instance))
-        realtime = [p for p in processors if p.name == "realtime"]
+        if not processors:
+            raise RuntimeError("No processors found for YAMCS instance %s at %s" % (instance, yamcs_url))
+        realtime = [p for p in processors if p.name == DEFAULT_PROCESSOR_NAME]
         processor_name = realtime[0].name if realtime else processors[0].name
         LOGGER.info("Auto-discovered YAMCS instance=%s, processor=%s", instance, processor_name)
         return instance, processor_name

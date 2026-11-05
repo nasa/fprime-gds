@@ -7,7 +7,7 @@ name = "fprime-gds"
 dynamic = ["version"]
 description = "F Prime Flight Software Ground Data System layer"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE.txt"}
 keywords = ["fprime", "embedded", "nasa", "flight", "software"]
 authors = [
@@ -21,11 +21,11 @@ classifiers = [
     "Operating System :: POSIX",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "License :: OSI Approved :: Apache Software License",
@@ -38,7 +38,9 @@ dependencies = [
     "pytest>=6.2.4",
     "flask_restful>=0.3.8",
     "fprime-tools>=3.4.3",
-    "argcomplete>=1.12.3",
+    # argcomplete 3.7.1 uses PEP 604 unions in runtime annotations, breaking Python 3.9; the
+    # known-bad release is excluded everywhere so a fixed release flows to all Pythons automatically
+    "argcomplete>=1.12.3,!=3.7.1",
     "Jinja2>=2.11.3",
     "openpyxl>=3.0.10",
     "pyserial>=3.5",
@@ -71,6 +73,7 @@ fprime-gds = "fprime_gds.executables.run_deployment:main"
 fprime-prm-write = "fprime_gds.common.tools.params:main_encode"
 fprime-prm-decode = "fprime_gds.common.tools.params:main_decode"
 fprime-merge-dictionary = "fprime_gds.executables.dictionary_merge:main"
+fprime-comm-bridge = "fprime_gds.executables.comm_bridge:main"
 
 # For Pytest fixtures
 [project.entry-points."pytest11"]

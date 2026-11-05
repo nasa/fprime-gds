@@ -36,7 +36,7 @@ class TestHistory(History):
             if predicates.is_predicate(filter_pred):
                 self.filter = filter_pred
             else:
-                raise TypeError("The given filter was an instance of predicate.")
+                raise TypeError("The given filter was not an instance of predicate.")
 
         self.retrieved_cursor = 0
 
@@ -61,7 +61,7 @@ class TestHistory(History):
         Args:
             start: optional first object to retrieve. can either be an index (int) or a predicate.
         Returns:
-            a list of objects in chronological order
+            a list of objects in receive order
         """
         index = self.__get_index(start) if start is not None else 0
         self.retrieved_cursor = self.size()
@@ -69,11 +69,11 @@ class TestHistory(History):
 
     def retrieve_new(self):
         """
-        Retrieves a chronological order of objects that haven't been accessed through retrieve or
+        Retrieves a receive order of objects that haven't been accessed through retrieve or
         retrieve_new before.
 
         Returns:
-            a list of objects in chronological order
+            a list of objects in receive order
         """
         index = self.retrieved_cursor
         self.retrieved_cursor = self.size()
