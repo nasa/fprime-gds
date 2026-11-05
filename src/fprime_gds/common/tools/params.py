@@ -10,6 +10,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from typing import Any
 from fprime_gds.common.loaders.prm_json_loader import PrmJsonLoader
+from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.templates.prm_template import PrmTemplate
 from fprime_gds.common.models.serialize.type_base import BaseType
 from fprime_gds.common.models.serialize.array_type import ArrayType
@@ -158,7 +159,7 @@ def parse_json(param_value_json, name_dict: dict[str, PrmTemplate], include_impl
                 # get the value
                 prm_val = comp_json[prm_template.prm_name]
         
-        if not prm_val:
+        if prm_val is None:
             # not writing a val for this prm
             continue
 
@@ -241,6 +242,11 @@ def convert_json(json_file: Path, dictionary: Path, output: Path, output_format:
 
     print("Converting", json_file, "to", output, "(format: ." + output_format + ")")
     output.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load the dictionary's Fw* type widths (FwSizeStoreType, etc.) into ConfigManager
+    # before serializing, so string length prefixes match the FSW. Otherwise they
+    # default to U16 and a U32 FSW can't deserialize them.
+    Dictionaries.load_dictionaries_into_config(str(dictionary.resolve()))
 
     json = js.loads(json_file.read_text())
 

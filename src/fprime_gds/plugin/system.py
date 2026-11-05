@@ -59,6 +59,7 @@ class Plugins(object):
         self.metadata = copy.deepcopy(self.get_plugin_metadata())
         categories = self.get_all_categories() if categories is None else categories
         self.categories = categories
+        self.shadowed_plugins_warned = set()
         self.manager = pluggy.PluginManager(PROJECT_NAME)
 
         # Load hook specifications from only the configured categories
@@ -97,7 +98,9 @@ class Plugins(object):
         """Get available plugins for the given category
 
         Gets all plugin implementors of "category" by looking for register_<category>_plugin implementors. If such a
-        function does not exist then this results in an exception.
+        function does not exist then this results in an exception. When several implementors share a plugin name, the
+        first registered (entry points, then environment modules, then built-ins) is kept and the others are dropped
+        with a warning.
 
         Args:
             category: category of the plugin requested
@@ -110,11 +113,29 @@ class Plugins(object):
         except KeyError as error:
             raise InvalidCategoryException(f"Invalid plugin category: {error}")
 
-        return [
+        plugins = [
             Plugin(category, self.get_category_plugin_type(category), plugin_class)
             for plugin_class in plugin_classes
             if self.validate_selection(category, plugin_class)
         ]
+        # pluggy yields results last-registered first; walk in reverse so the first registered implementor wins
+        kept = {}
+        for plugin in reversed(plugins):
+            name = plugin.get_name()
+            if name in kept:
+                shadowed = (category, name, plugin.get_implementor())
+                if shadowed not in self.shadowed_plugins_warned:
+                    self.shadowed_plugins_warned.add(shadowed)
+                    LOGGER.warning(
+                        "Ignoring %s plugin '%s' from %s: already registered by %s",
+                        category,
+                        name,
+                        plugin.get_implementor().__module__,
+                        kept[name].get_implementor().__module__,
+                    )
+                continue
+            kept[name] = plugin
+        return [plugin for plugin in plugins if kept[plugin.get_name()] is plugin]
 
     def start_loading(self, category: str):
         """Start a category loading
@@ -219,18 +240,26 @@ class Plugins(object):
                 FpFramerDeframer,
             )
             from fprime_gds.common.communication.ccsds.chain import (
+                RawSpacePacketFramerDeframer,
+                RawSpaceDataLinkFramerDeframer,
                 SpacePacketSpaceDataLinkFramerDeframer,
                 SpacePacketSpaceDataLinkAsmFramerDeframer,
             )
-            from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
-            from fprime_gds.common.communication.ccsds.space_data_link import SpaceDataLinkFramerDeframer
             from fprime_gds.common.communication.ccsds.asm import AsmFramerDeframer
+            from fprime_gds.common.communication.ccsds.space_packet_splitter import SpacePacketSplitterFramerDeframer
+            from fprime_gds.common.communication.ccsds.tm_frame_aggregator import TmFrameAggregatorFramerDeframer
+            from fprime_gds.common.communication.bridge.framing import NoOpFramerDeframer
             from fprime_gds.common.communication.adapters.base import (
                 BaseAdapter,
                 NoneAdapter,
             )
             from fprime_gds.common.communication.adapters.ip import IpAdapter
             from fprime_gds.common.communication.adapters.udp import UdpAdapter
+            from fprime_gds.common.communication.adapters.tcp_fast import (
+                TcpFastClientAdapter,
+                TcpFastServerAdapter,
+            )
+            from fprime_gds.common.communication.adapters.udp_fast import UdpFastAdapter
             from fprime_gds.executables.apps import CustomDataHandlers
 
             try:
@@ -241,14 +270,32 @@ class Plugins(object):
                 "framing": {
                     "class": FramerDeframer,
                     "type": PluginType.SELECTION,
-                    "built-in": [FpFramerDeframer, SpacePacketSpaceDataLinkFramerDeframer, SpacePacketSpaceDataLinkAsmFramerDeframer, SpacePacketFramerDeframer, SpaceDataLinkFramerDeframer, AsmFramerDeframer],
+                    "built-in": [
+                        FpFramerDeframer,
+                        SpacePacketSpaceDataLinkFramerDeframer,
+                        SpacePacketSpaceDataLinkAsmFramerDeframer,
+                        AsmFramerDeframer,
+                        RawSpacePacketFramerDeframer,
+                        RawSpaceDataLinkFramerDeframer,
+                        SpacePacketSplitterFramerDeframer,
+                        TmFrameAggregatorFramerDeframer,
+                        NoOpFramerDeframer,
+                    ],
                 },
                 "communication": {
                     "class": BaseAdapter,
                     "type": PluginType.SELECTION,
                     "built-in": [
                         adapter
-                        for adapter in [NoneAdapter, IpAdapter, UdpAdapter, SerialAdapter]
+                        for adapter in [
+                            NoneAdapter,
+                            IpAdapter,
+                            UdpAdapter,
+                            TcpFastServerAdapter,
+                            TcpFastClientAdapter,
+                            UdpFastAdapter,
+                            SerialAdapter,
+                        ]
                         if adapter is not None
                     ],
                 },

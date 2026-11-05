@@ -34,6 +34,9 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
         <script src="third-party/js/luxon.min.js"></script>
         <!-- JavaScript GDS files -->
         <script type="module" src="js/gds.js"></script>
+
+        <!-- GDS Toggle Darkmode UI Skin -->
+        <script src="js/darkmode.js"></script>
     </head>
     <body>
         <!--
@@ -87,6 +90,13 @@ Note: Vue.js annotations are used, as Vue is the data-to-view framework of choic
                                             <i class="fas fa-external-link-alt"></i>
                                         </div>
                                     </form>
+                                    <span class="navbar-darkmode">
+                                        <span class="navbar-darkmode-label">🌞/🌚</span>
+                                        <label class="navbar-darkmode-switch">
+                                            <input id="theme-checkbox" type="checkbox" onclick="toggleDarkmode()">
+                                            <span class="navbar-darkmode-slider"></span>
+                                        </label>
+                                    </span>
                                 </ul>
                             <span class="navbar-brand">
                                     <img v-bind:src="orb ? config.dataSuccessIcon : config.dataErrorIcon"

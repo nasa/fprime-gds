@@ -23,6 +23,10 @@ jobs:
         run: pip install -U build twine
       - name: Build distributions
         run: python -m build
+        env:
+          # Pin the version to the release tag; `git describe` may pick an older
+          # tag when several tags point at the same commit.
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ github.event.release.tag_name }}
       - name: Check distributions
         run: twine check dist/*
       - name: Publish distributions to TestPyPI

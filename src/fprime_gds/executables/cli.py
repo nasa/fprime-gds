@@ -38,7 +38,6 @@ from fprime_gds.plugin.definitions import PluginType
 from fprime_gds.plugin.system import Plugins, PluginsNotLoadedException
 from fprime_gds.common.zmq_transport import ZmqClient
 
-
 GUIS = ["none", "html"]
 
 
@@ -55,7 +54,11 @@ class ParserBase(ABC):
     @property
     def description(self) -> str:
         """Return parser description"""
-        return self.DESCRIPTION if self.DESCRIPTION is not None else "Unknown command line parser"
+        return (
+            self.DESCRIPTION
+            if self.DESCRIPTION is not None
+            else "Unknown command line parser"
+        )
 
     @abstractmethod
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -275,13 +278,16 @@ class ParserBase(ABC):
         """
         composition = CompositeParser(parser_classes, description)
         parser = composition.get_parser()
+        effective_arguments = sys.argv[1:] if arguments is None else arguments
         try:
             if use_parse_known:
                 args_ns, *unknowns = parser.parse_known_args(arguments)
             else:
                 args_ns = parser.parse_args(arguments)
                 unknowns = []
-            args_ns = composition.handle_arguments(args_ns, **kwargs)
+            args_ns = composition.handle_arguments(
+                args_ns, arguments=effective_arguments, **kwargs
+            )
         except ValueError as ver:
             print(f"[ERROR] Failed to parse arguments: {ver}", file=sys.stderr)
             parser.print_help()
@@ -313,19 +319,51 @@ class ConfigDrivenParser(ParserBase):
     """Parser that allows options from configuration and command line
 
     This parser reads a configuration file (if supplied) and uses the values to drive the inputs to arguments. Command
-    line arguments will still take precedence over the configured values.
+    line arguments will still take precedence over the configured values. The configuration file itself is resolved,
+    in order of precedence: the -c/--config command-line flag, then the DEFAULT_CONFIGURATION_PATH_ENV environment
+    variable, then the built-in 'fprime-gds.yml' default (DEFAULT_CONFIGURATION_PATH).
     """
 
     DEFAULT_CONFIGURATION_PATH = Path("fprime-gds.yml")
+
+    # Takes precedence over DEFAULT_CONFIGURATION_PATH
+    DEFAULT_CONFIGURATION_PATH_ENV = "FPRIME_GDS_CONFIG_PATH"
+
+    # Set once set_default_configuration() is called, so the environment variable no longer
+    # overrides DEFAULT_CONFIGURATION_PATH
+    _DEFAULT_CONFIGURATION_EXPLICIT = False
 
     @classmethod
     def set_default_configuration(cls, path: Path):
         """Set path for (global) default configuration file
 
         Set the path for default configuration file. If unset, will use 'fprime-gds.yml'. Set to None to disable default
-        configuration.
+        configuration. Calling this function disables the environment variable override.
         """
         cls.DEFAULT_CONFIGURATION_PATH = path
+        cls._DEFAULT_CONFIGURATION_EXPLICIT = True
+
+    @classmethod
+    def _env_configuration_path(cls):
+        """Path from DEFAULT_CONFIGURATION_PATH_ENV, or None if unset/empty/overridden
+
+        Shared by get_default_configuration() and handle_arguments() so both agree on whether
+        set_default_configuration() has overridden the environment variable.
+        """
+        if cls._DEFAULT_CONFIGURATION_EXPLICIT:
+            return None
+        env_path = os.environ.get(cls.DEFAULT_CONFIGURATION_PATH_ENV)
+        return Path(env_path) if env_path else None
+
+    @classmethod
+    def get_default_configuration(cls):
+        """Get path for (global) default configuration file
+
+        If set (and set_default_configuration() has not been called), the environment variable
+        (DEFAULT_CONFIGURATION_PATH_ENV) overrides DEFAULT_CONFIGURATION_PATH. An empty value is treated the same as
+        unset. If unset, will use 'fprime-gds.yml'.
+        """
+        return cls._env_configuration_path() or cls.DEFAULT_CONFIGURATION_PATH
 
     @classmethod
     def parse_args(
@@ -397,7 +435,27 @@ class ConfigDrivenParser(ParserBase):
             [ConfigDrivenParser], description, arguments, **kwargs
         )
         config_options = ns_config.config_values.get("command-line-options", {})
-        config_args = ConfigDrivenParser.flatten_options(config_options)
+        # Configuration files may be shared between tools; drop options unsupported by this tool
+        argument_specs = CompositeParser(parser_classes, description).get_arguments()
+        supported_flags = {flag for flags in argument_specs for flag in flags}
+        extend_flags = {
+            flag
+            for flags, spec in argument_specs.items()
+            if spec.get("action") in ("extend", "append")
+            for flag in flags
+        }
+        unsupported = [
+            option
+            for option in (config_options or {})
+            if f"--{option}" not in supported_flags
+        ]
+        for option in unsupported:
+            print(
+                f"[WARNING] Ignoring configured option '{option}' not supported by this tool",
+                file=sys.stderr,
+            )
+            del config_options[option]
+        config_args = ConfigDrivenParser.flatten_options(config_options, extend_flags)
 
         # Argparse allows repeated (overridden) arguments, thus the CLI override is accomplished by providing
         # remaining arguments after the configured ones
@@ -414,17 +472,30 @@ class ConfigDrivenParser(ParserBase):
         return ns_final, parser, remaining
 
     @staticmethod
-    def flatten_options(configured_options):
-        """Flatten options down to arguments"""
+    def flatten_options(configured_options, extend_flags=frozenset()):
+        """Flatten options down to arguments
+
+        Options whose flag is in extend_flags (extend/append actions) are emitted as one "--flag=value" per
+        item so values beginning with "-" are not mistaken for flags by argparse.
+        """
         flattened = []
         if configured_options is None:
             return flattened
         for option, value in configured_options.items():
-            flattened.append(f"--{option}")
-            if value is not None:
-                flattened.extend(
-                    value if isinstance(value, (list, tuple)) else [f"{value}"]
+            values = (
+                []
+                if value is None
+                else (
+                    [f"{item}" for item in value]
+                    if isinstance(value, (list, tuple))
+                    else [f"{value}"]
                 )
+            )
+            if f"--{option}" in extend_flags:
+                flattened.extend(f"--{option}={item}" for item in values)
+            else:
+                flattened.append(f"--{option}")
+                flattened.extend(values)
         return flattened
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -433,7 +504,7 @@ class ConfigDrivenParser(ParserBase):
             ("-c", "--config"): {
                 "dest": "config",
                 "required": False,
-                "default": self.DEFAULT_CONFIGURATION_PATH,
+                "default": self.get_default_configuration(),
                 "type": Path,
                 "help": "Argument configuration file path. [default: %(default)s]",
             },
@@ -447,13 +518,20 @@ class ConfigDrivenParser(ParserBase):
         """Handle the arguments
 
         Loads the configuration file specified and fills in the `config_values` attribute of the namespace with the
-        loaded configuration dictionary.
+        loaded configuration dictionary. A file selected explicitly (via -c/--config or DEFAULT_CONFIGURATION_PATH_ENV)
+        must exist, otherwise ValueError is raised; the implicit 'fprime-gds.yml' default is skipped when absent.
         """
         args.config_values = {}
+        # Was a configuration file explicitly requested, vs. falling back to a default?
+        # See _env_configuration_path() for why the env var is checked through that helper.
+        arguments = kwargs.get("arguments", sys.argv[1:])
+        explicitly_configured = (
+            "-c" in arguments
+            or "--config" in arguments
+            or self._env_configuration_path() is not None
+        )
         # Specified but non-existent config file is a hard error
-        if (
-            "-c" in sys.argv[1:] or "--config" in sys.argv[1:]
-        ) and not args.config.exists():
+        if explicitly_configured and not args.config.exists():
             raise ValueError(
                 f"Specified configuration file '{args.config}' does not exist"
             )
@@ -952,7 +1030,9 @@ class LogDeployParser(ParserBase):
                 args.log_prefix = tool_name
 
             timestamp = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-            dir_name = f"{args.log_prefix}-{timestamp}" if args.log_prefix else timestamp
+            dir_name = (
+                f"{args.log_prefix}-{timestamp}" if args.log_prefix else timestamp
+            )
             args.logs = os.path.abspath(os.path.join(args.logs, dir_name))
             # A dated directory has been set, all log handling must now be direct
             args.log_directly = True
@@ -1158,7 +1238,6 @@ class FileHandlingParser(ParserBase):
                 "type": str,
                 "help": "Directory to store uplink and downlink files. Default: %(default)s",
             },
-
             ("--file-uplink-cooldown",): {
                 "dest": "file_uplink_cooldown",
                 "action": "store",
@@ -1188,6 +1267,30 @@ class FileHandlingParser(ParserBase):
         return args
 
 
+class HistoryParser(ParserBase):
+    """Parser for the pipeline's in-memory history behavior"""
+
+    DESCRIPTION = "History options"
+
+    def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """Arguments controlling how the pipeline's history is retained"""
+        return {
+            ("--no-clear-history",): {
+                "dest": "no_clear_history",
+                "action": "store_true",
+                "default": False,
+                "help": "Do not clear history as it is retrieved by GDS clients (e.g. the web UI). By "
+                "default, history is cleared once seen so a client connecting after data has "
+                "already arrived (a race between the deployment starting and the UI loading) will "
+                "miss it. Setting this retains all history for the lifetime of the process.",
+            },
+        }
+
+    def handle_arguments(self, args, **kwargs):
+        """Handle arguments as parsed"""
+        return args
+
+
 class StandardPipelineParser(CompositeParser):
     """Standard pipeline argument parser: combination of MiddleWare and"""
 
@@ -1197,6 +1300,7 @@ class StandardPipelineParser(CompositeParser):
         FileHandlingParser,
         MiddleWareParser,
         LogDeployParser,
+        HistoryParser,
     ]
 
     def __init__(self):
@@ -1292,11 +1396,11 @@ class GdsParser(ParserBase):
                 "type": str,
                 "help": "Set the GUI server address [default: %(default)s]",
             },
-            ("--skip-browser-open",):{
+            ("--skip-browser-open",): {
                 "dest": "browser_auto_open",
                 "action": "store_false",
-                "help": "Run server without auto-launching the default web browser"
-                }
+                "help": "Run server without auto-launching the default web browser",
+            },
         }
 
     def handle_arguments(self, args, **kwargs):
@@ -1339,8 +1443,11 @@ class BinaryDeployment(DetectionParser):
                 ("--application-arguments",): {
                     "dest": "application_arguments",
                     "nargs": "*",
+                    "action": "extend",
                     "default": None,
-                    "help": "Arguments to pass to the application binary, replacing the default -p/-a arguments.",
+                    "help": "Arguments to pass to the application binary, replacing the default -p/-a arguments. "
+                    "Arguments starting with '-' must use the '--application-arguments=-x' form; a list in the "
+                    "configuration file is passed through as-is.",
                 },
             },
         }
