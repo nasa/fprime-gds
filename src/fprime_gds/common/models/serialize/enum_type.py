@@ -6,7 +6,7 @@ Created on Dec 18, 2014
 from typing import Optional
 import struct
 
-from .type_base import DictionaryType
+from .type_base import DictionaryType, Endianness
 from .type_exceptions import (
     DeserializeException,
     EnumMismatchException,
@@ -90,7 +90,7 @@ class EnumType(DictionaryType):
         """
         return list(cls.ENUM_DICT.values())
 
-    def serialize(self):
+    def serialize(self, mode: Endianness = Endianness.BIG):
         """
         Serialize the enumeration type using an int type
         """
@@ -101,17 +101,17 @@ class EnumType(DictionaryType):
         ):
             raise NotInitializedException(type(self))
         return struct.pack(
-            self.REP_TYPE.get_serialize_format(),
+            self.REP_TYPE.get_serialize_format(mode=mode),
             self.ENUM_DICT[self._val],
         )
 
-    def deserialize(self, data, offset):
+    def deserialize(self, data, offset, mode: Endianness = Endianness.BIG):
         """
         Deserialize the enumeration using an int type
         """
         try:
             int_val = struct.unpack_from(
-                self.REP_TYPE.get_serialize_format(),
+                self.REP_TYPE.get_serialize_format(mode=mode),
                 data,
                 offset,
             )[0]

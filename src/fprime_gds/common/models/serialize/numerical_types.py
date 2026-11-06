@@ -10,7 +10,7 @@ that map to stdint.h integer sizes, that is, 8-bit, 16-bit, 32-bit, and 64-bit s
 import abc
 import struct
 
-from .type_base import ValueType
+from .type_base import Endianness, ValueType
 from .type_exceptions import (
     DeserializeException,
     NotInitializedException,
@@ -44,20 +44,20 @@ class NumericalType(ValueType, abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def get_serialize_format() -> str:
+    def get_serialize_format(mode: Endianness = Endianness.BIG) -> str:
         """Gets the format serialization string such that the class can be serialized via struct"""
         raise NotImplementedError("get_serialize_format")
 
-    def serialize(self) -> bytes:
+    def serialize(self, mode: Endianness = Endianness.BIG) -> bytes:
         """Serializes this type using struct and the val property"""
         if self._val is None:
             raise NotInitializedException(type(self))
-        return struct.pack(self.get_serialize_format(), self._val)
+        return struct.pack(self.get_serialize_format(mode=mode), self._val)
 
-    def deserialize(self, data: bytes, offset: int):
+    def deserialize(self, data: bytes, offset: int, mode: Endianness = Endianness.BIG):
         """Serializes this type using struct and the val property"""
         try:
-            self._val = struct.unpack_from(self.get_serialize_format(), data, offset)[0]
+            self._val = struct.unpack_from(self.get_serialize_format(mode=mode), data, offset)[0]
         except struct.error as err:
             raise DeserializeException(str(err))
 
@@ -104,7 +104,7 @@ class I8Type(IntegerType):
         return 8
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
         return "b"
 
@@ -123,9 +123,9 @@ class I16Type(IntegerType):
         return 16
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
-        return ">h"
+        return f"{mode.value}h"
 
 
 class I32Type(IntegerType):
@@ -142,9 +142,9 @@ class I32Type(IntegerType):
         return 32
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
-        return ">i"
+        return f"{mode.value}i"
 
 
 class I64Type(IntegerType):
@@ -161,9 +161,9 @@ class I64Type(IntegerType):
         return 64
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
-        return ">q"
+        return f"{mode.value}q"
 
 
 class U8Type(IntegerType):
@@ -180,7 +180,7 @@ class U8Type(IntegerType):
         return 8
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
         return "B"
 
@@ -199,9 +199,9 @@ class U16Type(IntegerType):
         return 16
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
-        return ">H"
+        return f"{mode.value}H"
 
 
 class U32Type(IntegerType):
@@ -218,9 +218,9 @@ class U32Type(IntegerType):
         return 32
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
-        return ">I"
+        return f"{mode.value}I"
 
 
 class U64Type(IntegerType):
@@ -237,9 +237,9 @@ class U64Type(IntegerType):
         return 64
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
-        return ">Q"
+        return f"{mode.value}Q"
 
 
 class F32Type(FloatType):
@@ -251,9 +251,9 @@ class F32Type(FloatType):
         return 32
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
-        return ">f"
+        return f"{mode.value}f"
 
 
 class F64Type(FloatType):
@@ -265,6 +265,6 @@ class F64Type(FloatType):
         return 64
 
     @staticmethod
-    def get_serialize_format():
+    def get_serialize_format(mode: Endianness = Endianness.BIG):
         """Allows serialization using struct"""
-        return ">d"
+        return f"{mode.value}d"

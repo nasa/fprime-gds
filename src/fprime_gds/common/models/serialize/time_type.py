@@ -174,7 +174,7 @@ class TimeType(type_base.BaseType):
         self._check_useconds(val)
         self.__usecs = U32Type(val)
 
-    def serialize(self):
+    def serialize(self, mode: type_base.Endianness = type_base.Endianness.BIG):
         """
         Serializes the time type
 
@@ -182,13 +182,13 @@ class TimeType(type_base.BaseType):
             Byte array containing serialized time type
         """
         buf = b""
-        buf += self.__timeBase.serialize()
-        buf += self.__timeContext.serialize()
-        buf += self.__secs.serialize()
-        buf += self.__usecs.serialize()
+        buf += self.__timeBase.serialize(mode=mode)
+        buf += self.__timeContext.serialize(mode=mode)
+        buf += self.__secs.serialize(mode=mode)
+        buf += self.__usecs.serialize(mode=mode)
         return buf
 
-    def deserialize(self, data, offset):
+    def deserialize(self, data, offset, mode: type_base.Endianness = type_base.Endianness.BIG):
         """
         Deserializes a serialized time type in data starting at offset.
 
@@ -200,19 +200,19 @@ class TimeType(type_base.BaseType):
         """
 
         # Decode Time Base
-        self.__timeBase.deserialize(data, offset)
+        self.__timeBase.deserialize(data, offset, mode=mode)
         offset += self.__timeBase.getSize()
 
         # Decode Time Context
-        self.__timeContext.deserialize(data, offset)
+        self.__timeContext.deserialize(data, offset, mode=mode)
         offset += self.__timeContext.getSize()
 
         # Decode Seconds
-        self.__secs.deserialize(data, offset)
+        self.__secs.deserialize(data, offset, mode=mode)
         offset += self.__secs.getSize()
 
         # Decode Microseconds
-        self.__usecs.deserialize(data, offset)
+        self.__usecs.deserialize(data, offset, mode=mode)
         offset += self.__usecs.getSize()
 
     @classmethod

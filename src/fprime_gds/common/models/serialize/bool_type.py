@@ -5,7 +5,7 @@ Created on Dec 18, 2014
 
 import struct
 
-from .type_base import ValueType
+from .type_base import Endianness, ValueType
 from .type_exceptions import (
     DeserializeException,
     NotInitializedException,
@@ -27,7 +27,7 @@ class BoolType(ValueType):
         if not isinstance(val, bool):
             raise TypeMismatchException(bool, type(val))
 
-    def serialize(self):
+    def serialize(self, mode: Endianness = Endianness.BIG):
         """Serialize a boolean value"""
         if self._val is None:
             raise NotInitializedException(type(self))
@@ -40,7 +40,7 @@ class BoolType(ValueType):
             ),
         )
 
-    def deserialize(self, data, offset):
+    def deserialize(self, data, offset, mode: Endianness = Endianness.BIG):
         """Deserialize boolean value"""
         TRUE_VAL = ConfigManager().get_constant("FW_SERIALIZE_TRUE_VALUE")
         FALSE_VAL = ConfigManager().get_constant("FW_SERIALIZE_FALSE_VALUE")

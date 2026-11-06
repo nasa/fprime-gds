@@ -6,7 +6,7 @@ Created on May 29, 2020
 
 import struct
 
-from .type_base import DictionaryType
+from .type_base import DictionaryType, Endianness
 from .type_exceptions import (
     ArrayLengthException,
     NotInitializedException,
@@ -123,12 +123,12 @@ class ArrayType(DictionaryType):
             "values": vals,
         }
 
-    def serialize(self):
+    def serialize(self, mode: Endianness = Endianness.BIG):
         """Serialize the array by serializing the elements one by one"""
         if self.val is None:
             raise NotInitializedException(type(self))
         if self._is_numerical_array():
-            value_format_raw = self.MEMBER_TYPE().get_serialize_format()
+            value_format_raw = self.MEMBER_TYPE().get_serialize_format(mode=mode)
             value_endian = ''
             if self.MEMBER_TYPE.getSize() > 1:
                 assert value_format_raw[0] in ('>', '<'), \
@@ -139,13 +139,13 @@ class ArrayType(DictionaryType):
             array_format = f"{value_endian}{self.LENGTH}{value_format}"
             return struct.pack(array_format, *self._val)
         else:
-            return b"".join([item.serialize() for item in self._val])
+            return b"".join([item.serialize(mode=mode) for item in self._val])
 
-    def deserialize(self, data, offset):
+    def deserialize(self, data, offset, mode: Endianness = Endianness.BIG):
         """Deserialize the members of the array"""
         if self._is_numerical_array() and self.LENGTH > 0:
             try:
-                value_format_raw = self.MEMBER_TYPE().get_serialize_format()
+                value_format_raw = self.MEMBER_TYPE().get_serialize_format(mode=mode)
                 value_endian = ''
                 if self.MEMBER_TYPE.getSize() > 1:
                     assert value_format_raw[0] in ('>', '<'), \
@@ -164,7 +164,7 @@ class ArrayType(DictionaryType):
             for field_index in range(self.LENGTH):
                 try:
                     item = self.MEMBER_TYPE()
-                    item.deserialize(data, offset)
+                    item.deserialize(data, offset, mode=mode)
                     offset += item.getSize()
                     values.append(item)
                 except Exception as exc:
