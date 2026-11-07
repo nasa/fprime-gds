@@ -42,13 +42,19 @@ class LogFile(flask_restful.Resource):
         Returns the logdir.
         """
         logs = {}
-        # Sanitization of path characters
-        name = name.replace(os.path.sep, "_")
-        # normpath() + startswith() to ensure the file is strictly within logdir
-        full_path = os.path.normpath(os.path.join(self.logdir, name))
-        if not full_path.startswith(self.logdir):
+        # Sanitization of path characters across POSIX and Windows separators
+        for sep in (os.path.sep, os.path.altsep):
+            if sep:
+                name = name.replace(sep, "_")
+        # Resolve real paths and verify commonpath containment within logdir
+        logdir_real = os.path.realpath(self.logdir)
+        full_path = os.path.realpath(os.path.join(logdir_real, name))
+        try:
+            if os.path.commonpath([logdir_real, full_path]) != logdir_real:
+                return ""
+        except ValueError:
             return ""
-        if not os.path.exists(full_path):
+        if not os.path.isfile(full_path):
             return ""
         offset = 0
         with open(full_path) as file_handle:
