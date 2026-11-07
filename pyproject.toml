@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools_scm[toml]>=6.2", "wheel"]
+requires = ["setuptools>=77", "setuptools_scm[toml]>=6.2", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,8 @@ dynamic = ["version"]
 description = "F Prime Flight Software Ground Data System layer"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {file = "LICENSE.txt"}
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
 keywords = ["fprime", "embedded", "nasa", "flight", "software"]
 authors = [
   {name = "Michael Starch", email = "Michael.D.Starch@jpl.nasa.gov"},
@@ -28,7 +29,6 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
-    "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
     "flask>=3.0.0",
