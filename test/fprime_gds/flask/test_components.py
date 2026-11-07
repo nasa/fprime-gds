@@ -97,5 +97,113 @@ class TestFlaskEndpointRamHistoryUnaffected(unittest.TestCase):
         self.assertEqual(items, [])
 
 
+import os
+import tempfile
+from pathlib import Path
+from unittest import mock
+from werkzeug.exceptions import Forbidden
+
+from fprime_gds.common.files.downlinker import FileDownlinker
+from fprime_gds.common.tools.seqgen import SeqGenException
+from fprime_gds.flask.logs import LogFile
+from fprime_gds.flask.sequence import SequenceCompiler
+
+
+class TestLogFileContainment(unittest.TestCase):
+    """LogFile.get strictly confines reads to regular files inside logdir"""
+
+    def test_valid_log_file_read(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = Path(tmpdir) / "test.log"
+            log_file.write_text("hello log")
+            resource = LogFile(tmpdir)
+            self.assertEqual(resource.get("test.log"), {"test.log": "hello log"})
+
+    def test_dot_returns_empty_without_is_a_directory_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            resource = LogFile(tmpdir)
+            self.assertEqual(resource.get("."), "")
+            self.assertEqual(resource.get(".."), "")
+
+    def test_separators_and_sibling_symlink_rejected(self):
+        with tempfile.TemporaryDirectory() as base:
+            logdir = Path(base) / "logs"
+            sibling = Path(base) / "logs_sibling"
+            logdir.mkdir()
+            sibling.mkdir()
+            secret = sibling / "secret.log"
+            secret.write_text("sensitive")
+            resource = LogFile(str(logdir))
+            self.assertEqual(resource.get("../logs_sibling/secret.log"), "")
+            self.assertEqual(resource.get("..\\logs_sibling\\secret.log"), "")
+            symlink_path = logdir / "escape.log"
+            try:
+                os.symlink(secret, symlink_path)
+            except OSError:
+                return
+            self.assertEqual(resource.get("escape.log"), "")
+
+
+class TestFileDownlinkerSanitize(unittest.TestCase):
+    """FileDownlinker.sanitize neutralizes both POSIX/Windows separators and dot segments"""
+
+    def test_flight_path_sanitized_consistently(self):
+        self.assertEqual(
+            FileDownlinker.sanitize("./DpCat/Dp_001.fdp"),
+            "._DpCat_Dp_001.fdp",
+        )
+        self.assertEqual(
+            FileDownlinker.sanitize("..\\..\\outside.bin"),
+            ".._.._outside.bin",
+        )
+
+    def test_dot_and_dotdot_neutralized(self):
+        self.assertNotIn(FileDownlinker.sanitize("."), ("", ".", ".."))
+        self.assertNotIn(FileDownlinker.sanitize(".."), ("", ".", ".."))
+
+
+class TestSequenceCompilerValidationAndCleanup(unittest.TestCase):
+    """SequenceCompiler.put enforces trailing .seq suffix and cleans up temp file on error"""
+
+    def test_rejects_filename_Not_ending_in_seq(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            compiler = SequenceCompiler("/dict.xml", tmpdir, mock.MagicMock())
+            with mock.patch.object(
+                compiler.parser,
+                "parse_args",
+                return_value={
+                    "key": "0xfeedcafe",
+                    "name": "bad.seq.txt",
+                    "text": "; comment",
+                    "uplink": "false",
+                    "destination": None,
+                },
+            ):
+                with self.assertRaises(Forbidden):
+                    compiler.put()
+            self.assertEqual(list(Path(tmpdir).iterdir()), [])
+
+    def test_unlinks_temp_seq_file_when_seqgen_raises(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            compiler = SequenceCompiler("/dict.xml", tmpdir, mock.MagicMock())
+            with mock.patch.object(
+                compiler.parser,
+                "parse_args",
+                return_value={
+                    "key": "0xfeedcafe",
+                    "name": "invalid.seq",
+                    "text": "INVALID SYNTAX",
+                    "uplink": "false",
+                    "destination": None,
+                },
+            ), mock.patch(
+                "fprime_gds.flask.sequence.generateSequence",
+                side_effect=SeqGenException("syntax error"),
+            ):
+                with self.assertRaises(Forbidden):
+                    compiler.put()
+            self.assertFalse((Path(tmpdir) / "invalid.seq").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
