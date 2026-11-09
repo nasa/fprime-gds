@@ -83,7 +83,8 @@ def pytest_addoption(parser):
     parser.addoption(
         "--use-yamcs",
         action="store_true",
-        help="[DEPRECATED] Alias of '--data-transport-selection yamcs' (requires the fprime-yamcs plugin)",
+        help="[DEPRECATED] Alias of '--data-transport-selection yamcs' (requires the 'yamcs' data transport plugin: "
+        "pip install 'fprime-gds[yamcs]', or fprime-yamcs once it provides the plugin)",
     )
 
 
@@ -123,7 +124,8 @@ def _apply_deprecated_transport_options(config, reproduced_args):
     ]
     if "yamcs" not in available:
         raise pytest.UsageError(
-            "--use-yamcs requires the 'yamcs' data transport plugin. Install with: pip install fprime-yamcs"
+            "--use-yamcs requires the 'yamcs' data transport plugin. Install with: pip install 'fprime-gds[yamcs]' "
+            "(or the fprime-yamcs package once it provides the plugin)"
         )
     print(
         f"[WARNING] --use-yamcs is deprecated, use {selection_flag} yamcs",

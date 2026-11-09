@@ -179,6 +179,7 @@ class YamcsClient(TransportClient):
     @classmethod
     def get_connection_uri(cls, client=True, yamcs_url=DEFAULT_URL):
         """yamcs://host[:port] or yamcs+https://host[:port] from the HTTP(S) URL"""
+        cls.check_arguments(yamcs_url=yamcs_url)
         if yamcs_url.startswith("https://"):
             return YAMCS_SECURE_URI_SCHEME + yamcs_url[len("https://"):]
         return YAMCS_URI_SCHEME + yamcs_url[len("http://"):]

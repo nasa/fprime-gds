@@ -78,7 +78,7 @@ class SendRawCommand(BaseCommand):
         # normal encoder path (via CmdEncoder) includes them after the ZZZZ marker.
         try:
             data_to_send = raw_data
-            if args.zmq:
+            if getattr(args, "data_transport_selection", None) == "zmq":
                 # If using ZMQ, prepend the length of the data as a 4-byte big-endian integer
                 data_to_send = struct.pack(">I", len(raw_data)) + raw_data
             if args.verbose:

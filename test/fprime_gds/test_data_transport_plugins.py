@@ -144,6 +144,10 @@ class TestBuiltInTransports(unittest.TestCase):
             "tcp://0.0.0.0:50123",
         )
         self.assertEqual(
+            ThreadedTCPSocketClient.get_connection_uri(client=True, tts_addr="10.0.0.0", tts_port=50123),
+            "tcp://10.0.0.0:50123",
+        )
+        self.assertEqual(
             ThreadedTCPSocketClient.get_connection_uri(client=True, tts_addr="10.0.0.1", tts_port=50123),
             "tcp://10.0.0.1:50123",
         )

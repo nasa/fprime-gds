@@ -26,6 +26,9 @@ the command encoder registered to that panel. Encoders take a data object and tu
 data that can be sent to the F´ deployment. The binary data is then passed to the TCP client
 which is registered to the encoder. Finally, the TCP client send the data back to the TCP server and
 the F´ deployment.  
+
+The link between the pipeline and the ground system is a `data_transport` plugin (`--data-transport-selection`):
+ZeroMQ by default, the threaded TCP server with `tcp`, or an installed plugin reaching another ground system.
 ![The layout of the GDS](https://raw.githubusercontent.com/nasa/fprime/refs/heads/devel/docs/img/gds_layout.jpg)
 
 All of these objects are created and registered to other objects when the GDS

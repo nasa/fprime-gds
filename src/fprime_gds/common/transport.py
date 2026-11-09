@@ -1,9 +1,11 @@
 """
 fprime_gds.common.transport:
 
-Sets up the classes used to transport data within the GDS system between the few executables that compose the GDS. This
-file defines several base classes used to specify what a client looks like and it defines a basic implementation:
-ThreadedTCPSocketClient used to send data through the threaded tcp server.
+Sets up the classes used to transport data between the GDS data pipeline and the ground system holding the deployment's
+link. TransportClient is the specification class of the `data_transport` SELECTION plugin category: each concrete
+transport registers under a name selectable with `--data-transport-selection` and owns its command line arguments and
+connection URI. This file also defines the built-in `tcp` transport, ThreadedTCPSocketClient, used to send data through
+the threaded tcp server; the default `zmq` transport lives in fprime_gds.common.zmq_transport.
 
 @author lestarch
 """
@@ -289,7 +291,7 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
     @classmethod
     def get_connection_uri(cls, client=True, tts_addr=DEFAULT_ADDRESS, tts_port=DEFAULT_PORT):
         """Connection URI (tcp://host:port); clients of a server bound to 0.0.0.0 connect to 127.0.0.1"""
-        address = tts_addr.replace("0.0.0.0", "127.0.0.1") if client else tts_addr
+        address = "127.0.0.1" if client and tts_addr == "0.0.0.0" else tts_addr
         return f"tcp://{address}:{tts_port}"
 
     def connect(

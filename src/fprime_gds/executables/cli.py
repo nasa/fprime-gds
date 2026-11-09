@@ -815,7 +815,7 @@ class PluginArgumentParser(ParserBase):
                     (f"--{category.replace('_', '-')}-selection",): {
                         "dest": f"{category}_selection",
                         "choices": [choice.get_name() for choice in plugins],
-                        "help": f"Select {category} implementer.",
+                        "help": f"Select {category.replace('_', ' ')} implementer.",
                         "default": self.FPRIME_CHOICES.get(
                             category, list(plugins)[0].get_name()
                         ),
