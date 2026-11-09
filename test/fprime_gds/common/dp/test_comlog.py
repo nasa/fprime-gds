@@ -18,13 +18,25 @@ from fprime_gds.common.utils.cleanup import globals_cleanup
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.executables.data_products import main
 
-# Hand-written minimal dictionary (not fpp-to-json output): the Fw/ComCfg framework types copied from dictionary_ref.json
-# plus two events, two channels and the ComLoggerDp ComBufferRecord/ComBuffContainer
-DICTIONARY_PATH = Path(__file__).parent / "test_dp_data" / "dictionary_comlog.json"
-CONTAINER_ID = 1024  # ComLog.comLogger.ComBuffContainer / ComBufferRecord
-HELLO_EVENT_ID, PLAIN_EVENT_ID = 256, 257
-COUNT_CHANNEL_ID, COLOR_CHANNEL_ID = 512, 513
+REF_DICTIONARY = Path(__file__).parent / "test_dp_data" / "dictionary_ref.json"
+DICTIONARY_PATH = None  # dictionary_ref.json plus a ComLoggerDp record and container, written by the dictionary_path fixture
+CONTAINER_ID = 1024  # Ref.comLogger.ComBuffContainer / ComBufferRecord
+HELLO_EVENT_ID, PLAIN_EVENT_ID = 16785410, 2582  # CdhCore.health.HLTH_PING_WRONG_KEY (string, U32), Ref.dpDemo.DpMemoryFail
+COUNT_CHANNEL_ID, COLOR_CHANNEL_ID = 16777216, 268455946  # CdhCore.cmdDisp.CommandsDispatched (U32), Ref.typeDemo.ScalarU8Ch
+HELLO_TEXT, PLAIN_TEXT = "Ping entry world responded with wrong key 0x3", "Failed to acquire a DP buffer"
 FW_PACKET_TELEM, FW_PACKET_LOG = 1, 2
+
+
+@pytest.fixture(scope="module", autouse=True)
+def dictionary_path(tmp_path_factory):
+    """Add the Svc.ComLoggerDp record and container (as Ref would declare them) to the Ref dictionary fixture"""
+    global DICTIONARY_PATH
+    dictionary = json.loads(REF_DICTIONARY.read_text())
+    u8 = {"name": "U8", "kind": "integer", "size": 8, "signed": False}
+    dictionary["records"].append({"name": "Ref.comLogger.ComBufferRecord", "type": u8, "array": True, "id": CONTAINER_ID})
+    dictionary["containers"].append({"name": "Ref.comLogger.ComBuffContainer", "id": CONTAINER_ID, "defaultPriority": 5})
+    DICTIONARY_PATH = tmp_path_factory.mktemp("dictionary") / "dictionary.json"
+    DICTIONARY_PATH.write_text(json.dumps(dictionary))
 
 
 @pytest.fixture
@@ -102,10 +114,10 @@ class TestComLoggerDpDecoder:
         telemetry, hello, plain = result["Records"]
         assert telemetry["PacketType"] == "FW_PACKET_TELEM"
         assert [(ch.template.get_full_name(), ch.get_val(), ch.time.seconds) for ch in telemetry["Packets"]] == [
-            ("ComLog.demo.Count", 7, 10), ("ComLog.demo.Color", "GREEN", 11)]
+            ("CdhCore.cmdDisp.CommandsDispatched", 7, 10), ("Ref.typeDemo.ScalarU8Ch", 1, 11)]
         assert hello["PacketType"] == "FW_PACKET_LOG"
-        assert hello["Packets"][0].display_text == "Hello world #3"
-        assert plain["Packets"][0].display_text == "Plain event"
+        assert hello["Packets"][0].display_text == HELLO_TEXT
+        assert plain["Packets"][0].display_text == PLAIN_TEXT
         assert "Data" not in telemetry
 
     def test_bad_sentry_is_reported_per_record(self, dictionaries, tmp_path):
@@ -116,7 +128,7 @@ class TestComLoggerDpDecoder:
         assert result["Records"][0]["Data"]["values"][:4] == [0x12, 0x34, 0x56, 0x78]
         assert result["Statistics"]["Events"] == 2
 
-        assert ComLoggerDpDecoder(dictionaries, sentry=0x12345678).decode(path)["Records"][0]["Packets"][0].display_text == "Plain event"
+        assert ComLoggerDpDecoder(dictionaries, sentry=0x12345678).decode(path)["Records"][0]["Packets"][0].display_text == PLAIN_TEXT
         assert ComLoggerDpDecoder(dictionaries, validate_sentry=False).decode(path)["Statistics"]["Errors"] == 0
 
     def test_crc_validation(self, dictionaries, tmp_path):
@@ -137,7 +149,7 @@ class TestComLoggerDpDecoder:
         result = ComLoggerDpDecoder(dictionaries).reconstruct(path)
         assert result["File"]["sentries_found"] == 3
         assert result["Statistics"] == {"Records": 3, "Events": 2, "Channels": 2, "Errors": 0}
-        assert result["Records"][1]["Packets"][0].display_text == "Hello world #3"
+        assert result["Records"][1]["Packets"][0].display_text == HELLO_TEXT
 
     def test_malformed_record_data(self, dictionaries):
         decoder = ComLoggerDpDecoder(dictionaries)
@@ -186,13 +198,13 @@ class TestComlogCommand:
         assert run_comlog("-b", path) == 0
         data = json.loads((tmp_path / "a.json").read_text())
         packets = data["Records"][0]["Packets"]
-        assert [(p["type"], p["name"], p["value"]) for p in packets] == [("channel", "ComLog.demo.Count", 7), ("channel", "ComLog.demo.Color", "GREEN")]
+        assert [(p["type"], p["name"], p["value"]) for p in packets] == [("channel", "CdhCore.cmdDisp.CommandsDispatched", 7), ("channel", "Ref.typeDemo.ScalarU8Ch", 1)]
         hello = data["Records"][1]["Packets"][0]
-        assert hello["severity"] == "EventSeverity.ACTIVITY_LO"
-        assert hello["args"] == [{"name": "message", "value": "world"}, {"name": "count", "value": 3}]
+        assert hello["severity"] == "EventSeverity.FATAL"
+        assert hello["args"] == [{"name": "entry", "value": "world"}, {"name": "badKey", "value": 3}]
         assert data["Statistics"]["Events"] == 2
         text = (tmp_path / "a.txt").read_text()
-        assert "Hello world #3" in text and "ComLog.demo.Color (513)" in text
+        assert HELLO_TEXT in text and "Ref.typeDemo.ScalarU8Ch (268455946)" in text
 
     def test_format_and_output_options(self, tmp_path):
         path = write(tmp_path / "a.fdp", product(*sample_records()))
@@ -220,11 +232,11 @@ class TestComlogCommand:
         channels = (product_dir / "logs" / CHANNEL_LOG_NAME).read_text().splitlines()
         events = (product_dir / "logs" / EVENT_LOG_NAME).read_text().splitlines()
         assert channels[0] == "Time,Raw Time,Name,ID,Value"
-        assert [line.split(",")[2] for line in channels[1:]] == ["ComLog.demo.Count", "ComLog.demo.Count", "ComLog.demo.Color"]
+        assert [line.split(",")[2] for line in channels[1:]] == ["CdhCore.cmdDisp.CommandsDispatched", "CdhCore.cmdDisp.CommandsDispatched", "Ref.typeDemo.ScalarU8Ch"]
         event_seconds = [int(line.split(",")[1].split("-")[1].split(":")[0]) for line in events[1:]]
         assert event_seconds == sorted(event_seconds) == [5, 9, 12, 50]
         assert len(events) == 1 + 4
-        assert events[1].endswith(",ComLog.demo.Plain,257,EventSeverity.WARNING_LO,Plain event")
+        assert events[1].endswith(",Ref.dpDemo.DpMemoryFail,2582,EventSeverity.WARNING_HI,Failed to acquire a DP buffer")
 
     def test_directory_with_same_stem_products(self, tmp_path):
         for name in ("a.fdp", "a.bin"):
