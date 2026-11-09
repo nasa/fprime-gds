@@ -11,7 +11,7 @@ import enum
 from .type_exceptions import AbstractMethodException
 
 
-class Endianness(enum.StrEnum):
+class Endianness(str, enum.Enum):
     BIG = ">"
     LITTLE = "<"
 
