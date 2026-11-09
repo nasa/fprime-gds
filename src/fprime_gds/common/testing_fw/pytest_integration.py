@@ -109,20 +109,31 @@ def pytest_configure(config):
 
 
 def _apply_deprecated_transport_options(config, reproduced_args):
-    """Translate the deprecated --use-yamcs option into the data transport selection
+    """Translate the deprecated transport aliases into the data transport selection
 
-    `--use-yamcs` is an alias of `--data-transport-selection yamcs`. The `yamcs` transport is supplied by the
-    fprime-yamcs plugin; a usage error pointing at it is raised when that plugin is not installed.
+    `--no-zmq` is an alias of `--data-transport-selection tcp` and `--use-yamcs` of `--data-transport-selection yamcs`.
+    The `yamcs` transport is built in while fprime-gds[yamcs] is installed and moves to the fprime-yamcs plugin; a
+    usage error naming both is raised when it is not available.
 
     Args:
         config: pytest configuration
         reproduced_args: standard pipeline command line reproduced from the pytest options
     Returns:
-        reproduced_args, with the selection appended when --use-yamcs was given
+        reproduced_args, with the selection appended when an alias was given
     """
+    selection_flag = "--data-transport-selection"
+    if not config.getoption("zmq"):
+        print(f"[WARNING] --no-zmq is deprecated, use {selection_flag} tcp", file=sys.stderr)
+        if selection_flag in reproduced_args:
+            selected = reproduced_args[reproduced_args.index(selection_flag) + 1]
+            if selected != "tcp":
+                raise pytest.UsageError(
+                    f"--no-zmq (deprecated alias of {selection_flag} tcp) conflicts with {selection_flag} {selected}"
+                )
+        else:
+            reproduced_args = reproduced_args + [selection_flag, "tcp"]
     if not config.getoption("--use-yamcs"):
         return reproduced_args
-    selection_flag = "--data-transport-selection"
     available = [
         plugin.get_name()
         for plugin in StandardPipelineParser.get_data_transport_plugins()

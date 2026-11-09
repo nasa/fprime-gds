@@ -243,19 +243,20 @@ def main():
         launchers.append(launch_tts)
 
     # Check if we are running with communications: the comm bridge only serves the transports fprime-gds owns
+    bridged = parsed_args.data_transport_selection in BRIDGED_TRANSPORTS
     if parsed_args.communication_selection != "none":
-        if parsed_args.data_transport_selection in BRIDGED_TRANSPORTS:
+        if bridged:
             launchers.append(launch_comm)
         else:
             print(
                 f"[WARNING] Not launching the comm bridge: the '{parsed_args.data_transport_selection}' data transport "
-                "is not bridged by fprime-gds",
+                "is not bridged by fprime-gds (the ground system owns the link to the deployment)",
                 file=sys.stderr,
             )
 
-    # Add app, if possible
+    # Add app, if possible: without the comm bridge the app is only launched with explicit arguments
     if parsed_args.app:
-        connection = app_connection(parsed_args)
+        connection = app_connection(parsed_args) if bridged else None
         if connection is not None or parsed_args.application_arguments is not None:
             launchers.append(functools.partial(launch_app, connection=connection))
         else:

@@ -15,7 +15,7 @@ The GDS was designed to be adaptable, easily understandable, and easily expandab
 is built using publisher/subscriber relationships.
 
 The diagram below shows the basic layout of the GDS. Data from the F´ deployment first enters the
-GDS at the TCP client. Each packet is then passed directly to the distributor which is responsible
+GDS pipeline through the transport client, a `data_transport` plugin (see below). Each packet is then passed directly to the distributor which is responsible
 for parsing the packets in to data messages and sending on each message type (currently only events,
 channels, and packetized telemetry are supported) to decoders registered for that type. The decoder
 is responsible for turning that data message into a data object which it passes along to all
@@ -23,12 +23,14 @@ consumers registered to it. These consumers could be anything, but in the GDS th
 that display the data. For outgoing data, the structure is similar. Currently, commands are the only
 output data type included. Command data objects are created in the command panel and then sent to
 the command encoder registered to that panel. Encoders take a data object and turn it into binary
-data that can be sent to the F´ deployment. The binary data is then passed to the TCP client
-which is registered to the encoder. Finally, the TCP client send the data back to the TCP server and
-the F´ deployment.  
+data that can be sent to the F´ deployment. The binary data is then passed to the transport client
+which is registered to the encoder. Finally, the transport client sends the data back to the ground
+system holding the link to the F´ deployment.
 
-The link between the pipeline and the ground system is a `data_transport` plugin (`--data-transport-selection`):
-ZeroMQ by default, the threaded TCP server with `tcp`, or an installed plugin reaching another ground system.
+The transport client is selected with `--data-transport-selection`: `zmq` (ZeroMQ to the GDS communication
+process, the default), `tcp` (the threaded TCP socket server, formerly `--no-zmq`), `yamcs` (built in while
+`fprime-gds[yamcs]` is installed, moving to the fprime-yamcs package), or any installed plugin reaching another
+ground system.
 ![The layout of the GDS](https://raw.githubusercontent.com/nasa/fprime/refs/heads/devel/docs/img/gds_layout.jpg)
 
 All of these objects are created and registered to other objects when the GDS
@@ -105,10 +107,10 @@ channels, etc).
 To expand the GDS to accept more data types or have additional features, new classes 
 can be written and registered into the existing structure.
 
-### TCP Client
-The TCP client is simply a passthrough for data coming from the TCP Server and 
-the F´ Distribution. The client handles all the socket connection overhead and 
-passes un-parsed data onto all objects registered with it.
+### Transport Client
+The transport client (`data_transport` plugin: ZeroMQ, the threaded TCP server, or an external ground
+system) is simply a passthrough for data coming from the ground side of the link. The client handles
+all the connection overhead and passes un-parsed data onto all objects registered with it.
 
 ### Distributor
 The distributer is responsible for taking in raw binary data, parsing off the 
@@ -172,7 +174,7 @@ sends the resulting data object to all consumers registered to it.
 
 ### Encoders
 Encoders are responsible for taking data objects from consumers (GUI panels), 
-converting them to binary data, and passing them to the TCP client to send to 
+converting them to binary data, and passing them to the transport client to send to 
 the F´ deployment. 
 
 Like the decoders, encoders use dictionaries produced by loaders to help craft

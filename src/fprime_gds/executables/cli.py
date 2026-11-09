@@ -755,7 +755,7 @@ class PluginArgumentParser(ParserBase):
         """
         # Accept the supplied plugin system defaulting to the global singleton. Categories owned by a dedicated parser
         # (data_transport is owned by MiddleWareParser) are skipped on the singleton so they are bound exactly once.
-        excluded = () if plugin_system else self.SINGLETON_EXCLUDED_CATEGORIES
+        excluded = self.SINGLETON_EXCLUDED_CATEGORIES if plugin_system is None else ()
         self.plugin_system = plugin_system if plugin_system else Plugins.system()
         self._plugin_map = {
             category: [
@@ -1113,7 +1113,11 @@ class MiddleWareParser(ParserBase):
         # Parse the selection without a default so an explicit selection can be told apart from the default when the
         # deprecated alias is also given; the default is applied in handle_arguments
         selection_flag = (f"--{self.CATEGORY.replace('_', '-')}-selection",)
-        arguments[selection_flag] = {**arguments[selection_flag], "default": None}
+        arguments[selection_flag] = {
+            **arguments[selection_flag],
+            "default": argparse.SUPPRESS,
+            "help": f"Select data transport implementer [default: {self.DEFAULT_TRANSPORT}]",
+        }
         return arguments
 
     def fill_parser(self, parser):
@@ -1124,7 +1128,10 @@ class MiddleWareParser(ParserBase):
             {flags: keywords for flags, keywords in self.get_arguments().items() if flags[0] == "--no-zmq"},
         )
         self.plugin_parser.fill_parser(parser)
-        parser.set_defaults(**{f"{self.CATEGORY}_selection": None})
+        # No default for the selection: an absent attribute tells an explicit selection apart from the default
+        for action in parser._actions:
+            if action.dest == f"{self.CATEGORY}_selection":
+                action.default = argparse.SUPPRESS
 
     def handle_arguments(self, args, **kwargs):
         """
@@ -1136,8 +1143,9 @@ class MiddleWareParser(ParserBase):
         :return: args namespace
         """
         is_client = kwargs.get("client", False)
-        selection = args.data_transport_selection
-        if not args.zmq:
+        selection = getattr(args, f"{self.CATEGORY}_selection", None)
+        selection = None if selection == argparse.SUPPRESS else selection
+        if not getattr(args, "zmq", True):
             if selection not in (None, self.NO_ZMQ_TRANSPORT):
                 raise ValueError(
                     f"--no-zmq (deprecated alias of --data-transport-selection {self.NO_ZMQ_TRANSPORT}) conflicts "
@@ -1159,18 +1167,21 @@ class MiddleWareParser(ParserBase):
         transport_arguments = getattr(bound_transport, "keywords", {})
         args.connection_transport = bound_transport
         args.connection_uri = transport_class.get_connection_uri(client=is_client, **transport_arguments)
-        args.zmq = args.data_transport_selection == self.DEFAULT_TRANSPORT
         if args.data_transport_selection == self.NO_ZMQ_TRANSPORT and not is_client:
             check_port(args.tts_addr, args.tts_port)
         return args
 
     def reproduce_cli_args(self, args_ns):
-        """Reproduce the transport arguments for child processes using the selection flag, never the deprecated alias"""
-        return [
-            argument
-            for argument in super().reproduce_cli_args(args_ns)
-            if argument != "--no-zmq"
-        ]
+        """Reproduce the transport arguments using the selection flag, never the deprecated alias
+
+        Handled namespaces (child processes) already carry the selection; an unhandled namespace (the pytest plugin's)
+        that was given `--no-zmq` gets the selection the alias stands for.
+        """
+        reproduced = [argument for argument in super().reproduce_cli_args(args_ns) if argument != "--no-zmq"]
+        selection_flag = f"--{self.CATEGORY.replace('_', '-')}-selection"
+        if not getattr(args_ns, "zmq", True) and selection_flag not in reproduced:
+            reproduced += [selection_flag, self.NO_ZMQ_TRANSPORT]
+        return reproduced
 
 
 class DictionaryParser(DetectionParser):

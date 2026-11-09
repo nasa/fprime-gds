@@ -65,9 +65,11 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
         """Validate the parsed arguments, raising ValueError on an invalid combination"""
 
     @classmethod
-    @abstractmethod
     def get_connection_uri(cls, client: bool = True, **arguments):
         """Connection URI to pass to `connect()` given this transport's parsed arguments
+
+        `client` is reserved: it is True for pipeline clients (GUI, CLI, test API) and False for the process owning the
+        transport (fprime-gds), so transport arguments must not use `client` as a destination name.
 
         Called with the same keyword arguments as the constructor. `client` is True when the caller connects to an
         existing transport (GUI, test API) and False when the caller owns and launches the transport (fprime-gds).
@@ -273,14 +275,14 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
                 "dest": "tts_port",
                 "action": "store",
                 "type": int,
-                "help": "Set the threaded TCP socket server port [default: %(default)s]",
+                "help": "Port of the threaded TCP socket server used by the 'tcp' data transport [default: %(default)s]",
                 "default": cls.DEFAULT_PORT,
             },
             ("--tts-addr",): {
                 "dest": "tts_addr",
                 "action": "store",
                 "type": str,
-                "help": "Set the threaded TCP socket server address [default: %(default)s]",
+                "help": "Address of the threaded TCP socket server used by the 'tcp' data transport [default: %(default)s]",
                 "default": cls.DEFAULT_ADDRESS,
             },
         }

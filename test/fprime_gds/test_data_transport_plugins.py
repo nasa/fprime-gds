@@ -148,7 +148,6 @@ class TestDataTransportCategory(unittest.TestCase):
         check_port.assert_called_once_with("0.0.0.0", 50127)
         self.assertEqual(args.connection_uri, "tcp://0.0.0.0:50127")
         self.assertIs(implementor(args.connection_transport), ThreadedTCPSocketClient)
-        self.assertFalse(args.zmq)
         self.assertNotIn("data_transport", PluginArgumentParser()._plugin_map)
 
     def test_external_plugin_is_selectable(self):
@@ -271,14 +270,32 @@ class TestMiddleWareParser(unittest.TestCase):
         self.assertIn("--no-zmq is deprecated", stderr.getvalue())
         self.assertIn("--data-transport-selection tcp", stderr.getvalue())
 
-    def test_zmq_flag_tracks_the_selection(self):
+    def test_zmq_flag_only_records_the_deprecated_alias(self):
+        """args.zmq means '--no-zmq was not given'; the transport is identified by the selection alone"""
         self.assertTrue(parse_middleware([]).zmq)
-        self.assertFalse(parse_middleware(["--data-transport-selection", "tcp"]).zmq)
-        self.assertFalse(
-            parse_middleware(
-                ["--data-transport-selection", "fake-ground"], extra_plugins=[FakeGroundSystemClient]
-            ).zmq
-        )
+        self.assertTrue(parse_middleware(["--data-transport-selection", "tcp"]).zmq)
+        with mock.patch("sys.stderr", new_callable=io.StringIO):
+            self.assertFalse(parse_middleware(["--no-zmq"]).zmq)
+
+    def test_second_middleware_parser_does_not_mistake_a_selection_for_the_alias(self):
+        """fprime-gds composes two MiddleWareParser instances; a tcp selection must not look like --no-zmq to the second"""
+        dictionary = Path(__file__).parent / "common" / "loaders" / "resources" / "RefTopologyDictionary.json"
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            args, _, _ = ConfigDrivenParser.parse_known_args(
+                [StandardPipelineParser, MiddleWareParser],
+                arguments=["--dictionary", str(dictionary), "--packet-set-name", "PacketSet1",
+                           "--data-transport-selection", "tcp"],
+                client=True,
+            )
+        self.assertEqual(args.connection_uri, "tcp://127.0.0.1:50050")
+        self.assertNotIn("deprecated", stderr.getvalue())
+
+    def test_unhandled_namespace_with_alias_reproduces_the_selection(self):
+        parser = MiddleWareParser()
+        reproduced = parser.reproduce_cli_args(SimpleNamespace(zmq=False, tts_port=50126))
+        self.assertNotIn("--no-zmq", reproduced)
+        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "tcp")
+        self.assertNotIn("--data-transport-selection", parser.reproduce_cli_args(SimpleNamespace(zmq=True)))
 
     def test_children_are_given_the_selection_not_the_deprecated_alias(self):
         parser = MiddleWareParser()
@@ -420,6 +437,10 @@ class TestPytestIntegration(unittest.TestCase):
         pytest_addoption(parser)
         namespace = parser.parse(["--dictionary", UNIT_TEST_DICTIONARY] + args)
         reproduced = StandardPipelineParser().reproduce_cli_args(namespace)
+        config = SimpleNamespace(
+            getoption=lambda name: getattr(namespace, name.lstrip("-").replace("-", "_"))
+        )
+        reproduced = pytest_integration._apply_deprecated_transport_options(config, reproduced)
         arg_ns, _, _ = ConfigDrivenParser.parse_known_args(
             [StandardPipelineParser], arguments=reproduced, client=True
         )
@@ -430,6 +451,35 @@ class TestPytestIntegration(unittest.TestCase):
         self.assertEqual(arg_ns.data_transport_selection, "tcp")
         self.assertEqual(arg_ns.connection_uri, "tcp://127.0.0.1:50126")
 
+    def test_pytest_no_zmq_selects_tcp_with_warning(self):
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            arg_ns = self.parse_pytest(["--no-zmq", "--tts-port", "50126"])
+        self.assertEqual(arg_ns.data_transport_selection, "tcp")
+        self.assertEqual(arg_ns.connection_uri, "tcp://127.0.0.1:50126")
+        self.assertIn("--no-zmq is deprecated", stderr.getvalue())
+
+    def test_pytest_no_zmq_with_explicit_tcp(self):
+        with mock.patch("sys.stderr", new_callable=io.StringIO):
+            arg_ns = self.parse_pytest(["--no-zmq", "--data-transport-selection", "tcp"])
+        self.assertEqual(arg_ns.data_transport_selection, "tcp")
+
+    def test_pytest_no_zmq_conflicts_with_other_selection(self):
+        with mock.patch("sys.stderr", new_callable=io.StringIO):
+            with self.assertRaises(pytest.UsageError) as context:
+                self.parse_pytest(["--no-zmq", "--data-transport-selection", "zmq"])
+        self.assertIn("conflicts with --data-transport-selection zmq", str(context.exception))
+
+    def test_pytest_accepts_yamcs_url_without_the_yamcs_plugin(self):
+        """--use-yamcs --yamcs-url must reach the missing-plugin hint rather than an unknown-option error"""
+        fake_pipeline_parser = mock.MagicMock()
+        fake_pipeline_parser.get_arguments.return_value = {("--dictionary",): {"dest": "dictionary"}}
+        with mock.patch.object(pytest_integration, "StandardPipelineParser", return_value=fake_pipeline_parser):
+            parser = Parser(_ispytest=True)
+            pytest_addoption(parser)
+        namespace = parser.parse(["--use-yamcs", "--yamcs-url", "http://y:8090"])
+        self.assertEqual(namespace.yamcs_url, "http://y:8090")
+        self.assertTrue(namespace.use_yamcs)
+
     def test_pytest_defaults_to_zmq(self):
         arg_ns = self.parse_pytest([])
         self.assertEqual(arg_ns.data_transport_selection, "zmq")
@@ -437,7 +487,8 @@ class TestPytestIntegration(unittest.TestCase):
 
     @staticmethod
     def config(use_yamcs):
-        return SimpleNamespace(getoption=lambda name: use_yamcs if name == "--use-yamcs" else None)
+        options = {"--use-yamcs": use_yamcs, "zmq": True}
+        return SimpleNamespace(getoption=lambda name: options.get(name))
 
     def test_use_yamcs_not_given_is_a_no_op(self):
         self.assertEqual(
@@ -521,7 +572,44 @@ class TestRunDeploymentMiddleware(unittest.TestCase):
                 self.run_main(selection, communication_selection="ip")
                 self.launch_comm.assert_called_once()
 
+    def test_app_not_auto_launched_for_external_transport(self):
+        parsed_args = SimpleNamespace(
+            data_transport_selection="fake-ground", communication_selection="ip", app="/bin/true",
+            application_arguments=None, gui="none",
+        )
+        plugins = mock.MagicMock()
+        plugins.get_feature_classes.return_value = []
+        with mock.patch.object(run_deployment, "parse_args", return_value=parsed_args), mock.patch.object(
+            run_deployment, "launch_app"
+        ) as launch_app, mock.patch.object(run_deployment, "launch_comm"), mock.patch.object(
+            run_deployment, "launch_html"
+        ), mock.patch.object(run_deployment, "app_connection") as app_connection, mock.patch.object(
+            run_deployment.Plugins, "system", return_value=plugins
+        ), mock.patch.object(run_deployment.sys, "stderr", new_callable=io.StringIO):
+            run_deployment.main()
+        app_connection.assert_not_called()
+        launch_app.assert_not_called()
+
     def test_comm_bridge_not_launched_for_external_transport(self):
         self.run_main("fake-ground", communication_selection="ip")
         self.launch_comm.assert_not_called()
         self.assertIn("Not launching the comm bridge", self.stderr)
+
+
+class TestFprimeCliTransportSelection(unittest.TestCase):
+    """fprime-cli keys ZeroMQ specifics on the data transport selection, not on the deprecated alias"""
+
+    def send_raw(self, selection):
+        from fprime_gds.common.gds_cli.send_raw import SendRawCommand
+
+        api = mock.MagicMock()
+        args = SimpleNamespace(bin_path=None, hex_string="DEADBEEF", data_transport_selection=selection, verbose=False)
+        SendRawCommand._execute_command(args, api)
+        return api.pipeline.client_socket.send.call_args[0][0]
+
+    def test_zmq_prefixes_the_length(self):
+        self.assertEqual(self.send_raw("zmq"), b"\x00\x00\x00\x04\xde\xad\xbe\xef")
+
+    def test_tcp_and_external_transports_send_the_bytes_as_given(self):
+        self.assertEqual(self.send_raw("tcp"), b"\xde\xad\xbe\xef")
+        self.assertEqual(self.send_raw("fake-ground"), b"\xde\xad\xbe\xef")
