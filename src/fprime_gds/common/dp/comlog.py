@@ -9,7 +9,7 @@ channel/event logs, and recovers records from damaged files by scanning for the 
 """
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.event_data import EventData
@@ -45,8 +45,9 @@ class ComLoggerDpDecoder:
         """Decode one Com buffer (packet descriptor followed by a packet) into its ChData or EventData objects"""
         descriptor = ConfigManager().get_type("FwPacketDescriptorType")()
         descriptor.deserialize(data, 0)
+        apid_type = ConfigManager().get_type("ComCfg.Apid")
         try:
-            packet_type = ConfigManager().get_type("ComCfg.Apid").from_int(descriptor.val).val
+            packet_type = apid_type.from_int(descriptor.val).val
         except Exception:
             raise DataProductError(f"Unknown packet descriptor {descriptor.val:#x}")
         payload = data[descriptor.getSize():]
@@ -72,9 +73,9 @@ class ComLoggerDpDecoder:
         for record in result["Records"]:
             if not record["Record"]["record_name"].endswith(COM_BUFFER_RECORD_SUFFIX):
                 continue
-            data = bytes(record.pop("Data")["values"])
             try:
-                record.update(self.decode_record_data(data))
+                record.update(self.decode_record_data(bytes(record["Data"]["values"])))
+                del record["Data"]
             except Exception as exc:
                 record["Error"] = str(exc)
         result["Statistics"] = statistics(result["Records"])
@@ -91,8 +92,8 @@ class ComLoggerDpDecoder:
 
         records = []
         for index, position in enumerate(positions):
-            end = positions[index + 1] if index + 1 < len(positions) else len(data)
-            size = self.record_size(data, position, end, has_next=index + 1 < len(positions))
+            next_position = positions[index + 1] if index + 1 < len(positions) else None
+            size = self.record_size(data, position, next_position)
             record = {"Record": {"offset": position, "size": size}}
             try:
                 record.update(self.decode_record_data(data[position:position + size]))
@@ -105,24 +106,24 @@ class ComLoggerDpDecoder:
             "Statistics": statistics(records),
         }
 
-    @staticmethod
-    def record_size(data: bytes, position: int, end: int, has_next: bool) -> int:
-        """Size of the record data starting at a sentry.
+    def record_size(self, data: bytes, position: int, next_position: Optional[int]) -> int:
+        """Size of the record data starting at the sentry at `position`, given the position of the next sentry if any.
 
         In an intact record the FwSizeStoreType length prefix just before the sentry covers the sentry and the Com
         buffer; it is used when it fits before the next sentry. Otherwise the gap to the next sentry is used, minus
-        the record ID and length prefix that precede the next sentry.
+        the record ID and length prefix that precede the next sentry, or the rest of the file for the last record.
         """
+        end = len(data) if next_position is None else next_position
         size_type = ConfigManager().get_type("FwSizeStoreType")
         prefix_size = size_type.getSize()
         if position >= prefix_size:
             size_obj = size_type()
             size_obj.deserialize(data, position - prefix_size)
-            if U32Type.getSize() < size_obj.val <= end - position:
+            if len(self.sentry) < size_obj.val <= end - position:
                 return size_obj.val
-        if has_next:
-            return max(end - position - prefix_size - ConfigManager().get_type("FwDpIdType").getSize(), 0)
-        return end - position
+        if next_position is None:
+            return end - position
+        return max(end - position - prefix_size - ConfigManager().get_type("FwDpIdType").getSize(), 0)
 
 
 def statistics(records: List[Dict[str, Any]]) -> Dict[str, int]:
@@ -192,10 +193,10 @@ def write_text(result: Dict[str, Any], path: Path):
         file_handle.write(format_text(result, str(path)))
 
 
-def write_collected_logs(results: Iterable[Dict[str, Any]], output_dir: Path) -> Tuple[int, int]:
+def write_collected_logs(results: Iterable[Dict[str, Any]], output_dir: Path) -> Dict[str, int]:
     """Merge the packets of several products into time-sorted GDS-style channel and event logs.
 
-    Returns the number of channel samples and events written.
+    Returns the number of channel samples and events written as {"Channels": n, "Events": m}.
     """
     channels, events = [], []
     for result in results:
@@ -208,4 +209,4 @@ def write_collected_logs(results: Iterable[Dict[str, Any]], output_dir: Path) ->
             file_handle.write(data_type.get_csv_header(verbose=True))
             for packet in sorted(packets, key=lambda packet: packet.time):
                 file_handle.write(packet.get_str(verbose=True, csv=True) + "\n")
-    return len(channels), len(events)
+    return {"Channels": len(channels), "Events": len(events)}

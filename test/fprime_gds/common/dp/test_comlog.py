@@ -9,6 +9,7 @@ import pytest
 
 from fprime_gds.common.dp.comlog import CHANNEL_LOG_NAME, DEFAULT_SENTRY, EVENT_LOG_NAME, ComLoggerDpDecoder
 from fprime_gds.common.dp.common import ChecksumConfig, calculate_crc32, get_dp_header_type
+from fprime_gds.common.dp.decoder import CRCError, DataProductError
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.models.serialize.numerical_types import F32Type, U8Type, U16Type, U32Type
 from fprime_gds.common.models.serialize.string_type import StringType
@@ -17,6 +18,8 @@ from fprime_gds.common.utils.cleanup import globals_cleanup
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.executables.data_products import main
 
+# Hand-written minimal dictionary (not fpp-to-json output): the Fw/ComCfg framework types copied from dictionary_ref.json
+# plus two events, two channels and the ComLoggerDp ComBufferRecord/ComBuffContainer
 DICTIONARY_PATH = Path(__file__).parent / "test_dp_data" / "dictionary_comlog.json"
 CONTAINER_ID = 1024  # ComLog.comLogger.ComBuffContainer / ComBufferRecord
 HELLO_EVENT_ID, PLAIN_EVENT_ID = 256, 257
@@ -117,7 +120,7 @@ class TestComLoggerDpDecoder:
 
     def test_crc_validation(self, dictionaries, tmp_path):
         path = write(tmp_path / "a.fdp", product(*sample_records(), break_data_crc=True))
-        with pytest.raises(Exception, match="CRC mismatch"):
+        with pytest.raises(CRCError, match="CRC mismatch"):
             ComLoggerDpDecoder(dictionaries).decode(path)
         assert ComLoggerDpDecoder(dictionaries, validate_crc=False).decode(path)["Statistics"]["Events"] == 2
 
@@ -135,10 +138,18 @@ class TestComLoggerDpDecoder:
         assert result["Statistics"] == {"Records": 3, "Events": 2, "Channels": 2, "Errors": 0}
         assert result["Records"][1]["Packets"][0].display_text == "Hello world #3"
 
+    def test_malformed_record_data(self, dictionaries):
+        decoder = ComLoggerDpDecoder(dictionaries)
+        with pytest.raises(DataProductError, match="too short"):
+            decoder.decode_record_data(b"\xde\xad")
+        with pytest.raises(DataProductError, match="Unknown packet descriptor"):
+            decoder.decode_com_buffer(b"\xff" * 8)
+
     def test_reconstruct_without_length_prefixes(self, dictionaries, tmp_path):
         records = sample_records()
         damaged = bytearray(b"".join(records))
-        for offset in (4, 5):  # corrupt the length prefix of the first record
+        last = sum(len(item) for item in records[:-1])
+        for offset in (4, 5, last + 4, last + 5):  # corrupt the length prefixes of the first and last records
             damaged[offset] = 0xFF
         result = ComLoggerDpDecoder(dictionaries).reconstruct(write(tmp_path / "a.fdp", bytes(damaged)))
         assert result["Statistics"]["Channels"] == 2
@@ -150,16 +161,13 @@ def run_comlog(*args):
         return main()
 
 
+@pytest.mark.usefixtures("dictionaries")  # types must be loaded to build products; `main` reloads the dictionary itself
 class TestComlogCommand:
-    @pytest.fixture(autouse=True)
-    def clean(self, dictionaries):
-        """Types must be loaded to build products; `main` reloads the dictionary itself"""
-
     @pytest.fixture
     def product_dir(self, tmp_path):
         write(tmp_path / "Dp_00001024_10.fdp", product(*sample_records()))
         write(tmp_path / "Dp_00001024_20.fdp", product(record(event_packet(PLAIN_EVENT_ID, 5)), record(telemetry_packet((COUNT_CHANNEL_ID, 1, U32Type(1).serialize())))))
-        write(tmp_path / "Dp_00000007_30.bin", product(record(event_packet(PLAIN_EVENT_ID, 50)), container_id=7))
+        write(tmp_path / "Dp_00001024_30.bin", product(record(event_packet(PLAIN_EVENT_ID, 50)), container_id=7))  # misleading name
         return tmp_path
 
     def test_single_file_json_and_text(self, tmp_path):
@@ -180,6 +188,14 @@ class TestComlogCommand:
         assert run_comlog("-b", path, "-f", "json", "-o", tmp_path / "out" / "decoded.json") == 0
         assert (tmp_path / "out" / "decoded.json").is_file()
         assert not (tmp_path / "out" / "decoded.txt").exists()
+        (tmp_path / "one").mkdir()
+        write(tmp_path / "one" / "only.fdp", product(*sample_records()))
+        assert run_comlog("-B", tmp_path / "one", "-f", "text", "-o", tmp_path / "one" / "out") == 0
+        assert (tmp_path / "one" / "out" / "only.txt").is_file()
+        with pytest.raises(SystemExit):
+            run_comlog("-b", path, "--sentry", "0x1FFFFFFFF")
+        with pytest.raises(SystemExit):
+            run_comlog("-B", tmp_path / "one", "-o", path)
 
     def test_directory_with_dp_id_filter(self, product_dir):
         assert run_comlog("-B", product_dir, "--dp-id", "0x400", "-f", "text", "-o", product_dir / "out") == 0
@@ -201,12 +217,30 @@ class TestComlogCommand:
         path = write(tmp_path / "a.fdp", product(*sample_records(), break_header_crc=True))
         assert run_comlog("-b", path) == 1
         assert run_comlog("-b", path, "--no-crc") == 0
-        assert run_comlog("-b", path, "--reconstruct", "-f", "json") == 0
+        assert run_comlog("-b", path, "--reconstruct", "-f", "both") == 0
         data = json.loads((tmp_path / "a_reconstructed.json").read_text())
         assert data["File"]["sentries_found"] == 3 and data["Statistics"]["Events"] == 2
+        assert "[Record 0 @ " in (tmp_path / "a_reconstructed.txt").read_text()
+
+    @pytest.mark.parametrize("options", [
+        ("-b", "a.fdp", "--collect"),
+        ("-B", ".", "--reconstruct"),
+        ("-b", "a.fdp", "--reconstruct", "--collect"),
+        ("-b", "a.fdp", "--reconstruct", "--no-sentry"),
+        ("-b", "a.fdp", "--reconstruct", "--dp-id", "0x400"),
+    ])
+    def test_rejected_option_combinations(self, tmp_path, options):
+        write(tmp_path / "a.fdp", product(*sample_records()))
+        with pytest.raises(SystemExit):
+            run_comlog(*(tmp_path / option if option in ("a.fdp", ".") else option for option in options))
+        (tmp_path / "empty").mkdir()
+        assert run_comlog("-B", tmp_path / "empty") == 1
 
     def test_sentry_options(self, tmp_path):
         path = write(tmp_path / "a.fdp", product(record(event_packet(PLAIN_EVENT_ID, 1), sentry=0xCAFEF00D)))
-        assert run_comlog("-b", path, "-f", "json") == 1
+        assert run_comlog("-b", path, "-f", "text") == 1
+        assert "ERROR: Sentry mismatch" in (tmp_path / "a.txt").read_text()
         assert run_comlog("-b", path, "-f", "json", "--sentry", "0xCAFEF00D") == 0
         assert run_comlog("-b", path, "-f", "json", "--no-sentry") == 0
+        assert run_comlog("-b", path, "-f", "json", "--reconstruct", "--sentry", "0xCAFEF00D") == 0
+        assert json.loads((tmp_path / "a_reconstructed.json").read_text())["Statistics"]["Events"] == 1
