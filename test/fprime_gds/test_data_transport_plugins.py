@@ -80,12 +80,21 @@ class FakeGroundSystemClient(TransportClient):
         return b""
 
 
+def parse_middleware_again(arguments, client=True):
+    """Parse again in the same process without resetting the once-per-process deprecation warning"""
+    parser = MiddleWareParser()
+    parser._plugin_parser = PluginArgumentParser(Plugins(["data_transport"]))
+    composite = CompositeParser([parser])
+    return composite.handle_arguments(composite.get_parser().parse_args(arguments), client=client)
+
+
 def parse_middleware(arguments, client=True, extra_plugins=(), parser=None):
     """Parse the middleware arguments only, returning the namespace"""
     plugins = Plugins(["data_transport"])
     for plugin in extra_plugins:
         plugins.register_plugin(plugin)
     parser = MiddleWareParser() if parser is None else parser
+    MiddleWareParser.deprecation_warned = False
     parser._plugin_parser = PluginArgumentParser(plugins)
     composite = CompositeParser([parser])
     return composite.handle_arguments(
@@ -301,6 +310,12 @@ class TestMiddleWareParser(unittest.TestCase):
         self.assertIn("--framing-selection", flags)
         flags = [flag for flags in PluginArgumentParser(plugins).get_arguments() for flag in flags]
         self.assertIn("--data-transport-selection", flags)
+
+    def test_no_zmq_warns_once_per_process(self):
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            parse_middleware(["--no-zmq"])
+            parse_middleware_again(["--no-zmq"])
+        self.assertEqual(stderr.getvalue().count("--no-zmq is deprecated"), 1)
 
     def test_tcp_selection_server_keeps_wildcard_address(self):
         with mock.patch("fprime_gds.executables.cli.check_port") as check_port:

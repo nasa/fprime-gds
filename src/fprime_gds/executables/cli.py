@@ -1080,6 +1080,8 @@ class MiddleWareParser(ParserBase):
     FILLS_OWN_GROUPS = True
     CATEGORY = "data_transport"
     DEFAULT_TRANSPORT = "zmq"
+    # The deprecation warning is printed once per process even though the arguments are parsed several times
+    deprecation_warned = False
     NO_ZMQ_TRANSPORT = "tcp"
 
     def __init__(self):
@@ -1141,10 +1143,12 @@ class MiddleWareParser(ParserBase):
                     f"--no-zmq (deprecated alias of --data-transport-selection {self.NO_ZMQ_TRANSPORT}) conflicts "
                     f"with --data-transport-selection {selection}"
                 )
-            print(
-                f"[WARNING] --no-zmq is deprecated, use --data-transport-selection {self.NO_ZMQ_TRANSPORT}",
-                file=sys.stderr,
-            )
+            if not MiddleWareParser.deprecation_warned:
+                print(
+                    f"[WARNING] --no-zmq is deprecated, use --data-transport-selection {self.NO_ZMQ_TRANSPORT}",
+                    file=sys.stderr,
+                )
+                MiddleWareParser.deprecation_warned = True
             selection = self.NO_ZMQ_TRANSPORT
         args.data_transport_selection = self.DEFAULT_TRANSPORT if selection is None else selection
         # Bind afresh on every call: the plugin system would otherwise keep the first selection of a reused parser
