@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from fprime_gds.common.models.dictionaries import Dictionaries
+from fprime_gds.common.dp.comlog import CHANNEL_LOG_NAME, DEFAULT_SENTRY, EVENT_LOG_NAME, ComLoggerDpDecoder, write_collected_logs, write_json, write_text
 from fprime_gds.common.dp.decoder import DataProductDecoder
 from fprime_gds.common.dp.validator import DataProductValidator
 
@@ -64,6 +65,44 @@ def decode_files(dictionaries: Dictionaries, bin_files: List[Path], output: Opti
     return failures
 
 
+def comlog_files(decoder: ComLoggerDpDecoder, bin_files: List[Path], args, output: Optional[Path]) -> int:
+    """Decode (or reconstruct) each ComLoggerDp product and write the requested outputs. Returns the number of failures."""
+    failures = 0
+    results = []
+    for bin_file in bin_files:
+        try:
+            result = decoder.reconstruct(bin_file) if args.reconstruct else decoder.decode(bin_file)
+        except Exception as e:
+            print(f"Error: failed to decode {bin_file}: {e}", file=sys.stderr)
+            failures += 1
+            continue
+        if args.dp_id is not None and result["Header"]["Id"]["value"] != args.dp_id:
+            continue
+        failures += 1 if result["Statistics"]["Errors"] else 0
+        results.append((bin_file, result))
+
+    if args.collect:
+        channels, events = write_collected_logs((result for _, result in results), output)
+        print(f"Collected {channels} channel samples and {events} events from {len(results)} data products into {output}")
+        return failures
+
+    for bin_file, result in results:
+        base = output if output is not None and len(bin_files) == 1 else bin_file
+        if output is not None and len(bin_files) > 1:
+            base = output / bin_file.name
+        if args.reconstruct:
+            base = base.with_name(f"{base.stem}_reconstructed{base.suffix}")
+        if args.format in ("json", "both"):
+            write_json(result, base.with_suffix(".json"))
+            print(f"Wrote {base.with_suffix('.json')}")
+        if args.format in ("text", "both"):
+            write_text(result, base.with_suffix(".txt"))
+            print(f"Wrote {base.with_suffix('.txt')}")
+        stats = result["Statistics"]
+        print(f"{bin_file}: {stats['Events']} events, {stats['Channels']} channels, {stats['Errors']} record errors")
+    return failures
+
+
 def main():
     root_parser = argparse.ArgumentParser(description='Data Product CLI')
     subcommands_parser = root_parser.add_subparsers(dest='command')
@@ -76,6 +115,20 @@ def main():
     decode_parser.add_argument("-o", "--output", required=False, help="Path to output JSON file (defaults to <binFilename>.json). Not allowed with --bin-dir")
     decode_parser.add_argument("-r", "--rename-id", action='store_true', help="Name output files <containerName>_<sec>_<usec>.json instead of Dp_<containerId>_<sec>_<usec>.json, using the container's short name from the dictionary")
     decode_parser.add_argument("-z", "--disable-decompression", action='store_true', help="Disable automatic decompression of data products")
+
+    comlog_parser = subcommands_parser.add_parser('comlog', help='Decode Svc.ComLoggerDp data products into the events and telemetry channels they recorded')
+    comlog_input = comlog_parser.add_mutually_exclusive_group(required=True)
+    comlog_input.add_argument("-b", "--bin-file", help="Path to a ComLoggerDp data product file (.fdp)")
+    comlog_input.add_argument("-B", "--bin-dir", help="Directory of data products; every *.fdp and *.bin file in it is decoded")
+    comlog_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
+    comlog_parser.add_argument("-o", "--output", help="Output file (with --bin-file) or directory (with --bin-dir or --collect). Defaults to next to the input, or the current directory for --collect")
+    comlog_parser.add_argument("--dp-id", type=lambda value: int(value, 0), help="Only process products whose header container ID matches")
+    comlog_parser.add_argument("-f", "--format", choices=["json", "text", "both"], default="both", help="Output format (default: both)")
+    comlog_parser.add_argument("--collect", action="store_true", help=f"Merge the products of --bin-dir into time-sorted {CHANNEL_LOG_NAME} and {EVENT_LOG_NAME} files instead of per-product output")
+    comlog_parser.add_argument("--reconstruct", action="store_true", help="Scan a damaged --bin-file for sentry markers and decode the records that survive, ignoring the header")
+    comlog_parser.add_argument("--sentry", type=lambda value: int(value, 0), default=DEFAULT_SENTRY, help=f"Sentry value preceding each Com buffer (default: {DEFAULT_SENTRY:#x})")
+    comlog_parser.add_argument("--no-sentry", action="store_true", help="Do not check the sentry of each record")
+    comlog_parser.add_argument("--no-crc", action="store_true", help="Do not check the header and data CRCs")
 
     validate_parser = subcommands_parser.add_parser('validate', help='Validate a data product')
     validate_parser.add_argument("-b", "--bin-file", required=True, help="Path to input data product binary file (.fdp)")
@@ -107,6 +160,29 @@ def main():
         failures = decode_files(args.dictionaries, bin_files, args.output, args.disable_decompression, args.rename_id)
         if args.bin_dir is not None:
             print(f"Decoded {len(bin_files) - failures}/{len(bin_files)} data products")
+        return 1 if failures else 0
+
+    elif args.command == "comlog":
+        if args.collect and args.bin_dir is None:
+            comlog_parser.error("--collect requires --bin-dir")
+        if args.reconstruct and (args.bin_dir is not None or args.collect or args.no_sentry):
+            comlog_parser.error("--reconstruct requires --bin-file and uses the sentry; it cannot be combined with --bin-dir, --collect or --no-sentry")
+        if args.bin_dir is not None:
+            bin_dir = Path(args.bin_dir)
+            if not bin_dir.is_dir():
+                comlog_parser.error(f"{args.bin_dir} is not a directory")
+            bin_files = sorted(path for path in bin_dir.iterdir() if path.is_file() and path.suffix in (".fdp", ".bin"))
+            if not bin_files:
+                print(f"No .fdp or .bin files found in {bin_dir}", file=sys.stderr)
+                return 1
+            output = Path(args.output) if args.output else (Path.cwd() if args.collect else None)
+            output.mkdir(parents=True, exist_ok=True) if output else None
+        else:
+            bin_files = [Path(args.bin_file)]
+            output = Path(args.output) if args.output else None
+            output.parent.mkdir(parents=True, exist_ok=True) if output else None
+        decoder = ComLoggerDpDecoder(args.dictionaries, args.sentry, not args.no_sentry, not args.no_crc)
+        failures = comlog_files(decoder, bin_files, args, output)
         return 1 if failures else 0
 
     elif args.command == "validate":
