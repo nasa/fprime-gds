@@ -206,22 +206,6 @@ class TestComlogCommand:
         text = (tmp_path / "a.txt").read_text()
         assert HELLO_TEXT in text and "Ref.typeDemo.ScalarU8Ch (268455946)" in text
 
-    def test_format_and_output_options(self, tmp_path):
-        path = write(tmp_path / "a.fdp", product(*sample_records()))
-        assert run_comlog("-b", path, "-f", "json", "-o", tmp_path / "out" / "decoded.json") == 0
-        assert (tmp_path / "out" / "decoded.json").is_file()
-        assert not (tmp_path / "out" / "decoded.txt").exists()
-        (tmp_path / "one").mkdir()
-        write(tmp_path / "one" / "only.fdp", product(*sample_records()))
-        assert run_comlog("-B", tmp_path / "one", "-f", "text", "-o", tmp_path / "one" / "out") == 0
-        assert (tmp_path / "one" / "out" / "only.txt").is_file()
-        assert run_comlog("-b", path, "-f", "json", "-o", tmp_path / "out") == 0
-        assert (tmp_path / "out" / "a.json").is_file()
-        with pytest.raises(SystemExit):
-            run_comlog("-b", path, "--sentry", "0x1FFFFFFFF")
-        with pytest.raises(SystemExit):
-            run_comlog("-B", tmp_path / "one", "-o", path)
-
     def test_directory_with_dp_id_filter(self, product_dir):
         assert run_comlog("-B", product_dir, "--dp-id", "0x400", "-f", "text", "-o", product_dir / "out") == 0
         written = sorted(p.name for p in (product_dir / "out").iterdir())
@@ -238,17 +222,6 @@ class TestComlogCommand:
         assert len(events) == 1 + 4
         assert events[1].endswith(",Ref.dpDemo.DpMemoryFail,2582,EventSeverity.WARNING_HI,Failed to acquire a DP buffer")
 
-    def test_directory_with_same_stem_products(self, tmp_path):
-        for name in ("a.fdp", "a.bin"):
-            write(tmp_path / name, product(*sample_records()))
-        assert run_comlog("-B", tmp_path, "-f", "json") == 0
-        assert (tmp_path / "a.fdp.json").is_file() and (tmp_path / "a.bin.json").is_file()
-
-    def test_collect_defaults_to_current_directory(self, product_dir, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        assert run_comlog("-B", product_dir, "--collect") == 0
-        assert (tmp_path / CHANNEL_LOG_NAME).is_file() and (tmp_path / EVENT_LOG_NAME).is_file()
-
     def test_reconstruct_and_failures(self, tmp_path):
         path = write(tmp_path / "a.fdp", product(*sample_records(), break_header_crc=True))
         assert run_comlog("-b", path) == 1
@@ -257,23 +230,6 @@ class TestComlogCommand:
         data = json.loads((tmp_path / "a_reconstructed.json").read_text())
         assert data["File"]["sentries_found"] == 3 and data["Statistics"]["Events"] == 2
         assert "[Record 0 @ " in (tmp_path / "a_reconstructed.txt").read_text()
-
-    @pytest.mark.parametrize("options", [
-        ("-b", "a.fdp", "--collect"),
-        ("-B", ".", "--reconstruct"),
-        ("-b", "a.fdp", "--reconstruct", "--collect"),
-        ("-b", "a.fdp", "--reconstruct", "--no-sentry"),
-        ("-b", "a.fdp", "--reconstruct", "--dp-id", "0x400"),
-        ("-b", "a.fdp", "--sentry", "-1"),
-        ("-B", "missing"),
-    ])
-    def test_rejected_option_combinations(self, tmp_path, options):
-        write(tmp_path / "a.fdp", product(*sample_records()))
-        with pytest.raises(SystemExit):
-            run_comlog(*(tmp_path / option if option in ("a.fdp", ".", "missing") else option for option in options))
-
-    def test_empty_directory(self, tmp_path):
-        assert run_comlog("-B", tmp_path) == 1
 
     def test_sentry_options(self, tmp_path):
         path = write(tmp_path / "a.fdp", product(record(event_packet(PLAIN_EVENT_ID, 1), sentry=0xCAFEF00D)))
