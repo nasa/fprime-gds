@@ -139,6 +139,10 @@ class Plugins(object):
             kept[name] = plugin
         return [plugin for plugin in plugins if kept[plugin.get_name()] is plugin]
 
+    def clear_bound_classes(self, category):
+        """Forget the classes bound for a category so the next argument handling binds afresh"""
+        self.metadata[category].pop("bound_classes", None)
+
     def start_loading(self, category: str):
         """Start a category loading
 
@@ -266,7 +270,8 @@ class Plugins(object):
 
             try:
                 from fprime_gds.common.yamcs_transport import YamcsClient
-            except ImportError:
+            except Exception as exc:  # optional dependency: keep a broken yamcs-client off the start-up path
+                LOGGER.debug("Built-in yamcs transport unavailable: %s", exc)
                 YamcsClient = None
 
             try:

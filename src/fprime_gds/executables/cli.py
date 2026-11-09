@@ -1147,8 +1147,10 @@ class MiddleWareParser(ParserBase):
             )
             selection = self.NO_ZMQ_TRANSPORT
         args.data_transport_selection = self.DEFAULT_TRANSPORT if selection is None else selection
+        # Bind afresh on every call: the plugin system would otherwise keep the first selection of a reused parser
+        self.plugin_parser.plugin_system.clear_bound_classes(self.CATEGORY)
         args = self.plugin_parser.handle_arguments(args, **kwargs)
-        bound_transport = self.plugin_parser.plugin_system.get_selected_class("data_transport")
+        bound_transport = self.plugin_parser.plugin_system.get_selected_class(self.CATEGORY)
         transport_class = getattr(bound_transport, "func", bound_transport)
         transport_arguments = getattr(bound_transport, "keywords", {})
         args.connection_transport = bound_transport

@@ -200,6 +200,26 @@ class TestBuiltInTransports(unittest.TestCase):
         self.assertEqual(client.default_uri, "tcp://127.0.0.1:50123")
 
 
+class TestYamcsTransitionalPlugin(unittest.TestCase):
+    def setUp(self):
+        try:
+            from fprime_gds.common.yamcs_transport import YamcsClient
+        except Exception:
+            self.skipTest("yamcs-client not installed")
+        self.client = YamcsClient
+
+    def test_connection_uri_schemes(self):
+        self.assertEqual(self.client.get_connection_uri(yamcs_url="http://y:8090"), "yamcs://y:8090")
+        self.assertEqual(self.client.get_connection_uri(yamcs_url="https://y:8443"), "yamcs+https://y:8443")
+        self.assertEqual(self.client.get_connection_uri(yamcs_url="y:8090"), "yamcs://y:8090")
+
+    def test_rejects_other_schemes(self):
+        with self.assertRaises(ValueError):
+            self.client.check_arguments(yamcs_url="ftp://y:8090")
+        with self.assertRaises(ValueError):
+            self.client.get_connection_uri(yamcs_url="ftp://y:8090")
+
+
 class TestMiddleWareParser(unittest.TestCase):
     def test_default_is_zmq(self):
         args = parse_middleware([])
@@ -297,6 +317,15 @@ class TestMiddleWareParser(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             parse_middleware(["--no-zmq", "--data-transport-selection", "zmq"])
         self.assertIn("conflicts with --data-transport-selection zmq", str(context.exception))
+
+    def test_reused_parser_rebinds_on_every_call(self):
+        parser = MiddleWareParser()
+        first = parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50131"], parser=parser)
+        second = parse_middleware([], parser=parser)
+        third = parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50132"], parser=parser)
+        self.assertEqual(first.connection_uri, "tcp://127.0.0.1:50131")
+        self.assertIs(implementor(second.connection_transport), ZmqClient)
+        self.assertEqual(third.connection_uri, "tcp://127.0.0.1:50132")
 
     def test_no_zmq_with_explicit_tcp_is_accepted(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO):

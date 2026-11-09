@@ -45,7 +45,9 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
     TransportClient is also the specification class of the "data_transport" GDS plugin category. A plugin selected with
     `--data-transport-selection <name>` becomes the transport of every StandardPipeline (GDS GUI/CLI, test API, data
     handler apps). Implementors are constructed with the keyword arguments produced by `get_arguments()` and connected
-    with the URI returned by `get_connection_uri()`.
+    with the URI returned by `get_connection_uri()`. A transport that decodes ground-system data itself may define
+    `set_pipeline_references(dictionaries, channel_decoder, event_decoder, ...)`, which StandardPipeline.setup() calls
+    when present (see YamcsClient).
     """
 
     @classmethod

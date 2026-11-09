@@ -173,8 +173,8 @@ class YamcsClient(TransportClient):
 
     @classmethod
     def check_arguments(cls, yamcs_url):
-        if not yamcs_url.startswith(("http://", "https://")):
-            raise ValueError(f"--yamcs-url must start with http:// or https://, got: {yamcs_url}")
+        if "://" in yamcs_url and not yamcs_url.startswith(("http://", "https://")):
+            raise ValueError(f"--yamcs-url must be an http:// or https:// URL (or host[:port]), got: {yamcs_url}")
 
     @classmethod
     def get_connection_uri(cls, client=True, yamcs_url=DEFAULT_URL):
@@ -182,7 +182,7 @@ class YamcsClient(TransportClient):
         cls.check_arguments(yamcs_url=yamcs_url)
         if yamcs_url.startswith("https://"):
             return YAMCS_SECURE_URI_SCHEME + yamcs_url[len("https://"):]
-        return YAMCS_URI_SCHEME + yamcs_url[len("http://"):]
+        return YAMCS_URI_SCHEME + yamcs_url.replace("http://", "", 1)
 
     def connect(self, connection_uri=None, incoming_routing=None, outgoing_routing=None):
         connection_uri = self.default_uri if connection_uri is None else connection_uri
