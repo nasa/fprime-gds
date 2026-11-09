@@ -216,6 +216,12 @@ class TestComlogCommand:
         assert len(events) == 1 + 4
         assert events[1].endswith(",ComLog.demo.Plain,257,EventSeverity.WARNING_LO,Plain event")
 
+    def test_directory_with_same_stem_products(self, tmp_path):
+        for name in ("a.fdp", "a.bin"):
+            write(tmp_path / name, product(*sample_records()))
+        assert run_comlog("-B", tmp_path, "-f", "json") == 0
+        assert (tmp_path / "a.fdp.json").is_file() and (tmp_path / "a.bin.json").is_file()
+
     def test_collect_defaults_to_current_directory(self, product_dir, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         assert run_comlog("-B", product_dir, "--collect") == 0

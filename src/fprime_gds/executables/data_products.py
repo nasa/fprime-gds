@@ -1,4 +1,5 @@
 import argparse
+from collections import Counter
 import re
 import sys
 from pathlib import Path
@@ -102,6 +103,7 @@ def comlog_files(decoder: ComLoggerDpDecoder, bin_files: List[Path], args, outpu
               f"from {len(results)} data products into {output}")
         return failures
 
+    stems = Counter(bin_file.stem for bin_file, _ in results)
     for bin_file, result in results:
         if output is None:
             base = bin_file
@@ -109,6 +111,8 @@ def comlog_files(decoder: ComLoggerDpDecoder, bin_files: List[Path], args, outpu
             base = output / bin_file.name
         else:
             base = output
+        if stems[bin_file.stem] > 1:  # a.bin and a.fdp in one directory: keep the extension in the output name
+            base = base.with_name(base.name + base.suffix)
         if args.reconstruct:
             base = base.with_name(f"{base.stem}_reconstructed{base.suffix}")
         if args.format in ("json", "both"):
