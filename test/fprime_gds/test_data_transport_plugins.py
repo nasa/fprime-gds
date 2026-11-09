@@ -260,6 +260,19 @@ class TestMiddleWareParser(unittest.TestCase):
         self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "tcp")
         self.assertEqual(reproduced[reproduced.index("--tts-port") + 1], "50125")
 
+    def test_pipeline_parser_reproduces_the_selection_for_children(self):
+        dictionary = Path(__file__).parent / "common" / "loaders" / "resources" / "RefTopologyDictionary.json"
+        with mock.patch("sys.stderr", new_callable=io.StringIO):
+            args, _, _ = ConfigDrivenParser.parse_known_args(
+                [StandardPipelineParser],
+                arguments=["--dictionary", str(dictionary), "--packet-set-name", "PacketSet1", "--no-zmq"],
+                client=True,
+            )
+        reproduced = StandardPipelineParser().reproduce_cli_args(args)
+        self.assertNotIn("--no-zmq", reproduced)
+        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "tcp")
+        self.assertIn("--dictionary", reproduced)
+
     def test_singleton_plugin_parser_leaves_data_transport_to_the_middleware_parser(self):
         plugins = Plugins(["data_transport", "framing"])
         with mock.patch.object(Plugins, "system", return_value=plugins):

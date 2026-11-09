@@ -940,6 +940,13 @@ class CompositeParser(ParserBase):
             arguments.update(constituent.get_arguments())
         return arguments
 
+    def reproduce_cli_args(self, args_ns):
+        """Reproduce the CLI arguments of every constituent, letting each constituent apply its own rules"""
+        reproduced = []
+        for constituent in self.constituents:
+            reproduced.extend(constituent.reproduce_cli_args(args_ns))
+        return reproduced
+
     def handle_arguments(self, args, **kwargs):
         """Process all constituent arguments"""
         for constituent in self.constituents:
