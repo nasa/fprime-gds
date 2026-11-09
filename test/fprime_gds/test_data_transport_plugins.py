@@ -14,7 +14,11 @@ from _pytest.config.argparsing import Parser
 
 from fprime_gds.common.testing_fw import pytest_integration
 from fprime_gds.common.testing_fw.pytest_integration import pytest_addoption
-from fprime_gds.common.transport import ThreadedTCPSocketClient, TransportClient
+from fprime_gds.common.transport import (
+    ThreadedTCPSocketClient,
+    ThreadedTransportClient,
+    TransportClient,
+)
 from fprime_gds.common.zmq_transport import ZmqClient
 from fprime_gds.executables import run_deployment
 from fprime_gds.executables.cli import (
@@ -115,6 +119,29 @@ class TestDataTransportCategory(unittest.TestCase):
             self.assertIsNotNone(transport.get_connection_uri(client=True, **arguments))
             self.assertIsNotNone(transport.get_connection_uri(client=False, **arguments))
 
+    def test_pipeline_parser_lists_the_built_in_transports(self):
+        names = [plugin.get_name() for plugin in StandardPipelineParser.get_data_transport_plugins()]
+        self.assertIn("zmq", names)
+        self.assertIn("tcp", names)
+
+    def test_composed_gds_parser_binds_the_transport_once(self):
+        """The fprime-gds parser composition (pipeline parser + singleton plugin parser) selects tcp end to end"""
+        dictionary = Path(__file__).parent / "common" / "loaders" / "resources" / "RefTopologyDictionary.json"
+        with mock.patch("fprime_gds.executables.cli.check_port") as check_port:
+            args, _, _ = ConfigDrivenParser.parse_known_args(
+                [StandardPipelineParser, PluginArgumentParser],
+                arguments=[
+                    "--dictionary", str(dictionary), "--packet-set-name", "PacketSet1",
+                    "--data-transport-selection", "tcp", "--tts-port", "50127",
+                ],
+                client=False,
+            )
+        check_port.assert_called_once_with("0.0.0.0", 50127)
+        self.assertEqual(args.connection_uri, "tcp://0.0.0.0:50127")
+        self.assertIs(implementor(args.connection_transport), ThreadedTCPSocketClient)
+        self.assertFalse(args.zmq)
+        self.assertNotIn("data_transport", PluginArgumentParser()._plugin_map)
+
     def test_external_plugin_is_selectable(self):
         args = parse_middleware(
             ["--data-transport-selection", "fake-ground", "--fake-url", "http://gs:1"],
@@ -153,6 +180,20 @@ class TestBuiltInTransports(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             ThreadedTCPSocketClient.check_arguments(tts_addr="0.0.0.0", tts_port=70000)
+
+    def test_tcp_connect_without_uri_uses_constructor_arguments(self):
+        client = ThreadedTCPSocketClient(tts_addr="10.0.0.1", tts_port=50126)
+        client.sock = mock.MagicMock()
+        with mock.patch.object(ThreadedTransportClient, "connect"):
+            client.connect()
+        client.sock.connect.assert_called_once_with(("10.0.0.1", 50126))
+
+    def test_zmq_connect_without_uri_uses_constructor_arguments(self):
+        client = ZmqClient(zmq_transport=["ipc:///a", "ipc:///b"])
+        client.zmq = mock.MagicMock()
+        with mock.patch.object(ThreadedTransportClient, "connect"):
+            client.connect()
+        client.zmq.configure.assert_called_once_with(["ipc:///a", "ipc:///b"], mock.ANY, mock.ANY)
 
     def test_tcp_client_keeps_constructor_defaults(self):
         client = ThreadedTCPSocketClient(sock=mock.MagicMock(), tts_addr="0.0.0.0", tts_port=50123)
@@ -227,6 +268,22 @@ class TestMiddleWareParser(unittest.TestCase):
         self.assertIn("--framing-selection", flags)
         flags = [flag for flags in PluginArgumentParser(plugins).get_arguments() for flag in flags]
         self.assertIn("--data-transport-selection", flags)
+
+    def test_tcp_selection_server_keeps_wildcard_address(self):
+        with mock.patch("fprime_gds.executables.cli.check_port") as check_port:
+            args = parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50124"], client=False)
+        check_port.assert_called_once_with("0.0.0.0", 50124)
+        self.assertEqual(args.connection_uri, "tcp://0.0.0.0:50124")
+
+    def test_tcp_selection_client_skips_port_check(self):
+        with mock.patch("fprime_gds.executables.cli.check_port") as check_port:
+            parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50124"], client=True)
+        check_port.assert_not_called()
+
+    def test_no_zmq_conflicts_with_explicit_zmq_selection(self):
+        with self.assertRaises(ValueError) as context:
+            parse_middleware(["--no-zmq", "--data-transport-selection", "zmq"])
+        self.assertIn("conflicts with --data-transport-selection zmq", str(context.exception))
 
     def test_no_zmq_with_explicit_tcp_is_accepted(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO):

@@ -17,6 +17,7 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 
 import itertools
 import os
+import argparse
 import sys
 from pathlib import Path
 import pytest
@@ -37,7 +38,8 @@ def pytest_addoption(parser):
     Args:
         parser: pytest style parser. Use "addoption" to add an option to it.
     """
-    for flags, specifiers in StandardPipelineParser().get_arguments().items():
+    pipeline_arguments = StandardPipelineParser().get_arguments()
+    for flags, specifiers in pipeline_arguments.items():
         # Reduce flags to only the long option (i.e. --something) form
         flags = [flag for flag in flags if flag.startswith("--")]
         # Suppress "store" action defaults so reproduce_cli_args() (in the fprime_test_api_session
@@ -80,6 +82,9 @@ def pytest_addoption(parser):
         help="Path to JSON configuration file for mapping deployment components",
     )
 
+    if "--yamcs-url" not in {flag for flags in pipeline_arguments for flag in flags}:
+        # Without the yamcs plugin, accept the deprecated option so --use-yamcs can report the missing plugin
+        parser.addoption("--yamcs-url", action="store", default=None, help=argparse.SUPPRESS)
     parser.addoption(
         "--use-yamcs",
         action="store_true",

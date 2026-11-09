@@ -1071,6 +1071,7 @@ class MiddleWareParser(ParserBase):
 
     DESCRIPTION = "Middleware options"
     FILLS_OWN_GROUPS = True
+    CATEGORY = "data_transport"
     DEFAULT_TRANSPORT = "zmq"
     NO_ZMQ_TRANSPORT = "tcp"
 
@@ -1086,7 +1087,7 @@ class MiddleWareParser(ParserBase):
         It is created on first use so that constructing this parser at import time does not trigger plugin loading.
         """
         if self._plugin_parser is None:
-            self._plugin_parser = PluginArgumentParser(Plugins(["data_transport"]))
+            self._plugin_parser = PluginArgumentParser(Plugins([self.CATEGORY]))
         return self._plugin_parser
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
@@ -1099,7 +1100,12 @@ class MiddleWareParser(ParserBase):
                 "default": True,
             },
         }
-        return {**deprecated_arguments, **self.plugin_parser.get_arguments()}
+        arguments = {**deprecated_arguments, **self.plugin_parser.get_arguments()}
+        # Parse the selection without a default so an explicit selection can be told apart from the default when the
+        # deprecated alias is also given; the default is applied in handle_arguments
+        selection_flag = (f"--{self.CATEGORY.replace('_', '-')}-selection",)
+        arguments[selection_flag] = {**arguments[selection_flag], "default": None}
+        return arguments
 
     def fill_parser(self, parser):
         """Fill the parser with the deprecated aliases and the grouped transport plugin arguments"""
@@ -1109,6 +1115,7 @@ class MiddleWareParser(ParserBase):
             {flags: keywords for flags, keywords in self.get_arguments().items() if flags[0] == "--no-zmq"},
         )
         self.plugin_parser.fill_parser(parser)
+        parser.set_defaults(**{f"{self.CATEGORY}_selection": None})
 
     def handle_arguments(self, args, **kwargs):
         """
@@ -1120,9 +1127,9 @@ class MiddleWareParser(ParserBase):
         :return: args namespace
         """
         is_client = kwargs.get("client", False)
+        selection = args.data_transport_selection
         if not args.zmq:
-            selection = args.data_transport_selection
-            if selection not in (self.DEFAULT_TRANSPORT, self.NO_ZMQ_TRANSPORT):
+            if selection not in (None, self.NO_ZMQ_TRANSPORT):
                 raise ValueError(
                     f"--no-zmq (deprecated alias of --data-transport-selection {self.NO_ZMQ_TRANSPORT}) conflicts "
                     f"with --data-transport-selection {selection}"
@@ -1131,7 +1138,8 @@ class MiddleWareParser(ParserBase):
                 f"[WARNING] --no-zmq is deprecated, use --data-transport-selection {self.NO_ZMQ_TRANSPORT}",
                 file=sys.stderr,
             )
-            args.data_transport_selection = self.NO_ZMQ_TRANSPORT
+            selection = self.NO_ZMQ_TRANSPORT
+        args.data_transport_selection = self.DEFAULT_TRANSPORT if selection is None else selection
         args = self.plugin_parser.handle_arguments(args, **kwargs)
         bound_transport = self.plugin_parser.plugin_system.get_selected_class("data_transport")
         transport_class = getattr(bound_transport, "func", bound_transport)

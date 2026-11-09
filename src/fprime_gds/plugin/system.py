@@ -47,6 +47,9 @@ class Plugins(object):
     PLUGIN_METADATA = None
     _singleton = None
 
+    # Shadowed plugin names already reported, shared by every plugin system instance in the process
+    shadowed_plugins_warned = set()
+
     def __init__(self, categories: Union[None, List] = None):
         """Initialize the plugin system with specific categories
 
@@ -59,7 +62,6 @@ class Plugins(object):
         self.metadata = copy.deepcopy(self.get_plugin_metadata())
         categories = self.get_all_categories() if categories is None else categories
         self.categories = categories
-        self.shadowed_plugins_warned = set()
         self.manager = pluggy.PluginManager(PROJECT_NAME)
 
         # Load hook specifications from only the configured categories

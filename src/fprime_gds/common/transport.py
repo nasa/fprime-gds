@@ -63,6 +63,7 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
         """Validate the parsed arguments, raising ValueError on an invalid combination"""
 
     @classmethod
+    @abstractmethod
     def get_connection_uri(cls, client: bool = True, **arguments):
         """Connection URI to pass to `connect()` given this transport's parsed arguments
 
