@@ -214,12 +214,12 @@ class TestComlogCommand:
         event_seconds = [int(line.split(",")[1].split("-")[1].split(":")[0]) for line in events[1:]]
         assert event_seconds == sorted(event_seconds) == [5, 9, 12, 50]
         assert len(events) == 1 + 4
+        assert events[1].endswith(",ComLog.demo.Plain,257,EventSeverity.WARNING_LO,Plain event")
 
     def test_collect_defaults_to_current_directory(self, product_dir, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         assert run_comlog("-B", product_dir, "--collect") == 0
         assert (tmp_path / CHANNEL_LOG_NAME).is_file() and (tmp_path / EVENT_LOG_NAME).is_file()
-        assert events[1].endswith(",ComLog.demo.Plain,257,EventSeverity.WARNING_LO,Plain event")
 
     def test_reconstruct_and_failures(self, tmp_path):
         path = write(tmp_path / "a.fdp", product(*sample_records(), break_header_crc=True))
