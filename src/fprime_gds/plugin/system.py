@@ -259,6 +259,13 @@ class Plugins(object):
             )
             from fprime_gds.common.communication.adapters.udp_fast import UdpFastAdapter
             from fprime_gds.executables.apps import CustomDataHandlers
+            from fprime_gds.common.transport import ThreadedTCPSocketClient, TransportClient
+            from fprime_gds.common.zmq_transport import ZmqClient
+
+            try:
+                from fprime_gds.common.yamcs_transport import YamcsClient
+            except ImportError:
+                YamcsClient = None
 
             try:
                 from fprime_gds.common.communication.adapters.uart import SerialAdapter
@@ -293,6 +300,15 @@ class Plugins(object):
                             SerialAdapter,
                         ]
                         if adapter is not None
+                    ],
+                },
+                "data_transport": {
+                    "class": TransportClient,
+                    "type": PluginType.SELECTION,
+                    "built-in": [
+                        transport
+                        for transport in [YamcsClient, ThreadedTCPSocketClient, ZmqClient]  # listed last-first
+                        if transport is not None
                     ],
                 },
                 "gds_function": {

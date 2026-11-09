@@ -12,8 +12,10 @@ import socket
 import threading
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Any, Dict, Tuple, Type
 
 from fprime_gds.common.handlers import DataHandler, HandlerRegistrar
+from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin_specification
 
 
 class RoutingTag(Enum):
@@ -37,7 +39,56 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
     This has two important parents: DataHandler and HandlerRegistrar. The DataHandler allows this to be registered to
     anything that produces data making sending data out of this client east. The HandlerRegistrar allows this to pass
     incoming data to various handlers easy.
+
+    TransportClient is also the specification class of the "data_transport" GDS plugin category. A plugin selected with
+    `--data-transport-selection <name>` becomes the transport of every StandardPipeline (GDS GUI/CLI, test API, data
+    handler apps). Implementors are constructed with the keyword arguments produced by `get_arguments()` and connected
+    with the URI returned by `get_connection_uri()`.
     """
+
+    @classmethod
+    def get_name(cls) -> str:
+        """Name of this transport when selected as a plugin (`--data-transport-selection <name>`)"""
+        return cls.__name__
+
+    @classmethod
+    def get_arguments(cls) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+        """Command line arguments of this transport: map of flag tuples to argparse keyword arguments"""
+        return {}
+
+    @classmethod
+    def check_arguments(cls, **arguments):
+        """Validate the parsed arguments, raising ValueError on an invalid combination"""
+
+    @classmethod
+    def get_connection_uri(cls, client: bool = True, **arguments):
+        """Connection URI to pass to `connect()` given this transport's parsed arguments
+
+        Called with the same keyword arguments as the constructor. `client` is True when the caller connects to an
+        existing transport (GUI, test API) and False when the caller owns and launches the transport (fprime-gds).
+
+        Args:
+            client: True for clients of the transport, False for the owner of the transport
+            **arguments: parsed argument values, keyed as given to the constructor
+        Returns:
+            connection URI understood by `connect()`
+        """
+        raise NotImplementedError(f"{cls.__name__} does not define get_connection_uri")
+
+    @classmethod
+    @gds_plugin_specification
+    def register_data_transport_plugin(cls) -> Type["TransportClient"]:
+        """Register a data transport plugin
+
+        Plugin hook for registering a plugin that supplies a TransportClient implementation. Selected implementations
+        carry data between the GDS applications and the communications layer (or an external ground system).
+
+        Note: users should return the class, not an instance, from this hook.
+
+        Returns:
+            TransportClient subclass
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def connect(
@@ -173,24 +224,77 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
     source incoming data from that server and send outgoing data to that server.
     """
 
-    def __init__(self, sock=None):
+    DEFAULT_PORT = 50050
+    DEFAULT_ADDRESS = "0.0.0.0"
+
+    def __init__(self, sock=None, tts_addr=None, tts_port=None):
         """
         Threaded client socket constructor
 
         Keyword Arguments:
             sock {Socket} -- A socket for the client to use. Created own if None (default: {None})
+            tts_addr {str} -- server address used by connect() when no connection URI is supplied
+            tts_port {int} -- server port used by connect() when no connection URI is supplied
         """
         super().__init__()
         self.dest = None
         self.chunk_size = 1024
+        self.default_uri = self.get_connection_uri(
+            client=True,
+            tts_addr=self.DEFAULT_ADDRESS if tts_addr is None else tts_addr,
+            tts_port=self.DEFAULT_PORT if tts_port is None else tts_port,
+        )
         if sock is None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self.sock = sock
 
+    @classmethod
+    def get_name(cls):
+        """Plugin name"""
+        return "tcp"
+
+    @classmethod
+    @gds_plugin_implementation
+    def register_data_transport_plugin(cls):
+        """Register this as a data transport plugin"""
+        return cls
+
+    @classmethod
+    def get_arguments(cls):
+        """Arguments of the ThreadedTcpServer transport"""
+        return {
+            ("--tts-port",): {
+                "dest": "tts_port",
+                "action": "store",
+                "type": int,
+                "help": "Set the threaded TCP socket server port [default: %(default)s]",
+                "default": cls.DEFAULT_PORT,
+            },
+            ("--tts-addr",): {
+                "dest": "tts_addr",
+                "action": "store",
+                "type": str,
+                "help": "Set the threaded TCP socket server address [default: %(default)s]",
+                "default": cls.DEFAULT_ADDRESS,
+            },
+        }
+
+    @classmethod
+    def check_arguments(cls, tts_addr, tts_port):
+        """Check the port is in range"""
+        if not 0 < tts_port < 65536:
+            raise ValueError(f"Invalid TCP server port: {tts_port}")
+
+    @classmethod
+    def get_connection_uri(cls, client=True, tts_addr=DEFAULT_ADDRESS, tts_port=DEFAULT_PORT):
+        """Connection URI (tcp://host:port); clients of a server bound to 0.0.0.0 connect to 127.0.0.1"""
+        address = tts_addr.replace("0.0.0.0", "127.0.0.1") if client else tts_addr
+        return f"tcp://{address}:{tts_port}"
+
     def connect(
         self,
-        connection_uri,
+        connection_uri=None,
         incoming_routing=RoutingTag.GUI,
         outgoing_routing=RoutingTag.FSW,
     ):
@@ -200,10 +304,11 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
         simply host: port. This will also register with the ThreadedTcpServer using the incoming
 
         Arguments:
-            connection_uri {string} -- connection uri of the form (tcp://)?host:port
+            connection_uri {string} -- connection uri of the form (tcp://)?host:port, None to use constructor arguments
             incoming_routing {RoutingTag}: routing tag for incoming data, used to register client to server
             outgoing_routing {RoutingTag}: routing tog applied to outgoing data when sent
         """
+        connection_uri = self.default_uri if connection_uri is None else connection_uri
         try:
             self.dest = outgoing_routing.value
             connection_uri = connection_uri.split("//", 1)[-1]  # Remove leading tcp

@@ -68,12 +68,18 @@ def main():
         sys.exit(-1)
 
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
-    if args.zmq:
+    if args.data_transport_selection == "zmq":
         ground = ZmqGround(args.zmq_transport)
-    else:
+    elif args.data_transport_selection == "tcp":
         ground = fprime_gds.common.communication.ground.TCPGround(
             args.tts_addr, args.tts_port
         )
+    else:
+        print(
+            f"[ERROR] Comm bridge requires the 'zmq' or 'tcp' data transport, not '{args.data_transport_selection}'.",
+            file=sys.stderr,
+        )
+        sys.exit(-1)
 
     adapter = Plugins.system().get_selected_class("communication")()
 

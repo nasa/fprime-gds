@@ -109,7 +109,7 @@ class TestRunDeployment(unittest.TestCase):
 
     def test_main_launches_app_for_tcp_fast_server(self):
         parsed_args = SimpleNamespace(
-            zmq=True,
+            data_transport_selection="zmq",
             communication_selection="tcp-fast-server",
             tcp_fast_address=None,
             tcp_fast_port=50123,
@@ -124,7 +124,7 @@ class TestRunDeployment(unittest.TestCase):
 
     def test_main_warns_instead_of_launching_app_for_tcp_fast_client(self):
         parsed_args = SimpleNamespace(
-            zmq=True,
+            data_transport_selection="zmq",
             communication_selection="tcp-fast-client",
             app=Path("/deploy/bin/Test"),
             application_arguments=None,
@@ -137,7 +137,7 @@ class TestRunDeployment(unittest.TestCase):
 
     def test_main_launches_app_with_explicit_arguments_for_any_adapter(self):
         parsed_args = SimpleNamespace(
-            zmq=True,
+            data_transport_selection="zmq",
             communication_selection="tcp-fast-client",
             app=Path("/deploy/bin/Test"),
             application_arguments="--custom",

@@ -235,8 +235,8 @@ def main():
     parsed_args = parse_args()
     launchers = []
 
-    # Launch middleware layer if not using ZMQ
-    if not parsed_args.zmq:
+    # Launch the middleware layer when the GDS owns it (ThreadedTcpServer); ZeroMQ and external transports need none
+    if parsed_args.data_transport_selection == "tcp":
         launchers.append(launch_tts)
 
     # Check if we are running with communications

@@ -24,6 +24,7 @@ from fprime_gds.common.models.serialize.bool_type import BoolType
 from fprime_gds.common.models.serialize.string_type import StringType
 from fprime_gds.common.models.serialize.time_type import TimeType
 from fprime_gds.common.transport import TransportationException, TransportClient
+from fprime_gds.plugin.definitions import gds_plugin_implementation
 
 LOGGER = logging.getLogger("transport")
 
@@ -127,10 +128,12 @@ class YamcsWrapper:
 
 
 class YamcsClient(TransportClient):
+    DEFAULT_URL = "http://localhost:8090"
 
-    def __init__(self):
+    def __init__(self, yamcs_url=None):
         super().__init__()
         self.yamcs = YamcsWrapper()
+        self.default_uri = self.get_connection_uri(yamcs_url=yamcs_url or self.DEFAULT_URL)
         self.dictionaries = None
         self.channel_decoder = None
         self.event_decoder = None
@@ -146,7 +149,42 @@ class YamcsClient(TransportClient):
             for full_name, template in dictionaries.event_name.items():
                 self._event_by_leaf[template.get_name()] = template
 
-    def connect(self, connection_uri, incoming_routing=None, outgoing_routing=None):
+    @classmethod
+    def get_name(cls):
+        return "yamcs"
+
+    @classmethod
+    @gds_plugin_implementation
+    def register_data_transport_plugin(cls):
+        """Register this as a data transport plugin"""
+        return cls
+
+    @classmethod
+    def get_arguments(cls):
+        return {
+            ("--yamcs-url",): {
+                "dest": "yamcs_url",
+                "action": "store",
+                "type": str,
+                "help": "YAMCS server URL [default: %(default)s]",
+                "default": cls.DEFAULT_URL,
+            },
+        }
+
+    @classmethod
+    def check_arguments(cls, yamcs_url):
+        if not yamcs_url.startswith(("http://", "https://")):
+            raise ValueError(f"--yamcs-url must start with http:// or https://, got: {yamcs_url}")
+
+    @classmethod
+    def get_connection_uri(cls, client=True, yamcs_url=DEFAULT_URL):
+        """yamcs://host[:port] or yamcs+https://host[:port] from the HTTP(S) URL"""
+        if yamcs_url.startswith("https://"):
+            return YAMCS_SECURE_URI_SCHEME + yamcs_url[len("https://"):]
+        return YAMCS_URI_SCHEME + yamcs_url[len("http://"):]
+
+    def connect(self, connection_uri=None, incoming_routing=None, outgoing_routing=None):
+        connection_uri = self.default_uri if connection_uri is None else connection_uri
         yamcs_url = self._parse_uri(connection_uri)
         instance, processor_name = self._discover_instance_and_processor(yamcs_url)
         self.yamcs.configure(yamcs_url, instance, processor_name)
