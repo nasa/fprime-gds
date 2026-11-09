@@ -156,6 +156,16 @@ class TestComLoggerDpDecoder:
         assert result["Statistics"]["Channels"] == 2
         assert result["Statistics"]["Errors"] == 0
 
+    def test_reconstruct_last_record_followed_by_crc(self, dictionaries, tmp_path):
+        records = [sample_records()[2], sample_records()[0]]  # the telemetry record comes last
+        damaged = bytearray(b"".join(records) + b"\x12\x34\x56\x78")  # followed by the product's data CRC
+        last = len(records[0])
+        damaged[last + 4] = damaged[last + 5] = 0xFF  # corrupt the length prefix of the last record
+        result = ComLoggerDpDecoder(dictionaries).reconstruct(write(tmp_path / "a.fdp", bytes(damaged)))
+        assert result["Statistics"]["Channels"] == 2
+        assert result["Statistics"]["Errors"] == 0
+        assert result["Records"][1]["Record"]["size"] == len(records[1]) - 6
+
 
 def run_comlog(*args):
     with mock.patch.object(sys, "argv", ["fprime-dp", "comlog", "-d", str(DICTIONARY_PATH), *[str(arg) for arg in args]]):

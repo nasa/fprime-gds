@@ -15,6 +15,7 @@ from fprime_gds.common.data_types.ch_data import ChData
 from fprime_gds.common.data_types.event_data import EventData
 from fprime_gds.common.decoders.ch_decoder import ChDecoder
 from fprime_gds.common.decoders.event_decoder import EventDecoder
+from fprime_gds.common.dp.common import ChecksumConfig
 from fprime_gds.common.dp.decoder import DataProductDecoder, DataProductError
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.models.serialize.numerical_types import U32Type
@@ -94,11 +95,18 @@ class ComLoggerDpDecoder:
         for index, position in enumerate(positions):
             next_position = positions[index + 1] if index + 1 < len(positions) else None
             size = self.record_size(data, position, next_position)
+            sizes = [size]
+            if next_position is None:  # the file's data CRC may follow the last record
+                sizes.append(size - ChecksumConfig.CHECKSUM_LEN)
             record = {"Record": {"offset": position, "size": size}}
-            try:
-                record.update(self.decode_record_data(data[position:position + size]))
-            except Exception as exc:
-                record["Error"] = str(exc)
+            for candidate in sizes:
+                try:
+                    record.update(self.decode_record_data(data[position:position + candidate]))
+                    record["Record"]["size"] = candidate
+                    record.pop("Error", None)
+                    break
+                except Exception as exc:
+                    record["Error"] = str(exc)
             records.append(record)
         return {
             "File": {"path": str(path), "size": len(data), "sentries_found": len(positions)},
