@@ -141,7 +141,7 @@ def main():
     comlog_input.add_argument("-B", "--bin-dir", help="Directory of data products; every *.fdp and *.bin file in it is decoded")
     comlog_parser.add_argument("-d", "--dictionary", required=True, help="Path to F Prime JSON Dictionary")
     comlog_parser.add_argument("-o", "--output", help="Output path (with --bin-file; the extension is replaced by .json/.txt and --reconstruct appends _reconstructed to the name) or output directory (with --bin-dir or --collect). Defaults to next to the input, or the current directory for --collect")
-    comlog_parser.add_argument("--dp-id", type=lambda value: int(value, 0), help="Only process products whose header container ID matches (decimal or 0x hex); not usable with --reconstruct")
+    comlog_parser.add_argument("--dp-id", type=u32_argument, help="Only process products whose header container ID matches (decimal or 0x hex); not usable with --reconstruct")
     comlog_parser.add_argument("-f", "--format", choices=["json", "text", "both"], default="both", help="Output format (default: both)")
     comlog_parser.add_argument("--collect", action="store_true", help=f"Merge the products of --bin-dir into time-sorted {CHANNEL_LOG_NAME} and {EVENT_LOG_NAME} files instead of per-product output")
     comlog_parser.add_argument("--reconstruct", action="store_true", help="Scan a damaged --bin-file for sentry markers and decode the records that survive, ignoring the header. Payload bytes equal to the sentry split a record, and a damaged length prefix sizes the record by the next sentry; prefer --no-crc when the header is intact")
@@ -184,8 +184,11 @@ def main():
     elif args.command == "comlog":
         if args.collect and args.bin_dir is None:
             comlog_parser.error("--collect requires --bin-dir")
-        if args.reconstruct and (args.bin_dir is not None or args.collect or args.no_sentry or args.dp_id is not None):
-            comlog_parser.error("--reconstruct requires --bin-file and uses the sentry; it cannot be combined with --bin-dir, --collect, --no-sentry or --dp-id")
+        incompatible = {"--bin-dir": args.bin_dir is not None, "--collect": args.collect, "--no-sentry": args.no_sentry,
+                        "--dp-id": args.dp_id is not None}
+        if args.reconstruct and any(incompatible.values()):
+            comlog_parser.error("--reconstruct requires --bin-file and uses the sentry; it cannot be combined with "
+                                + ", ".join(incompatible))
         if args.bin_dir is not None:
             bin_dir = Path(args.bin_dir)
             if not bin_dir.is_dir():
@@ -208,6 +211,8 @@ def main():
             bin_files = [Path(args.bin_file)]
             output = Path(args.output) if args.output else None
             if output is not None:
+                if output.is_dir():
+                    output = output / bin_files[0].name
                 output.parent.mkdir(parents=True, exist_ok=True)
         decoder = ComLoggerDpDecoder(
             args.dictionaries, sentry=args.sentry, validate_sentry=not args.no_sentry, validate_crc=not args.no_crc

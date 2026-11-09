@@ -113,6 +113,7 @@ class TestComLoggerDpDecoder:
         result = ComLoggerDpDecoder(dictionaries).decode(path)
         assert result["Statistics"]["Errors"] == 1
         assert "Sentry mismatch" in result["Records"][0]["Error"]
+        assert result["Records"][0]["Data"]["values"][:4] == [0x12, 0x34, 0x56, 0x78]
         assert result["Statistics"]["Events"] == 2
 
         assert ComLoggerDpDecoder(dictionaries, sentry=0x12345678).decode(path)["Records"][0]["Packets"][0].display_text == "Plain event"
@@ -192,6 +193,8 @@ class TestComlogCommand:
         write(tmp_path / "one" / "only.fdp", product(*sample_records()))
         assert run_comlog("-B", tmp_path / "one", "-f", "text", "-o", tmp_path / "one" / "out") == 0
         assert (tmp_path / "one" / "out" / "only.txt").is_file()
+        assert run_comlog("-b", path, "-f", "json", "-o", tmp_path / "out") == 0
+        assert (tmp_path / "out" / "a.json").is_file()
         with pytest.raises(SystemExit):
             run_comlog("-b", path, "--sentry", "0x1FFFFFFFF")
         with pytest.raises(SystemExit):
@@ -211,6 +214,11 @@ class TestComlogCommand:
         event_seconds = [int(line.split(",")[1].split("-")[1].split(":")[0]) for line in events[1:]]
         assert event_seconds == sorted(event_seconds) == [5, 9, 12, 50]
         assert len(events) == 1 + 4
+
+    def test_collect_defaults_to_current_directory(self, product_dir, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert run_comlog("-B", product_dir, "--collect") == 0
+        assert (tmp_path / CHANNEL_LOG_NAME).is_file() and (tmp_path / EVENT_LOG_NAME).is_file()
         assert events[1].endswith(",ComLog.demo.Plain,257,EventSeverity.WARNING_LO,Plain event")
 
     def test_reconstruct_and_failures(self, tmp_path):
@@ -228,13 +236,16 @@ class TestComlogCommand:
         ("-b", "a.fdp", "--reconstruct", "--collect"),
         ("-b", "a.fdp", "--reconstruct", "--no-sentry"),
         ("-b", "a.fdp", "--reconstruct", "--dp-id", "0x400"),
+        ("-b", "a.fdp", "--sentry", "-1"),
+        ("-B", "missing"),
     ])
     def test_rejected_option_combinations(self, tmp_path, options):
         write(tmp_path / "a.fdp", product(*sample_records()))
         with pytest.raises(SystemExit):
-            run_comlog(*(tmp_path / option if option in ("a.fdp", ".") else option for option in options))
-        (tmp_path / "empty").mkdir()
-        assert run_comlog("-B", tmp_path / "empty") == 1
+            run_comlog(*(tmp_path / option if option in ("a.fdp", ".", "missing") else option for option in options))
+
+    def test_empty_directory(self, tmp_path):
+        assert run_comlog("-B", tmp_path) == 1
 
     def test_sentry_options(self, tmp_path):
         path = write(tmp_path / "a.fdp", product(record(event_packet(PLAIN_EVENT_ID, 1), sentry=0xCAFEF00D)))
