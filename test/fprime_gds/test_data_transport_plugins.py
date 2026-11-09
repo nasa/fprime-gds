@@ -76,12 +76,12 @@ class FakeGroundSystemClient(TransportClient):
         return b""
 
 
-def parse_middleware(arguments, client=True, extra_plugins=()):
+def parse_middleware(arguments, client=True, extra_plugins=(), parser=None):
     """Parse the middleware arguments only, returning the namespace"""
     plugins = Plugins(["data_transport"])
     for plugin in extra_plugins:
         plugins.register_plugin(plugin)
-    parser = MiddleWareParser()
+    parser = MiddleWareParser() if parser is None else parser
     parser._plugin_parser = PluginArgumentParser(plugins)
     composite = CompositeParser([parser])
     return composite.handle_arguments(
@@ -200,6 +200,33 @@ class TestMiddleWareParser(unittest.TestCase):
         self.assertEqual(args.connection_uri, "tcp://127.0.0.1:50125")
         self.assertIn("--no-zmq is deprecated", stderr.getvalue())
         self.assertIn("--data-transport-selection tcp", stderr.getvalue())
+
+    def test_zmq_flag_tracks_the_selection(self):
+        self.assertTrue(parse_middleware([]).zmq)
+        self.assertFalse(parse_middleware(["--data-transport-selection", "tcp"]).zmq)
+        self.assertFalse(
+            parse_middleware(
+                ["--data-transport-selection", "fake-ground"], extra_plugins=[FakeGroundSystemClient]
+            ).zmq
+        )
+
+    def test_children_are_given_the_selection_not_the_deprecated_alias(self):
+        parser = MiddleWareParser()
+        with mock.patch("sys.stderr", new_callable=io.StringIO):
+            args = parse_middleware(["--no-zmq", "--tts-port", "50125"], parser=parser)
+        reproduced = parser.reproduce_cli_args(args)
+        self.assertNotIn("--no-zmq", reproduced)
+        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "tcp")
+        self.assertEqual(reproduced[reproduced.index("--tts-port") + 1], "50125")
+
+    def test_singleton_plugin_parser_leaves_data_transport_to_the_middleware_parser(self):
+        plugins = Plugins(["data_transport", "framing"])
+        with mock.patch.object(Plugins, "system", return_value=plugins):
+            flags = [flag for flags in PluginArgumentParser().get_arguments() for flag in flags]
+        self.assertNotIn("--data-transport-selection", flags)
+        self.assertIn("--framing-selection", flags)
+        flags = [flag for flags in PluginArgumentParser(plugins).get_arguments() for flag in flags]
+        self.assertIn("--data-transport-selection", flags)
 
     def test_no_zmq_with_explicit_tcp_is_accepted(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO):
@@ -339,14 +366,14 @@ class TestPytestIntegration(unittest.TestCase):
         with mock.patch.object(StandardPipelineParser, "get_data_transport_plugins", return_value=[]):
             with self.assertRaises(pytest.UsageError) as context:
                 pytest_integration._apply_deprecated_transport_options(self.config(True), [])
-        self.assertIn("pip install fprime-yamcs", str(context.exception))
+        self.assertIn("fprime-gds[yamcs]", str(context.exception))
 
 
 class TestRunDeploymentMiddleware(unittest.TestCase):
-    def run_main(self, selection):
+    def run_main(self, selection, communication_selection="none"):
         parsed_args = SimpleNamespace(
             data_transport_selection=selection,
-            communication_selection="none",
+            communication_selection=communication_selection,
             app=None,
             application_arguments=None,
             gui="none",
@@ -355,12 +382,14 @@ class TestRunDeploymentMiddleware(unittest.TestCase):
         plugins.get_feature_classes.return_value = []
         with mock.patch.object(run_deployment, "parse_args", return_value=parsed_args), mock.patch.object(
             run_deployment, "launch_tts"
-        ) as launch_tts, mock.patch.object(run_deployment, "launch_comm"), mock.patch.object(
+        ) as launch_tts, mock.patch.object(run_deployment, "launch_comm") as launch_comm, mock.patch.object(
             run_deployment, "launch_html"
         ), mock.patch.object(run_deployment, "launch_app"), mock.patch.object(
             run_deployment.Plugins, "system", return_value=plugins
-        ), mock.patch.object(run_deployment.sys, "stderr"):
+        ), mock.patch.object(run_deployment.sys, "stderr", new_callable=io.StringIO) as stderr:
             run_deployment.main()
+        self.launch_comm = launch_comm
+        self.stderr = stderr.getvalue()
         return launch_tts
 
     def test_tcp_launches_threaded_tcp_server(self):
@@ -371,3 +400,14 @@ class TestRunDeploymentMiddleware(unittest.TestCase):
 
     def test_external_transport_launches_no_middleware_process(self):
         self.run_main("fake-ground").assert_not_called()
+
+    def test_comm_bridge_launched_for_bridged_transports(self):
+        for selection in ("zmq", "tcp"):
+            with self.subTest(selection=selection):
+                self.run_main(selection, communication_selection="ip")
+                self.launch_comm.assert_called_once()
+
+    def test_comm_bridge_not_launched_for_external_transport(self):
+        self.run_main("fake-ground", communication_selection="ip")
+        self.launch_comm.assert_not_called()
+        self.assertIn("Not launching the comm bridge", self.stderr)

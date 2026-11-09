@@ -228,6 +228,9 @@ def launch_plugin(parsed_args, plugin_class_instance):
     )
 
 
+BRIDGED_TRANSPORTS = ("zmq", "tcp")
+
+
 def main():
     """
     Main function used to launch processes.
@@ -239,9 +242,16 @@ def main():
     if parsed_args.data_transport_selection == "tcp":
         launchers.append(launch_tts)
 
-    # Check if we are running with communications
+    # Check if we are running with communications: the comm bridge only serves the transports fprime-gds owns
     if parsed_args.communication_selection != "none":
-        launchers.append(launch_comm)
+        if parsed_args.data_transport_selection in BRIDGED_TRANSPORTS:
+            launchers.append(launch_comm)
+        else:
+            print(
+                f"[WARNING] Not launching the comm bridge: the '{parsed_args.data_transport_selection}' data transport "
+                "is not bridged by fprime-gds",
+                file=sys.stderr,
+            )
 
     # Add app, if possible
     if parsed_args.app:

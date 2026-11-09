@@ -745,6 +745,7 @@ class PluginArgumentParser(ParserBase):
         "communication": "ip",
         "data_transport": "zmq",
     }
+    SINGLETON_EXCLUDED_CATEGORIES = ("data_transport",)
 
     def __init__(self, plugin_system: Plugins = None):
         """Initialize the plugin information for this parser
@@ -752,7 +753,9 @@ class PluginArgumentParser(ParserBase):
         This will initialize this plugin argument parser with the supplied plugin system. If not supplied this will use
         the system plugin singleton, which is configured elsewhere.
         """
-        # Accept the supplied plugin system defaulting to the global singleton
+        # Accept the supplied plugin system defaulting to the global singleton. Categories owned by a dedicated parser
+        # (data_transport is owned by MiddleWareParser) are skipped on the singleton so they are bound exactly once.
+        excluded = () if plugin_system else self.SINGLETON_EXCLUDED_CATEGORIES
         self.plugin_system = plugin_system if plugin_system else Plugins.system()
         self._plugin_map = {
             category: [
@@ -760,6 +763,7 @@ class PluginArgumentParser(ParserBase):
                 for plugin in self.plugin_system.get_plugins(category)
             ]
             for category in self.plugin_system.get_categories()
+            if category not in excluded
         }
 
     def fill_parser(self, parser):
@@ -1134,9 +1138,18 @@ class MiddleWareParser(ParserBase):
         transport_arguments = getattr(bound_transport, "keywords", {})
         args.connection_transport = bound_transport
         args.connection_uri = transport_class.get_connection_uri(client=is_client, **transport_arguments)
+        args.zmq = args.data_transport_selection == self.DEFAULT_TRANSPORT
         if args.data_transport_selection == self.NO_ZMQ_TRANSPORT and not is_client:
             check_port(args.tts_addr, args.tts_port)
         return args
+
+    def reproduce_cli_args(self, args_ns):
+        """Reproduce the transport arguments for child processes using the selection flag, never the deprecated alias"""
+        return [
+            argument
+            for argument in super().reproduce_cli_args(args_ns)
+            if argument != "--no-zmq"
+        ]
 
 
 class DictionaryParser(DetectionParser):
