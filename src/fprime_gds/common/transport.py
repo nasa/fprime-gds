@@ -68,11 +68,10 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
     def get_connection_uri(cls, client: bool = True, **arguments):
         """Connection URI to pass to `connect()` given this transport's parsed arguments
 
-        `client` is reserved: it is True for pipeline clients (GUI, CLI, test API) and False for the process owning the
-        transport (fprime-gds), so transport arguments must not use `client` as a destination name.
-
-        Called with the same keyword arguments as the constructor. `client` is True when the caller connects to an
-        existing transport (GUI, test API) and False when the caller owns and launches the transport (fprime-gds).
+        Called with the same keyword arguments as the constructor. `client` is reserved: True when the caller connects
+        to an existing transport (GUI, CLI, test API), False when the caller owns and launches it (fprime-gds); transport
+        arguments must not use `client` as a destination name. Transports that do not define this cannot be selected
+        from the command line (the default raises NotImplementedError) but remain usable through direct construction.
 
         Args:
             client: True for clients of the transport, False for the owner of the transport

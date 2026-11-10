@@ -48,7 +48,7 @@ def main():
 
     :return: return code
     """
-    # comm.py supports 2 and only 2 plugin categories
+    # comm.py loads the communication and framing plugins; the data transport (zmq/tcp ground side) is parsed by CommParser
     Plugins.system(["communication", "framing"])
     args, _ = fprime_gds.executables.cli.ParserBase.parse_args(
         [

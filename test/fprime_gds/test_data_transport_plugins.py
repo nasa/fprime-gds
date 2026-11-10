@@ -601,6 +601,20 @@ class TestRunDeploymentMiddleware(unittest.TestCase):
         app_connection.assert_not_called()
         launch_app.assert_not_called()
 
+    def test_headless_external_transport_without_processes_reports_nothing_to_run(self):
+        parsed_args = SimpleNamespace(
+            data_transport_selection="fake-ground", communication_selection="none", app=None,
+            application_arguments=None, gui="none",
+        )
+        plugins = mock.MagicMock()
+        plugins.get_feature_classes.return_value = []
+        with mock.patch.object(run_deployment, "parse_args", return_value=parsed_args), mock.patch.object(
+            run_deployment.Plugins, "system", return_value=plugins
+        ), mock.patch.object(run_deployment.sys, "stderr", new_callable=io.StringIO) as stderr:
+            result = run_deployment.main()
+        self.assertEqual(result, 1)
+        self.assertIn("Nothing to run", stderr.getvalue())
+
     def test_comm_bridge_not_launched_for_external_transport(self):
         self.run_main("fake-ground", communication_selection="ip")
         self.launch_comm.assert_not_called()
@@ -624,3 +638,51 @@ class TestFprimeCliTransportSelection(unittest.TestCase):
     def test_tcp_and_external_transports_send_the_bytes_as_given(self):
         self.assertEqual(self.send_raw("tcp"), b"\xde\xad\xbe\xef")
         self.assertEqual(self.send_raw("fake-ground"), b"\xde\xad\xbe\xef")
+
+
+class TestCommGroundSelection(unittest.TestCase):
+    """The comm bridge picks its ground-side adapter from the data transport selection"""
+
+    class Stop(Exception):
+        pass
+
+    def run_comm(self, selection):
+        from fprime_gds.executables import comm
+
+        args = SimpleNamespace(
+            communication_selection="ip", data_transport_selection=selection,
+            zmq_transport=["ipc:///a", "ipc:///b"], tts_addr="0.0.0.0", tts_port=50050,
+        )
+        plugins = mock.MagicMock()
+        plugins.get_selected_class.side_effect = self.Stop
+        with mock.patch.object(comm.fprime_gds.executables.cli.ParserBase, "parse_args", return_value=(args, None)), \
+                mock.patch.object(comm.Plugins, "system", return_value=plugins), \
+                mock.patch.object(comm, "ZmqGround") as zmq_ground, \
+                mock.patch.object(comm.fprime_gds.common.communication.ground, "TCPGround") as tcp_ground, \
+                mock.patch.object(comm.sys, "stderr", new_callable=io.StringIO) as stderr:
+            exited = None
+            try:
+                comm.main()
+            except self.Stop:
+                pass
+            except SystemExit as exc:
+                exited = exc
+            self.stderr = stderr.getvalue()
+        if exited is not None:
+            raise exited
+        return zmq_ground, tcp_ground
+
+    def test_zmq_ground(self):
+        zmq_ground, tcp_ground = self.run_comm("zmq")
+        zmq_ground.assert_called_once_with(["ipc:///a", "ipc:///b"])
+        tcp_ground.assert_not_called()
+
+    def test_tcp_ground(self):
+        zmq_ground, tcp_ground = self.run_comm("tcp")
+        tcp_ground.assert_called_once_with("0.0.0.0", 50050)
+        zmq_ground.assert_not_called()
+
+    def test_external_transport_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            self.run_comm("fake-ground")
+        self.assertIn("requires the 'zmq' or 'tcp' data transport", self.stderr)

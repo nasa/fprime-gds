@@ -271,7 +271,8 @@ class Plugins(object):
             try:
                 from fprime_gds.common.yamcs_transport import YamcsClient
             except Exception as exc:  # optional dependency: keep a broken yamcs-client off the start-up path
-                if not isinstance(exc, ImportError):
+                missing_yamcs = isinstance(exc, ModuleNotFoundError) and (exc.name or "").split(".")[0] == "yamcs"
+                if not missing_yamcs:
                     LOGGER.warning("Built-in yamcs transport disabled, yamcs-client failed to import: %s", exc)
                 YamcsClient = None
 

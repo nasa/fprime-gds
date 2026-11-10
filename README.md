@@ -31,6 +31,7 @@ The transport client is selected with `--data-transport-selection`: `zmq` (ZeroM
 process, the default), `tcp` (the threaded TCP socket server, formerly `--no-zmq`), `yamcs` (built in while
 `fprime-gds[yamcs]` is installed, moving to the fprime-yamcs package), or any installed plugin reaching another
 ground system.
+
 ![The layout of the GDS](https://raw.githubusercontent.com/nasa/fprime/refs/heads/devel/docs/img/gds_layout.jpg)
 
 All of these objects are created and registered to other objects when the GDS

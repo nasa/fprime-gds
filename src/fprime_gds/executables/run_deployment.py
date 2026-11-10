@@ -282,6 +282,12 @@ def main():
             for instance in Plugins.system().get_feature_classes("gds_function")
         ]
 
+        if not procs:
+            print(
+                "[ERROR] Nothing to run: no GUI, comm bridge, middleware, app or gds_app plugin selected",
+                file=sys.stderr,
+            )
+            return 1
         print("[INFO] F prime is now running. CTRL-C to shutdown all components.")
         procs[-1].wait()
     except KeyboardInterrupt:
