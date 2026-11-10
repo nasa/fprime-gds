@@ -66,6 +66,11 @@ class ComLoggerDpDecoder:
         if self.validate_sentry and data[:sentry_size] != self.sentry:
             raise DataProductError(f"Sentry mismatch: expected 0x{self.sentry.hex()}, got 0x{data[:sentry_size].hex()}")
         packet_type, packets = self.decode_com_buffer(data[sentry_size:])
+        for packet in packets:
+            try:
+                packet.get_time().to_readable()
+            except ValueError as exc:
+                raise DataProductError(f"Invalid time tag on {packet.template.get_full_name()}: {exc}")
         return {"PacketType": packet_type, "Packets": packets}
 
     def decode(self, path) -> Dict[str, Any]:
@@ -171,8 +176,9 @@ def to_jsonable(result: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def write_json(result: Dict[str, Any], path: Path):
+    content = json.dumps(to_jsonable(result), indent=2, default=str)
     with open(path, "w") as file_handle:
-        json.dump(to_jsonable(result), file_handle, indent=2, default=str)
+        file_handle.write(content)
 
 
 def format_text(result: Dict[str, Any], source: str) -> str:
@@ -197,8 +203,9 @@ def format_text(result: Dict[str, Any], source: str) -> str:
 
 
 def write_text(result: Dict[str, Any], path: Path):
+    content = format_text(result, str(path))
     with open(path, "w") as file_handle:
-        file_handle.write(format_text(result, str(path)))
+        file_handle.write(content)
 
 
 def write_collected_logs(results: Iterable[Dict[str, Any]], output_dir: Path) -> Dict[str, int]:

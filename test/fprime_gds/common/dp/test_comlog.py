@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from fprime_gds.common.dp.comlog import CHANNEL_LOG_NAME, DEFAULT_SENTRY, EVENT_LOG_NAME, ComLoggerDpDecoder
+from fprime_gds.common.dp.comlog import CHANNEL_LOG_NAME, DEFAULT_SENTRY, EVENT_LOG_NAME, ComLoggerDpDecoder, write_json, write_text
 from fprime_gds.common.dp.common import ChecksumConfig, calculate_crc32, get_dp_header_type
 from fprime_gds.common.dp.decoder import CRCError, DataProductError
 from fprime_gds.common.models.dictionaries import Dictionaries
@@ -130,6 +130,16 @@ class TestComLoggerDpDecoder:
 
         assert ComLoggerDpDecoder(dictionaries, sentry=0x12345678).decode(path)["Records"][0]["Packets"][0].display_text == PLAIN_TEXT
         assert ComLoggerDpDecoder(dictionaries, validate_sentry=False).decode(path)["Statistics"]["Errors"] == 0
+
+    def test_invalid_time_tag_is_reported_per_record(self, dictionaries, tmp_path):
+        bad_time = U16Type(FW_PACKET_LOG).serialize() + U32Type(PLAIN_EVENT_ID).serialize() + time_bytes(1)[:-4] + U32Type(1_000_000).serialize()
+        path = write(tmp_path / "a.fdp", product(record(bad_time), *sample_records()))
+        result = ComLoggerDpDecoder(dictionaries).decode(path)
+        assert "Invalid time tag" in result["Records"][0]["Error"]
+        assert result["Statistics"]["Errors"] == 1 and result["Statistics"]["Events"] == 2
+        write_json(result, tmp_path / "a.json")
+        write_text(result, tmp_path / "a.txt")
+        assert json.loads((tmp_path / "a.json").read_text())["Statistics"]["Errors"] == 1
 
     def test_crc_validation(self, dictionaries, tmp_path):
         path = write(tmp_path / "a.fdp", product(*sample_records(), break_data_crc=True))
