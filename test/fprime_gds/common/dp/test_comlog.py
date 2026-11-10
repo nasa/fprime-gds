@@ -145,6 +145,10 @@ class TestComLoggerDpDecoder:
         path = write(tmp_path / "a.fdp", product(*sample_records(), break_data_crc=True))
         with pytest.raises(CRCError, match="CRC mismatch"):
             ComLoggerDpDecoder(dictionaries).decode(path)
+        truncated = write(tmp_path / "b.fdp", product(*sample_records())[:-ChecksumConfig.CHECKSUM_LEN])
+        with pytest.raises(Exception):
+            ComLoggerDpDecoder(dictionaries).decode(truncated)
+        assert ComLoggerDpDecoder(dictionaries, validate_crc=False).decode(truncated)["Statistics"]["Events"] == 2
         assert ComLoggerDpDecoder(dictionaries, validate_crc=False).decode(path)["Statistics"]["Events"] == 2
 
     def test_unsupported_packet_type(self, dictionaries, tmp_path):

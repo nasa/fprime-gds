@@ -281,18 +281,19 @@ class DataProductDecoder:
             #####################
             # Validate checksum #
             #####################
-            #   1) Retrieve checksum in data product file
             assert f.tell() == position_at_start + data_size
-            dp_crc_bin = f.read(ChecksumConfig.CHECKSUM_LEN)
-            dp_crc = ChecksumConfig.CHECKSUM_TOKEN_TYPE()
-            dp_crc.deserialize(dp_crc_bin, 0)
-            #   2) Compute checksum of data
-            f.seek(position_at_start)
-            data_to_crc = f.read(data_size)
-            computed_crc = calculate_crc32(data_to_crc)
-            #   3) Compare computed and stored checksums
-            if self.validate_crc and computed_crc != dp_crc.val:
-                raise CRCError("Data", dp_crc.val, computed_crc)
+            if self.validate_crc:
+                #   1) Retrieve checksum in data product file
+                dp_crc_bin = f.read(ChecksumConfig.CHECKSUM_LEN)
+                dp_crc = ChecksumConfig.CHECKSUM_TOKEN_TYPE()
+                dp_crc.deserialize(dp_crc_bin, 0)
+                #   2) Compute checksum of data
+                f.seek(position_at_start)
+                data_to_crc = f.read(data_size)
+                computed_crc = calculate_crc32(data_to_crc)
+                #   3) Compare computed and stored checksums
+                if computed_crc != dp_crc.val:
+                    raise CRCError("Data", dp_crc.val, computed_crc)
 
         if not self.disable_decompression and len(results["Records"]) > 0 and self.is_compression_record(results["Records"][0]):
 
