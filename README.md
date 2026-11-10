@@ -28,9 +28,8 @@ which is registered to the encoder. Finally, the transport client sends the data
 system holding the link to the F´ deployment.
 
 The transport client is selected with `--data-transport-selection`: `zmq` (ZeroMQ to the GDS communication
-process, the default), `tcp` (the threaded TCP socket server, formerly `--no-zmq`), `yamcs` (built in while
-`fprime-gds[yamcs]` is installed, moving to the fprime-yamcs package), or any installed plugin reaching another
-ground system.
+process, the default), `threaded-tcp-server` (the threaded TCP socket server, formerly `--no-zmq`), or any
+installed plugin reaching another ground system (e.g. `yamcs` from the fprime-yamcs package).
 
 ![The layout of the GDS](https://raw.githubusercontent.com/nasa/fprime/refs/heads/devel/docs/img/gds_layout.jpg)
 

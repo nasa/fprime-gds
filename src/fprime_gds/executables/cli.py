@@ -1073,7 +1073,7 @@ class MiddleWareParser(ParserBase):
     `zmq`) and parses the arguments of the available transports. The selected plugin produces the connection URI
     (`args.connection_uri`) and the bound transport class (`args.connection_transport`) used by StandardPipeline.
 
-    `--no-zmq` is kept as a deprecated alias of `--data-transport-selection tcp`.
+    `--no-zmq` is kept as a deprecated alias of `--data-transport-selection threaded-tcp-server`.
     """
 
     DESCRIPTION = "Middleware options"
@@ -1082,7 +1082,7 @@ class MiddleWareParser(ParserBase):
     DEFAULT_TRANSPORT = "zmq"
     # The deprecation warning is printed once per process even though the arguments are parsed several times
     deprecation_warned = False
-    NO_ZMQ_TRANSPORT = "tcp"
+    NO_ZMQ_TRANSPORT = "threaded-tcp-server"
 
     def __init__(self):
         """Create the parser; the private plugin system is loaded lazily on first use"""
@@ -1105,7 +1105,7 @@ class MiddleWareParser(ParserBase):
             ("--no-zmq",): {
                 "dest": "zmq",
                 "action": "store_false",
-                "help": "[DEPRECATED] Alias of '--data-transport-selection tcp'.",
+                "help": "[DEPRECATED] Alias of '--data-transport-selection threaded-tcp-server'.",
                 "default": True,
             },
         }

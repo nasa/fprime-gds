@@ -4,7 +4,7 @@ fprime_gds.common.transport:
 Sets up the classes used to transport data between the GDS data pipeline and the ground system holding the deployment's
 link. TransportClient is the specification class of the `data_transport` SELECTION plugin category: each concrete
 transport registers under a name selectable with `--data-transport-selection` and owns its command line arguments and
-connection URI. This file also defines the built-in `tcp` transport, ThreadedTCPSocketClient, used to send data through
+connection URI. This file also defines the built-in `threaded-tcp-server` transport, ThreadedTCPSocketClient, used to send data through
 the threaded tcp server; the default `zmq` transport lives in fprime_gds.common.zmq_transport.
 
 @author lestarch
@@ -47,7 +47,7 @@ class TransportClient(DataHandler, HandlerRegistrar, ABC):
     handler apps). Implementors are constructed with the keyword arguments produced by `get_arguments()` and connected
     with the URI returned by `get_connection_uri()`. A transport that decodes ground-system data itself may define
     `set_pipeline_references(dictionaries, channel_decoder, event_decoder, ...)`, which StandardPipeline.setup() calls
-    when present (see YamcsClient).
+    when present (as the fprime-yamcs plugin does).
     """
 
     @classmethod
@@ -258,7 +258,7 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
     @classmethod
     def get_name(cls):
         """Plugin name"""
-        return "tcp"
+        return "threaded-tcp-server"
 
     @classmethod
     @gds_plugin_implementation
@@ -274,14 +274,14 @@ class ThreadedTCPSocketClient(ThreadedTransportClient):
                 "dest": "tts_port",
                 "action": "store",
                 "type": int,
-                "help": "Port of the threaded TCP socket server used by the 'tcp' data transport [default: %(default)s]",
+                "help": "Port of the threaded TCP socket server used by the 'threaded-tcp-server' data transport [default: %(default)s]",
                 "default": cls.DEFAULT_PORT,
             },
             ("--tts-addr",): {
                 "dest": "tts_addr",
                 "action": "store",
                 "type": str,
-                "help": "Address of the threaded TCP socket server used by the 'tcp' data transport [default: %(default)s]",
+                "help": "Address of the threaded TCP socket server used by the 'threaded-tcp-server' data transport [default: %(default)s]",
                 "default": cls.DEFAULT_ADDRESS,
             },
         }

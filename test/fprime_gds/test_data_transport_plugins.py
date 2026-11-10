@@ -4,10 +4,9 @@ import functools
 import io
 import os
 import tempfile
-import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest import mock
+from unittest import TestCase, mock
 
 import pytest
 from _pytest.config.argparsing import Parser
@@ -107,13 +106,13 @@ def implementor(bound_class):
     return bound_class.func if isinstance(bound_class, functools.partial) else bound_class
 
 
-class TestDataTransportCategory(unittest.TestCase):
+class TestDataTransportCategory(TestCase):
     def test_category_registered_as_selection_of_transport_clients(self):
         plugins = Plugins(["data_transport"])
         self.assertIs(plugins.get_category_specification_class("data_transport"), TransportClient)
         self.assertEqual(plugins.get_category_plugin_type("data_transport"), PluginType.SELECTION)
         names = {plugin.get_name() for plugin in plugins.get_plugins("data_transport")}
-        self.assertTrue({"zmq", "tcp"}.issubset(names), names)
+        self.assertTrue({"zmq", "threaded-tcp-server"}.issubset(names), names)
         self.assertIn("data_transport", Plugins().get_all_categories())
 
     def test_built_in_plugins_implement_the_contract(self):
@@ -131,7 +130,7 @@ class TestDataTransportCategory(unittest.TestCase):
     def test_pipeline_parser_lists_the_built_in_transports(self):
         names = [plugin.get_name() for plugin in StandardPipelineParser.get_data_transport_plugins()]
         self.assertIn("zmq", names)
-        self.assertIn("tcp", names)
+        self.assertIn("threaded-tcp-server", names)
 
     def test_composed_gds_parser_binds_the_transport_once(self):
         """The fprime-gds parser composition (pipeline parser + singleton plugin parser) selects tcp end to end"""
@@ -141,7 +140,7 @@ class TestDataTransportCategory(unittest.TestCase):
                 [StandardPipelineParser, PluginArgumentParser],
                 arguments=[
                     "--dictionary", str(dictionary), "--packet-set-name", "PacketSet1",
-                    "--data-transport-selection", "tcp", "--tts-port", "50127",
+                    "--data-transport-selection", "threaded-tcp-server", "--tts-port", "50127",
                 ],
                 client=False,
             )
@@ -160,7 +159,7 @@ class TestDataTransportCategory(unittest.TestCase):
         self.assertEqual(args.connection_transport().fake_url, "http://gs:1")
 
 
-class TestBuiltInTransports(unittest.TestCase):
+class TestBuiltInTransports(TestCase):
     def test_zmq_connection_uri_is_the_url_pair(self):
         self.assertEqual(
             ZmqClient.get_connection_uri(zmq_transport=("ipc:///a", "ipc:///b")),
@@ -208,27 +207,8 @@ class TestBuiltInTransports(unittest.TestCase):
         self.assertEqual(client.default_uri, "tcp://127.0.0.1:50123")
 
 
-class TestYamcsTransitionalPlugin(unittest.TestCase):
-    def setUp(self):
-        try:
-            from fprime_gds.common.yamcs_transport import YamcsClient
-        except Exception:
-            self.skipTest("yamcs-client not installed")
-        self.client = YamcsClient
 
-    def test_connection_uri_schemes(self):
-        self.assertEqual(self.client.get_connection_uri(yamcs_url="http://y:8090"), "yamcs://y:8090")
-        self.assertEqual(self.client.get_connection_uri(yamcs_url="https://y:8443"), "yamcs+https://y:8443")
-        self.assertEqual(self.client.get_connection_uri(yamcs_url="y:8090"), "yamcs://y:8090")
-
-    def test_rejects_other_schemes(self):
-        with self.assertRaises(ValueError):
-            self.client.check_arguments(yamcs_url="ftp://y:8090")
-        with self.assertRaises(ValueError):
-            self.client.get_connection_uri(yamcs_url="ftp://y:8090")
-
-
-class TestMiddleWareParser(unittest.TestCase):
+class TestMiddleWareParser(TestCase):
     def test_default_is_zmq(self):
         args = parse_middleware([])
         self.assertEqual(args.data_transport_selection, "zmq")
@@ -242,7 +222,7 @@ class TestMiddleWareParser(unittest.TestCase):
         self.assertEqual(args.zmq_transport, ["ipc:///a", "ipc:///b"])
 
     def test_tcp_selection_client(self):
-        args = parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50123"])
+        args = parse_middleware(["--data-transport-selection", "threaded-tcp-server", "--tts-port", "50123"])
         self.assertIs(implementor(args.connection_transport), ThreadedTCPSocketClient)
         self.assertEqual(args.connection_uri, "tcp://127.0.0.1:50123")
         self.assertEqual(args.tts_port, 50123)
@@ -250,7 +230,7 @@ class TestMiddleWareParser(unittest.TestCase):
     def test_tcp_selection_server_checks_port(self):
         with mock.patch("fprime_gds.executables.cli.check_port") as check_port:
             args = parse_middleware(
-                ["--data-transport-selection", "tcp", "--tts-addr", "10.0.0.1", "--tts-port", "50124"],
+                ["--data-transport-selection", "threaded-tcp-server", "--tts-addr", "10.0.0.1", "--tts-port", "50124"],
                 client=False,
             )
         check_port.assert_called_once_with("10.0.0.1", 50124)
@@ -264,16 +244,16 @@ class TestMiddleWareParser(unittest.TestCase):
     def test_no_zmq_is_deprecated_alias_of_tcp(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
             args = parse_middleware(["--no-zmq", "--tts-port", "50125"])
-        self.assertEqual(args.data_transport_selection, "tcp")
+        self.assertEqual(args.data_transport_selection, "threaded-tcp-server")
         self.assertIs(implementor(args.connection_transport), ThreadedTCPSocketClient)
         self.assertEqual(args.connection_uri, "tcp://127.0.0.1:50125")
         self.assertIn("--no-zmq is deprecated", stderr.getvalue())
-        self.assertIn("--data-transport-selection tcp", stderr.getvalue())
+        self.assertIn("--data-transport-selection threaded-tcp-server", stderr.getvalue())
 
     def test_zmq_flag_only_records_the_deprecated_alias(self):
         """args.zmq means '--no-zmq was not given'; the transport is identified by the selection alone"""
         self.assertTrue(parse_middleware([]).zmq)
-        self.assertTrue(parse_middleware(["--data-transport-selection", "tcp"]).zmq)
+        self.assertTrue(parse_middleware(["--data-transport-selection", "threaded-tcp-server"]).zmq)
         with mock.patch("sys.stderr", new_callable=io.StringIO):
             self.assertFalse(parse_middleware(["--no-zmq"]).zmq)
 
@@ -284,7 +264,7 @@ class TestMiddleWareParser(unittest.TestCase):
             args, _, _ = ConfigDrivenParser.parse_known_args(
                 [StandardPipelineParser, MiddleWareParser],
                 arguments=["--dictionary", str(dictionary), "--packet-set-name", "PacketSet1",
-                           "--data-transport-selection", "tcp"],
+                           "--data-transport-selection", "threaded-tcp-server"],
                 client=True,
             )
         self.assertEqual(args.connection_uri, "tcp://127.0.0.1:50050")
@@ -294,7 +274,7 @@ class TestMiddleWareParser(unittest.TestCase):
         parser = MiddleWareParser()
         reproduced = parser.reproduce_cli_args(SimpleNamespace(zmq=False, tts_port=50126))
         self.assertNotIn("--no-zmq", reproduced)
-        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "tcp")
+        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "threaded-tcp-server")
         self.assertNotIn("--data-transport-selection", parser.reproduce_cli_args(SimpleNamespace(zmq=True)))
 
     def test_children_are_given_the_selection_not_the_deprecated_alias(self):
@@ -303,7 +283,7 @@ class TestMiddleWareParser(unittest.TestCase):
             args = parse_middleware(["--no-zmq", "--tts-port", "50125"], parser=parser)
         reproduced = parser.reproduce_cli_args(args)
         self.assertNotIn("--no-zmq", reproduced)
-        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "tcp")
+        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "threaded-tcp-server")
         self.assertEqual(reproduced[reproduced.index("--tts-port") + 1], "50125")
 
     def test_pipeline_parser_reproduces_the_selection_for_children(self):
@@ -316,7 +296,7 @@ class TestMiddleWareParser(unittest.TestCase):
             )
         reproduced = StandardPipelineParser().reproduce_cli_args(args)
         self.assertNotIn("--no-zmq", reproduced)
-        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "tcp")
+        self.assertEqual(reproduced[reproduced.index("--data-transport-selection") + 1], "threaded-tcp-server")
         self.assertIn("--dictionary", reproduced)
 
     def test_singleton_plugin_parser_leaves_data_transport_to_the_middleware_parser(self):
@@ -347,13 +327,13 @@ class TestMiddleWareParser(unittest.TestCase):
 
     def test_tcp_selection_server_keeps_wildcard_address(self):
         with mock.patch("fprime_gds.executables.cli.check_port") as check_port:
-            args = parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50124"], client=False)
+            args = parse_middleware(["--data-transport-selection", "threaded-tcp-server", "--tts-port", "50124"], client=False)
         check_port.assert_called_once_with("0.0.0.0", 50124)
         self.assertEqual(args.connection_uri, "tcp://0.0.0.0:50124")
 
     def test_tcp_selection_client_skips_port_check(self):
         with mock.patch("fprime_gds.executables.cli.check_port") as check_port:
-            parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50124"], client=True)
+            parse_middleware(["--data-transport-selection", "threaded-tcp-server", "--tts-port", "50124"], client=True)
         check_port.assert_not_called()
 
     def test_no_zmq_conflicts_with_explicit_zmq_selection(self):
@@ -363,17 +343,17 @@ class TestMiddleWareParser(unittest.TestCase):
 
     def test_reused_parser_rebinds_on_every_call(self):
         parser = MiddleWareParser()
-        first = parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50131"], parser=parser)
+        first = parse_middleware(["--data-transport-selection", "threaded-tcp-server", "--tts-port", "50131"], parser=parser)
         second = parse_middleware([], parser=parser)
-        third = parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50132"], parser=parser)
+        third = parse_middleware(["--data-transport-selection", "threaded-tcp-server", "--tts-port", "50132"], parser=parser)
         self.assertEqual(first.connection_uri, "tcp://127.0.0.1:50131")
         self.assertIs(implementor(second.connection_transport), ZmqClient)
         self.assertEqual(third.connection_uri, "tcp://127.0.0.1:50132")
 
     def test_no_zmq_with_explicit_tcp_is_accepted(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO):
-            args = parse_middleware(["--no-zmq", "--data-transport-selection", "tcp"])
-        self.assertEqual(args.data_transport_selection, "tcp")
+            args = parse_middleware(["--no-zmq", "--data-transport-selection", "threaded-tcp-server"])
+        self.assertEqual(args.data_transport_selection, "threaded-tcp-server")
 
     def test_no_zmq_conflicts_with_other_selection(self):
         with self.assertRaises(ValueError) as context:
@@ -387,7 +367,7 @@ class TestMiddleWareParser(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             config_path = Path(tmp_dir) / "fprime-gds.yml"
             config_path.write_text(
-                "command-line-options:\n  data-transport-selection: tcp\n  tts-port: 60000\n"
+                "command-line-options:\n  data-transport-selection: threaded-tcp-server\n  tts-port: 60000\n"
             )
             with mock.patch.dict(
                 os.environ, {ConfigDrivenParser.DEFAULT_CONFIGURATION_PATH_ENV: str(config_path)}
@@ -395,13 +375,13 @@ class TestMiddleWareParser(unittest.TestCase):
                 args, _, _ = ConfigDrivenParser.parse_known_args(
                     [MiddleWareParser], arguments=[], client=True
                 )
-        self.assertEqual(args.data_transport_selection, "tcp")
+        self.assertEqual(args.data_transport_selection, "threaded-tcp-server")
         self.assertEqual(args.connection_uri, "tcp://127.0.0.1:60000")
 
     def test_command_line_selection_wins_over_config_file(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             config_path = Path(tmp_dir) / "fprime-gds.yml"
-            config_path.write_text("command-line-options:\n  data-transport-selection: tcp\n")
+            config_path.write_text("command-line-options:\n  data-transport-selection: threaded-tcp-server\n")
             with mock.patch.dict(
                 os.environ, {ConfigDrivenParser.DEFAULT_CONFIGURATION_PATH_ENV: str(config_path)}
             ):
@@ -416,10 +396,10 @@ class TestMiddleWareParser(unittest.TestCase):
         self.assertIn("--data-transport-selection", help_text)
         self.assertIn("--no-zmq", help_text)
         self.assertIn("Data Transport Plugin 'zmq' Options", help_text)
-        self.assertIn("Data Transport Plugin 'tcp' Options", help_text)
+        self.assertIn("Data Transport Plugin 'threaded-tcp-server' Options", help_text)
 
 
-class TestPipelineFactory(unittest.TestCase):
+class TestPipelineFactory(TestCase):
     def test_pipeline_uses_selected_transport(self):
         bound = functools.partial(FakeGroundSystemClient, fake_url="http://gs:2")
         args_ns = SimpleNamespace(
@@ -439,7 +419,7 @@ class TestPipelineFactory(unittest.TestCase):
         pipeline.connect.assert_called_once_with("fake://http://gs:2")
 
 
-class TestPytestIntegration(unittest.TestCase):
+class TestPytestIntegration(TestCase):
     """The pytest plugin exposes the transport selection and keeps --use-yamcs as a deprecated alias"""
 
     @staticmethod
@@ -458,21 +438,21 @@ class TestPytestIntegration(unittest.TestCase):
         return arg_ns
 
     def test_pytest_selects_tcp(self):
-        arg_ns = self.parse_pytest(["--data-transport-selection", "tcp", "--tts-port", "50126"])
-        self.assertEqual(arg_ns.data_transport_selection, "tcp")
+        arg_ns = self.parse_pytest(["--data-transport-selection", "threaded-tcp-server", "--tts-port", "50126"])
+        self.assertEqual(arg_ns.data_transport_selection, "threaded-tcp-server")
         self.assertEqual(arg_ns.connection_uri, "tcp://127.0.0.1:50126")
 
     def test_pytest_no_zmq_selects_tcp_with_warning(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
             arg_ns = self.parse_pytest(["--no-zmq", "--tts-port", "50126"])
-        self.assertEqual(arg_ns.data_transport_selection, "tcp")
+        self.assertEqual(arg_ns.data_transport_selection, "threaded-tcp-server")
         self.assertEqual(arg_ns.connection_uri, "tcp://127.0.0.1:50126")
         self.assertIn("--no-zmq is deprecated", stderr.getvalue())
 
     def test_pytest_no_zmq_with_explicit_tcp(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO):
-            arg_ns = self.parse_pytest(["--no-zmq", "--data-transport-selection", "tcp"])
-        self.assertEqual(arg_ns.data_transport_selection, "tcp")
+            arg_ns = self.parse_pytest(["--no-zmq", "--data-transport-selection", "threaded-tcp-server"])
+        self.assertEqual(arg_ns.data_transport_selection, "threaded-tcp-server")
 
     def test_pytest_no_zmq_conflicts_with_other_selection(self):
         with mock.patch("sys.stderr", new_callable=io.StringIO):
@@ -535,17 +515,17 @@ class TestPytestIntegration(unittest.TestCase):
         ), mock.patch("sys.stderr", new_callable=io.StringIO):
             with self.assertRaises(pytest.UsageError):
                 pytest_integration._apply_deprecated_transport_options(
-                    self.config(True), ["--data-transport-selection", "tcp"]
+                    self.config(True), ["--data-transport-selection", "threaded-tcp-server"]
                 )
 
     def test_use_yamcs_without_plugin_recommends_fprime_yamcs(self):
         with mock.patch.object(StandardPipelineParser, "get_data_transport_plugins", return_value=[]):
             with self.assertRaises(pytest.UsageError) as context:
                 pytest_integration._apply_deprecated_transport_options(self.config(True), [])
-        self.assertIn("fprime-gds[yamcs]", str(context.exception))
+        self.assertIn("pip install fprime-yamcs", str(context.exception))
 
 
-class TestRunDeploymentMiddleware(unittest.TestCase):
+class TestRunDeploymentMiddleware(TestCase):
     def run_main(self, selection, communication_selection="none"):
         parsed_args = SimpleNamespace(
             data_transport_selection=selection,
@@ -569,7 +549,7 @@ class TestRunDeploymentMiddleware(unittest.TestCase):
         return launch_tts
 
     def test_tcp_launches_threaded_tcp_server(self):
-        self.run_main("tcp").assert_called_once()
+        self.run_main("threaded-tcp-server").assert_called_once()
 
     def test_zmq_launches_no_middleware_process(self):
         self.run_main("zmq").assert_not_called()
@@ -578,7 +558,7 @@ class TestRunDeploymentMiddleware(unittest.TestCase):
         self.run_main("fake-ground").assert_not_called()
 
     def test_comm_bridge_launched_for_bridged_transports(self):
-        for selection in ("zmq", "tcp"):
+        for selection in ("zmq", "threaded-tcp-server"):
             with self.subTest(selection=selection):
                 self.run_main(selection, communication_selection="ip")
                 self.launch_comm.assert_called_once()
@@ -621,7 +601,7 @@ class TestRunDeploymentMiddleware(unittest.TestCase):
         self.assertIn("Not launching the comm bridge", self.stderr)
 
 
-class TestFprimeCliTransportSelection(unittest.TestCase):
+class TestFprimeCliTransportSelection(TestCase):
     """fprime-cli keys ZeroMQ specifics on the data transport selection, not on the deprecated alias"""
 
     def send_raw(self, selection):
@@ -636,11 +616,11 @@ class TestFprimeCliTransportSelection(unittest.TestCase):
         self.assertEqual(self.send_raw("zmq"), b"\x00\x00\x00\x04\xde\xad\xbe\xef")
 
     def test_tcp_and_external_transports_send_the_bytes_as_given(self):
-        self.assertEqual(self.send_raw("tcp"), b"\xde\xad\xbe\xef")
+        self.assertEqual(self.send_raw("threaded-tcp-server"), b"\xde\xad\xbe\xef")
         self.assertEqual(self.send_raw("fake-ground"), b"\xde\xad\xbe\xef")
 
 
-class TestCommGroundSelection(unittest.TestCase):
+class TestCommGroundSelection(TestCase):
     """The comm bridge picks its ground-side adapter from the data transport selection"""
 
     class Stop(Exception):
@@ -664,7 +644,7 @@ class TestCommGroundSelection(unittest.TestCase):
             try:
                 comm.main()
             except self.Stop:
-                pass
+                pass  # Stop is raised by the patched run loop to end comm.main() deliberately
             except SystemExit as exc:
                 exited = exc
             self.stderr = stderr.getvalue()
@@ -678,11 +658,11 @@ class TestCommGroundSelection(unittest.TestCase):
         tcp_ground.assert_not_called()
 
     def test_tcp_ground(self):
-        zmq_ground, tcp_ground = self.run_comm("tcp")
+        zmq_ground, tcp_ground = self.run_comm("threaded-tcp-server")
         tcp_ground.assert_called_once_with("0.0.0.0", 50050)
         zmq_ground.assert_not_called()
 
     def test_external_transport_is_rejected(self):
         with self.assertRaises(SystemExit):
             self.run_comm("fake-ground")
-        self.assertIn("requires the 'zmq' or 'tcp' data transport", self.stderr)
+        self.assertIn("requires the 'zmq' or 'threaded-tcp-server' data transport", self.stderr)

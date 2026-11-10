@@ -70,13 +70,13 @@ def main():
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
     if args.data_transport_selection == "zmq":
         ground = ZmqGround(args.zmq_transport)
-    elif args.data_transport_selection == "tcp":
+    elif args.data_transport_selection == "threaded-tcp-server":
         ground = fprime_gds.common.communication.ground.TCPGround(
             args.tts_addr, args.tts_port
         )
     else:
         print(
-            f"[ERROR] Comm bridge requires the 'zmq' or 'tcp' data transport, not '{args.data_transport_selection}'.",
+            f"[ERROR] Comm bridge requires the 'zmq' or 'threaded-tcp-server' data transport, not '{args.data_transport_selection}'.",
             file=sys.stderr,
         )
         sys.exit(-1)

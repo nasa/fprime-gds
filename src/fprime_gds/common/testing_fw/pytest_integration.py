@@ -88,8 +88,8 @@ def pytest_addoption(parser):
     parser.addoption(
         "--use-yamcs",
         action="store_true",
-        help="[DEPRECATED] Alias of '--data-transport-selection yamcs' (requires the 'yamcs' data transport plugin: "
-        "pip install 'fprime-gds[yamcs]', or fprime-yamcs once it provides the plugin)",
+        help="[DEPRECATED] Alias of '--data-transport-selection yamcs' (requires the fprime-yamcs package: "
+        "pip install fprime-yamcs)",
     )
 
 
@@ -111,9 +111,9 @@ def pytest_configure(config):
 def _apply_deprecated_transport_options(config, reproduced_args):
     """Translate the deprecated transport aliases into the data transport selection
 
-    `--no-zmq` is an alias of `--data-transport-selection tcp` and `--use-yamcs` of `--data-transport-selection yamcs`.
-    The `yamcs` transport is built in while fprime-gds[yamcs] is installed and moves to the fprime-yamcs plugin; a
-    usage error naming both is raised when it is not available.
+    `--no-zmq` is an alias of `--data-transport-selection threaded-tcp-server` and `--use-yamcs` of `--data-transport-selection yamcs`.
+    The `yamcs` transport is provided by the fprime-yamcs package; a usage error naming it is raised when it is not
+    installed.
 
     Args:
         config: pytest configuration
@@ -123,15 +123,15 @@ def _apply_deprecated_transport_options(config, reproduced_args):
     """
     selection_flag = "--data-transport-selection"
     if not config.getoption("zmq"):
-        print(f"[WARNING] --no-zmq is deprecated, use {selection_flag} tcp", file=sys.stderr)
+        print(f"[WARNING] --no-zmq is deprecated, use {selection_flag} threaded-tcp-server", file=sys.stderr)
         if selection_flag in reproduced_args:
             selected = reproduced_args[reproduced_args.index(selection_flag) + 1]
-            if selected != "tcp":
+            if selected != "threaded-tcp-server":
                 raise pytest.UsageError(
-                    f"--no-zmq (deprecated alias of {selection_flag} tcp) conflicts with {selection_flag} {selected}"
+                    f"--no-zmq (deprecated alias of {selection_flag} threaded-tcp-server) conflicts with {selection_flag} {selected}"
                 )
         else:
-            reproduced_args = reproduced_args + [selection_flag, "tcp"]
+            reproduced_args = reproduced_args + [selection_flag, "threaded-tcp-server"]
     if not config.getoption("--use-yamcs"):
         return reproduced_args
     available = [
@@ -140,8 +140,8 @@ def _apply_deprecated_transport_options(config, reproduced_args):
     ]
     if "yamcs" not in available:
         raise pytest.UsageError(
-            "--use-yamcs requires the 'yamcs' data transport plugin. Install with: pip install 'fprime-gds[yamcs]' "
-            "(or the fprime-yamcs package once it provides the plugin)"
+            "--use-yamcs requires the 'yamcs' data transport plugin: install the latest fprime-yamcs "
+            "(pip install fprime-yamcs)"
         )
     print(
         f"[WARNING] --use-yamcs is deprecated, use {selection_flag} yamcs",

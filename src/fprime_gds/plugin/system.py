@@ -269,14 +269,6 @@ class Plugins(object):
             from fprime_gds.common.zmq_transport import ZmqClient
 
             try:
-                from fprime_gds.common.yamcs_transport import YamcsClient
-            except Exception as exc:  # optional dependency: keep a broken yamcs-client off the start-up path
-                missing_yamcs = isinstance(exc, ModuleNotFoundError) and (exc.name or "").split(".")[0] == "yamcs"
-                if not missing_yamcs:
-                    LOGGER.warning("Built-in yamcs transport disabled, yamcs-client failed to import: %s", exc)
-                YamcsClient = None
-
-            try:
                 from fprime_gds.common.communication.adapters.uart import SerialAdapter
             except ImportError:
                 SerialAdapter = None
@@ -314,11 +306,7 @@ class Plugins(object):
                 "data_transport": {
                     "class": TransportClient,
                     "type": PluginType.SELECTION,
-                    "built-in": [
-                        transport
-                        for transport in [YamcsClient, ThreadedTCPSocketClient, ZmqClient]  # listed last-first
-                        if transport is not None
-                    ],
+                    "built-in": [ThreadedTCPSocketClient, ZmqClient],  # listed last-first
                 },
                 "gds_function": {
                     "class": GdsFunction,

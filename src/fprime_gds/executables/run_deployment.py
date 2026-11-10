@@ -228,7 +228,7 @@ def launch_plugin(parsed_args, plugin_class_instance):
     )
 
 
-BRIDGED_TRANSPORTS = ("zmq", "tcp")
+BRIDGED_TRANSPORTS = ("zmq", "threaded-tcp-server")
 
 
 def main():
@@ -239,7 +239,7 @@ def main():
     launchers = []
 
     # Launch the middleware layer when the GDS owns it (ThreadedTcpServer); ZeroMQ and external transports need none
-    if parsed_args.data_transport_selection == "tcp":
+    if parsed_args.data_transport_selection == "threaded-tcp-server":
         launchers.append(launch_tts)
 
     # Check if we are running with communications: the comm bridge only serves the transports fprime-gds owns
