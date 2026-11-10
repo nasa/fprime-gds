@@ -1115,7 +1115,7 @@ class MiddleWareParser(ParserBase):
         selection_flag = (f"--{self.CATEGORY.replace('_', '-')}-selection",)
         arguments[selection_flag] = {
             **arguments[selection_flag],
-            "default": argparse.SUPPRESS,
+            "default": None,
             "help": f"Select data transport implementer [default: {self.DEFAULT_TRANSPORT}]",
         }
         return arguments
@@ -1128,10 +1128,14 @@ class MiddleWareParser(ParserBase):
             {flags: keywords for flags, keywords in self.get_arguments().items() if flags[0] == "--no-zmq"},
         )
         self.plugin_parser.fill_parser(parser)
-        # No default for the selection: an absent attribute tells an explicit selection apart from the default
+        # The selection parses to None when not given (the default is applied in handle_arguments, so an explicit
+        # selection can be told apart from it); the help shows the real default instead of None
+        destination = f"{self.CATEGORY}_selection"
+        parser.set_defaults(**{destination: None})
         for action in parser._actions:
-            if action.dest == f"{self.CATEGORY}_selection":
+            if action.dest == destination:
                 action.default = argparse.SUPPRESS
+                action.help = self.get_arguments()[(f"--{self.CATEGORY.replace('_', '-')}-selection",)]["help"]
 
     def handle_arguments(self, args, **kwargs):
         """

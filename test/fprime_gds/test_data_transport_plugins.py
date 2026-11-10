@@ -334,6 +334,17 @@ class TestMiddleWareParser(unittest.TestCase):
             parse_middleware_again(["--no-zmq"])
         self.assertEqual(stderr.getvalue().count("--no-zmq is deprecated"), 1)
 
+    def test_selection_attribute_is_always_present(self):
+        """Other parsers may read the selection before MiddleWareParser handles it: it must parse to None, not vanish"""
+        parser = MiddleWareParser()
+        parser._plugin_parser = PluginArgumentParser(Plugins(["data_transport"]))
+        namespace = CompositeParser([parser]).get_parser().parse_args([])
+        self.assertIsNone(namespace.data_transport_selection)
+        self.assertIsNone(parser.get_arguments()[("--data-transport-selection",)]["default"])
+        help_text = CompositeParser([parser]).get_parser().format_help()
+        self.assertIn("[default: zmq]", help_text)
+        self.assertNotIn("(default: None)", help_text.split("--data-transport-selection")[1].split("--")[0])
+
     def test_tcp_selection_server_keeps_wildcard_address(self):
         with mock.patch("fprime_gds.executables.cli.check_port") as check_port:
             args = parse_middleware(["--data-transport-selection", "tcp", "--tts-port", "50124"], client=False)
