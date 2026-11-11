@@ -47,6 +47,9 @@ class Plugins(object):
     PLUGIN_METADATA = None
     _singleton = None
 
+    # Shadowed plugin names already reported, shared by every plugin system instance in the process
+    shadowed_plugins_warned = set()
+
     def __init__(self, categories: Union[None, List] = None):
         """Initialize the plugin system with specific categories
 
@@ -59,7 +62,6 @@ class Plugins(object):
         self.metadata = copy.deepcopy(self.get_plugin_metadata())
         categories = self.get_all_categories() if categories is None else categories
         self.categories = categories
-        self.shadowed_plugins_warned = set()
         self.manager = pluggy.PluginManager(PROJECT_NAME)
 
         # Load hook specifications from only the configured categories
@@ -136,6 +138,10 @@ class Plugins(object):
                 continue
             kept[name] = plugin
         return [plugin for plugin in plugins if kept[plugin.get_name()] is plugin]
+
+    def clear_bound_classes(self, category):
+        """Forget the classes bound for a category so the next argument handling binds afresh"""
+        self.metadata[category].pop("bound_classes", None)
 
     def start_loading(self, category: str):
         """Start a category loading
@@ -259,6 +265,8 @@ class Plugins(object):
             )
             from fprime_gds.common.communication.adapters.udp_fast import UdpFastAdapter
             from fprime_gds.executables.apps import CustomDataHandlers
+            from fprime_gds.common.transport import ThreadedTCPSocketClient, TransportClient
+            from fprime_gds.common.zmq_transport import ZmqClient
 
             try:
                 from fprime_gds.common.communication.adapters.uart import SerialAdapter
@@ -294,6 +302,11 @@ class Plugins(object):
                         ]
                         if adapter is not None
                     ],
+                },
+                "data_transport": {
+                    "class": TransportClient,
+                    "type": PluginType.SELECTION,
+                    "built-in": [ThreadedTCPSocketClient, ZmqClient],  # listed last-first
                 },
                 "gds_function": {
                     "class": GdsFunction,

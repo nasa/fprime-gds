@@ -10,6 +10,7 @@ replace the ThreadedTcpServer for several reasons as described below.
 @author lestarch
 """
 
+import getpass
 import logging
 import struct
 from typing import Tuple
@@ -22,6 +23,7 @@ from fprime_gds.common.transport import (
     ThreadedTransportClient,
     TransportationException,
 )
+from fprime_gds.plugin.definitions import gds_plugin_implementation
 
 LOGGER = logging.getLogger("transport")
 
@@ -170,18 +172,63 @@ class ZmqClient(ThreadedTransportClient):
     Note: implementation delegates to a zmq wrapper
     """
 
-    def __init__(self):
-        """Create ZMQ wrapper"""
+    def __init__(self, zmq_transport=None):
+        """Create ZMQ wrapper
+
+        Args:
+            zmq_transport: pair of ZeroMQ URLs (server-in, server-out) used by connect() when no URL pair is supplied
+        """
         super().__init__()
         self.zmq = ZmqWrapper()
+        self.default_uri = (
+            self.get_default_transport() if zmq_transport is None else zmq_transport
+        )
+
+    @staticmethod
+    def get_default_transport():
+        """Default per-user IPC URL pair"""
+        return [
+            f"ipc:///tmp/fprime-server-in-{getpass.getuser()}",
+            f"ipc:///tmp/fprime-server-out-{getpass.getuser()}",
+        ]
+
+    @classmethod
+    def get_name(cls):
+        """Plugin name"""
+        return "zmq"
+
+    @classmethod
+    @gds_plugin_implementation
+    def register_data_transport_plugin(cls):
+        """Register this as a data transport plugin"""
+        return cls
+
+    @classmethod
+    def get_arguments(cls):
+        """Arguments of the ZeroMQ transport"""
+        return {
+            ("--zmq-transport",): {
+                "dest": "zmq_transport",
+                "nargs": 2,
+                "help": "Pair of URLs used to setup ZeroMQ transportation [default: %(default)s]",
+                "default": cls.get_default_transport(),
+                "metavar": ("serverInUrl", "serverOutUrl"),
+            },
+        }
+
+    @classmethod
+    def get_connection_uri(cls, client=True, zmq_transport=None):
+        """Connection URI: the ZeroMQ URL pair itself"""
+        return cls.get_default_transport() if zmq_transport is None else list(zmq_transport)
 
     def connect(
         self,
-        transport_url: Tuple[str],
-        sub_routing: RoutingTag,
-        pub_routing: RoutingTag,
+        transport_url: Tuple[str] = None,
+        sub_routing: RoutingTag = RoutingTag.GUI,
+        pub_routing: RoutingTag = RoutingTag.FSW,
     ):
         """Connects to the ZeroMQ network"""
+        transport_url = self.default_uri if transport_url is None else transport_url
         self.zmq.configure(transport_url, sub_routing.value, pub_routing.value)
         self.zmq.connect_outgoing()  # Outgoing socket, for clients, exists on the current thread
         super().connect(transport_url, sub_routing, pub_routing)

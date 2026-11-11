@@ -228,6 +228,9 @@ def launch_plugin(parsed_args, plugin_class_instance):
     )
 
 
+BRIDGED_TRANSPORTS = ("zmq", "threaded-tcp-server")
+
+
 def main():
     """
     Main function used to launch processes.
@@ -235,17 +238,25 @@ def main():
     parsed_args = parse_args()
     launchers = []
 
-    # Launch middleware layer if not using ZMQ
-    if not parsed_args.zmq:
+    # Launch the middleware layer when the GDS owns it (ThreadedTcpServer); ZeroMQ and external transports need none
+    if parsed_args.data_transport_selection == "threaded-tcp-server":
         launchers.append(launch_tts)
 
-    # Check if we are running with communications
+    # Check if we are running with communications: the comm bridge only serves the transports fprime-gds owns
+    bridged = parsed_args.data_transport_selection in BRIDGED_TRANSPORTS
     if parsed_args.communication_selection != "none":
-        launchers.append(launch_comm)
+        if bridged:
+            launchers.append(launch_comm)
+        else:
+            print(
+                f"[WARNING] Not launching the comm bridge: the '{parsed_args.data_transport_selection}' data transport "
+                "is not bridged by fprime-gds (the ground system owns the link to the deployment)",
+                file=sys.stderr,
+            )
 
-    # Add app, if possible
+    # Add app, if possible: without the comm bridge the app is only launched with explicit arguments
     if parsed_args.app:
-        connection = app_connection(parsed_args)
+        connection = app_connection(parsed_args) if bridged else None
         if connection is not None or parsed_args.application_arguments is not None:
             launchers.append(functools.partial(launch_app, connection=connection))
         else:
@@ -271,6 +282,12 @@ def main():
             for instance in Plugins.system().get_feature_classes("gds_function")
         ]
 
+        if not procs:
+            print(
+                "[ERROR] Nothing to run: no GUI, comm bridge, middleware, app or gds_app plugin selected",
+                file=sys.stderr,
+            )
+            return 1
         print("[INFO] F prime is now running. CTRL-C to shutdown all components.")
         procs[-1].wait()
     except KeyboardInterrupt:

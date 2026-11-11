@@ -165,7 +165,7 @@ class BaseCommand(abc.ABC):
             api = IntegrationTestAPI(pipeline)
             api.setup()
 
-            if hasattr(args, "zmq") and args.zmq:
+            if getattr(args, "data_transport_selection", None) == "zmq":
                 import time
                 # Brief delay to allow ZMQ PUB/SUB subscription propagation to complete.
                 # Without this, one-shot commands are silently dropped due to the

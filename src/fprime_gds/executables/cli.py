@@ -31,12 +31,10 @@ import fprime_gds.common.logger
 from fprime_gds.common.communication.adapters.ip import check_port
 from fprime_gds.common.models.dictionaries import Dictionaries
 from fprime_gds.common.pipeline.standard import StandardPipeline
-from fprime_gds.common.transport import ThreadedTCPSocketClient
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.executables.utils import find_app, find_dict, get_artifacts_root
 from fprime_gds.plugin.definitions import PluginType
 from fprime_gds.plugin.system import Plugins, PluginsNotLoadedException
-from fprime_gds.common.zmq_transport import ZmqClient
 
 GUIS = ["none", "html"]
 
@@ -50,6 +48,8 @@ class ParserBase(ABC):
     """
 
     DESCRIPTION: Optional[str] = None
+    # Parsers that create their own argument groups receive the parser, not a group, from CompositeParser
+    FILLS_OWN_GROUPS = False
 
     @property
     def description(self) -> str:
@@ -736,12 +736,16 @@ class IndividualPluginParser(BareArgumentParser):
 class PluginArgumentParser(ParserBase):
     """Parser for arguments coming from plugins"""
 
+    FILLS_OWN_GROUPS = True
+
     DESCRIPTION = "Plugin options"
     # Defaults:
     FPRIME_CHOICES = {
         "framing": "space-packet-space-data-link",
         "communication": "ip",
+        "data_transport": "zmq",
     }
+    SINGLETON_EXCLUDED_CATEGORIES = ("data_transport",)
 
     def __init__(self, plugin_system: Plugins = None):
         """Initialize the plugin information for this parser
@@ -749,7 +753,9 @@ class PluginArgumentParser(ParserBase):
         This will initialize this plugin argument parser with the supplied plugin system. If not supplied this will use
         the system plugin singleton, which is configured elsewhere.
         """
-        # Accept the supplied plugin system defaulting to the global singleton
+        # Accept the supplied plugin system defaulting to the global singleton. Categories owned by a dedicated parser
+        # (data_transport is owned by MiddleWareParser) are skipped on the singleton so they are bound exactly once.
+        excluded = self.SINGLETON_EXCLUDED_CATEGORIES if plugin_system is None else ()
         self.plugin_system = plugin_system if plugin_system else Plugins.system()
         self._plugin_map = {
             category: [
@@ -757,6 +763,7 @@ class PluginArgumentParser(ParserBase):
                 for plugin in self.plugin_system.get_plugins(category)
             ]
             for category in self.plugin_system.get_categories()
+            if category not in excluded
         }
 
     def fill_parser(self, parser):
@@ -772,7 +779,7 @@ class PluginArgumentParser(ParserBase):
         for category, plugin_parsers in self._plugin_map.items():
             # Add category specific flags (selection flags, etc)
             argument_group = parser.add_argument_group(
-                title=f"{category.title()} Plugin Options"
+                title=f"{category.replace('_', ' ').title()} Plugin Options"
             )
             self.add_arguments_from_specification(
                 argument_group, self.get_category_arguments(category)
@@ -782,7 +789,7 @@ class PluginArgumentParser(ParserBase):
             for plugin_parser in plugin_parsers:
                 plugin = plugin_parser.get_plugin_class()
                 argument_group = parser.add_argument_group(
-                    title=f"{category.title()} Plugin '{plugin.get_name()}' Options"
+                    title=f"{category.replace('_', ' ').title()} Plugin '{plugin.get_name()}' Options"
                 )
                 plugin_parser.fill_parser(argument_group)
 
@@ -809,9 +816,10 @@ class PluginArgumentParser(ParserBase):
         if plugin_type == PluginType.SELECTION:
             arguments.update(
                 {
-                    (f"--{category}-selection",): {
+                    (f"--{category.replace('_', '-')}-selection",): {
+                        "dest": f"{category}_selection",
                         "choices": [choice.get_name() for choice in plugins],
-                        "help": f"Select {category} implementer.",
+                        "help": f"Select {category.replace('_', ' ')} implementer.",
                         "default": self.FPRIME_CHOICES.get(
                             category, list(plugins)[0].get_name()
                         ),
@@ -873,6 +881,8 @@ class PluginArgumentParser(ParserBase):
 class CompositeParser(ParserBase):
     """Composite parser handles parsing as a composition of multiple other parsers"""
 
+    FILLS_OWN_GROUPS = True
+
     def __init__(self, constituents, description=None):
         """Construct this parser by instantiating the sub-parsers"""
         self.given = description
@@ -901,7 +911,7 @@ class CompositeParser(ParserBase):
             parser: parser to fill
         """
         for constituent in sorted(self.constituents, key=lambda x: x.description):
-            if isinstance(constituent, (PluginArgumentParser, CompositeParser)):
+            if constituent.FILLS_OWN_GROUPS:
                 constituent.fill_parser(parser)
             else:
                 argument_group = parser.add_argument_group(
@@ -929,6 +939,13 @@ class CompositeParser(ParserBase):
         for constituent in self.constituents:
             arguments.update(constituent.get_arguments())
         return arguments
+
+    def reproduce_cli_args(self, args_ns):
+        """Reproduce the CLI arguments of every constituent, letting each constituent apply its own rules"""
+        reproduced = []
+        for constituent in self.constituents:
+            reproduced.extend(constituent.reproduce_cli_args(args_ns))
+        return reproduced
 
     def handle_arguments(self, args, **kwargs):
         """Process all constituent arguments"""
@@ -1052,75 +1069,123 @@ class LogDeployParser(ParserBase):
 
 class MiddleWareParser(ParserBase):
     """
-    Middleware (ThreadedTcpServer, ZMQ) interface that looks for an address and a port. The argument handling will
-    attempt to connect to the socket to ensure that it is a valid address/port and report any errors. This is then
-    immediately closes the port after use. There is a minor race-condition between this check and the actual usage,
-    however; it should be close enough.
+    Middleware (data transport) parser. Selects the data transport plugin (`--data-transport-selection`, default
+    `zmq`) and parses the arguments of the available transports. The selected plugin produces the connection URI
+    (`args.connection_uri`) and the bound transport class (`args.connection_transport`) used by StandardPipeline.
+
+    `--no-zmq` is kept as a deprecated alias of `--data-transport-selection threaded-tcp-server`.
     """
 
     DESCRIPTION = "Middleware options"
+    FILLS_OWN_GROUPS = True
+    CATEGORY = "data_transport"
+    DEFAULT_TRANSPORT = "zmq"
+    # The deprecation warning is printed once per process even though the arguments are parsed several times
+    deprecation_warned = False
+    NO_ZMQ_TRANSPORT = "threaded-tcp-server"
+
+    def __init__(self):
+        """Create the parser; the private plugin system is loaded lazily on first use"""
+        self._plugin_parser = None
+
+    @property
+    def plugin_parser(self) -> "PluginArgumentParser":
+        """Plugin argument parser over a private plugin system limited to the data transport category
+
+        A private plugin system is used, as the GDS apps configure the singleton plugin system with other categories.
+        It is created on first use so that constructing this parser at import time does not trigger plugin loading.
+        """
+        if self._plugin_parser is None:
+            self._plugin_parser = PluginArgumentParser(Plugins([self.CATEGORY]))
+        return self._plugin_parser
 
     def get_arguments(self) -> Dict[Tuple[str, ...], Dict[str, Any]]:
-        """Return arguments necessary to run a and connect to the GDS middleware"""
-        zmq_arguments = {
+        """Return arguments necessary to select and connect to the GDS data transport"""
+        deprecated_arguments = {
             ("--no-zmq",): {
                 "dest": "zmq",
                 "action": "store_false",
-                "help": "Disable ZMQ transportation layer, falling back to TCP socket server.",
+                "help": "[DEPRECATED] Alias of '--data-transport-selection threaded-tcp-server'.",
                 "default": True,
             },
-            ("--zmq-transport",): {
-                "dest": "zmq_transport",
-                "nargs": 2,
-                "help": "Pair of URLs used with --zmq to setup ZeroMQ transportation [default: %(default)s]",
-                "default": [
-                    f"ipc:///tmp/fprime-server-in-{getpass.getuser()}",
-                    f"ipc:///tmp/fprime-server-out-{getpass.getuser()}",
-                ],
-                "metavar": ("serverInUrl", "serverOutUrl"),
-            },
         }
-        tts_arguments = {
-            ("--tts-port",): {
-                "dest": "tts_port",
-                "action": "store",
-                "type": int,
-                "help": "Set the threaded TCP socket server port when ZMQ is not used [default: %(default)s]",
-                "default": 50050,
-            },
-            ("--tts-addr",): {
-                "dest": "tts_addr",
-                "action": "store",
-                "type": str,
-                "help": "Set the threaded TCP socket server address when ZMQ is not used [default: %(default)s]",
-                "default": "0.0.0.0",
-            },
+        arguments = {**deprecated_arguments, **self.plugin_parser.get_arguments()}
+        # Parse the selection without a default so an explicit selection can be told apart from the default when the
+        # deprecated alias is also given; the default is applied in handle_arguments
+        selection_flag = (f"--{self.CATEGORY.replace('_', '-')}-selection",)
+        arguments[selection_flag] = {
+            **arguments[selection_flag],
+            "default": None,
+            "help": f"Select data transport implementer [default: {self.DEFAULT_TRANSPORT}]",
         }
-        return {**zmq_arguments, **tts_arguments}
+        return arguments
+
+    def fill_parser(self, parser):
+        """Fill the parser with the deprecated aliases and the grouped transport plugin arguments"""
+        argument_group = parser.add_argument_group(title=self.description)
+        self.add_arguments_from_specification(
+            argument_group,
+            {flags: keywords for flags, keywords in self.get_arguments().items() if flags[0] == "--no-zmq"},
+        )
+        self.plugin_parser.fill_parser(parser)
+        # The selection parses to None when not given (the default is applied in handle_arguments, so an explicit
+        # selection can be told apart from it); the help shows the real default instead of None
+        destination = f"{self.CATEGORY}_selection"
+        parser.set_defaults(**{destination: None})
+        for action in parser._actions:
+            if action.dest == destination:
+                action.default = argparse.SUPPRESS
+                action.help = self.get_arguments()[(f"--{self.CATEGORY.replace('_', '-')}-selection",)]["help"]
 
     def handle_arguments(self, args, **kwargs):
         """
-        Checks to ensure that the specified port and address is available before connecting. This prevents user from
-        attempting to run on a port that is unavailable.
+        Resolves the deprecated aliases, binds the selected transport plugin to its arguments and computes the
+        connection URI for it. For the TCP transport owned by this process (not a client) the server port is checked
+        to be available before use.
 
         :param args: parsed argument namespace
         :return: args namespace
         """
         is_client = kwargs.get("client", False)
-        tts_connection_address = (
-            args.tts_addr.replace("0.0.0.0", "127.0.0.1")
-            if is_client
-            else args.tts_addr
-        )
-
-        args.connection_uri = f"tcp://{tts_connection_address}:{args.tts_port}"
-        args.connection_transport = ThreadedTCPSocketClient
-        if args.zmq:
-            args.connection_uri = args.zmq_transport
-            args.connection_transport = ZmqClient
-        elif not is_client:
+        selection = getattr(args, f"{self.CATEGORY}_selection", None)
+        selection = None if selection == argparse.SUPPRESS else selection
+        if not getattr(args, "zmq", True):
+            if selection not in (None, self.NO_ZMQ_TRANSPORT):
+                raise ValueError(
+                    f"--no-zmq (deprecated alias of --data-transport-selection {self.NO_ZMQ_TRANSPORT}) conflicts "
+                    f"with --data-transport-selection {selection}"
+                )
+            if not MiddleWareParser.deprecation_warned:
+                print(
+                    f"[WARNING] --no-zmq is deprecated, use --data-transport-selection {self.NO_ZMQ_TRANSPORT}",
+                    file=sys.stderr,
+                )
+                MiddleWareParser.deprecation_warned = True
+            selection = self.NO_ZMQ_TRANSPORT
+        args.data_transport_selection = self.DEFAULT_TRANSPORT if selection is None else selection
+        # Bind afresh on every call: the plugin system would otherwise keep the first selection of a reused parser
+        self.plugin_parser.plugin_system.clear_bound_classes(self.CATEGORY)
+        args = self.plugin_parser.handle_arguments(args, **kwargs)
+        bound_transport = self.plugin_parser.plugin_system.get_selected_class(self.CATEGORY)
+        transport_class = getattr(bound_transport, "func", bound_transport)
+        transport_arguments = getattr(bound_transport, "keywords", {})
+        args.connection_transport = bound_transport
+        args.connection_uri = transport_class.get_connection_uri(client=is_client, **transport_arguments)
+        if args.data_transport_selection == self.NO_ZMQ_TRANSPORT and not is_client:
             check_port(args.tts_addr, args.tts_port)
         return args
+
+    def reproduce_cli_args(self, args_ns):
+        """Reproduce the transport arguments using the selection flag, never the deprecated alias
+
+        Handled namespaces (child processes) already carry the selection; an unhandled namespace (the pytest plugin's)
+        that was given `--no-zmq` gets the selection the alias stands for.
+        """
+        reproduced = [argument for argument in super().reproduce_cli_args(args_ns) if argument != "--no-zmq"]
+        selection_flag = f"--{self.CATEGORY.replace('_', '-')}-selection"
+        if not getattr(args_ns, "zmq", True) and selection_flag not in reproduced:
+            reproduced += [selection_flag, self.NO_ZMQ_TRANSPORT]
+        return reproduced
 
 
 class DictionaryParser(DetectionParser):
@@ -1308,6 +1373,11 @@ class StandardPipelineParser(CompositeParser):
         super().__init__(
             constituents=self.CONSTITUENTS, description="Standard pipeline setup"
         )
+
+    @staticmethod
+    def get_data_transport_plugins():
+        """Available data transport plugins (built-in and installed), independent of the singleton plugin system"""
+        return Plugins(["data_transport"]).get_plugins("data_transport")
 
     @staticmethod
     def pipeline_factory(args_ns, pipeline=None) -> StandardPipeline:

@@ -17,6 +17,7 @@ Here a test (defined by starting the name with test_) uses the fprime_test_api f
 
 import itertools
 import os
+import argparse
 import sys
 from pathlib import Path
 import pytest
@@ -37,7 +38,8 @@ def pytest_addoption(parser):
     Args:
         parser: pytest style parser. Use "addoption" to add an option to it.
     """
-    for flags, specifiers in StandardPipelineParser().get_arguments().items():
+    pipeline_arguments = StandardPipelineParser().get_arguments()
+    for flags, specifiers in pipeline_arguments.items():
         # Reduce flags to only the long option (i.e. --something) form
         flags = [flag for flag in flags if flag.startswith("--")]
         # Suppress "store" action defaults so reproduce_cli_args() (in the fprime_test_api_session
@@ -80,16 +82,14 @@ def pytest_addoption(parser):
         help="Path to JSON configuration file for mapping deployment components",
     )
 
+    if "--yamcs-url" not in {flag for flags in pipeline_arguments for flag in flags}:
+        # Without the yamcs plugin, accept the deprecated option so --use-yamcs can report the missing plugin
+        parser.addoption("--yamcs-url", action="store", default=None, help=argparse.SUPPRESS)
     parser.addoption(
         "--use-yamcs",
         action="store_true",
-        help="Use YAMCS transport instead of TCP socket",
-    )
-    parser.addoption(
-        "--yamcs-url",
-        action="store",
-        default="http://localhost:8090",
-        help="YAMCS server URL [default: %(default)s]",
+        help="[DEPRECATED] Alias of '--data-transport-selection yamcs' (requires the fprime-yamcs package: "
+        "pip install fprime-yamcs)",
     )
 
 
@@ -106,6 +106,55 @@ def pytest_configure(config):
     if config.getoption("--gen-junitxml"):
         logs = config.getoption("--logs") or os.path.join(os.getcwd(), "logs")
         config.option.xmlpath = Path(logs) / config.getoption("--junit-xml-file")
+
+
+def _apply_deprecated_transport_options(config, reproduced_args):
+    """Translate the deprecated transport aliases into the data transport selection
+
+    `--no-zmq` is an alias of `--data-transport-selection threaded-tcp-server` and `--use-yamcs` of `--data-transport-selection yamcs`.
+    The `yamcs` transport is provided by the fprime-yamcs package; a usage error naming it is raised when it is not
+    installed.
+
+    Args:
+        config: pytest configuration
+        reproduced_args: standard pipeline command line reproduced from the pytest options
+    Returns:
+        reproduced_args, with the selection appended when an alias was given
+    """
+    selection_flag = "--data-transport-selection"
+    if not config.getoption("zmq"):
+        print(f"[WARNING] --no-zmq is deprecated, use {selection_flag} threaded-tcp-server", file=sys.stderr)
+        if selection_flag in reproduced_args:
+            selected = reproduced_args[reproduced_args.index(selection_flag) + 1]
+            if selected != "threaded-tcp-server":
+                raise pytest.UsageError(
+                    f"--no-zmq (deprecated alias of {selection_flag} threaded-tcp-server) conflicts with {selection_flag} {selected}"
+                )
+        else:
+            reproduced_args = reproduced_args + [selection_flag, "threaded-tcp-server"]
+    if not config.getoption("--use-yamcs"):
+        return reproduced_args
+    available = [
+        plugin.get_name()
+        for plugin in StandardPipelineParser.get_data_transport_plugins()
+    ]
+    if "yamcs" not in available:
+        raise pytest.UsageError(
+            "--use-yamcs requires the 'yamcs' data transport plugin: install the latest fprime-yamcs "
+            "(pip install fprime-yamcs)"
+        )
+    print(
+        f"[WARNING] --use-yamcs is deprecated, use {selection_flag} yamcs",
+        file=sys.stderr,
+    )
+    if selection_flag in reproduced_args:
+        selected = reproduced_args[reproduced_args.index(selection_flag) + 1]
+        if selected != "yamcs":
+            raise pytest.UsageError(
+                f"--use-yamcs (deprecated alias of {selection_flag} yamcs) conflicts with {selection_flag} {selected}"
+            )
+        return reproduced_args
+    return reproduced_args + [selection_flag, "yamcs"]
 
 
 @pytest.fixture(scope="session")
@@ -142,6 +191,7 @@ def fprime_test_api_session(request):
     reproduced_args = pipeline_parser.reproduce_cli_args(
         request.config.known_args_namespace
     )
+    reproduced_args = _apply_deprecated_transport_options(request.config, reproduced_args)
     arg_ns, _, _ = ConfigDrivenParser.parse_known_args(
         [StandardPipelineParser], arguments=reproduced_args, client=True
     )
@@ -150,20 +200,6 @@ def fprime_test_api_session(request):
     api = None
     deployment_config = None
     try:
-
-        if request.config.getoption("--use-yamcs"):
-            try:
-                from fprime_gds.common.yamcs_transport import YamcsClient
-            except ImportError:
-                raise pytest.UsageError(
-                    "--use-yamcs requires the yamcs-client package. Install with: pip install fprime-gds[yamcs]"
-                )
-            yamcs_url = request.config.getoption("--yamcs-url")
-            scheme = "yamcs+https" if yamcs_url.startswith("https://") else "yamcs"
-            yamcs_host = yamcs_url.replace("http://", "").replace("https://", "")
-
-            arg_ns.connection_transport = YamcsClient
-            arg_ns.connection_uri = f"{scheme}://{yamcs_host}"
 
         pipeline = pipeline_parser.pipeline_factory(arg_ns, pipeline)
 
