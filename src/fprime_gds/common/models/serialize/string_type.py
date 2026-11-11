@@ -44,7 +44,7 @@ class StringType(type_base.DictionaryType):
         if cls.MAX_LENGTH is not None and len(val) > cls.MAX_LENGTH:
             raise StringSizeException(len(val), cls.MAX_LENGTH)
 
-    def serialize(self):
+    def serialize(self, mode: type_base.Endianness = type_base.Endianness.BIG):
         """
         Serializes the string in a binary format
         """
@@ -56,18 +56,18 @@ class StringType(type_base.DictionaryType):
             raise StringSizeException(len(self.val), self.MAX_LENGTH)
         # Pack the string size first then return the encoded data buffer
         return struct.pack(
-            ConfigManager().get_type("FwSizeStoreType").get_serialize_format(),
+            ConfigManager().get_type("FwSizeStoreType").get_serialize_format(mode=mode),
             len(self.val.encode(DATA_ENCODING)),
         ) + self.val.encode(DATA_ENCODING)
 
-    def deserialize(self, data, offset):
+    def deserialize(self, data, offset, mode: type_base.Endianness = type_base.Endianness.BIG):
         """
         Deserializes a string from the given data buffer.
         """
         FwSizeStoreType: type[IntegerType] = ConfigManager().get_type("FwSizeStoreType")  # type: ignore
         try:
             val_size, = struct.unpack_from(
-                FwSizeStoreType.get_serialize_format(), data, offset
+                FwSizeStoreType.get_serialize_format(mode=mode), data, offset
             )
             # Deal with not enough data left in the buffer
             if len(data[offset + FwSizeStoreType.getSize() :]) < val_size:
