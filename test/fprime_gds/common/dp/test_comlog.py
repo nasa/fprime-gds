@@ -11,7 +11,7 @@ from fprime_gds.common.dp.comlog import CHANNEL_LOG_NAME, DEFAULT_SENTRY, EVENT_
 from fprime_gds.common.dp.common import ChecksumConfig, calculate_crc32, get_dp_header_type
 from fprime_gds.common.dp.decoder import CRCError, DataProductError
 from fprime_gds.common.models.dictionaries import Dictionaries
-from fprime_gds.common.models.serialize.numerical_types import F32Type, U8Type, U16Type, U32Type
+from fprime_gds.common.models.serialize.numerical_types import U8Type, U16Type, U32Type
 from fprime_gds.common.models.serialize.string_type import StringType
 from fprime_gds.common.models.serialize.time_type import TimeType
 from fprime_gds.common.utils.cleanup import globals_cleanup
