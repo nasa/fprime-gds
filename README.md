@@ -50,6 +50,12 @@ commands and registering consumers to the GDS decoders. The Standard Pipeline ca
 ### GDS Integration Test API
 The Integration Test API is a tool that provides the ability to write integration-level tests for an F´ deployment using the GDS. The tool provides history searches/asserts, command sending, a detailed test log, sub-histories and convenient access to GDS data objects. The test API comes with its own [user guide](https://fprime.jpl.nasa.gov/latest/docs/user-manual/gds/gds-test-api-guide/) and is built on top of the Standard Pipeline.
 
+### Data Product Tools
+`fprime-dp` decodes and validates F´ data product files (`.fdp`) against a JSON dictionary. `fprime-dp decode`
+writes the raw records of any product as JSON, `fprime-dp validate` checks header and data checksums, and
+`fprime-dp comlog` decodes the products written by `Svc.ComLoggerDp` into the events and telemetry channels they
+recorded.
+
 ### F Prime Communication Bridge
 `fprime-comm-bridge` bridges bidirectional communication between an F´ endpoint, reached through a
 GDS communication adapter plugin (`--communication-selection`: `tcp-fast-server` by default, or

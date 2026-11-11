@@ -88,7 +88,7 @@ class DataProductDecoder:
         - both these assumptions can be resolved by loading dictionaries (see executables/data_products.py)
     """
     
-    def __init__(self, dictionaries: Dictionaries, binary_file_path: str, output_json_path: Optional[str] = None, disable_decompression: bool = False):
+    def __init__(self, dictionaries: Dictionaries, binary_file_path: str, output_json_path: Optional[str] = None, disable_decompression: bool = False, validate_crc: bool = True):
         """Initialize the decoder.
         
         Args:
@@ -96,8 +96,11 @@ class DataProductDecoder:
             binary_file_path: Path to the binary data product file (.fdp)
             output_json_path: Optional path for output JSON file
                             (defaults to <binary_file>.json)
+            disable_decompression: Leave compressed records as-is instead of decompressing them
+            validate_crc: Raise CRCError on a header or data CRC mismatch (False decodes the file anyway)
         """
         self.dictionaries = dictionaries
+        self.validate_crc = validate_crc
         self.binary_file_path = binary_file_path
         self.disable_decompression = disable_decompression
         if output_json_path is None:
@@ -127,7 +130,7 @@ class DataProductDecoder:
         computed_hash = calculate_crc32(header_bin_data[:header_size - ChecksumConfig.CHECKSUM_LEN])
 
         # Validate hash
-        if header.to_jsonable()["Checksum"]["value"] != computed_hash:
+        if self.validate_crc and header.to_jsonable()["Checksum"]["value"] != computed_hash:
             raise CRCError("Header", header.to_jsonable()["Checksum"]["value"], computed_hash)
 
         return header
@@ -278,18 +281,19 @@ class DataProductDecoder:
             #####################
             # Validate checksum #
             #####################
-            #   1) Retrieve checksum in data product file
             assert f.tell() == position_at_start + data_size
-            dp_crc_bin = f.read(ChecksumConfig.CHECKSUM_LEN)
-            dp_crc = ChecksumConfig.CHECKSUM_TOKEN_TYPE()
-            dp_crc.deserialize(dp_crc_bin, 0)
-            #   2) Compute checksum of data
-            f.seek(position_at_start)
-            data_to_crc = f.read(data_size)
-            computed_crc = calculate_crc32(data_to_crc)
-            #   3) Compare computed and stored checksums
-            if computed_crc != dp_crc.val:
-                raise CRCError("Data", dp_crc.val, computed_crc)
+            if self.validate_crc:
+                #   1) Retrieve checksum in data product file
+                dp_crc_bin = f.read(ChecksumConfig.CHECKSUM_LEN)
+                dp_crc = ChecksumConfig.CHECKSUM_TOKEN_TYPE()
+                dp_crc.deserialize(dp_crc_bin, 0)
+                #   2) Compute checksum of data
+                f.seek(position_at_start)
+                data_to_crc = f.read(data_size)
+                computed_crc = calculate_crc32(data_to_crc)
+                #   3) Compare computed and stored checksums
+                if computed_crc != dp_crc.val:
+                    raise CRCError("Data", dp_crc.val, computed_crc)
 
         if not self.disable_decompression and len(results["Records"]) > 0 and self.is_compression_record(results["Records"][0]):
 
