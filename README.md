@@ -49,9 +49,7 @@ The Integration Test API is a tool that provides the ability to write integratio
 `fprime-dp` decodes and validates F´ data product files (`.fdp`) against a JSON dictionary. `fprime-dp decode`
 writes the raw records of any product as JSON, `fprime-dp validate` checks header and data checksums, and
 `fprime-dp comlog` decodes the products written by `Svc.ComLoggerDp` into the events and telemetry channels they
-recorded: per-product JSON and/or text (`--format`), a directory merged into time-sorted `channels-dp.log` and
-`events-dp.log` files (`--collect`), or the records that survive in a damaged file (`--reconstruct`). See
-`fprime-dp comlog -h`.
+recorded.
 
 ### F Prime Communication Bridge
 `fprime-comm-bridge` bridges bidirectional communication between an F´ endpoint, reached through a
