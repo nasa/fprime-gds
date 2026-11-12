@@ -216,7 +216,12 @@ class FileDownlinker(fprime_gds.common.handlers.DataHandler):
         :param filename: filename to sanitize
         :return: sanitized filename
         """
-        return filename.replace(os.sep, "_")
+        for sep in (os.sep, os.altsep, "/", "\\"):
+            if sep:
+                filename = filename.replace(sep, "_")
+        if filename in ("", ".", ".."):
+            filename = filename.replace(".", "_") or "_"
+        return filename
 
     @property
     def directory(self):
