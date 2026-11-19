@@ -6,8 +6,14 @@ Replaced type base class with decorators
 """
 
 import abc
+import enum
 
 from .type_exceptions import AbstractMethodException
+
+
+class Endianness(str, enum.Enum):
+    BIG = ">"
+    LITTLE = "<"
 
 
 class BaseType(abc.ABC):
@@ -16,14 +22,14 @@ class BaseType(abc.ABC):
     """
 
     @abc.abstractmethod
-    def serialize(self):
+    def serialize(self, mode: Endianness = Endianness.BIG):
         """
         Serializes the current object type.
         """
         raise AbstractMethodException("serialize")
 
     @abc.abstractmethod
-    def deserialize(self, data, offset):
+    def deserialize(self, data, offset, mode: Endianness = Endianness.BIG):
         """
         AbstractDeserialize interface
         """

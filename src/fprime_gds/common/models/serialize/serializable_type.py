@@ -5,7 +5,7 @@ Created on Dec 18, 2014
 
 """
 
-from .type_base import BaseType, DictionaryType
+from .type_base import BaseType, DictionaryType, Endianness
 from .type_exceptions import (
     IncorrectMembersException,
     MissingMemberException,
@@ -121,24 +121,24 @@ class SerializableType(DictionaryType):
                 result[member_name] = member_format.format(value_object.val)
         return result
 
-    def serialize(self):
+    def serialize(self, mode: Endianness = Endianness.BIG):
         """Serializes the members of the serializable"""
         if self._val is None:
             raise NotInitializedException(type(self))
         return b"".join(
             [
-                self._val.get(member_name).serialize()
+                self._val.get(member_name).serialize(mode=mode)
                 for member_name, _, _, _ in self.MEMBER_LIST
             ]
         )
 
-    def deserialize(self, data, offset):
+    def deserialize(self, data, offset, mode: Endianness = Endianness.BIG):
         """Deserialize the values of each of the members"""
         new_value = {}
         for member_name, member_type, _, _ in self.MEMBER_LIST:
             try:
                 new_member = member_type()
-                new_member.deserialize(data, offset)
+                new_member.deserialize(data, offset, mode=mode)
                 new_value[member_name] = new_member
                 offset += new_member.getSize()
             except Exception as exc:
