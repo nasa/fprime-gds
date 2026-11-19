@@ -1,4 +1,9 @@
-"""F Prime Framer/Deframer Implementation of the CCSDS Space Packet Protocol"""
+"""F Prime Framer/Deframer Implementation of the CCSDS Space Packet Protocol
+
+Splitting of byte streams into whole Space Packets and idle packet removal are handled by
+`fprime_gds.common.communication.ccsds.space_packet_splitter`; this module frames uplink data and strips
+the primary header (with sequence count checking) from one complete downlink Space Packet at a time.
+"""
 
 from __future__ import annotations
 
@@ -10,18 +15,18 @@ from spacepackets.ccsds.spacepacket import SpacePacketHeader, PacketType, SpaceP
 from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.common.models.serialize.enum_type import EnumType
 from fprime_gds.common.utils.config_manager import ConfigManager
-from fprime_gds.plugin.definitions import gds_plugin_implementation, gds_plugin
 
 import logging
 
 LOGGER = logging.getLogger("framing")
 
 
-@gds_plugin(FramerDeframer)
 class SpacePacketFramerDeframer(FramerDeframer):
     """Concrete implementation of FramerDeframer supporting SpacePacket protocol
 
-    This implementation is registered as a "framing" plugin to support encryption within the GDS layer.
+    Frames uplink data into a Space Packet and deframes exactly one whole Space Packet into its payload. It is
+    a stage of the chained "framing" plugins in `fprime_gds.common.communication.ccsds.chain`, which precede it
+    with `SpacePacketSplitterFramerDeframer` to split byte streams into whole packets.
     """
 
     SEQUENCE_COUNT_MAXIMUM = 16384  # 2^14
@@ -52,56 +57,45 @@ class SpacePacketFramerDeframer(FramerDeframer):
         return space_packet.pack()
 
     def deframe(self, data, no_copy=False):
-        """Deframe the supplied data according to Space Packet protocol"""
+        """Deframe exactly one complete Space Packet, stripping the primary header and checking sequence count
+
+        Input that is not a single whole Space Packet (short, invalid header, or length mismatch) is discarded.
+        """
         discarded = b""
         if data is None:
             return None, None, discarded
         if not no_copy:
             data = copy.copy(data)
-        # Deframe all packets until there is not enough data for a header
-        while len(data) >= self.HEADER_SIZE:
-            # Read header information including start token and size and check if we have enough for the total size
-            try:
-                sp_header = SpacePacketHeader.unpack(data)
-            except ValueError:
-                # If the header is invalid, rotate away a byte and keep processing
-                discarded += data[0:1]
-                data = data[1:]
-                continue
-            if sp_header.ccsds_version != 0 or sp_header.packet_type != PacketType.TM:
-                # Space Packet version is specified as 0 per protocol
-                discarded += data[0:1]
-                data = data[1:]
-                continue
-            # Skip Idle Packets as they are not meaningful
-            if sp_header.apid == self.IDLE_APID:
-                data = data[sp_header.packet_len :]
-                continue
-            # Check sequence count and warn if not expected value (don't drop the packet)
-            if sp_header.seq_count != self.get_sequence_count(sp_header.apid):
-                LOGGER.warning(
-                    f"APID {sp_header.apid} received sequence count: {sp_header.seq_count}"
-                    f" (expected: {self.get_sequence_count(sp_header.apid)})"
-                )
-                # Set the sequence count to the next expected value (consider missing packets have been lost)
-                self.apid_to_sequence_count_map[sp_header.apid] = (
-                    sp_header.seq_count + 1
-                )
-            # If the pool is large enough to read the whole packet, then read it
-            if len(data) >= sp_header.packet_len:
-                deframed = struct.unpack_from(
-                    # data_len is number of bytes minus 1 per SpacePacket spec
-                    f">{sp_header.data_len + 1}s",
-                    data,
-                    self.HEADER_SIZE,
-                )[0]
-                data = data[sp_header.packet_len :]
-                LOGGER.debug(f"Deframed packet: {sp_header}")
-                return deframed, data, discarded
-            else:
-                # If we don't have enough data, then break out of the loop
-                break
-        return None, data, discarded
+        if len(data) < self.HEADER_SIZE:
+            return None, b"", bytes(data)
+        try:
+            sp_header = SpacePacketHeader.unpack(data)
+        except ValueError:
+            return None, b"", bytes(data)
+        # Space Packet version is specified as 0 per protocol
+        if sp_header.ccsds_version != 0 or sp_header.packet_type != PacketType.TM:
+            return None, b"", bytes(data)
+        if len(data) != sp_header.packet_len:
+            return None, b"", bytes(data)
+        # Check sequence count and warn if not expected value (don't drop the packet)
+        expected_sequence_count = self.get_sequence_count(sp_header.apid)
+        if sp_header.seq_count != expected_sequence_count:
+            LOGGER.warning(
+                f"APID {sp_header.apid} received sequence count: {sp_header.seq_count}"
+                f" (expected: {expected_sequence_count})"
+            )
+            # Set the sequence count to the next expected value (consider missing packets have been lost)
+            self.apid_to_sequence_count_map[sp_header.apid] = (
+                sp_header.seq_count + 1
+            )
+        deframed = struct.unpack_from(
+            # data_len is number of bytes minus 1 per SpacePacket spec
+            f">{sp_header.data_len + 1}s",
+            data,
+            self.HEADER_SIZE,
+        )[0]
+        LOGGER.debug(f"Deframed packet: {sp_header}")
+        return deframed, b"", discarded
 
     def get_sequence_count(self, apid: int):
         """Get the sequence number and increment
@@ -118,14 +112,3 @@ class SpacePacketFramerDeframer(FramerDeframer):
             sequence + 1
         ) % self.SEQUENCE_COUNT_MAXIMUM
         return sequence
-
-    @classmethod
-    def get_name(cls):
-        """Name of this implementation provided to CLI"""
-        return "raw-space-packet"
-
-    @classmethod
-    @gds_plugin_implementation
-    def register_framing_plugin(cls):
-        """Register the MyPlugin plugin"""
-        return cls

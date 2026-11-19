@@ -38,7 +38,7 @@ class ChronologicalHistory(History):
             if predicates.is_predicate(filter_pred):
                 self.filter = filter_pred
             else:
-                raise TypeError("The given filter was an instance of predicate.")
+                raise TypeError("The given filter was not an instance of predicate.")
 
         self.retrieved_cursor = 0
 
@@ -78,6 +78,9 @@ class ChronologicalHistory(History):
         Retrieves a chronological order of objects that haven't been accessed through retrieve or
         retrieve_new before.
 
+        Args:
+            repeats: when True, returns all objects from the last retrieved position, including
+                previously delivered items that were re-ordered by later out-of-order arrivals
         Returns:
             a list of objects in chronological order
         """
@@ -160,12 +163,15 @@ class ChronologicalHistory(History):
         Returns:
             the index that the item was inserted at (int)
         """
-        for i, item in reversed(list(enumerate(ordered))):
+        data_time = data_object.get_time()
+        # Iterate backwards by index to avoid copying to a list:
+        # In-order arrivals stop at the last element, making the common case O(1)
+        for i in range(len(ordered) - 1, -1, -1):
             # Note: for events with the exact same time, this should default to the order received from downlink
             #       and as such the data item should be treated as newer because it was received later.
-            if item.get_time() <= data_object.get_time():
+            if ordered[i].get_time() <= data_time:
                 ordered.insert(i + 1, data_object)
-                return i
+                return i + 1
         # If the data object is the earliest in the list or the list was empty
         ordered.insert(0, data_object)
         return 0

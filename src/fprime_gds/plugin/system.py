@@ -47,6 +47,9 @@ class Plugins(object):
     PLUGIN_METADATA = None
     _singleton = None
 
+    # Shadowed plugin names already reported, shared by every plugin system instance in the process
+    shadowed_plugins_warned = set()
+
     def __init__(self, categories: Union[None, List] = None):
         """Initialize the plugin system with specific categories
 
@@ -97,7 +100,9 @@ class Plugins(object):
         """Get available plugins for the given category
 
         Gets all plugin implementors of "category" by looking for register_<category>_plugin implementors. If such a
-        function does not exist then this results in an exception.
+        function does not exist then this results in an exception. When several implementors share a plugin name, the
+        first registered (entry points, then environment modules, then built-ins) is kept and the others are dropped
+        with a warning.
 
         Args:
             category: category of the plugin requested
@@ -110,11 +115,33 @@ class Plugins(object):
         except KeyError as error:
             raise InvalidCategoryException(f"Invalid plugin category: {error}")
 
-        return [
+        plugins = [
             Plugin(category, self.get_category_plugin_type(category), plugin_class)
             for plugin_class in plugin_classes
             if self.validate_selection(category, plugin_class)
         ]
+        # pluggy yields results last-registered first; walk in reverse so the first registered implementor wins
+        kept = {}
+        for plugin in reversed(plugins):
+            name = plugin.get_name()
+            if name in kept:
+                shadowed = (category, name, plugin.get_implementor())
+                if shadowed not in self.shadowed_plugins_warned:
+                    self.shadowed_plugins_warned.add(shadowed)
+                    LOGGER.warning(
+                        "Ignoring %s plugin '%s' from %s: already registered by %s",
+                        category,
+                        name,
+                        plugin.get_implementor().__module__,
+                        kept[name].get_implementor().__module__,
+                    )
+                continue
+            kept[name] = plugin
+        return [plugin for plugin in plugins if kept[plugin.get_name()] is plugin]
+
+    def clear_bound_classes(self, category):
+        """Forget the classes bound for a category so the next argument handling binds afresh"""
+        self.metadata[category].pop("bound_classes", None)
 
     def start_loading(self, category: str):
         """Start a category loading
@@ -219,19 +246,29 @@ class Plugins(object):
                 FpFramerDeframer,
             )
             from fprime_gds.common.communication.ccsds.chain import (
+                RawSpacePacketFramerDeframer,
+                RawSpaceDataLinkFramerDeframer,
                 SpacePacketSpaceDataLinkFramerDeframer,
                 SpacePacketSpaceDataLinkAsmFramerDeframer,
             )
-            from fprime_gds.common.communication.ccsds.space_packet import SpacePacketFramerDeframer
-            from fprime_gds.common.communication.ccsds.space_data_link import SpaceDataLinkFramerDeframer
             from fprime_gds.common.communication.ccsds.asm import AsmFramerDeframer
+            from fprime_gds.common.communication.ccsds.space_packet_splitter import SpacePacketSplitterFramerDeframer
+            from fprime_gds.common.communication.ccsds.tm_frame_aggregator import TmFrameAggregatorFramerDeframer
+            from fprime_gds.common.communication.bridge.framing import NoOpFramerDeframer
             from fprime_gds.common.communication.adapters.base import (
                 BaseAdapter,
                 NoneAdapter,
             )
             from fprime_gds.common.communication.adapters.ip import IpAdapter
             from fprime_gds.common.communication.adapters.udp import UdpAdapter
+            from fprime_gds.common.communication.adapters.tcp_fast import (
+                TcpFastClientAdapter,
+                TcpFastServerAdapter,
+            )
+            from fprime_gds.common.communication.adapters.udp_fast import UdpFastAdapter
             from fprime_gds.executables.apps import CustomDataHandlers
+            from fprime_gds.common.transport import ThreadedTCPSocketClient, TransportClient
+            from fprime_gds.common.zmq_transport import ZmqClient
 
             try:
                 from fprime_gds.common.communication.adapters.uart import SerialAdapter
@@ -241,16 +278,39 @@ class Plugins(object):
                 "framing": {
                     "class": FramerDeframer,
                     "type": PluginType.SELECTION,
-                    "built-in": [FpFramerDeframer, SpacePacketSpaceDataLinkFramerDeframer, SpacePacketSpaceDataLinkAsmFramerDeframer, SpacePacketFramerDeframer, SpaceDataLinkFramerDeframer, AsmFramerDeframer],
+                    "built-in": [
+                        FpFramerDeframer,
+                        SpacePacketSpaceDataLinkFramerDeframer,
+                        SpacePacketSpaceDataLinkAsmFramerDeframer,
+                        RawSpacePacketFramerDeframer,
+                        RawSpaceDataLinkFramerDeframer,
+                        AsmFramerDeframer,
+                        SpacePacketSplitterFramerDeframer,
+                        TmFrameAggregatorFramerDeframer,
+                        NoOpFramerDeframer,
+                    ],
                 },
                 "communication": {
                     "class": BaseAdapter,
                     "type": PluginType.SELECTION,
                     "built-in": [
                         adapter
-                        for adapter in [NoneAdapter, IpAdapter, UdpAdapter, SerialAdapter]
+                        for adapter in [
+                            NoneAdapter,
+                            IpAdapter,
+                            UdpAdapter,
+                            TcpFastServerAdapter,
+                            TcpFastClientAdapter,
+                            UdpFastAdapter,
+                            SerialAdapter,
+                        ]
                         if adapter is not None
                     ],
+                },
+                "data_transport": {
+                    "class": TransportClient,
+                    "type": PluginType.SELECTION,
+                    "built-in": [ThreadedTCPSocketClient, ZmqClient],  # listed last-first
                 },
                 "gds_function": {
                     "class": GdsFunction,

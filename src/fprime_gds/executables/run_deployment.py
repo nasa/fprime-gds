@@ -6,7 +6,7 @@
 import os
 import sys
 import copy
-import pathlib
+import functools
 import webbrowser
 
 from fprime_gds.executables.cli import (
@@ -19,10 +19,25 @@ from fprime_gds.executables.cli import (
     StandardPipelineParser,
     PluginArgumentParser,
 )
+from fprime_gds.common.communication.adapters.ip import IpAdapter
+from fprime_gds.common.communication.adapters.tcp_fast import TcpFastServerAdapter
 from fprime_gds.executables.utils import AppWrapperException, run_wrapped_application
 from fprime_gds.plugin.system import Plugins
 
 BASE_MODULE_ARGUMENTS = [sys.executable, "-u", "-m"]
+
+
+def app_connection(parsed_args):
+    """Address and port the auto-launched app should connect to, or None when the selected adapter does not host it"""
+    if parsed_args.communication_selection == IpAdapter.get_name():
+        return parsed_args.address, parsed_args.port
+    if parsed_args.communication_selection == TcpFastServerAdapter.get_name():
+        # A wildcard bind address cannot be connected to, so the app uses loopback
+        address = parsed_args.tcp_fast_address
+        if address in (None, "", TcpFastServerAdapter.DEFAULT_ADDRESS):
+            address = TcpFastServerAdapter.LOOPBACK_ADDRESS
+        return address, parsed_args.tcp_fast_port
+    return None
 
 
 def parse_args():
@@ -40,13 +55,6 @@ def parse_args():
         CommParser,
         PluginArgumentParser,
     ]
-    # If the FPRIME_GDS_CONFIG_PATH environment variable is set, set its value to be the default
-    # config path
-    if "FPRIME_GDS_CONFIG_PATH" in os.environ:
-        ConfigDrivenParser.set_default_configuration(
-            pathlib.Path(os.environ["FPRIME_GDS_CONFIG_PATH"])
-        )
-    # Parse the arguments, and refine through all handlers
     args, parser = ConfigDrivenParser.parse_args(
         arg_handlers, "Run F prime deployment and GDS"
     )
@@ -138,7 +146,7 @@ def launch_html(parsed_args):
     ret = launch_process(gse_args, name="HTML GUI", env=flask_env, launch_time=2)
     ui_url = f"http://{str(parsed_args.gui_addr)}:{str(parsed_args.gui_port)}/"
     print(f"[INFO] Launched UI at: {ui_url}")
-    
+
     if parsed_args.browser_auto_open:
         webbrowser.open(
             ui_url,
@@ -149,11 +157,12 @@ def launch_html(parsed_args):
     return ret
 
 
-def launch_app(parsed_args):
+def launch_app(parsed_args, connection=None):
     """Launch the raw application
 
     Args:
         parsed_args: parsed argument namespace
+        connection: (address, port) the app connects to; defaults to the ip adapter's --ip-address/--ip-port
     Return:
         launched process
     """
@@ -162,13 +171,12 @@ def launch_app(parsed_args):
     if parsed_args.application_arguments is not None:
         app_cmd = [app_path.absolute()] + parsed_args.application_arguments
     else:
-        app_cmd = [
-            app_path.absolute(),
-            "-p",
-            str(parsed_args.port),
-            "-a",
-            parsed_args.address,
-        ]
+        address, port = (
+            connection
+            if connection is not None
+            else (parsed_args.address, parsed_args.port)
+        )
+        app_cmd = [app_path.absolute(), "-p", str(port), "-a", address]
     return launch_process(
         app_cmd,
         name=f"{app_path.name} Application",
@@ -220,6 +228,9 @@ def launch_plugin(parsed_args, plugin_class_instance):
     )
 
 
+BRIDGED_TRANSPORTS = ("zmq", "threaded-tcp-server")
+
+
 def main():
     """
     Main function used to launch processes.
@@ -227,21 +238,31 @@ def main():
     parsed_args = parse_args()
     launchers = []
 
-    # Launch middleware layer if not using ZMQ
-    if not parsed_args.zmq:
+    # Launch the middleware layer when the GDS owns it (ThreadedTcpServer); ZeroMQ and external transports need none
+    if parsed_args.data_transport_selection == "threaded-tcp-server":
         launchers.append(launch_tts)
 
-    # Check if we are running with communications
+    # Check if we are running with communications: the comm bridge only serves the transports fprime-gds owns
+    bridged = parsed_args.data_transport_selection in BRIDGED_TRANSPORTS
     if parsed_args.communication_selection != "none":
-        launchers.append(launch_comm)
-
-    # Add app, if possible
-    if parsed_args.app:
-        if parsed_args.communication_selection == "ip" or parsed_args.application_arguments is not None:
-            launchers.append(launch_app)
+        if bridged:
+            launchers.append(launch_comm)
         else:
             print(
-                "[WARNING] App cannot be auto-launched without IP adapter",
+                f"[WARNING] Not launching the comm bridge: the '{parsed_args.data_transport_selection}' data transport "
+                "is not bridged by fprime-gds (the ground system owns the link to the deployment)",
+                file=sys.stderr,
+            )
+
+    # Add app, if possible: without the comm bridge the app is only launched with explicit arguments
+    if parsed_args.app:
+        connection = app_connection(parsed_args) if bridged else None
+        if connection is not None or parsed_args.application_arguments is not None:
+            launchers.append(functools.partial(launch_app, connection=connection))
+        else:
+            print(
+                f"[WARNING] App cannot be auto-launched without the {IpAdapter.get_name()} or "
+                f"{TcpFastServerAdapter.get_name()} adapter",
                 file=sys.stderr,
             )
 
@@ -261,6 +282,12 @@ def main():
             for instance in Plugins.system().get_feature_classes("gds_function")
         ]
 
+        if not procs:
+            print(
+                "[ERROR] Nothing to run: no GUI, comm bridge, middleware, app or gds_app plugin selected",
+                file=sys.stderr,
+            )
+            return 1
         print("[INFO] F prime is now running. CTRL-C to shutdown all components.")
         procs[-1].wait()
     except KeyboardInterrupt:

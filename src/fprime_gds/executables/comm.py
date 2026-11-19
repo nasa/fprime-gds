@@ -48,7 +48,7 @@ def main():
 
     :return: return code
     """
-    # comm.py supports 2 and only 2 plugin categories
+    # comm.py loads the communication and framing plugins; the data transport (zmq/tcp ground side) is parsed by CommParser
     Plugins.system(["communication", "framing"])
     args, _ = fprime_gds.executables.cli.ParserBase.parse_args(
         [
@@ -68,12 +68,18 @@ def main():
         sys.exit(-1)
 
     # Create the handling components for either side of this script, adapter for hardware, and ground for the GDS side
-    if args.zmq:
+    if args.data_transport_selection == "zmq":
         ground = ZmqGround(args.zmq_transport)
-    else:
+    elif args.data_transport_selection == "threaded-tcp-server":
         ground = fprime_gds.common.communication.ground.TCPGround(
             args.tts_addr, args.tts_port
         )
+    else:
+        print(
+            f"[ERROR] Comm bridge requires the 'zmq' or 'threaded-tcp-server' data transport, not '{args.data_transport_selection}'.",
+            file=sys.stderr,
+        )
+        sys.exit(-1)
 
     adapter = Plugins.system().get_selected_class("communication")()
 

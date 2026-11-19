@@ -1,0 +1,2 @@
+; Sign in front of an enum member is not a negative number
+R00:00:01 cmdDisp.CMD_ENUM -IDLE

@@ -15,7 +15,7 @@ The GDS was designed to be adaptable, easily understandable, and easily expandab
 is built using publisher/subscriber relationships.
 
 The diagram below shows the basic layout of the GDS. Data from the F´ deployment first enters the
-GDS at the TCP client. Each packet is then passed directly to the distributor which is responsible
+GDS pipeline through the transport client, a `data_transport` plugin (see below). Each packet is then passed directly to the distributor which is responsible
 for parsing the packets in to data messages and sending on each message type (currently only events,
 channels, and packetized telemetry are supported) to decoders registered for that type. The decoder
 is responsible for turning that data message into a data object which it passes along to all
@@ -23,9 +23,14 @@ consumers registered to it. These consumers could be anything, but in the GDS th
 that display the data. For outgoing data, the structure is similar. Currently, commands are the only
 output data type included. Command data objects are created in the command panel and then sent to
 the command encoder registered to that panel. Encoders take a data object and turn it into binary
-data that can be sent to the F´ deployment. The binary data is then passed to the TCP client
-which is registered to the encoder. Finally, the TCP client send the data back to the TCP server and
-the F´ deployment.  
+data that can be sent to the F´ deployment. The binary data is then passed to the transport client
+which is registered to the encoder. Finally, the transport client sends the data back to the ground
+system holding the link to the F´ deployment.
+
+The transport client is selected with `--data-transport-selection`: `zmq` (ZeroMQ to the GDS communication
+process, the default), `threaded-tcp-server` (the threaded TCP socket server, formerly `--no-zmq`), or any
+installed plugin reaching another ground system (e.g. `yamcs` from the fprime-yamcs package).
+
 ![The layout of the GDS](https://raw.githubusercontent.com/nasa/fprime/refs/heads/devel/docs/img/gds_layout.jpg)
 
 All of these objects are created and registered to other objects when the GDS
@@ -45,6 +50,56 @@ commands and registering consumers to the GDS decoders. The Standard Pipeline ca
 ### GDS Integration Test API
 The Integration Test API is a tool that provides the ability to write integration-level tests for an F´ deployment using the GDS. The tool provides history searches/asserts, command sending, a detailed test log, sub-histories and convenient access to GDS data objects. The test API comes with its own [user guide](https://fprime.jpl.nasa.gov/latest/docs/user-manual/gds/gds-test-api-guide/) and is built on top of the Standard Pipeline.
 
+### Data Product Tools
+`fprime-dp` decodes and validates F´ data product files (`.fdp`) against a JSON dictionary. `fprime-dp decode`
+writes the raw records of any product as JSON, `fprime-dp validate` checks header and data checksums, and
+`fprime-dp comlog` decodes the products written by `Svc.ComLoggerDp` into the events and telemetry channels they
+recorded.
+
+### F Prime Communication Bridge
+`fprime-comm-bridge` bridges bidirectional communication between an F´ endpoint, reached through a
+GDS communication adapter plugin (`--communication-selection`: `tcp-fast-server` by default, or
+`tcp-fast-client`, `uart`, `ip`, or any installed adapter plugin), and a ground system exchanging
+packets as UDP datagrams such as YAMCS or OpenC3 COSMOS. The ground side is the `udp-fast`
+communication adapter, configured through its own options: deframed packets are sent one per
+datagram to `--udp-fast-address`:`--udp-fast-send-port` (default `127.0.0.1:50000`) and command
+datagrams received on `--udp-fast-bind-address`:`--udp-fast-recv-port` (default `127.0.0.1:50001`)
+are framed and written to the endpoint. Command datagrams are accepted only from the peer address,
+loopback, and hosts supplied via `--udp-fast-allowed-source`. Because the plugin system instantiates one
+communication selection per process and `udp-fast` is the bridge's ground-side adapter, `udp-fast` cannot
+also be selected as the endpoint-side communication of the bridge.
+
+A single GDS framing plugin stage (`--framing-selection`) sits between the two sides. The default
+`tm-frame-aggregator` re-establishes CCSDS TM transfer frame boundaries in the endpoint byte stream
+(frame size and spacecraft ID from `--dictionary`/`--deployment`, or `--frame-size`/`--scid`) and
+passes uplink frames through unchanged, so the ground system performs TM/TC (de)framing itself.
+`raw-space-data-link` exposes CCSDS Space Packets instead: TM frames are deframed on downlink and
+the bridge emits one datagram per Space Packet (idle packets dropped), while each uplink datagram
+is one Space Packet framed into a TC frame. `no-op` passes bytes through unchanged, and `fprime`
+handles the legacy F´ start-word/length framing.
+
+```bash
+fprime-comm-bridge --deployment build-artifacts/Linux/Ref --udp-fast-send-port 50000 --udp-fast-recv-port 50001
+fprime-comm-bridge --communication-selection uart --uart-device /dev/ttyUSB0 --uart-baud 115200 \
+    --framing-selection raw-space-data-link --dictionary build-artifacts/Linux/Ref/dict/RefTopologyDictionary.json
+```
+
+Operational notes: a ground datagram the framer cannot frame (e.g. a Space Packet too large for a
+TC frame) is dropped with a warning and the bridge keeps running, whereas a failure of either pump
+(an adapter error) stops the bridge with a non-zero exit status so a supervisor can restart it.
+Unframed downlink data that never resynchronises is discarded once it exceeds ~640 KB, with a
+warning at the start of each such outage. With `no-op` framing over a stream adapter (TCP, UART)
+packet boundaries are not preserved: each `read()` chunk becomes one datagram.
+
+`udp-fast` is also an ordinary communication adapter plugin (`fprime-gds --communication-selection udp-fast`,
+`fprime-cli`, ...) for datagram-oriented flight links. Unlike `udp`, it reads the socket directly in the
+caller's thread (no receive thread or queue), returns exactly one datagram per read, binds its receive
+port to `--udp-fast-bind-address` (`127.0.0.1` by default rather than all interfaces), and drops datagrams
+from sources other than `--udp-fast-address`, loopback, and `--udp-fast-allowed-source` hosts.
+
+The bridge's integration tests (`test/fprime_gds/common/communication/bridge/test_comm_bridge.py`) use
+`socat` to emulate a UART endpoint; without it those tests are skipped.
+
 ## GDS GUI Usage
 
 A guide for how to use the GDS is available in the [F Prime documentation](https://fprime.jpl.nasa.gov/latest/docs/user-manual/overview/gds-introduction)
@@ -58,10 +113,10 @@ channels, etc).
 To expand the GDS to accept more data types or have additional features, new classes 
 can be written and registered into the existing structure.
 
-### TCP Client
-The TCP client is simply a passthrough for data coming from the TCP Server and 
-the F´ Distribution. The client handles all the socket connection overhead and 
-passes un-parsed data onto all objects registered with it.
+### Transport Client
+The transport client (`data_transport` plugin: ZeroMQ, the threaded TCP server, or an external ground
+system) is simply a passthrough for data coming from the ground side of the link. The client handles
+all the connection overhead and passes un-parsed data onto all objects registered with it.
 
 ### Distributor
 The distributer is responsible for taking in raw binary data, parsing off the 
@@ -125,7 +180,7 @@ sends the resulting data object to all consumers registered to it.
 
 ### Encoders
 Encoders are responsible for taking data objects from consumers (GUI panels), 
-converting them to binary data, and passing them to the TCP client to send to 
+converting them to binary data, and passing them to the transport client to send to 
 the F´ deployment. 
 
 Like the decoders, encoders use dictionaries produced by loaders to help craft
@@ -152,6 +207,30 @@ as well as configuration from the FSW JSON dictionary. It can be controlled via
 the `set_*` methods, but it is recommended to use the `DictionaryParser` class
 to automatically load FSW dictionary data into the config manager.
 
+### Framing Plugins
+Framing plugins (`--framing-selection`) frame uplink data and deframe downlink
+bytes into packets in `fprime_gds.common.communication`. The CCSDS plugins in
+`fprime_gds.common.communication.ccsds` are chains of single-purpose stages
+(`ChainedFramerDeframer`); deframing runs the stages from the link inward:
+
+| Plugin | Deframing stages (outermost first) | Deframed element |
+|---|---|---|
+| `fprime` | F Prime framing | F Prime packet |
+| `raw-space-packet` | Space Packet splitter, Space Packet header strip | Space Packet payload |
+| `raw-space-data-link` | TM Space Data Link, Space Packet splitter | whole Space Packet (header included) |
+| `space-packet-space-data-link` | TM Space Data Link, Space Packet splitter, Space Packet header strip | Space Packet payload |
+| `space-packet-splitter` | Space Packet splitter | whole Space Packet (header included) |
+| `tm-frame-aggregator` | TM frame aggregation | whole TM frame |
+
+The Space Packet splitter (`space_packet_splitter.py`) is the single home of
+Space Packet chopping: it yields exactly one whole non-idle Space Packet per
+deframed element, drops idle packets (APID 0x7FF), resynchronizes on bytes that
+cannot start a valid header, and holds a partial packet until the rest of a byte
+stream arrives. The Space Packet header strip (`space_packet.py`) then expects
+exactly one whole packet, removes the primary header, and checks the sequence
+count. Uplink framing runs the stages in the reverse order; the splitter passes
+uplink data through unchanged.
+
 ## Modify GDS Structure
 To setup the structure of the GDS, instances of the above classes are first
 created. Then, they are registered to one another by calling the data producer's
@@ -163,7 +242,7 @@ An example of how to instantiate and register classes into the correct structure
 can be found in the `MainFrameFactory` class.
 
 ## Setup
-The Gds requires the packages specified in [setup.py](setup.py).
+The GDS requires the packages specified in [pyproject.toml](pyproject.toml).
 
 These can be installed along the Gds package using the following commands:
 
@@ -172,6 +251,16 @@ pip install --upgrade fprime-gds
 ```
 
 For full installation instructions, including virtual environment creation and installation verification, see [INSTALL.md](https://github.com/nasa/fprime/blob/devel/docs/INSTALL.md).
+
+## Running Tests
+Python tests run with `pytest`. The GDS frontend JavaScript tests require Node.js (>= 18):
+
+- Under `pytest`, they run automatically when a suitable `node` is on the PATH.
+- Locally they are skipped without a suitable `node`; on CI a missing or too-old `node` fails the
+  test (CI relies on the runner image's preinstalled Node).
+- Run them directly with `node --test test/fprime_gds/flask/js/*.test.mjs` (or one file at a time).
+- The `package.json` (`"type": "module"`) in `src/fprime_gds/flask/static/js/` exists only so Node
+  imports the GDS frontend sources as ES modules when running these tests; browsers ignore it.
 
 ## Generate Documentation
 You can generate a doxygen documentation page for the GDS source.
