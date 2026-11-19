@@ -21,6 +21,10 @@ class PktJsonLoader(JsonLoader):
 
     def get_packet_set_names(self, path):
         """ Get the list of packet sets """
+        if self.PACKETS_FIELD not in self.json_dict:
+            raise GdsDictionaryParsingException(
+                f"Ground Dictionary missing '{self.PACKETS_FIELD}' field: {str(self.json_file)}"
+            )
         return [packet_set[self.SET_NAME] for packet_set in self.json_dict[self.PACKETS_FIELD]]
 
     def get_id_dict(self, path, packet_set_name: str, ch_name_dict: dict):

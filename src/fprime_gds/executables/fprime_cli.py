@@ -378,6 +378,64 @@ class SendRawSubparserInjector(CliSubparserInjectorBase):
         send_raw.SendRawCommand.handle_arguments(parsed_args, **kwargs)
 
 
+class FileUplinkSubparserInjector(CliSubparserInjectorBase):
+    """
+    A parser for the "file-uplink" CLI command, which lets users uplink a local
+    file to a running F' instance through the GDS file uplink system
+    """
+
+    @classmethod
+    def create_subparser(cls, parent_parser: argparse.ArgumentParser):
+        """
+        Creates the file-uplink sub-command as a subparser, and then returns it
+        """
+        file_uplink_parser = parent_parser.add_parser(
+            "file-uplink",
+            description="uplinks a local file to the spacecraft via the GDS file uplink system",
+        )
+        return file_uplink_parser
+
+    @classmethod
+    def add_arguments(cls, parser: argparse.ArgumentParser):
+        """
+        Add all the required and optional arguments for this command to the
+        given parser
+        """
+        add_connection_arguments(parser)
+        parser.add_argument(
+            "file_path",
+            help="path to the local file to uplink",
+            metavar="file-path",
+        )
+        parser.add_argument(
+            "destination",
+            nargs="?",
+            default=None,
+            help="destination path on the spacecraft (default: '/<file basename>')",
+        )
+        parser.add_argument(
+            "-t",
+            "--timeout",
+            type=float,
+            default=60.0,
+            help="maximum time in seconds to wait for the uplink to complete (default: 60)",
+        )
+        parser.add_argument(
+            "--no-wait",
+            action="store_true",
+            help="queue the file for uplink and return immediately without waiting for completion",
+        )
+
+    @classmethod
+    def command_func(cls, parsed_args, **kwargs):
+        """
+        Executes the appropriate function when "file-uplink" is called
+        """
+        import fprime_gds.common.gds_cli.file_uplink as file_uplink
+
+        file_uplink.FileUplinkCommand.handle_arguments(parsed_args, **kwargs)
+
+
 def create_parser():
     parser = argparse.ArgumentParser(
         description="provides utilities for interacting with the F' Ground Data System (GDS)"
@@ -391,6 +449,7 @@ def create_parser():
     CommandSubparserInjector.inject_subparser(subparser_root)
     EventsSubparserInjector.inject_subparser(subparser_root)
     SendRawSubparserInjector.inject_subparser(subparser_root)
+    FileUplinkSubparserInjector.inject_subparser(subparser_root)
 
     return parser
 

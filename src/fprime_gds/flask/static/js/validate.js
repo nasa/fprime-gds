@@ -296,7 +296,9 @@ class LoadValidator {
     }
 
     /**
-     * Wrap a handler that inserts a counter based on a given field of the history items.
+     * Wrap a handler that inserts a counter based on a given field of the history items. The handler receives the list
+     * of history items as supplied by the loader's poller. Only keys supplied in initials are counted; items whose
+     * transformed key is not one of them (e.g. null) are passed on without being counted.
      * @param field: field to count as it is incoming
      * @param follow_on: function to process the data after counting
      * @param transformer: function to transform the value of a field. Default: item -> item
@@ -305,12 +307,15 @@ class LoadValidator {
     wrapFieldCounter(field, follow_on, transformer, initials) {
         let _self = this;
         transformer = transformer || ((item) => {return item;});
+        let counted = initials || {};
         let handler = (data) => {
-            (data.history || []).forEach((item) => {
-                let value = (item[field] || null);
-                if (value !== null) {
+            (data || []).forEach((item) => {
+                let value = item[field];
+                if (value != null) {
                     let transformed_key = transformer(value);
-                    _self.counts[transformed_key] += 1;
+                    if (transformed_key in counted) {
+                        _self.counts[transformed_key] += 1;
+                    }
                 }
             });
             follow_on(data);
